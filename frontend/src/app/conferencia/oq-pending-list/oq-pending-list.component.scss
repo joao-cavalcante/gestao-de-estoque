@@ -1,0 +1,103 @@
+.oq-empty-row {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-table-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+  padding: 4px 12px;
+}
+
+.oq-table-header__spacer-seq { width: 20px; flex: none; }
+.oq-table-header__spacer-icon { width: 12px; flex: none; }
+.oq-table-header__item {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.oq-table-header__col { width: 56px; flex: none; text-align: right; }
+
+.oq-row-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.oq-pending-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+  padding: 4px 12px;
+}
+
+.oq-pending-row--amber {
+  border-left: 3px solid var(--oq-attention);
+  background: color-mix(in srgb, var(--oq-warning-soft) 40%, var(--oq-surface));
+}
+
+.oq-pending-row__icon {
+  width: 14px;
+  flex: none;
+}
+
+.oq-icon-warning {
+  color: var(--oq-warning-foreground);
+}
+
+.oq-pending-row__main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.oq-pending-row__code {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.oq-pending-row__name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--oq-text-primary);
+}
+
+.oq-pending-row__control {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+.oq-pending-row__qty {
+  width: 56px;
+  flex: none;
+  text-align: right;
+}

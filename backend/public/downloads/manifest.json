@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "id": "agente-balanca",
+      "nome": "Agente de Balanças",
+      "descricao": "Aplicativo desktop (Windows) que conecta as balanças seriais da estação ao sistema.",
+      "versao": "1.0.1",
+      "arquivo": "agente-balanca-setup-1.0.1.exe"
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+.oq-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 24px;
+}
+
+.oq-toolbar__title-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.oq-toolbar__title {
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--oq-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin: 0;
+}
+
+.oq-toolbar__counter {
+  font-family: var(--oq-font-mono);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.oq-toolbar__pills {
+  display: flex;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  overflow: hidden;
+  background: var(--oq-surface);
+}
+
+.oq-toolbar__pill {
+  border: none;
+  border-right: 1px solid var(--oq-border);
+  background: transparent;
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+
+  &:last-child {
+    border-right: none;
+  }
+
+  &:hover:not(.oq-toolbar__pill--active) {
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-toolbar__pill--active {
+  background: var(--oq-text-primary);
+  color: var(--oq-surface);
+}
+
+.oq-toolbar__pill--alert:not(.oq-toolbar__pill--active) {
+  color: var(--oq-critical-foreground);
+
+  &:hover {
+    background: var(--oq-critical-bg);
+    color: var(--oq-critical-foreground);
+  }
+}
+
+.oq-toolbar__pill--active-alert {
+  background: var(--oq-critical);
+  color: #fff;
+}
+
+.oq-toolbar__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  padding: 6px 8px;
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  transition: border-color .15s ease;
+
+  &:focus-within {
+    border-color: var(--oq-brand-accent);
+  }
+
+  input {
+    border: none;
+    outline: none;
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: var(--oq-text-primary);
+    width: 224px;
+    background: transparent;
+
+    &::placeholder {
+      color: var(--oq-text-secondary);
+    }
+  }
+}
+
+.oq-toolbar__filters-wrapper {
+  position: relative;
+}
+
+.oq-toolbar__filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+
+  &:hover {
+    border-color: var(--oq-brand);
+    color: var(--oq-brand-text);
+  }
+}
+
+.oq-toolbar__filters-btn--ativo {
+  border-color: var(--oq-brand);
+  color: var(--oq-brand-text);
+}
+
+.oq-toolbar__filters-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  font-size: 10px;
+  font-weight: 700;
+}

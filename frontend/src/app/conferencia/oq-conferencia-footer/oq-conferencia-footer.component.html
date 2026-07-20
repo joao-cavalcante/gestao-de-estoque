@@ -1,0 +1,24 @@
+<footer class="oq-cf-footer">
+  <!-- Banner de divergência removido por enquanto (pedido do usuário — visual "peba"). -->
+
+  <div class="oq-cf-footer__actions">
+    <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--outline" (click)="voltar.emit()">
+      <oq-icon name="arrow-left" [size]="14" />
+      Voltar
+    </button>
+
+    <div class="oq-cf-footer__progress-group">
+      <span class="oq-cf-footer__progress">
+        PROGRESSO {{ conferredCount }}/{{ pendingCount + conferredCount }}
+      </span>
+      <button
+        type="button"
+        class="oq-cf-footer__btn oq-cf-footer__btn--primary"
+        [disabled]="!canConfirm"
+        (click)="confirmar.emit()"
+      >
+        Confirmar Conferência
+      </button>
+    </div>
+  </div>
+</footer>

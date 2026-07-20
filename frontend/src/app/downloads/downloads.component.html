@@ -1,0 +1,25 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="download" title="DOWNLOADS" [count]="itens().length">
+    @if (carregando()) {
+      <div class="oq-empty-row">Carregando…</div>
+    } @else if (itens().length === 0) {
+      <div class="oq-empty-row">Nenhum item disponível</div>
+    } @else {
+      <ul class="oq-admin-lista">
+        @for (item of itens(); track item.id) {
+          <li class="oq-admin-row">
+            <oq-icon name="download" [size]="18" class="oq-admin-row__icon" />
+            <div class="oq-admin-row__main">
+              <span class="oq-admin-row__titulo">{{ item.nome }}</span>
+              <span class="oq-admin-row__sub">{{ item.descricao }} · v{{ item.versao }}</span>
+            </div>
+            <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="baixar(item)">
+              <oq-icon name="download" [size]="13" />
+              Baixar
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </oq-panel-section>
+</div>

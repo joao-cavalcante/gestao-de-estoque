@@ -1,0 +1,49 @@
+<div class="oq-transf-page">
+  @switch (etapa()) {
+    @case ('carregando') {
+      <div class="oq-transf-page__status">Carregando…</div>
+    }
+    @case ('bloqueado') {
+      <div class="oq-transf-page__status">
+        <oq-inline-alert
+          tone="critical"
+          title="Configuração pendente — contate o administrador."
+          detail="Modelo de nota não configurado para transferência entre locais."
+        />
+      </div>
+    }
+    @case ('local') {
+      <oq-local-step (concluido)="onLocaisDefinidos($event)" />
+    }
+    @case ('itens') {
+      <div class="oq-transf-page__route-bar">
+        <span class="oq-label-caps">ORIGEM</span>
+        <span class="oq-transf-page__route-code">{{ origem }}</span>
+        <span class="oq-transf-page__route-arrow">→</span>
+        <span class="oq-label-caps">DEST.</span>
+        <span class="oq-transf-page__route-code">{{ destino }}</span>
+      </div>
+
+      <oq-item-scan-bar [transferenciaId]="transferenciaId!" (itemAdicionado)="onItemAdicionado($event)" />
+
+      <oq-item-list [items]="itemsList()" (alterarQtd)="onAlterarQtd($event)" (remover)="onRemover($event)" />
+
+      <oq-transferencia-footer
+        [totalItens]="totalItens()"
+        [totalUnidades]="totalUnidades()"
+        [podeRevisar]="podeRevisar()"
+        (revisar)="onRevisar()"
+      />
+    }
+    @case ('resumo') {
+      <oq-resumo
+        [transferenciaId]="transferenciaId!"
+        [origem]="origem!"
+        [destino]="destino!"
+        [items]="itemsList()"
+        (voltar)="onVoltarParaItens()"
+        (concluido)="onConcluido()"
+      />
+    }
+  }
+</div>

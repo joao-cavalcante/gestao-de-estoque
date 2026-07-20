@@ -1,0 +1,26 @@
+<div class="oq-login-page">
+  <form class="oq-login-card" (ngSubmit)="entrar()">
+    <div class="oq-login-brand">
+      <span class="oq-login-logo">LG</span>
+      <span class="oq-login-title">LOGÍSTICA ÁGIL</span>
+    </div>
+
+    <label class="oq-login-field">
+      <span class="oq-label-caps">E-mail</span>
+      <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
+    </label>
+
+    <label class="oq-login-field">
+      <span class="oq-label-caps">Senha</span>
+      <input type="password" name="senha" [(ngModel)]="senha" autocomplete="current-password" required />
+    </label>
+
+    @if (erro()) {
+      <div class="oq-login-erro">{{ erro() }}</div>
+    }
+
+    <button type="submit" class="oq-login-btn" [disabled]="carregando()">
+      {{ carregando() ? 'ENTRANDO…' : 'ENTRAR' }}
+    </button>
+  </form>
+</div>

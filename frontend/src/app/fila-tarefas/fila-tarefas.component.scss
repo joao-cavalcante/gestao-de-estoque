@@ -1,0 +1,156 @@
+.oq-page {
+  /* 100% (não 100vh) — a tela vive dentro da área de conteúdo do app-shell
+     (ver app.component.scss), que já é o viewport menos o header global. */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--oq-bg-page);
+}
+
+/* Envolve KPIs + toolbar num só bloco visual — a identidade (logo/unidade/
+   sync/operador) virou o header global, fora daqui. */
+.oq-page__header {
+  flex: none;
+  background: var(--oq-surface);
+  border-bottom: 1px solid var(--oq-header-border);
+}
+
+.oq-page__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.oq-page__status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 16px;
+  text-align: center;
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  color: var(--oq-text-secondary);
+
+  button {
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    padding: 6px 14px;
+    font-family: var(--oq-font-display);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--oq-text-primary);
+    cursor: pointer;
+  }
+}
+
+.oq-page__status--erro {
+  color: var(--oq-critical-foreground, #7A1610);
+}
+
+.oq-page__grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  // O grid rola por dentro; header/toolbar (flex: none) e a paginação
+  // (flex: none, fora deste bloco) ficam sempre visíveis no viewport,
+  // em vez de a página inteira crescer e empurrar a paginação pra fora.
+  padding-bottom: 4px;
+
+  @media (min-width: 640px) { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
+  @media (min-width: 1280px) { grid-template-columns: repeat(4, 1fr); }
+  @media (min-width: 1536px) { grid-template-columns: repeat(5, 1fr); }
+}
+
+.oq-pagination {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--oq-border);
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-pagination__per-page {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+
+  select {
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    padding: 4px 8px;
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    color: var(--oq-text-primary);
+
+    &:focus-visible {
+      border-color: var(--oq-brand-accent);
+    }
+  }
+}
+
+.oq-pagination__range {
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.oq-pagination__range-num {
+  color: var(--oq-text-primary);
+}
+
+.oq-pagination__pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  button {
+    min-width: 28px;
+    height: 28px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled):not(.oq-pagination__page--active) {
+      border-color: var(--oq-text-primary);
+    }
+  }
+}
+
+.oq-pagination__page--active {
+  background: var(--oq-text-primary);
+  border-color: var(--oq-text-primary);
+  color: var(--oq-surface);
+}

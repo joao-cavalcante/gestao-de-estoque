@@ -1,0 +1,84 @@
+.oq-cc__toolbar {
+  gap: 10px;
+  align-items: center;
+}
+
+.oq-cc__seletor {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  padding: 7px 9px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+}
+
+.oq-cc__toolbar .oq-admin-btn {
+  margin-left: auto;
+}
+
+.oq-cc__alerta {
+  margin: 10px 14px 0;
+  padding: 8px 10px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-critical-foreground);
+  background: var(--oq-critical-bg);
+  border: 1px solid color-mix(in srgb, var(--oq-critical) 40%, var(--oq-border));
+  border-radius: var(--oq-radius-input);
+}
+
+.oq-cc__aviso {
+  margin: 10px 14px 0;
+  padding: 8px 10px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-warning-foreground);
+  background: var(--oq-warning-soft);
+  border: 1px solid color-mix(in srgb, var(--oq-attention) 40%, var(--oq-border));
+  border-radius: var(--oq-radius-input);
+}
+
+.oq-cc__abas {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 10px 14px 0;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.oq-cc__aba-btn {
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 8px 14px;
+  border: 1px solid var(--oq-border);
+  border-bottom: none;
+  border-radius: var(--oq-radius-block) var(--oq-radius-block) 0 0;
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-cc__aba-btn--ativa {
+  background: var(--oq-surface);
+  color: var(--oq-brand-text);
+  border-bottom: 1px solid var(--oq-surface);
+  margin-bottom: -1px;
+}
+
+.oq-cc__conteudo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+}

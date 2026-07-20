@@ -1,0 +1,652 @@
+/* ============================================================
+   Design tokens — Torre de Operações (HMI-OPS)
+   Valores extraídos do código-fonte real de referência (Lovable/React+Tailwind),
+   não de interpretação visual de print — ver print referencia/lovable-project.
+   Cor é reservada: marca (azul-aço) só em logo/avatar/botão primário/pill ativo
+   de alerta. NÃO existe uma cor de "acento" espalhada pela UI — a maioria do
+   texto pequeno é cinza (muted) ou preto/branco (foreground), nunca a cor de
+   marca.
+
+   Tema claro/escuro é uma escolha global do usuário (ver ThemeService),
+   nunca uma característica fixa de uma tela. Os tokens abaixo estão
+   divididos em duas camadas:
+   - `:root`: tokens de SIGNIFICADO — marca, crítico, atenção, sucesso. Não
+     mudam entre temas: crítico é sempre vermelho, marca é sempre azul-aço,
+     em qualquer tela, em qualquer tema.
+   - `[data-theme="light"]` / `[data-theme="dark"]`: tokens de SUPERFÍCIE —
+     fundo, borda, texto neutro, e os fundos tonalizados de alerta (que
+     precisam de uma variante mais escura/saturada no tema escuro para
+     manter contraste — a mesma tinta pastel do tema claro ficaria ilegível
+     sobre superfície escura).
+   ============================================================ */
+:root {
+  /* Marca (uso restrito: logo, avatar, botão primário, pill ativo, hover de botão outline) */
+  --oq-brand: #1E3A5F;
+  --oq-brand-hover: #14283F;
+  --oq-brand-accent: #3D6B94; /* mais claro — ícones, foco */
+  --oq-brand-ink: #FAFAFA; /* texto/ícone sobre fundo de marca — fixo: marca é sempre navy escuro
+                              nos dois temas, então precisa sempre de texto claro, nunca var(--oq-surface)
+                              (que inverte no tema escuro e quebraria o contraste) */
+
+  /* Alerta crítico (SLA estourado, item não localizado, divergência confirmada) */
+  --oq-critical: #B42318;
+
+  /* Alerta de atenção/warning (prioridade alta, divergência a confirmar, lote a confirmar) */
+  --oq-attention: #C2760C;
+
+  /* Sucesso (item ok, conferido sem divergência) */
+  --oq-success: #4B6355;
+  --oq-status-done: var(--oq-success); /* ícone de status do card, quando concluído */
+
+  /* Raio — sistema é quase reto, cards não têm nenhum arredondamento */
+  --oq-radius-input: 2px;  /* botões, select, pager */
+  --oq-radius-block: 3px;  /* logo/avatar, container de pills, busca, botão filtros */
+
+  /* Tipografia */
+  --oq-font-display: 'Space Grotesk', system-ui, sans-serif;
+  --oq-font-body: 'Inter', system-ui, sans-serif;
+  --oq-font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+/* ---------- Tema claro (padrão) ---------- */
+:root,
+[data-theme="light"] {
+  --oq-bg-page: #E4E4E7;
+  --oq-surface: #FAFAFA;       /* única superfície "clara" do sistema — header, card, botões, inputs */
+  --oq-surface-2: #F4F4F5;     /* superfície secundária (barra de bipagem, cabeçalho de painel/tabela) */
+  --oq-border: #D4D4D8;
+  --oq-border-strong: #71717A; /* ênfase em input crítico (campo de código de barras) */
+  --oq-header-border: #A1A1AA; /* só a borda inferior do header (Fila de Tarefas) usa esse cinza mais escuro */
+  --oq-kpi-strip-bg: #EFEFF2;  /* fundo da faixa de KPI (blocos neutros ficam transparentes sobre isso) */
+
+  --oq-text-primary: #18181B;
+  --oq-text-secondary: #6B6B76; /* única cor "muted" do sistema — não existe um 3º tom mais claro */
+
+  /* Ícone de status do card */
+  --oq-status-idle: #71717A;   /* aguardando */
+  --oq-status-active: #3F3F46; /* andamento */
+
+  --oq-critical-bg: #FDECEB;     /* tela Fila de Tarefas */
+  --oq-critical-foreground: #7A1610;
+  --oq-critical-soft: #FEE4E2;   /* tela Conferência — hex própria da referência, ligeiramente diferente de critical-bg */
+
+  --oq-warning-foreground: #7A4A08;
+  --oq-warning-soft: #FEF3C7;
+
+  --oq-success-foreground: #2F4137;
+  --oq-success-soft: #E4EAE6;
+
+  --oq-brand-text: var(--oq-brand); /* marca como texto/ícone sobre superfície neutra (não sobre fundo de marca — ver --oq-brand-ink) */
+}
+
+/* ---------- Tema escuro ---------- */
+[data-theme="dark"] {
+  --oq-bg-page: #0F1114;
+  --oq-surface: #17191D;
+  --oq-surface-2: #1D2025;
+  --oq-border: #2E3138;
+  --oq-border-strong: #565B64;
+  --oq-header-border: #33363D;
+  --oq-kpi-strip-bg: #1A1C21;
+
+  --oq-text-primary: #F2F2F3;
+  --oq-text-secondary: #A3A6AD;
+
+  /* Ícone de status do card — cinzas claros o bastante pra não sumir sobre --oq-surface escura */
+  --oq-status-idle: #83868F;
+  --oq-status-active: #C7C9CF;
+
+  /* Fundos tonalizados de alerta: versão escura/saturada da mesma cor (não a
+     tinta pastel do tema claro), com foreground claro pra manter contraste. */
+  --oq-critical-bg: #3A1613;
+  --oq-critical-foreground: #F4B7B0;
+  --oq-critical-soft: #33120F;
+
+  --oq-warning-foreground: #F0C989;
+  --oq-warning-soft: #33230A;
+
+  --oq-success-foreground: #A9C2B2;
+  --oq-success-soft: #1C2620;
+
+  /* --oq-brand (#1E3A5F) como texto direto sobre superfície escura só dá ~1.5:1 —
+     precisa de um tom mais claro da mesma família azul pra continuar legível (~6:1). */
+  --oq-brand-text: #6E9CC6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--oq-bg-page);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+}
+
+@keyframes oq-alert-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+@keyframes oq-gear-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.oq-gear-spin {
+  animation: oq-gear-spin 4s linear infinite;
+  transform-origin: center;
+}
+
+.oq-alert-pulse {
+  animation: oq-alert-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oq-gear-spin,
+  .oq-alert-pulse {
+    animation: none !important;
+  }
+}
+
+/* Utilities compartilhadas entre telas (Conferência) */
+.oq-label-caps {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--oq-text-secondary);
+  font-weight: 500;
+}
+
+.oq-panel {
+  background-color: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Telas admin (Usuários, Balanças, Downloads) — mesma identidade HMI-OPS
+   das telas principais: página em altura fixa (100vh, sem scroll de
+   página), painel único via <oq-panel-section> (ícone+título+badge, o
+   mesmo padrão da Fila de Tarefas/Conferência), linhas com ícone+chip de
+   status em vez de tabela crua. Não é o mesmo card de pedido (dado é
+   outra forma), mas é a mesma linguagem visual — tokens, tipografia,
+   componentes reaproveitados (oq-status-chip, oq-icon), não inventados.
+   ───────────────────────────────────────────────────────────────────── */
+
+.oq-admin-page {
+  /* 100% (não 100vh) — vive dentro da área de conteúdo do app-shell, que já
+     é o viewport menos o header global (ver app.component.scss). */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+  background: var(--oq-bg-page);
+  box-sizing: border-box;
+}
+
+.oq-admin-toolbar {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+}
+
+.oq-admin-form {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--oq-surface-2);
+  border-bottom: 1px solid var(--oq-border);
+
+  input,
+  select {
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    padding: 7px 9px;
+    font-family: var(--oq-font-mono);
+    font-size: 12px;
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-admin-form__erro {
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-critical-foreground);
+}
+
+.oq-admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--oq-radius-input);
+  padding: 7px 12px;
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: 1px solid transparent;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.oq-admin-btn--primary {
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+
+  &:hover {
+    background: var(--oq-brand-hover);
+  }
+
+  &:disabled,
+  &:disabled:hover {
+    background: var(--oq-border);
+    color: var(--oq-text-secondary);
+  }
+}
+
+.oq-admin-btn--outline {
+  background: var(--oq-surface);
+  border-color: var(--oq-border);
+  color: var(--oq-text-primary);
+}
+
+.oq-admin-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.oq-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--oq-border);
+
+  &:hover {
+    background: var(--oq-surface-2);
+  }
+}
+
+.oq-admin-row__avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--oq-brand-text);
+}
+
+.oq-admin-row__icon {
+  flex: none;
+  color: var(--oq-brand-accent);
+}
+
+.oq-admin-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.oq-admin-row__titulo {
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oq-admin-row__sub {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oq-admin-row--edicao {
+  background: var(--oq-surface-2);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.oq-admin-edit-input {
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  padding: 6px 9px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+}
+
+.oq-empty-row {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Modal (Usuários, confirmação de exclusão) — backdrop + card centralizado,
+   mesmos tokens/tipografia do resto do admin, sem lib (Angular Material etc).
+   ───────────────────────────────────────────────────────────────────── */
+
+.oq-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 24, 27, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.oq-modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.oq-modal--wide {
+  max-width: 860px;
+}
+
+.oq-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+}
+
+.oq-modal__titulo {
+  font-family: var(--oq-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.oq-modal__fechar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--oq-border);
+  border-radius: 50%;
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-brand-accent);
+    border-color: var(--oq-brand-accent);
+  }
+}
+
+.oq-modal__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.oq-modal__body--split {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+  align-items: start;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.oq-modal__coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.oq-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+}
+
+.oq-form-card {
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  overflow: hidden;
+}
+
+.oq-form-card__titulo {
+  padding: 8px 12px;
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--oq-text-secondary);
+  background: var(--oq-surface-2);
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.oq-form-card__body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.oq-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.oq-form-field__label {
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-form-field input,
+.oq-form-field select {
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  padding: 8px 9px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  width: 100%;
+}
+
+.oq-form-porta-com {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+
+  select {
+    flex: 1;
+  }
+
+  button {
+    flex: none;
+  }
+}
+
+.oq-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.oq-form-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-primary);
+}
+
+.oq-form-hint {
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  color: var(--oq-text-secondary);
+  line-height: 1.4;
+}
+
+.oq-modal-erro {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-critical-foreground);
+  background: var(--oq-critical-soft);
+  border: 1px solid var(--oq-critical);
+  border-radius: var(--oq-radius-input);
+  padding: 8px 10px;
+}
+
+.oq-modal--delete .oq-modal__body {
+  align-items: center;
+  text-align: center;
+}
+
+.oq-modal-warn-icon {
+  color: var(--oq-critical-foreground);
+}
+
+/* Teste de comunicação (balança) */
+.oq-test-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.oq-test-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--oq-status-idle);
+}
+
+.oq-test-dot--conectando {
+  background: var(--oq-attention);
+  animation: oq-alert-pulse 1.2s ease-in-out infinite;
+}
+
+.oq-test-dot--conectado {
+  background: #22C55E;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+.oq-test-dot--erro {
+  background: var(--oq-critical);
+}
+
+.oq-peso-display {
+  padding: 14px 12px;
+  text-align: center;
+  border-top: 1px solid var(--oq-border);
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+}
+
+.oq-peso-display__valor {
+  font-family: var(--oq-font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.oq-peso-display__unidade {
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+  margin-left: 4px;
+}
+
+.oq-log-terminal {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  background: #18181B;
+  color: #D4D4D8;
+  padding: 10px 12px;
+  min-height: 90px;
+  max-height: 160px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.oq-log-terminal__linha--ok {
+  color: #9AE6B4;
+}
+
+.oq-log-terminal__linha--erro {
+  color: #FEB2B2;
+}
+
+/* Foco de teclado sempre visível — regra não-negociável (seção 5 da spec original) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--oq-brand-accent);
+  outline-offset: 2px;
+}

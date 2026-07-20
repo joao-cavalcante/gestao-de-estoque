@@ -1,0 +1,193 @@
+/* position:fixed em tudo aqui — nada disto participa do fluxo do
+   documento, então nenhuma tela existente (Fila de Tarefas, Conferência,
+   com layouts 100vh cuidadosamente calculados) precisa mudar grid/largura
+   por causa do menu. O botão que abre/fecha não vive mais neste
+   componente (fica dentro do header de cada tela, ex.: oq-header) — aqui
+   só o backdrop + drawer, sempre no DOM (mesmo fechados) pra permitir
+   transição de slide em vez de aparecer/sumir abrupto. */
+
+.oq-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1001;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+
+.oq-nav-backdrop--aberto {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.oq-nav-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  z-index: 1002;
+  background: var(--oq-surface);
+  border-right: 1px solid var(--oq-border);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+  transform: translateX(-100%);
+  transition: transform .22s ease;
+}
+
+.oq-nav-drawer--aberto {
+  transform: translateX(0);
+}
+
+.oq-nav-drawer__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.oq-nav-drawer__logo {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  width: 30px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.oq-nav-drawer__title {
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.oq-nav-drawer__lista {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--oq-radius-input);
+    text-decoration: none;
+    font-family: var(--oq-font-display);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--oq-text-primary);
+
+    oq-icon {
+      color: var(--oq-brand-accent);
+      flex: none;
+    }
+
+    &:hover {
+      background: var(--oq-surface-2);
+    }
+  }
+}
+
+.oq-nav-drawer__grupo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--oq-radius-input);
+  background: none;
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--oq-text-primary);
+  cursor: pointer;
+
+  oq-icon:first-child {
+    color: var(--oq-brand-accent);
+    flex: none;
+  }
+
+  &:hover {
+    background: var(--oq-surface-2);
+  }
+}
+
+.oq-nav-drawer__seta {
+  margin-left: auto;
+  color: var(--oq-text-secondary);
+  transform: rotate(-90deg);
+  transition: transform 0.15s ease;
+}
+
+.oq-nav-drawer__grupo--aberto .oq-nav-drawer__seta {
+  transform: rotate(90deg);
+}
+
+.oq-nav-drawer__sublista {
+  list-style: none;
+  margin: 2px 0 2px 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 1px solid var(--oq-border);
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--oq-radius-input);
+    text-decoration: none;
+    font-family: var(--oq-font-display);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--oq-text-secondary);
+
+    oq-icon {
+      color: var(--oq-brand-accent);
+      flex: none;
+    }
+
+    &:hover {
+      background: var(--oq-surface-2);
+      color: var(--oq-text-primary);
+    }
+  }
+}
+
+.oq-nav-link--ativo {
+  background: var(--oq-surface-2);
+  font-weight: 700 !important;
+}
+
+.oq-nav-drawer__sair {
+  margin: 8px;
+  padding: 10px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--oq-critical-foreground);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--oq-critical-soft);
+  }
+}

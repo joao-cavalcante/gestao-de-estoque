@@ -1,0 +1,30 @@
+<div class="oq-filtros-backdrop" (click)="fechar.emit()"></div>
+
+<div class="oq-filtros-avancados__panel" (click)="$event.stopPropagation()">
+  <div class="oq-filtros-avancados__header">
+    <span class="oq-filtros-avancados__titulo">Filtros</span>
+    <button type="button" class="oq-filtros-avancados__fechar" (click)="fechar.emit()">
+      <oq-icon name="x" [size]="12" />
+    </button>
+  </div>
+
+  <div class="oq-filtros-avancados__campo">
+    <span class="oq-filtros-avancados__label">Cliente</span>
+    <oq-searchable-select placeholder="Todos os clientes" [opcoes]="opcoesParceiros" [valor]="rascunho.codigoParceiro" (valorChange)="rascunho.codigoParceiro = $event" />
+  </div>
+
+  <div class="oq-filtros-avancados__campo">
+    <span class="oq-filtros-avancados__label">Vendedor</span>
+    <oq-searchable-select placeholder="Todos os vendedores" [opcoes]="opcoesVendedores" [valor]="rascunho.codigoVendedor" (valorChange)="rascunho.codigoVendedor = $event" />
+  </div>
+
+  <div class="oq-filtros-avancados__campo">
+    <span class="oq-filtros-avancados__label">Tipo de Operação</span>
+    <oq-searchable-select placeholder="Todos os tipos" [opcoes]="opcoesTiposOperacao" [valor]="rascunho.codigoTipoOperacao" (valorChange)="rascunho.codigoTipoOperacao = $event" />
+  </div>
+
+  <div class="oq-filtros-avancados__acoes">
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="limpar()">Limpar</button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="aplicarFiltros()">Aplicar</button>
+  </div>
+</div>

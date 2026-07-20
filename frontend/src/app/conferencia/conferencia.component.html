@@ -1,0 +1,53 @@
+<div class="oq-cf-page">
+  @if (carregando()) {
+    <div class="oq-cf-page__status">
+      <span class="oq-cf-page__status-titulo">Carregando itens do pedido…</span>
+      <span class="oq-cf-page__status-sub">Consultando Sankhya — normalmente leva poucos segundos.</span>
+      <button type="button" class="oq-cf-page__status-btn" (click)="onVoltar()">Voltar à fila</button>
+    </div>
+  } @else if (erro()) {
+    <div class="oq-cf-page__status oq-cf-page__status--erro">
+      <span class="oq-cf-page__status-titulo">Não foi possível abrir a separação</span>
+      <span class="oq-cf-page__status-sub">{{ erro() }}</span>
+      <button type="button" class="oq-cf-page__status-btn" (click)="onVoltar()">Voltar à fila</button>
+    </div>
+  } @else {
+  <oq-conferencia-header
+    [nf]="nf"
+    [parceiro]="parceiro"
+    [vendedor]="vendedor"
+    [numeroConferencia]="numeroConferencia"
+    [pendingCount]="pendingCount()"
+    [conferredCount]="conferredCount()"
+    [divergenceCount]="divergenceCount()"
+  />
+
+  @if (sessaoIdAtual) {
+    <oq-scan-bar
+      [tenant]="tenantAtual"
+      [sessaoId]="sessaoIdAtual"
+      (identificado)="onIdentificado($event)"
+      (conferido)="onConferido($event)"
+      (naoEncontrado)="onNaoEncontrado($event)"
+    />
+  }
+
+  <main class="oq-cf-page__body">
+    <oq-pending-list [items]="pendingItems()" />
+
+    <div class="oq-cf-page__right-col">
+      <oq-conferred-list [items]="sortedConferred()" (devolver)="onDevolver($event)" />
+      <oq-last-scan-panel [item]="lastScan()" (resolver)="onResolver($event)" />
+    </div>
+  </main>
+
+  <oq-conferencia-footer
+    [divergenceCount]="divergenceCount()"
+    [pendingCount]="pendingCount()"
+    [conferredCount]="conferredCount()"
+    [canConfirm]="canConfirm()"
+    (voltar)="onVoltar()"
+    (confirmar)="onConfirmar()"
+  />
+  }
+</div>

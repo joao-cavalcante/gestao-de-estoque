@@ -1,0 +1,51 @@
+@if (!escondido) {
+  <div class="oq-nav-backdrop" [class.oq-nav-backdrop--aberto]="aberto()" (click)="fechar()"></div>
+
+  <nav class="oq-nav-drawer" [class.oq-nav-drawer--aberto]="aberto()">
+    <div class="oq-nav-drawer__header">
+      <span class="oq-nav-drawer__logo">LG</span>
+      <span class="oq-nav-drawer__title">LOGÍSTICA ÁGIL</span>
+    </div>
+
+    <ul class="oq-nav-drawer__lista">
+      @for (item of itens; track item.label) {
+        <li>
+          @if (item.subItens) {
+            <button
+              type="button"
+              class="oq-nav-drawer__grupo"
+              [class.oq-nav-drawer__grupo--aberto]="grupoAberto(item.label)"
+              (click)="alternarGrupo(item.label)"
+            >
+              <oq-icon [name]="item.icone" [size]="16" />
+              {{ item.label }}
+              <oq-icon name="arrow-left" [size]="11" class="oq-nav-drawer__seta" />
+            </button>
+            @if (grupoAberto(item.label)) {
+              <ul class="oq-nav-drawer__sublista">
+                @for (sub of item.subItens; track sub.rota) {
+                  <li>
+                    <a [routerLink]="sub.rota" routerLinkActive="oq-nav-link--ativo" (click)="fechar()">
+                      <oq-icon [name]="sub.icone" [size]="14" />
+                      {{ sub.label }}
+                    </a>
+                  </li>
+                }
+              </ul>
+            }
+          } @else {
+            <a [routerLink]="item.rota" routerLinkActive="oq-nav-link--ativo" (click)="fechar()">
+              <oq-icon [name]="item.icone" [size]="16" />
+              {{ item.label }}
+            </a>
+          }
+        </li>
+      }
+    </ul>
+
+    <button type="button" class="oq-nav-drawer__sair" (click)="sair()">
+      <oq-icon name="logout" [size]="14" />
+      Sair
+    </button>
+  </nav>
+}

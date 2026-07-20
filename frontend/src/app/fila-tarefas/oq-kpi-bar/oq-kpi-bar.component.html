@@ -1,0 +1,27 @@
+<div class="oq-kpi-bar">
+  <div class="oq-kpi-bar__block">
+    <span class="oq-kpi-bar__label">Fila Total</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(filaTotal) }}</span>
+  </div>
+  <div class="oq-kpi-bar__block">
+    <span class="oq-kpi-bar__label">Aguardando</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(aguardando) }}</span>
+  </div>
+  <div class="oq-kpi-bar__block">
+    <span class="oq-kpi-bar__label">Andamento</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(andamento) }}</span>
+  </div>
+  <div class="oq-kpi-bar__block">
+    <span class="oq-kpi-bar__label">Concluído</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(concluido) }}</span>
+  </div>
+  <div class="oq-kpi-bar__block oq-kpi-bar__block--attention">
+    <span class="oq-kpi-bar__label">Atenção</span>
+    <span class="oq-kpi-bar__value-row">
+      <span class="oq-kpi-bar__value" [class.oq-kpi-bar__value--zero]="atencao === 0">{{ formatarKpi(atencao) }}</span>
+      @if (atencao > 0) {
+        <span class="oq-kpi-bar__dot oq-alert-pulse" aria-hidden="true"></span>
+      }
+    </span>
+  </div>
+</div>

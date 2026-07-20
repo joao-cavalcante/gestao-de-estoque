@@ -1,0 +1,63 @@
+.oq-panel-section {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.oq-panel-section__header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+  padding: 9px 14px;
+}
+
+.oq-panel-section__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oq-panel-section__icon {
+  color: var(--oq-brand-accent);
+  opacity: 0.8;
+  flex: none;
+}
+
+.oq-panel-section__title {
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-primary);
+}
+
+.oq-panel-section__count {
+  min-width: 22px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+}
+
+.oq-panel-section__count--muted {
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+  color: var(--oq-text-secondary);
+}
+
+.oq-panel-section__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}

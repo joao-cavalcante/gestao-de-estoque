@@ -1,0 +1,33 @@
+<div class="oq-searchable-select">
+  <div class="oq-searchable-select__campo">
+    <input
+      type="text"
+      [ngModel]="textoExibido"
+      (ngModelChange)="onDigitar($event)"
+      (focus)="onFoco()"
+      (keydown.escape)="onEscape()"
+      [placeholder]="placeholder"
+    />
+    @if (opcaoSelecionada() && !aberto()) {
+      <button type="button" class="oq-searchable-select__limpar" (click)="limpar(); $event.stopPropagation()">
+        <oq-icon name="x" [size]="12" />
+      </button>
+    }
+    <oq-icon name="search" [size]="13" class="oq-searchable-select__icone" />
+  </div>
+
+  @if (aberto()) {
+    <ul class="oq-searchable-select__lista">
+      @for (opcao of opcoesFiltradas(); track opcao.codigo) {
+        <li>
+          <button type="button" (click)="selecionar(opcao)">
+            <span class="oq-searchable-select__codigo">{{ opcao.codigo }}</span>
+            {{ opcao.label }}
+          </button>
+        </li>
+      } @empty {
+        <li class="oq-searchable-select__vazio">Nenhuma opção encontrada</li>
+      }
+    </ul>
+  }
+</div>

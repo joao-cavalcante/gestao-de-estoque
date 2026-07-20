@@ -1,0 +1,44 @@
+.oq-transf-page {
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--oq-bg-page);
+  color: var(--oq-text-primary);
+  max-width: 480px;
+  margin: 0 auto;
+  border-left: 1px solid var(--oq-border);
+  border-right: 1px solid var(--oq-border);
+}
+
+.oq-transf-page__route-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: var(--oq-surface-2);
+  border-bottom: 1px solid var(--oq-border);
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+}
+
+.oq-transf-page__route-code {
+  color: var(--oq-text-primary);
+  font-weight: 600;
+}
+
+.oq-transf-page__route-arrow {
+  color: var(--oq-brand-text);
+}
+
+.oq-transf-page__status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}

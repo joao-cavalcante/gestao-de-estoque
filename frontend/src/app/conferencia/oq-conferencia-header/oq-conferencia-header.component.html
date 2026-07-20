@@ -1,0 +1,60 @@
+<header class="oq-cf-header">
+  <div class="oq-cf-header__brand">
+    <button
+      type="button"
+      class="oq-cf-header__nav-toggle"
+      (click)="alternarMenu()"
+      [attr.aria-expanded]="menuAberto()"
+      aria-label="Abrir menu de navegação"
+    >
+      <oq-icon name="menu" [size]="16" />
+    </button>
+    <div class="oq-cf-header__logo">{{ iniciais }}</div>
+    <span class="oq-cf-header__title">CONFERÊNCIA</span>
+  </div>
+
+  <div class="oq-cf-header__divider"></div>
+
+  <div class="oq-cf-header__info">
+    <div class="oq-cf-info-item">
+      <oq-icon name="receipt" [size]="15" class="oq-cf-info-item__icon" />
+      <div class="oq-cf-info-item__text">
+        <span class="oq-cf-info-item__label">Nota</span>
+        <span class="oq-cf-info-item__value">{{ nf }}</span>
+      </div>
+    </div>
+    <div class="oq-cf-header__sep"></div>
+    <div class="oq-cf-info-item oq-cf-info-item--truncate">
+      <oq-icon name="handshake" [size]="15" class="oq-cf-info-item__icon" />
+      <div class="oq-cf-info-item__text oq-cf-info-item__text--truncate">
+        <span class="oq-cf-info-item__label">Parceiro</span>
+        <span class="oq-cf-info-item__value">{{ parceiro }}</span>
+      </div>
+    </div>
+    <div class="oq-cf-header__sep"></div>
+    <div class="oq-cf-info-item">
+      <oq-icon name="badge" [size]="15" class="oq-cf-info-item__icon" />
+      <div class="oq-cf-info-item__text">
+        <span class="oq-cf-info-item__label">Vendedor</span>
+        <span class="oq-cf-info-item__value">{{ vendedor }}</span>
+      </div>
+    </div>
+    <div class="oq-cf-header__sep"></div>
+    <span class="oq-cf-header__conf-pill">Conferência #{{ numeroConferencia }}</span>
+  </div>
+
+  <div class="oq-cf-header__kpis">
+    <div class="oq-cf-kpi">
+      <span class="oq-label-caps">PEND</span>
+      <span class="oq-cf-kpi__value">{{ formatarKpi(pendingCount) }}</span>
+    </div>
+    <div class="oq-cf-kpi">
+      <span class="oq-label-caps">CONF</span>
+      <span class="oq-cf-kpi__value">{{ formatarKpi(conferredCount) }}</span>
+    </div>
+    <div class="oq-cf-kpi" [class.oq-cf-kpi--critical]="divergenceCount > 0">
+      <span class="oq-label-caps" [class.oq-cf-kpi__label--critical]="divergenceCount > 0">DIV</span>
+      <span class="oq-cf-kpi__value" [class.oq-cf-kpi__value--critical]="divergenceCount > 0">{{ formatarKpi(divergenceCount) }}</span>
+    </div>
+  </div>
+</header>

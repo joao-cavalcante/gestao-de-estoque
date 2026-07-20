@@ -1,0 +1,23 @@
+.oq-empty-state {
+  border: 1px dashed var(--oq-border);
+  background: var(--oq-surface);
+  padding: 48px 32px;
+  text-align: center;
+}
+
+.oq-empty-state__titulo {
+  margin: 0;
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: var(--oq-text-primary);
+}
+
+.oq-empty-state__mensagem {
+  margin: 4px 0 0;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}

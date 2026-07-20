@@ -1,0 +1,18 @@
+.oq-qty {
+  display: inline-block;
+  text-align: right;
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+}
+
+.oq-qty--muted {
+  color: var(--oq-text-secondary);
+}
+
+.oq-qty--critical {
+  color: var(--oq-critical-foreground);
+  font-weight: 700;
+}

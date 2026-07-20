@@ -1,0 +1,41 @@
+<div class="oq-config-row" [class.oq-config-row--desabilitado]="!habilitado">
+  <span class="oq-config-row__label">{{ campo.label }}</span>
+
+  <div class="oq-config-row__controle">
+    @switch (campo.controle) {
+      @case ('toggle') {
+        <label class="oq-toggle-switch">
+          <input
+            type="checkbox"
+            [checked]="valorToggle"
+            [disabled]="!habilitado"
+            (change)="onToggle($any($event.target).checked)"
+          />
+          <span class="oq-toggle-switch__trilho"></span>
+        </label>
+      }
+      @case ('select') {
+        <select [ngModel]="valor ?? ''" [disabled]="!habilitado" (ngModelChange)="onSelect($event)">
+          <option value="">—</option>
+          @for (opcao of campo.opcoes; track opcao.valor) {
+            <option [value]="opcao.valor">{{ opcao.label }}</option>
+          }
+        </select>
+      }
+      @case ('numero') {
+        <input type="number" [ngModel]="valor ?? ''" [disabled]="!habilitado" (ngModelChange)="onTexto($event)" />
+      }
+      @default {
+        <input type="text" [ngModel]="valor ?? ''" [disabled]="!habilitado" (ngModelChange)="onTexto($event)" />
+      }
+    }
+  </div>
+
+  <div class="oq-config-row__status">
+    @if (ehNaoAplicavel) {
+      <span class="oq-config-row__nao-aplicavel">{{ badgeLabel }}</span>
+    } @else {
+      <oq-status-chip [tone]="badgeTone">{{ badgeLabel }}</oq-status-chip>
+    }
+  </div>
+</div>

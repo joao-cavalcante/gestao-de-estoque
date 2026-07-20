@@ -1,0 +1,76 @@
+.oq-cf-page {
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--oq-bg-page);
+  color: var(--oq-text-primary);
+}
+
+.oq-cf-page__body {
+  display: grid;
+  /* Sempre 2 colunas lado a lado, sem empilhar em nenhuma largura —
+     mesmo padrão do .workspace do projeto core (grid-template-columns
+     fixo, sem media query). Em telas estreitas o conteúdo comprime e
+     rola internamente, não empilha. */
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.oq-cf-page__status {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 24px;
+}
+
+.oq-cf-page__status-titulo {
+  font-family: var(--oq-font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.oq-cf-page__status-sub {
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-cf-page__status--erro .oq-cf-page__status-titulo {
+  color: var(--oq-critical-foreground);
+}
+
+.oq-cf-page__status-btn {
+  margin-top: 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  padding: 8px 16px;
+  background: var(--oq-surface);
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.oq-cf-page__right-col {
+  display: grid;
+  /* Mesma proporção do .coluna-direita do core: o painel de baixo
+     (última leitura / produto atual) recebe MAIS altura que o de
+     cima, não uma tarja fina de conteúdo (auto). */
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}

@@ -1,0 +1,71 @@
+<section class="oq-scan-bar">
+  <form class="oq-scan-bar__form" (ngSubmit)="$event.preventDefault()">
+    <div class="oq-scan-bar__field oq-scan-bar__field--barcode">
+      <label class="oq-label-caps oq-scan-bar__label">
+        <oq-icon name="barcode" [size]="12" />
+        CÓDIGO DE BARRAS / ID DO PRODUTO
+      </label>
+      <input
+        #inputIdentificador
+        autofocus
+        [(ngModel)]="codigo"
+        name="codigo"
+        placeholder="Aguardando leitura…"
+        class="oq-scan-bar__input oq-scan-bar__input--barcode"
+        (keydown.enter)="$event.preventDefault(); onIdentificadorTab()"
+        (keydown.tab)="$event.preventDefault(); onIdentificadorTab()"
+      />
+    </div>
+
+    <div class="oq-scan-bar__field oq-scan-bar__field--controle" [class.oq-scan-bar__field--identificado]="produtoIdentificado">
+      <label class="oq-label-caps">{{ controleModoLote ? 'Nº DO LOTE' : 'CONTROLE' }}</label>
+
+      @if (controleModoLote) {
+        <input
+          #inputControleLote
+          [(ngModel)]="controle"
+          name="controle"
+          autocomplete="off"
+          placeholder="Digite o número do lote"
+          class="oq-scan-bar__input"
+          (keydown.enter)="$event.preventDefault(); onControleTab()"
+          (keydown.tab)="$event.preventDefault(); onControleTab()"
+        />
+      } @else {
+        <select
+          #selectControle
+          [(ngModel)]="controle"
+          name="controle"
+          class="oq-scan-bar__input oq-scan-bar__select"
+          [disabled]="!produtoIdentificado || controlesDisponiveis.length === 0 || controleTravado"
+          (keydown.enter)="$event.preventDefault(); onControleTab()"
+          (keydown.tab)="$event.preventDefault(); onControleTab()"
+        >
+          @for (c of controlesDisponiveis; track c) {
+            <option [value]="c === 'SEM_CONTROLE' ? '' : c" [disabled]="c === 'SEM_CONTROLE'">
+              {{ c === 'SEM_CONTROLE' ? 'Sem controle' : c }}
+            </option>
+          }
+        </select>
+      }
+    </div>
+
+    <div class="oq-scan-bar__field oq-scan-bar__field--qtd">
+      <label class="oq-label-caps">QTD.</label>
+      <input
+        #inputQtd
+        [ngModel]="qtd"
+        (ngModelChange)="onQtdInput($event)"
+        name="qtd"
+        inputmode="numeric"
+        class="oq-scan-bar__input oq-scan-bar__input--right"
+        (keydown.enter)="$event.preventDefault(); onQtdTab()"
+        (keydown.tab)="$event.preventDefault(); onQtdTab()"
+      />
+    </div>
+
+    <button type="button" class="oq-scan-bar__btn" [disabled]="!produtoIdentificado || carregando" (click)="onQtdTab()">
+      Conferir
+    </button>
+  </form>
+</section>

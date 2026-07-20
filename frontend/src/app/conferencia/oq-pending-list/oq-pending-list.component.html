@@ -1,0 +1,39 @@
+<oq-panel-section icon="clock" title="PENDENTES" [count]="items.length" [countTone]="items.length > 0 ? 'default' : 'muted'">
+  @if (items.length === 0) {
+    <div class="oq-empty-row">Nenhum item pendente</div>
+  } @else {
+    <div class="oq-table-header">
+      <div class="oq-table-header__spacer-seq"></div>
+      <div class="oq-table-header__spacer-icon"></div>
+      <div class="oq-table-header__item oq-label-caps">ITEM / LOCALIZAÇÃO</div>
+      <div class="oq-table-header__col oq-label-caps">PEND.</div>
+    </div>
+
+    <ul class="oq-row-list">
+      @for (item of items; track item.code) {
+        <li class="oq-pending-row" [class.oq-pending-row--amber]="!!item.preAlert">
+          <oq-seq-badge [n]="item.seq" />
+          <div class="oq-pending-row__icon">
+            @if (item.preAlert) {
+              <oq-icon name="triangle" [size]="14" class="oq-icon-warning" />
+            }
+          </div>
+          <div class="oq-pending-row__main">
+            <span class="oq-pending-row__code">{{ item.code }}</span>
+            <span class="oq-pending-row__name">{{ item.name }}</span>
+            <span class="oq-pending-row__control">{{ item.control }}</span>
+            @if (item.preAlert) {
+              <oq-status-chip tone="warning">
+                <oq-icon icon name="triangle" [size]="10" />
+                {{ item.preAlert }}
+              </oq-status-chip>
+            }
+          </div>
+          <div class="oq-pending-row__qty">
+            <oq-qty [value]="restante(item)" />
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</oq-panel-section>

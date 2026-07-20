@@ -1,0 +1,16 @@
+<section class="oq-panel-section oq-panel">
+  <header class="oq-panel-section__header">
+    <div class="oq-panel-section__title-row">
+      @if (icon) {
+        <oq-icon [name]="icon" [size]="15" class="oq-panel-section__icon" />
+      }
+      <span class="oq-panel-section__title">{{ title }}</span>
+      <span class="oq-panel-section__count" [class.oq-panel-section__count--muted]="countTone === 'muted'">
+        {{ contagemFormatada }}
+      </span>
+    </div>
+  </header>
+  <div class="oq-panel-section__body">
+    <ng-content />
+  </div>
+</section>

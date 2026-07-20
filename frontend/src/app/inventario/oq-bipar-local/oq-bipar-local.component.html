@@ -1,0 +1,35 @@
+<div class="oq-bipar-local">
+  <div class="oq-bipar-local__topbar">
+    <h2 class="oq-bipar-local__title">Auditoria de Estoque</h2>
+  </div>
+
+  <div class="oq-bipar-local__body">
+    <div class="oq-bipar-local__scan-zone">
+      <div class="oq-bipar-local__scan-icon">
+        <oq-icon name="barcode" [size]="22" />
+      </div>
+      <div class="oq-bipar-local__scan-label">Bipe o local</div>
+      <div class="oq-bipar-local__scan-hint">identifica a posição e inicia a contagem dos produtos</div>
+      <input
+        #input
+        class="oq-bipar-local__input"
+        [(ngModel)]="valor"
+        name="valorLocal"
+        placeholder="aguardando leitura…"
+        autocomplete="off"
+        (keydown.enter)="$event.preventDefault(); submeter()"
+      />
+    </div>
+
+    @if (erro) {
+      <oq-inline-alert tone="critical" [title]="erro" />
+    }
+
+    @if (mostrarAtalhos) {
+      <div class="oq-bipar-local__quickbar">
+        <button type="button" (click)="atalho('DEP-A-01-03')">DEP-A-01-03</button>
+        <button type="button" (click)="atalho('DEP-B-02-01')">DEP-B-02-01</button>
+      </div>
+    }
+  </div>
+</div>

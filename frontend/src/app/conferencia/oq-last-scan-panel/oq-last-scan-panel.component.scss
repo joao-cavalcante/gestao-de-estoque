@@ -1,0 +1,96 @@
+.oq-last-scan {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 3px solid var(--oq-brand);
+}
+
+.oq-last-scan--critical {
+  border-left: 4px solid var(--oq-critical);
+  background: var(--oq-critical-soft);
+}
+
+.oq-last-scan__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+}
+
+.oq-last-scan__label-icon {
+  color: var(--oq-text-secondary);
+}
+
+.oq-last-scan__title {
+  flex: 1;
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-primary);
+}
+
+.oq-icon-critical { color: var(--oq-critical-foreground); }
+.oq-icon-success { color: var(--oq-success-foreground); }
+
+.oq-last-scan__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(107, 107, 118, 0.4);
+}
+
+.oq-last-scan__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  overflow: hidden;
+}
+
+.oq-last-scan__imagem-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: var(--oq-radius-block);
+  border: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+  overflow: hidden;
+}
+
+.oq-last-scan__imagem {
+  /* object-fit: contain + limites em ambos os eixos — a imagem nunca
+     estoura o quadro, seja qual for a proporção real da foto do Sankhya. */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.oq-last-scan__imagem-placeholder {
+  color: var(--oq-text-secondary);
+}
+
+.oq-last-scan__text--critical {
+  color: var(--oq-critical-foreground);
+}
+
+.oq-last-scan__aguardando {
+  margin: 0 auto;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-secondary);
+}

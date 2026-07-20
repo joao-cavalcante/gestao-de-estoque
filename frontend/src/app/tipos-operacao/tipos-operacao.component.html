@@ -1,0 +1,32 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="badge" title="TIPOS DE OPERAÇÃO" [count]="tops().length">
+    <div class="oq-admin-toolbar">
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="sincronizando()" (click)="sincronizarAgora()">
+        <oq-icon name="sync" [size]="13" />
+        {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar agora' }}
+      </button>
+    </div>
+
+    @if (erro()) {
+      <oq-inline-alert tone="critical" title="Não foi possível sincronizar" [detail]="erro()!" />
+    }
+
+    @if (carregando()) {
+      <div class="oq-empty-row">Carregando…</div>
+    } @else if (tops().length === 0) {
+      <div class="oq-empty-row">Nenhum Tipo de Operação sincronizado ainda — clique em "Sincronizar agora"</div>
+    } @else {
+      <ul class="oq-admin-lista">
+        @for (top of tops(); track top.codtop) {
+          <li class="oq-admin-row">
+            <span class="oq-admin-row__avatar">{{ top.codtop }}</span>
+            <div class="oq-admin-row__main">
+              <span class="oq-admin-row__titulo">{{ top.descricao }}</span>
+              <span class="oq-admin-row__sub">NUCCO {{ top.nucco }}</span>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </oq-panel-section>
+</div>

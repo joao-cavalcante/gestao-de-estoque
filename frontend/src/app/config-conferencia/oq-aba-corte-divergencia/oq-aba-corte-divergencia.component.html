@@ -1,0 +1,14 @@
+@for (secao of secoes(); track secao.titulo) {
+  <oq-config-secao [titulo]="secao.titulo">
+    @for (campo of secao.campos; track campo.nome) {
+      <oq-config-campo-row
+        [campo]="campo"
+        [valor]="valor(campo.nome)"
+        [habilitado]="habilitado(campo.nome)"
+        (valorChange)="onValorChange(campo.nome, $event)"
+      />
+    }
+  </oq-config-secao>
+} @empty {
+  <div class="oq-empty-row">Nenhum campo implementado ainda nesta aba — clique em "Mostrar não implementados".</div>
+}

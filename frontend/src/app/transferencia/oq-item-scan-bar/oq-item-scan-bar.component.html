@@ -1,0 +1,50 @@
+@if (produtoGranel) {
+  <div class="oq-item-scan-bar__granel">
+    <div class="oq-label-caps">PRODUTO A GRANEL — INFORME A QUANTIDADE</div>
+    <div class="oq-item-scan-bar__granel-nome">
+      {{ produtoGranel.nome }} · <span class="oq-item-scan-bar__granel-ctrl">{{ produtoGranel.ctrl }}</span>
+    </div>
+    <div class="oq-item-scan-bar__granel-row">
+      <input
+        #inputGranel
+        type="number"
+        [(ngModel)]="qtdGranel"
+        name="qtdGranel"
+        placeholder="0"
+        (keydown.enter)="$event.preventDefault(); confirmarGranel()"
+      />
+      <span class="oq-item-scan-bar__granel-unidade">{{ produtoGranel.unidade }}</span>
+      <button type="button" class="oq-item-scan-bar__granel-ok" (click)="confirmarGranel()">OK</button>
+    </div>
+  </div>
+} @else {
+  <div class="oq-item-scan-bar__zone">
+    <div class="oq-item-scan-bar__icon"><oq-icon name="barcode" [size]="20" /></div>
+    <div class="oq-item-scan-bar__label">Bipe o produto / controle</div>
+    <div class="oq-item-scan-bar__hint">etiqueta com qtd. soma automático · peça avulsa soma +1</div>
+    <input
+      #inputCodigo
+      class="oq-item-scan-bar__input"
+      [(ngModel)]="codigo"
+      name="codigo"
+      placeholder="aguardando leitura…"
+      autocomplete="off"
+      (keydown.enter)="$event.preventDefault(); submeter()"
+    />
+  </div>
+
+  @if (mostrarAtalhos) {
+    <div class="oq-item-scan-bar__quickbar">
+      <button type="button" (click)="atalho('7891000100103')">CX AÇÚCAR (qtd 12)</button>
+      <button type="button" (click)="atalho('7891000200207')">PARAFUSO (unit.)</button>
+      <button type="button" (click)="atalho('7891000300301')">CX LUVA (qtd 20)</button>
+      <button type="button" (click)="atalho('GRANEL-0001')">CABO GRANEL</button>
+      <button type="button" class="oq-item-scan-bar__quickbar-err" (click)="atalho('RETENTOR-001')">RETENTOR (sem saldo)</button>
+      <button type="button" class="oq-item-scan-bar__quickbar-err" (click)="atalho('ERR-000')">ERR-000 (inválido)</button>
+    </div>
+  }
+}
+
+@if (erroToast()) {
+  <oq-inline-alert tone="critical" variant="toast" [title]="erroToast()!" />
+}

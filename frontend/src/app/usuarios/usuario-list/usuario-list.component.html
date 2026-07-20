@@ -1,0 +1,105 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="user" title="USUÁRIOS" [count]="usuarios().length">
+    <div class="oq-admin-toolbar">
+      <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirCriacao()">
+        <oq-icon name="user" [size]="13" />
+        Novo usuário
+      </button>
+    </div>
+
+    @if (carregando()) {
+      <div class="oq-empty-row">Carregando…</div>
+    } @else if (usuarios().length === 0) {
+      <div class="oq-empty-row">Nenhum usuário cadastrado</div>
+    } @else {
+      <ul class="oq-admin-lista">
+        @for (u of usuarios(); track u.id) {
+          <li class="oq-admin-row">
+            <span class="oq-admin-row__avatar">{{ iniciais(u.nome) }}</span>
+            <div class="oq-admin-row__main">
+              <span class="oq-admin-row__titulo">{{ u.nome }}</span>
+              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}</span>
+            </div>
+            <oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="alternarAtivo(u)">
+              {{ u.ativo ? 'Desativar' : 'Ativar' }}
+            </button>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirEdicao(u)">Editar</button>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="pedirExclusao(u)">
+              <oq-icon name="x" [size]="12" />
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </oq-panel-section>
+</div>
+
+@if (modalAberto()) {
+  <div class="oq-modal-backdrop" (click)="fecharModal()">
+    <div class="oq-modal" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">{{ editandoId() ? 'Editar usuário' : 'Novo usuário' }}</span>
+        <button type="button" class="oq-modal__fechar" (click)="fecharModal()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+
+      <form class="oq-modal__body" #modalForm="ngForm" (ngSubmit)="salvar()">
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Nome</span>
+          <input name="nome" [(ngModel)]="form.nome" required />
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">E-mail</span>
+          <input name="email" type="email" [(ngModel)]="form.email" required [disabled]="!!editandoId()" />
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Perfil</span>
+          <select name="perfil" [(ngModel)]="form.perfil">
+            <option value="OPERADOR">Operador</option>
+            <option value="ADMINISTRADOR">Administrador</option>
+          </select>
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">{{ editandoId() ? 'Nova senha (opcional)' : 'Senha' }}</span>
+          <input name="senha" type="password" [(ngModel)]="form.senha" [required]="!editandoId()" />
+        </div>
+
+        @if (modalErro()) {
+          <span class="oq-modal-erro">{{ modalErro() }}</span>
+        }
+
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
+          <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="modalForm.invalid || modalCarregando()">
+            {{ modalCarregando() ? 'Salvando…' : 'Salvar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+@if (removendoUsuario(); as usuario) {
+  <div class="oq-modal-backdrop" (click)="cancelarExclusao()">
+    <div class="oq-modal oq-modal--delete" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">Excluir usuário</span>
+        <button type="button" class="oq-modal__fechar" (click)="cancelarExclusao()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+      <div class="oq-modal__body">
+        <oq-icon name="circle-alert" [size]="36" class="oq-modal-warn-icon" />
+        <span class="oq-form-hint">Tem certeza que deseja excluir <strong>{{ usuario.nome }}</strong>? Essa ação não pode ser desfeita.</span>
+      </div>
+      <div class="oq-modal__footer">
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="cancelarExclusao()">Cancelar</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="removendoCarregando()" (click)="confirmarExclusao()">
+          {{ removendoCarregando() ? 'Excluindo…' : 'Excluir' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

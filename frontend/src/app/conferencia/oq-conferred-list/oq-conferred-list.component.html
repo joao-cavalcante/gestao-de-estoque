@@ -1,0 +1,50 @@
+<oq-panel-section icon="list-check" title="CONFERIDOS" [count]="items.length" countTone="default">
+  @if (items.length === 0) {
+    <div class="oq-empty-row">Nenhum item conferido</div>
+  } @else {
+    <div class="oq-table-header">
+      <div class="oq-table-header__spacer-seq"></div>
+      <div class="oq-table-header__spacer-icon"></div>
+      <div class="oq-table-header__item oq-label-caps">ITEM / LOCALIZAÇÃO</div>
+      <div class="oq-table-header__col oq-label-caps">ESPER.</div>
+      <div class="oq-table-header__col oq-label-caps">BIPADO</div>
+      <div class="oq-table-header__spacer-icon"></div>
+    </div>
+
+    <ul class="oq-row-list">
+      @for (item of items; track item.code + item.seq) {
+        <li class="oq-conferred-row" [class.oq-conferred-row--critical]="isCritico(item)">
+          <oq-seq-badge [n]="item.seq" [muted]="!isCritico(item)" />
+          <div class="oq-conferred-row__icon">
+            @if (isCritico(item)) {
+              <oq-icon name="circle-alert" [size]="16" class="oq-icon-critical" />
+            } @else {
+              <oq-icon name="check" [size]="14" class="oq-icon-success" />
+            }
+          </div>
+          <div class="oq-conferred-row__main">
+            <span class="oq-conferred-row__code" [class.oq-conferred-row__text--critical]="isCritico(item)">{{ item.code }}</span>
+            <span class="oq-conferred-row__name" [class.oq-conferred-row__text--critical]="isCritico(item)">{{ item.name }}</span>
+            <span class="oq-conferred-row__control" [class.oq-conferred-row__text--critical]="isCritico(item)">{{ item.control }}</span>
+            <!-- Chip de divergência removido por enquanto (pedido do usuário — visual "peba"). -->
+
+          </div>
+          <div class="oq-conferred-row__qty">
+            <oq-qty [value]="item.expected" tone="muted" />
+          </div>
+          <div class="oq-conferred-row__qty">
+            <oq-qty [value]="item.scanned" [tone]="isCritico(item) ? 'critical' : 'default'" />
+          </div>
+          <button
+            type="button"
+            class="oq-conferred-row__devolver"
+            title="Devolver — desfaz a conferência deste item"
+            (click)="devolver.emit(item)"
+          >
+            <oq-icon name="x" [size]="13" />
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</oq-panel-section>

@@ -1,0 +1,53 @@
+<div class="oq-inv-page">
+  @switch (etapa()) {
+    @case ('carregando') {
+      <div class="oq-inv-page__status">Carregando…</div>
+    }
+    @case ('sem-inventario') {
+      <div class="oq-inv-page__status">Nenhum inventário em andamento no momento.</div>
+    }
+    @case ('selecionar') {
+      <div class="oq-inv-page__topbar">
+        <h2 class="oq-inv-page__title">Selecione o inventário</h2>
+      </div>
+      <ul class="oq-inv-page__lista-selecao">
+        @for (inv of inventariosAtivos(); track inv.id) {
+          <li>
+            <button type="button" class="oq-inv-page__item-selecao" (click)="selecionarInventario(inv)">
+              <span class="oq-inv-page__item-desc">{{ inv.descricao }}</span>
+              <span class="oq-inv-page__item-progresso">{{ inv.itensContados }} de {{ inv.totalItens }} itens</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    @case ('local') {
+      <oq-bipar-local (localIdentificado)="onLocalIdentificado($event)" />
+    }
+    @case ('contagem') {
+      <div class="oq-inv-page__route-bar">
+        <span class="oq-label-caps">LOCAL</span>
+        <span class="oq-inv-page__route-code">{{ localAtual }}</span>
+      </div>
+
+      <oq-contagem-scan-bar [inventarioId]="inventarioAtual!.id" [local]="localAtual!" (itemContado)="onItemContado($event)" />
+
+      <oq-contagem-lista [items]="itensDoLocalList()" />
+
+      @if (confirmandoZerado()) {
+        <div class="oq-inv-page__confirmar-zerado">
+          <p>Confirma contagem zerada para o local <strong>{{ localAtual }}</strong>? Isso indica que o local está vazio.</p>
+          <div class="oq-inv-page__confirmar-zerado-acoes">
+            <button type="button" (click)="cancelarConfirmacaoZerada()">Voltar</button>
+            <button type="button" (click)="confirmarPosicaoZerada()">Confirmar local vazio</button>
+          </div>
+        </div>
+      }
+
+      <div class="oq-inv-page__footer">
+        <span class="oq-inv-page__contador"><b>{{ itensDoLocalList().length }}</b> itens · <b>{{ totalContado() }}</b> unidades neste local</span>
+        <button type="button" class="oq-inv-page__btn-confirmar" (click)="pedirConfirmarPosicao()">Confirmar posição</button>
+      </div>
+    }
+  }
+</div>

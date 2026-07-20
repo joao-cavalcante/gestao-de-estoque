@@ -1,0 +1,54 @@
+<header class="oq-header">
+  <div class="oq-header__left">
+    <button
+      type="button"
+      class="oq-header__nav-toggle"
+      (click)="alternarMenu()"
+      [attr.aria-expanded]="menuAberto()"
+      aria-label="Abrir menu de navegação"
+    >
+      <oq-icon name="menu" [size]="18" />
+    </button>
+    <div class="oq-header__logo">{{ contexto.unidade.iniciais }}</div>
+    <div class="oq-header__unit-name">
+      <span class="oq-header__unit-title">{{ contexto.unidade.nome }}</span>
+      <span class="oq-header__version">{{ contexto.unidade.versao }}</span>
+    </div>
+  </div>
+
+  <div class="oq-header__divider" aria-hidden="true"></div>
+
+  <div class="oq-header__center">
+    <span class="oq-header__center-label">Unidade / Turno</span>
+    <span class="oq-header__center-value">{{ contexto.unidade.unidadeTurno }}</span>
+  </div>
+
+  <div class="oq-header__right">
+    <div class="oq-header__sync">
+      <span class="oq-header__sync-line">
+        <oq-icon name="sync" [size]="10" [class.oq-gear-spin]="sync.girando" />
+        SYNC · {{ sync.segundosDesdeSync() }}s
+      </span>
+      <span class="oq-header__sync-line oq-header__sync-line--muted">
+        próx. atualização em {{ sync.proximaSegundos }}s
+      </span>
+    </div>
+    <button
+      type="button"
+      class="oq-header__theme-toggle"
+      (click)="alternarTema()"
+      [attr.aria-label]="tema() === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'"
+      [attr.title]="tema() === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'"
+    >
+      <oq-icon [name]="tema() === 'dark' ? 'sun' : 'moon'" [size]="17" />
+    </button>
+
+    <div class="oq-header__operator">
+      <div class="oq-header__avatar">{{ contexto.operador.iniciais }}</div>
+      <div class="oq-header__operator-info">
+        <span class="oq-header__operator-name">{{ contexto.operador.nome }}</span>
+        <span class="oq-header__operator-role">{{ contexto.operador.codigo }} · {{ contexto.operador.cargo }}</span>
+      </div>
+    </div>
+  </div>
+</header>

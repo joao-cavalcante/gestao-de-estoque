@@ -1,0 +1,28 @@
+@if (items.length === 0) {
+  <div class="oq-contagem-lista__empty">
+    <oq-icon name="box" [size]="28" />
+    <span>nenhum item contado neste local ainda</span>
+  </div>
+} @else {
+  <div class="oq-contagem-lista__head">
+    <span>Item contado</span>
+    <span>Qtd.</span>
+  </div>
+  <ul class="oq-contagem-lista__rows">
+    @for (item of items; track item.id) {
+      <li class="oq-contagem-lista__row">
+        @if (item.statusItem === 'nao_previsto') {
+          <oq-inline-alert tone="warning" title="Item não previsto neste local" [detail]="item.nomeProduto + ' · ' + item.controle" />
+        }
+        <div class="oq-contagem-lista__linha" [class.oq-contagem-lista__linha--nao-previsto]="item.statusItem === 'nao_previsto'">
+          <span class="oq-contagem-lista__swatch"></span>
+          <span class="oq-contagem-lista__info">
+            <span class="oq-contagem-lista__nome">{{ item.nomeProduto }}</span>
+            <span class="oq-contagem-lista__ctrl">{{ item.controle }}</span>
+          </span>
+          <span class="oq-contagem-lista__qtd">{{ item.quantidadeContada }}</span>
+        </div>
+      </li>
+    }
+  </ul>
+}

@@ -1,0 +1,124 @@
+.oq-empty-row {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-table-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+  padding: 4px 12px;
+}
+
+.oq-table-header__spacer-seq { width: 20px; flex: none; }
+.oq-table-header__spacer-icon { width: 12px; flex: none; }
+.oq-table-header__item {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.oq-table-header__col { width: 56px; flex: none; text-align: right; }
+
+.oq-row-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.oq-conferred-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+  padding: 4px 12px;
+}
+
+.oq-conferred-row--critical {
+  border-left: 4px solid var(--oq-critical);
+  background: var(--oq-critical-soft);
+}
+
+.oq-conferred-row__icon {
+  width: 14px;
+  flex: none;
+}
+
+.oq-icon-critical { color: var(--oq-critical-foreground); }
+.oq-icon-success { color: var(--oq-success-foreground); }
+
+.oq-conferred-row__main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.oq-conferred-row__code {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.oq-conferred-row__name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--oq-text-primary);
+}
+
+.oq-conferred-row__control {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+.oq-conferred-row__text--critical {
+  color: var(--oq-critical-foreground);
+}
+
+.oq-conferred-row__qty {
+  width: 56px;
+  flex: none;
+  text-align: right;
+}
+
+.oq-conferred-row__devolver {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--oq-border);
+  border-radius: 50%;
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-critical-foreground);
+    border-color: var(--oq-critical);
+  }
+}

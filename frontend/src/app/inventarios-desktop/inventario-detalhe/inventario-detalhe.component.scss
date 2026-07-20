@@ -1,0 +1,123 @@
+.oq-inv-det {
+  gap: 12px;
+}
+
+.oq-inv-det__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.oq-inv-det__titulo-bloco {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.oq-inv-det__titulo {
+  font-family: var(--oq-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.oq-inv-det__sub {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-inv-det__aviso {
+  flex: none;
+}
+
+.oq-inv-det__progresso {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.oq-inv-det__progresso-barra {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+  overflow: hidden;
+}
+
+.oq-inv-det__progresso-fill {
+  height: 100%;
+  background: var(--oq-brand);
+  transition: width 0.2s ease;
+}
+
+.oq-inv-det__progresso-texto {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+.oq-inv-det__acoes {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.oq-inv-det__tabela-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.oq-inv-det__tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    padding: 8px 12px;
+    font-family: var(--oq-font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--oq-text-secondary);
+    background: var(--oq-surface-2);
+    border-bottom: 1px solid var(--oq-border);
+  }
+
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--oq-border);
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-inv-det__mono {
+  font-family: var(--oq-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.oq-inv-det__linha--atencao {
+  background: color-mix(in srgb, var(--oq-warning-soft) 50%, transparent);
+}
+
+.oq-inv-det__linha--critico {
+  background: color-mix(in srgb, var(--oq-critical-bg) 50%, transparent);
+}
+
+.oq-inv-det__resumo {
+  font-size: 13px;
+  color: var(--oq-text-primary);
+  margin: 0;
+}

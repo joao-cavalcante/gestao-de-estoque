@@ -1,0 +1,12 @@
+<div
+  class="oq-inline-alert oq-inline-alert--{{ tone }}"
+  [class.oq-inline-alert--toast]="variant === 'toast'"
+>
+  <oq-icon [name]="icone" [size]="16" class="oq-inline-alert__icon" />
+  <div class="oq-inline-alert__text">
+    <span class="oq-inline-alert__title">{{ title }}</span>
+    @if (detail) {
+      <span class="oq-inline-alert__detail">{{ detail }}</span>
+    }
+  </div>
+</div>

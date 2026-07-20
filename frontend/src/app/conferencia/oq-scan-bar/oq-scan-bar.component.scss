@@ -1,0 +1,121 @@
+.oq-scan-bar {
+  flex: none;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+  padding: 6px 16px;
+}
+
+.oq-scan-bar__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.oq-scan-bar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.oq-scan-bar__field--barcode {
+  flex: 1;
+  min-width: 0;
+}
+
+.oq-scan-bar__field--controle {
+  width: 160px;
+}
+
+.oq-scan-bar__field--identificado .oq-label-caps {
+  color: var(--oq-brand-text);
+}
+
+.oq-scan-bar__select {
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.oq-scan-bar__field--qtd {
+  width: 56px;
+}
+
+.oq-scan-bar__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.oq-scan-bar__input {
+  height: 36px;
+  width: 100%;
+  border-radius: var(--oq-radius-input);
+  border: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+  padding: 0 8px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-primary);
+  outline: none;
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: var(--oq-text-secondary);
+  }
+
+  &:focus {
+    border-color: var(--oq-border-strong);
+  }
+}
+
+.oq-scan-bar__input--barcode {
+  border: 2px solid var(--oq-border-strong);
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+
+  &::placeholder {
+    font-family: var(--oq-font-body);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  &:focus {
+    border-color: var(--oq-text-primary);
+  }
+}
+
+.oq-scan-bar__input--right {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.oq-scan-bar__btn {
+  height: 36px;
+  border: none;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-brand);
+  padding: 0 20px;
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-brand-ink);
+  cursor: pointer;
+  transition: background-color .15s ease;
+
+  &:hover {
+    background: var(--oq-brand-hover);
+  }
+
+  &:disabled {
+    background: var(--oq-border-strong);
+    cursor: not-allowed;
+  }
+}

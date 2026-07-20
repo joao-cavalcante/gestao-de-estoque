@@ -1,0 +1,19 @@
+/* Âncora real de 100vh do app inteiro — cada tela (Fila de Tarefas, telas
+   admin) usa height:100% internamente, relativo a .oq-app-shell__content,
+   que já é o viewport menos o header global (quando ele existe). A tela de
+   Conferência e o /login não têm o header global (ver AppComponent), então
+   pra elas .oq-app-shell__content ocupa o viewport inteiro — seu próprio
+   height:100vh interno continua batendo certo. */
+.oq-app-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.oq-app-shell__content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}

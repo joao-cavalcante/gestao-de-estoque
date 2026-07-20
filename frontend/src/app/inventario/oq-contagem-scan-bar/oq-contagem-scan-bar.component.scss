@@ -1,0 +1,240 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: none;
+  padding: 14px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+}
+
+.oq-contagem-scan-bar__zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 1.5px dashed var(--oq-brand-accent);
+  border-radius: var(--oq-radius-block);
+  padding: 18px 16px;
+  text-align: center;
+  background: color-mix(in srgb, var(--oq-brand-accent) 6%, transparent);
+}
+
+.oq-contagem-scan-bar__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--oq-radius-block);
+  border: 1px solid var(--oq-brand-accent);
+  color: var(--oq-brand-accent);
+}
+
+.oq-contagem-scan-bar__label {
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--oq-text-primary);
+}
+
+.oq-contagem-scan-bar__hint {
+  font-family: var(--oq-font-mono);
+  font-size: 10.5px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-contagem-scan-bar__input {
+  margin-top: 4px;
+  width: 100%;
+  max-width: 320px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-mono);
+  font-size: 14px;
+  padding: 9px 10px;
+  text-align: center;
+  letter-spacing: 0.03em;
+
+  &:focus {
+    outline: none;
+    border-color: var(--oq-brand-accent);
+  }
+
+  &::placeholder {
+    color: var(--oq-text-secondary);
+  }
+}
+
+.oq-contagem-scan-bar__quickbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.oq-contagem-scan-bar__quickbar button {
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+  color: var(--oq-text-secondary);
+  border-radius: var(--oq-radius-input);
+  padding: 5px 8px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--oq-text-secondary);
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-contagem-scan-bar__quickbar-err {
+  color: var(--oq-critical-foreground) !important;
+  border-color: color-mix(in srgb, var(--oq-critical) 40%, var(--oq-border)) !important;
+}
+
+.oq-contagem-scan-bar__manual-toggle {
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-mono);
+  font-size: 10.5px;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-contagem-scan-bar__granel,
+.oq-contagem-scan-bar__manual {
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-brand-accent);
+  border-radius: var(--oq-radius-block);
+  padding: 10px 12px;
+}
+
+.oq-contagem-scan-bar__granel-nome {
+  font-size: 12.5px;
+  color: var(--oq-text-primary);
+  font-weight: 600;
+  margin: 6px 0 8px;
+}
+
+.oq-contagem-scan-bar__granel-ctrl {
+  font-family: var(--oq-font-mono);
+  color: var(--oq-text-secondary);
+  font-weight: 400;
+}
+
+.oq-contagem-scan-bar__granel-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.oq-contagem-scan-bar__granel-row input {
+  flex: 1;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-mono);
+  font-size: 18px;
+  text-align: right;
+  padding: 7px 10px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--oq-brand-accent);
+  }
+}
+
+.oq-contagem-scan-bar__granel-unidade {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+  width: 26px;
+}
+
+.oq-contagem-scan-bar__granel-ok {
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  border: none;
+  border-radius: var(--oq-radius-input);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 8px 12px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--oq-brand-hover);
+  }
+}
+
+.oq-contagem-scan-bar__manual-input,
+.oq-contagem-scan-bar__manual-justificativa {
+  width: 100%;
+  margin-top: 8px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-mono);
+  font-size: 12.5px;
+  padding: 8px 10px;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+    border-color: var(--oq-brand-accent);
+  }
+}
+
+.oq-contagem-scan-bar__manual-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.oq-contagem-scan-bar__manual-cancelar {
+  background: transparent;
+  border: 1px solid var(--oq-border);
+  color: var(--oq-text-secondary);
+  border-radius: var(--oq-radius-input);
+  font-size: 11px;
+  padding: 7px 12px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-text-primary);
+    border-color: var(--oq-text-secondary);
+  }
+}
+
+.oq-contagem-scan-bar__manual-ok {
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  border: none;
+  border-radius: var(--oq-radius-input);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 7px 12px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--oq-brand-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

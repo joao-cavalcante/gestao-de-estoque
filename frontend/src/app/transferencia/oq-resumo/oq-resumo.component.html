@@ -1,0 +1,53 @@
+<div class="oq-resumo">
+  <div class="oq-resumo__topbar">
+    <span class="oq-resumo__step-tag">RESUMO</span>
+    <h2 class="oq-resumo__title">Confirmar Transferência</h2>
+  </div>
+
+  <div class="oq-resumo__route">
+    <span class="oq-resumo__route-code">{{ origem }}</span>
+    <oq-icon name="arrow-left" [size]="14" class="oq-resumo__route-arrow" />
+    <span class="oq-resumo__route-code">{{ destino }}</span>
+  </div>
+
+  <div class="oq-resumo__lista">
+    @for (item of items; track item.id) {
+      <div class="oq-resumo__item">
+        <div class="oq-resumo__item-top">
+          <span class="oq-resumo__item-nome">{{ item.nomeProduto }}</span>
+          <span class="oq-resumo__item-qtd">{{ item.quantidade }}<span class="oq-resumo__item-unidade"> {{ item.unidade }}</span></span>
+        </div>
+        <div class="oq-resumo__item-meta">{{ item.controle }} · {{ origem }} → {{ destino }}</div>
+      </div>
+    }
+  </div>
+
+  @if (erro()) {
+    <div class="oq-resumo__erro">
+      <oq-inline-alert tone="critical" [title]="erro()!" />
+    </div>
+  }
+
+  <footer class="oq-resumo__footer">
+    <div class="oq-resumo__counter">
+      <span><b>{{ items.length }}</b> itens</span>
+      <span><b>{{ totalUnidades }}</b> unidades totais</span>
+    </div>
+    <button type="button" class="oq-resumo__btn oq-resumo__btn--primary" [disabled]="confirmando()" (click)="confirmar()">
+      Confirmar transferência
+    </button>
+    <button type="button" class="oq-resumo__btn oq-resumo__btn--outline" [disabled]="confirmando()" (click)="voltar.emit()">
+      Voltar
+    </button>
+  </footer>
+
+  @if (concluidoComSucesso()) {
+    <div class="oq-resumo__splash">
+      <div class="oq-resumo__splash-ring">
+        <oq-icon name="check" [size]="26" />
+      </div>
+      <h3>Transferência gravada</h3>
+      <p>Movimentação enfileirada para sincronização — {{ items.length }} itens, {{ totalUnidades }} unidades.</p>
+    </div>
+  }
+</div>

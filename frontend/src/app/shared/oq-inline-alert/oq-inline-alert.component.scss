@@ -1,0 +1,90 @@
+.oq-inline-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: var(--oq-radius-block);
+  padding: 10px 12px;
+  animation: oq-inline-alert-in 0.18s ease;
+}
+
+@keyframes oq-inline-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oq-inline-alert {
+    animation: none;
+  }
+}
+
+.oq-inline-alert__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.oq-inline-alert__title {
+  font-family: var(--oq-font-body);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.oq-inline-alert__detail {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+/* Tom crítico — item não localizado, sem saldo na origem, destino == origem, código inválido. */
+.oq-inline-alert--critical {
+  background: var(--oq-critical-bg);
+  border: 1px solid color-mix(in srgb, var(--oq-critical) 45%, var(--oq-border));
+
+  .oq-inline-alert__icon,
+  .oq-inline-alert__title {
+    color: var(--oq-critical-foreground);
+  }
+}
+
+.oq-inline-alert--critical.oq-inline-alert--toast {
+  border-left: 3px solid var(--oq-critical);
+}
+
+/* Tom atenção — pré-alerta, lote a confirmar. */
+.oq-inline-alert--warning {
+  background: var(--oq-warning-soft);
+  border: 1px solid color-mix(in srgb, var(--oq-attention) 45%, var(--oq-border));
+
+  .oq-inline-alert__icon,
+  .oq-inline-alert__title {
+    color: var(--oq-warning-foreground);
+  }
+}
+
+.oq-inline-alert--warning.oq-inline-alert--toast {
+  border-left: 3px solid var(--oq-attention);
+}
+
+/* Tom sucesso — confirmação positiva. */
+.oq-inline-alert--success {
+  background: var(--oq-success-soft);
+  border: 1px solid color-mix(in srgb, var(--oq-success) 45%, var(--oq-border));
+
+  .oq-inline-alert__icon,
+  .oq-inline-alert__title {
+    color: var(--oq-success-foreground);
+  }
+}
+
+.oq-inline-alert--success.oq-inline-alert--toast {
+  border-left: 3px solid var(--oq-success);
+}

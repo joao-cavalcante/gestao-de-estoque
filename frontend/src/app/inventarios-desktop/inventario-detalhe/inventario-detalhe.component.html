@@ -1,0 +1,108 @@
+@if (inventario(); as inv) {
+  <div class="oq-admin-page oq-inv-det">
+    <div class="oq-inv-det__header">
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="voltar()">
+        <oq-icon name="arrow-left" [size]="12" />
+        Voltar
+      </button>
+      <div class="oq-inv-det__titulo-bloco">
+        <span class="oq-inv-det__titulo">{{ inv.descricao }}</span>
+        <span class="oq-inv-det__sub">Aberto por {{ inv.abertoPorNome }}</span>
+      </div>
+      <oq-status-chip [tone]="toneStatus(inv.status)">{{ inv.status | uppercase }}</oq-status-chip>
+    </div>
+
+    @if (avisoRecontagem()) {
+      <div class="oq-inv-det__aviso">
+        <oq-inline-alert tone="warning" title="Divergências recalculadas" [detail]="avisoRecontagem()!" />
+      </div>
+    }
+
+    <div class="oq-inv-det__progresso">
+      <div class="oq-inv-det__progresso-barra">
+        <div class="oq-inv-det__progresso-fill" [style.width.%]="inv.totalItens ? (inv.itensContados / inv.totalItens) * 100 : 0"></div>
+      </div>
+      <span class="oq-inv-det__progresso-texto">{{ inv.itensContados }} de {{ inv.totalItens }} itens contados</span>
+    </div>
+
+    <div class="oq-inv-det__acoes">
+      @if (inv.status === 'aberto' || inv.status === 'em_contagem') {
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="cancelarInventario()">Cancelar Inventário</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="finalizarContagem()">Finalizar Contagem</button>
+      }
+      @if (inv.status === 'finalizado') {
+        <button
+          type="button"
+          class="oq-admin-btn oq-admin-btn--primary"
+          [disabled]="temPendentes()"
+          (click)="abrirModalAprovar()"
+        >
+          Aprovar Ajuste
+        </button>
+      }
+    </div>
+
+    <div class="oq-inv-det__tabela-wrap">
+      <table class="oq-inv-det__tabela">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Controle</th>
+            <th>Local</th>
+            <th>Qtd. sistema</th>
+            <th>Qtd. contada</th>
+            <th>Divergência</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of inv.itens; track item.id) {
+            <tr [class]="'oq-inv-det__linha--' + severidade(item)">
+              <td>{{ item.nomeProduto }}</td>
+              <td class="oq-inv-det__mono">{{ item.controle }}</td>
+              <td class="oq-inv-det__mono">{{ item.local }}</td>
+              <td class="oq-inv-det__mono">{{ item.quantidadeSistema }}</td>
+              <td class="oq-inv-det__mono">{{ item.quantidadeContada }}</td>
+              <td class="oq-inv-det__mono">{{ item.divergencia }}</td>
+              <td><oq-status-chip [tone]="toneStatusItem(item)">{{ item.statusItem | uppercase }}</oq-status-chip></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  @if (modalAprovarAberto()) {
+    <div class="oq-modal-backdrop" (click)="fecharModalAprovar()">
+      <div class="oq-modal" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Confirmar Aprovação do Ajuste</span>
+          <button type="button" class="oq-modal__fechar" (click)="fecharModalAprovar()">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body">
+          <p class="oq-inv-det__resumo">
+            <b>{{ divergencias().length }}</b> item(ns) com divergência de um total de <b>{{ inv.totalItens }}</b> contados.
+          </p>
+          <oq-inline-alert
+            tone="critical"
+            title="Ação irreversível"
+            detail="Após aprovar, o inventário muda para 'ajustado' e não pode ser reaberto. O ajuste é gravado no Sankhya via rotina padrão de inventário."
+          />
+          @if (erroAprovar()) {
+            <oq-inline-alert tone="critical" [title]="erroAprovar()!" />
+          }
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModalAprovar()">Cancelar</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="aprovando()" (click)="confirmarAprovacao()">
+            {{ aprovando() ? 'Aprovando…' : 'Confirmar Aprovação' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+} @else {
+  <div class="oq-admin-page"><div class="oq-empty-row">{{ carregando() ? 'Carregando…' : 'Inventário não encontrado' }}</div></div>
+}

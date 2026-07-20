@@ -1,0 +1,72 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="badge" title="CONFIGURAÇÃO DE CONFERÊNCIA" [count]="lista().length">
+    <div class="oq-admin-toolbar oq-cc__toolbar">
+      <select
+        class="oq-cc__seletor"
+        [ngModel]="nuccoSelecionado()"
+        (ngModelChange)="selecionar($event)"
+        [disabled]="lista().length === 0"
+      >
+        @for (item of lista(); track item.nucco) {
+          <option [value]="item.nucco">{{ item.nucco }} — {{ item.descricao }}</option>
+        }
+      </select>
+
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="mostrarTodos.set(!mostrarTodos())">
+        {{ mostrarTodos() ? 'Mostrar só implementados' : 'Mostrar não implementados' }}
+      </button>
+
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="sincronizando()" (click)="sincronizarAgora()">
+        <oq-icon name="sync" [size]="13" />
+        {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar agora' }}
+      </button>
+
+      <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!alterado() || salvando()" (click)="salvar()">
+        {{ salvando() ? 'Salvando…' : 'Salvar alterações' }}
+      </button>
+    </div>
+
+    @if (erro()) {
+      <div class="oq-cc__alerta">{{ erro() }}</div>
+    }
+
+    @if (alterado()) {
+      <div class="oq-cc__aviso">Há alterações não salvas — gravadas só no nosso sistema (não escreve no Sankhya ainda).</div>
+    }
+
+    @if (carregando()) {
+      <div class="oq-empty-row">Carregando…</div>
+    } @else if (lista().length === 0) {
+      <div class="oq-empty-row">Nenhuma Configuração de Conferência sincronizada ainda — clique em "Sincronizar agora"</div>
+    } @else if (detalhe()) {
+      <div class="oq-cc__abas">
+        @for (aba of abas; track aba.valor) {
+          <button
+            type="button"
+            class="oq-cc__aba-btn"
+            [class.oq-cc__aba-btn--ativa]="abaAtual() === aba.valor"
+            (click)="abaAtual.set(aba.valor)"
+          >
+            {{ aba.label }}
+          </button>
+        }
+      </div>
+
+      <div class="oq-cc__conteudo">
+        @switch (abaAtual()) {
+          @case ('geral') {
+            <oq-aba-geral [campos]="valoresEditados()" [mostrarTodos]="mostrarTodos()" (campoAlterado)="onCampoAlterado($event)" />
+          }
+          @case ('corte') {
+            <oq-aba-corte-divergencia [campos]="valoresEditados()" [mostrarTodos]="mostrarTodos()" (campoAlterado)="onCampoAlterado($event)" />
+          }
+          @case ('volumes') {
+            <oq-aba-formacao-volumes [campos]="valoresEditados()" [mostrarTodos]="mostrarTodos()" (campoAlterado)="onCampoAlterado($event)" />
+          }
+        }
+      </div>
+    } @else {
+      <div class="oq-empty-row">Carregando detalhe…</div>
+    }
+  </oq-panel-section>
+</div>

@@ -1,0 +1,59 @@
+<div class="oq-toolbar">
+  <div class="oq-toolbar__title-block">
+    <h1 class="oq-toolbar__title">Fila de Tarefas</h1>
+    <span class="oq-toolbar__counter">[ {{ visiveis }} / {{ total }} ]</span>
+  </div>
+
+  <div class="oq-toolbar__actions">
+    <div class="oq-toolbar__pills" role="group" aria-label="Filtro por status">
+      @for (pill of pills; track pill.valor) {
+        <button
+          type="button"
+          class="oq-toolbar__pill"
+          [class.oq-toolbar__pill--active]="filtroAtivo === pill.valor"
+          [class.oq-toolbar__pill--alert]="pill.valor === 'atencao'"
+          [class.oq-toolbar__pill--active-alert]="filtroAtivo === pill.valor && pill.valor === 'atencao'"
+          (click)="filtroChange.emit(pill.valor)"
+        >
+          {{ pill.label }}
+        </button>
+      }
+    </div>
+
+    <label class="oq-toolbar__search">
+      <oq-icon name="search" [size]="12" />
+      <input
+        type="text"
+        placeholder="BUSCAR PEDIDO / NF / CLIENTE / Nº ÚNICO"
+        [ngModel]="termoBusca"
+        (ngModelChange)="onBuscaInput($event)"
+      />
+    </label>
+
+    <div class="oq-toolbar__filters-wrapper">
+      <button
+        type="button"
+        class="oq-toolbar__filters-btn"
+        [class.oq-toolbar__filters-btn--ativo]="filtrosAvancadosAtivos > 0"
+        (click)="abrirFiltros.emit()"
+      >
+        <oq-icon name="filter" [size]="12" />
+        Filtros
+        @if (filtrosAvancadosAtivos > 0) {
+          <span class="oq-toolbar__filters-badge">{{ filtrosAvancadosAtivos }}</span>
+        }
+      </button>
+
+      @if (dropdownFiltrosAberto) {
+        <oq-filtros-avancados
+          [opcoesParceiros]="opcoesParceiros"
+          [opcoesVendedores]="opcoesVendedores"
+          [opcoesTiposOperacao]="opcoesTiposOperacao"
+          [valores]="filtrosAvancados"
+          (aplicar)="aplicarFiltrosAvancados.emit($event)"
+          (fechar)="fecharFiltrosAvancados.emit()"
+        />
+      }
+    </div>
+  </div>
+</div>

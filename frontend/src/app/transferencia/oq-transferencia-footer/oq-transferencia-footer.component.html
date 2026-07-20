@@ -1,0 +1,9 @@
+<footer class="oq-transf-footer">
+  <div class="oq-transf-footer__counter">
+    <span><b>{{ totalItens }}</b> itens</span>
+    <span><b>{{ totalUnidades }}</b> unidades totais</span>
+  </div>
+  <button type="button" class="oq-transf-footer__btn" [disabled]="!podeRevisar" (click)="revisar.emit()">
+    Revisar e confirmar
+  </button>
+</footer>

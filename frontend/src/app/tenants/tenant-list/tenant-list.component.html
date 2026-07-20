@@ -1,0 +1,46 @@
+<div class="tenants-page">
+  <header class="tenants-header">
+    <h1>Tenants</h1>
+    <a routerLink="/tenants/novo" class="btn btn-primary">+ Novo tenant</a>
+  </header>
+
+  @if (erro()) {
+    <div class="alert alert-erro">{{ erro() }}</div>
+  }
+
+  @if (carregando()) {
+    <p>Carregando...</p>
+  } @else if (tenants().length === 0) {
+    <p class="vazio">Nenhum tenant cadastrado ainda.</p>
+  } @else {
+    <table class="tenants-table">
+      <thead>
+        <tr>
+          <th>Slug</th>
+          <th>Nome</th>
+          <th>Tier</th>
+          <th>Status</th>
+          <th>ERP</th>
+          <th>Dialeto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (tenant of tenants(); track tenant.slug) {
+          <tr>
+            <td>{{ tenant.slug }}</td>
+            <td>{{ tenant.nome }}</td>
+            <td><span class="badge badge-tier-{{ tenant.tier }}">{{ tenant.tier }}</span></td>
+            <td><span class="badge badge-status-{{ tenant.status }}">{{ tenant.status }}</span></td>
+            <td>{{ tenant.erpConnections.at(0)?.erpType ?? '—' }}</td>
+            <td>{{ tenant.erpConnections.at(0)?.dialect ?? '—' }}</td>
+            <td class="acoes">
+              <a [routerLink]="['/tenants', tenant.slug]">Editar</a>
+              <button type="button" (click)="remover(tenant.slug)">Remover</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

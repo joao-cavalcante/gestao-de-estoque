@@ -1,0 +1,87 @@
+<div class="oq-page">
+  <!-- KPIs + toolbar — a identidade (logo/unidade/sync/operador) virou o
+       header global (app-header.component), renderizado uma vez em
+       app.component, fora daqui. -->
+  <header class="oq-page__header">
+    <oq-kpi-bar
+      [filaTotal]="kpis().total"
+      [aguardando]="kpis().aguardando"
+      [andamento]="kpis().andamento"
+      [concluido]="kpis().concluido"
+      [atencao]="kpis().atencao"
+    />
+
+    <oq-toolbar
+      [total]="kpis().total"
+      [visiveis]="tarefasFiltradas().length"
+      [filtroAtivo]="filtroAtivo()"
+      [termoBusca]="termoBusca()"
+      [filtrosAvancadosAtivos]="totalFiltrosAvancadosAtivos()"
+      [dropdownFiltrosAberto]="dropdownFiltrosAberto()"
+      [filtrosAvancados]="filtrosAvancados()"
+      [opcoesParceiros]="opcoesParceiros()"
+      [opcoesVendedores]="opcoesVendedores()"
+      [opcoesTiposOperacao]="opcoesTiposOperacao()"
+      (filtroChange)="onFiltroChange($event)"
+      (termoBuscaChange)="onBuscaChange($event)"
+      (abrirFiltros)="abrirFiltrosAvancados()"
+      (aplicarFiltrosAvancados)="aplicarFiltrosAvancados($event)"
+      (fecharFiltrosAvancados)="dropdownFiltrosAberto.set(false)"
+    />
+  </header>
+
+  <main class="oq-page__content">
+    @if (carregando()) {
+      <div class="oq-page__status">Buscando fila no Sankhya…</div>
+    } @else if (erro()) {
+      <div class="oq-page__status oq-page__status--erro">
+        {{ erro() }}
+        <button type="button" (click)="carregarFila()">Tentar de novo</button>
+      </div>
+    } @else if (tarefasFiltradas().length === 0) {
+      <oq-empty-state />
+    } @else {
+      <div class="oq-page__grid">
+        @for (tarefa of tarefasPaginadas(); track tarefa.id) {
+          <oq-task-card [tarefa]="tarefa" (verDetalhes)="onVerDetalhes($event)" (conferir)="onConferir($event)" />
+        }
+      </div>
+
+      <footer class="oq-pagination">
+        <label class="oq-pagination__per-page">
+          Itens / Pág
+          <select [ngModel]="itensPorPagina()" (ngModelChange)="onItensPorPaginaChange($event)">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+          </select>
+        </label>
+
+        <span class="oq-pagination__range">
+          <span class="oq-pagination__range-num">{{ intervaloPagina().inicio }}–{{ intervaloPagina().fim }}</span>
+          DE
+          <span class="oq-pagination__range-num">{{ tarefasFiltradas().length }}</span>
+        </span>
+
+        <div class="oq-pagination__pages">
+          <button type="button" (click)="irParaPagina(paginaAtual() - 1)" [disabled]="paginaAtual() === 1" aria-label="Página anterior">
+            ‹
+          </button>
+          @for (p of [].constructor(totalPaginas()); track $index) {
+            <button
+              type="button"
+              class="oq-pagination__page"
+              [class.oq-pagination__page--active]="paginaAtual() === $index + 1"
+              (click)="irParaPagina($index + 1)"
+            >
+              {{ $index + 1 }}
+            </button>
+          }
+          <button type="button" (click)="irParaPagina(paginaAtual() + 1)" [disabled]="paginaAtual() === totalPaginas()" aria-label="Próxima página">
+            ›
+          </button>
+        </div>
+      </footer>
+    }
+  </main>
+</div>

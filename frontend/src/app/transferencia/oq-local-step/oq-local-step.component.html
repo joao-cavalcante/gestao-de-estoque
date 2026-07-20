@@ -1,0 +1,45 @@
+<div class="oq-local-step">
+  <div class="oq-local-step__topbar">
+    <span class="oq-local-step__step-tag">{{ stepLabel }}</span>
+    <h2 class="oq-local-step__title">Transferência Rápida</h2>
+  </div>
+
+  @if (origem) {
+    <div class="oq-local-step__route">
+      <span class="oq-label-caps">ORIGEM</span>
+      <span class="oq-local-step__route-code">{{ origem }}</span>
+    </div>
+  }
+
+  <div class="oq-local-step__body">
+    <div class="oq-local-step__scan-zone">
+      <div class="oq-local-step__scan-icon">
+        <oq-icon name="barcode" [size]="22" />
+      </div>
+      <div class="oq-local-step__scan-label">{{ titulo }}</div>
+      <div class="oq-local-step__scan-hint">{{ dica }}</div>
+      <input
+        #input
+        class="oq-local-step__input"
+        [(ngModel)]="valor"
+        name="valorLocal"
+        placeholder="aguardando leitura…"
+        autocomplete="off"
+        (keydown.enter)="$event.preventDefault(); submeter()"
+      />
+    </div>
+
+    @if (erro) {
+      <oq-inline-alert tone="critical" [title]="erro.titulo" [detail]="erro.detalhe" />
+    }
+
+    @if (mostrarAtalhos) {
+      <div class="oq-local-step__quickbar">
+        <button type="button" (click)="atalho('DEP-A-01-03')">DEP-A-01-03</button>
+        <button type="button" (click)="atalho('DEP-B-02-01')">DEP-B-02-01</button>
+        <button type="button" (click)="atalho('DEP-C-99-99')">DEP-C-99-99 (inativo)</button>
+        <button type="button" class="oq-local-step__quickbar-err" (click)="atalho('XX-ERR-1')">XX-ERR-1 (inexistente)</button>
+      </div>
+    }
+  </div>
+</div>

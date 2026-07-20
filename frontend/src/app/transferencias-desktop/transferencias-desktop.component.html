@@ -1,0 +1,195 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="sync" title="TRANSFERÊNCIAS ENTRE LOCAIS" [count]="totalRegistros()">
+    <div class="oq-admin-toolbar oq-transf-desk__toolbar">
+      <input
+        class="oq-transf-desk__busca"
+        placeholder="buscar por local ou operador…"
+        [ngModel]="termoBusca()"
+        (ngModelChange)="termoBusca.set($event)"
+        (keydown.enter)="aoMudarFiltro()"
+        (blur)="aoMudarFiltro()"
+      />
+
+      <select [ngModel]="filtroCanal()" (ngModelChange)="filtroCanal.set($event); aoMudarFiltro()">
+        <option value="todos">Todos os canais</option>
+        <option value="coletor">Coletor</option>
+        <option value="desktop">Desktop</option>
+      </select>
+
+      <select [ngModel]="filtroStatus()" (ngModelChange)="filtroStatus.set($event); aoMudarFiltro()">
+        <option value="todos">Todos os status</option>
+        <option value="aberta">Aberta</option>
+        <option value="confirmada">Confirmada</option>
+        <option value="cancelada">Cancelada</option>
+        <option value="abandonada">Abandonada</option>
+      </select>
+
+      <button
+        type="button"
+        class="oq-admin-btn oq-admin-btn--primary"
+        [disabled]="modeloNotaDisponivel() !== true"
+        (click)="abrirNovaTransferencia()"
+      >
+        <oq-icon name="sync" [size]="13" />
+        Nova Transferência
+      </button>
+    </div>
+
+    @if (modeloNotaDisponivel() === false) {
+      <div class="oq-transf-desk__alerta">
+        <oq-inline-alert
+          tone="critical"
+          title="Configuração pendente — contate o administrador."
+          detail="Modelo de nota não configurado para transferência entre locais."
+        />
+      </div>
+    }
+
+    @if (carregando()) {
+      <div class="oq-empty-row">Carregando…</div>
+    } @else if (lista().length === 0) {
+      <div class="oq-empty-row">Nenhuma transferência encontrada</div>
+    } @else {
+      <div class="oq-transf-desk__tabela-wrap">
+        <table class="oq-transf-desk__tabela">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Origem → Destino</th>
+              <th>Itens</th>
+              <th>Unidades</th>
+              <th>Canal</th>
+              <th>Status</th>
+              <th>Operador</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of lista(); track t.id) {
+              <tr [class.oq-transf-desk__row--abandonada]="t.status === 'abandonada'">
+                <td class="oq-transf-desk__mono">{{ formatarData(t.criadoEm) }}</td>
+                <td class="oq-transf-desk__rota">{{ t.origem }} <oq-icon name="arrow-left" [size]="11" class="oq-transf-desk__rota-arrow" /> {{ t.destino }}</td>
+                <td class="oq-transf-desk__mono">{{ t.totalItens }}</td>
+                <td class="oq-transf-desk__mono">{{ t.totalUnidades }}</td>
+                <td>
+                  <oq-status-chip tone="neutral">{{ t.canalOrigem === 'coletor' ? 'COLETOR' : 'DESKTOP' }}</oq-status-chip>
+                </td>
+                <td>
+                  <oq-status-chip [tone]="toneStatus(t.status)">{{ t.status | uppercase }}</oq-status-chip>
+                </td>
+                <td>{{ t.operadorNome }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPaginas() > 1) {
+        <div class="oq-transf-desk__paginacao">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="paginaAtual() <= 1" (click)="irParaPagina(paginaAtual() - 1)">
+            Anterior
+          </button>
+          <span>Página {{ paginaAtual() }} de {{ totalPaginas() }}</span>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="paginaAtual() >= totalPaginas()" (click)="irParaPagina(paginaAtual() + 1)">
+            Próxima
+          </button>
+        </div>
+      }
+    }
+  </oq-panel-section>
+</div>
+
+@if (modalAberto()) {
+  <div class="oq-modal-backdrop" (click)="fecharModal()">
+    <div class="oq-modal oq-modal--wide" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">Nova Transferência entre Locais</span>
+        <button type="button" class="oq-modal__fechar" (click)="fecharModal()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+
+      <div class="oq-modal__body">
+        <div class="oq-form-card">
+          <div class="oq-form-card__titulo">Origem e Destino</div>
+          <div class="oq-form-card__body">
+            <div class="oq-form-row">
+              <div class="oq-form-field">
+                <span class="oq-form-field__label">Origem</span>
+                <input
+                  name="origem"
+                  [(ngModel)]="formOrigem"
+                  placeholder="ex: DEP-A-01-03"
+                  autocomplete="off"
+                  (blur)="validarOrigem()"
+                  (keydown.enter)="validarOrigem()"
+                />
+              </div>
+              <div class="oq-form-field">
+                <span class="oq-form-field__label">Destino</span>
+                <input
+                  name="destino"
+                  [(ngModel)]="formDestino"
+                  placeholder="ex: DEP-B-02-01"
+                  autocomplete="off"
+                  (blur)="validarDestino()"
+                  (keydown.enter)="validarDestino()"
+                />
+              </div>
+            </div>
+            @if (erroLocais()) {
+              <oq-inline-alert tone="critical" [title]="erroLocais()!" />
+            }
+          </div>
+        </div>
+
+        @if (avisoAlterarLocal(); as aviso) {
+          <div class="oq-form-card oq-transf-desk__aviso">
+            <div class="oq-form-card__body">
+              <oq-inline-alert
+                tone="warning"
+                title="Alterar o local não afeta os itens já bipados"
+                detail="Eles continuam vinculados ao trajeto original. Deseja continuar com o novo trajeto?"
+              />
+              <div class="oq-transf-desk__aviso-acoes">
+                <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="cancelarAvisoAlterarLocal()">Manter trajeto original</button>
+                <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="confirmarAvisoAlterarLocal()">Continuar com novo trajeto</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (transferenciaAtual()) {
+          <oq-item-scan-bar [transferenciaId]="transferenciaAtual()!.id" (itemAdicionado)="onItemAdicionado($event)" />
+        } @else {
+          <div class="oq-transf-desk__bipe-desabilitado">
+            <oq-icon name="barcode" [size]="18" />
+            Preencha origem e destino pra habilitar a bipagem de itens
+          </div>
+        }
+
+        <div class="oq-transf-desk__grade">
+          <oq-item-list [items]="itensModal()" (alterarQtd)="onAlterarQtd($event)" (remover)="onRemover($event)" />
+        </div>
+
+        @if (erroConfirmar()) {
+          <oq-inline-alert tone="critical" [title]="erroConfirmar()!" />
+        }
+      </div>
+
+      <div class="oq-modal__footer">
+        <span class="oq-transf-desk__contador">
+          <b>{{ itensModal().length }}</b> itens · <b>{{ totalUnidadesModal() }}</b> unidades
+        </span>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
+        <button
+          type="button"
+          class="oq-admin-btn oq-admin-btn--primary"
+          [disabled]="itensModal().length === 0 || confirmando()"
+          (click)="confirmarTransferencia()"
+        >
+          {{ confirmando() ? 'Confirmando…' : 'Confirmar Transferência' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

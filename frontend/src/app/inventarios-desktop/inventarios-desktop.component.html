@@ -1,0 +1,129 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="sync" title="AUDITORIA DE ESTOQUE" [count]="totalRegistros()">
+    <div class="oq-admin-toolbar oq-inv-desk__toolbar">
+      <input
+        class="oq-inv-desk__busca"
+        placeholder="buscar por descrição ou responsável…"
+        [ngModel]="termoBusca()"
+        (ngModelChange)="termoBusca.set($event)"
+        (keydown.enter)="aoMudarFiltro()"
+        (blur)="aoMudarFiltro()"
+      />
+
+      <select [ngModel]="filtroStatus()" (ngModelChange)="filtroStatus.set($event); aoMudarFiltro()">
+        <option value="todos">Todos os status</option>
+        <option value="aberto">Aberto</option>
+        <option value="em_contagem">Em contagem</option>
+        <option value="finalizado">Finalizado</option>
+        <option value="ajustado">Ajustado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+
+      <button
+        type="button"
+        class="oq-admin-btn oq-admin-btn--primary"
+        [disabled]="modeloNotaDisponivel() !== true"
+        (click)="abrirNovoInventario()"
+      >
+        <oq-icon name="sync" [size]="13" />
+        Abrir Inventário
+      </button>
+    </div>
+
+    @if (modeloNotaDisponivel() === false) {
+      <div class="oq-inv-desk__alerta">
+        <oq-inline-alert
+          tone="critical"
+          title="Configuração pendente — contate o administrador."
+          detail="Modelo de nota não configurado para ajuste de inventário."
+        />
+      </div>
+    }
+
+    @if (carregando()) {
+      <div class="oq-empty-row">Carregando…</div>
+    } @else if (lista().length === 0) {
+      <div class="oq-empty-row">Nenhum inventário encontrado</div>
+    } @else {
+      <div class="oq-inv-desk__tabela-wrap">
+        <table class="oq-inv-desk__tabela">
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Progresso</th>
+              <th>Status</th>
+              <th>Responsável</th>
+              <th>Abertura</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (inv of lista(); track inv.id) {
+              <tr (click)="abrirDetalhe(inv)" class="oq-inv-desk__row">
+                <td>{{ inv.descricao }}</td>
+                <td class="oq-inv-desk__mono">{{ inv.itensContados }} de {{ inv.totalItens }}</td>
+                <td><oq-status-chip [tone]="toneStatus(inv.status)">{{ inv.status | uppercase }}</oq-status-chip></td>
+                <td>{{ inv.abertoPorNome }}</td>
+                <td class="oq-inv-desk__mono">{{ formatarData(inv.abertoEm) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPaginas() > 1) {
+        <div class="oq-inv-desk__paginacao">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="paginaAtual() <= 1" (click)="irParaPagina(paginaAtual() - 1)">Anterior</button>
+          <span>Página {{ paginaAtual() }} de {{ totalPaginas() }}</span>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="paginaAtual() >= totalPaginas()" (click)="irParaPagina(paginaAtual() + 1)">Próxima</button>
+        </div>
+      }
+    }
+  </oq-panel-section>
+</div>
+
+@if (modalAberto()) {
+  <div class="oq-modal-backdrop" (click)="fecharModal()">
+    <div class="oq-modal" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">Abrir Inventário</span>
+        <button type="button" class="oq-modal__fechar" (click)="fecharModal()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+
+      <div class="oq-modal__body">
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Descrição</span>
+          <input name="descricao" [(ngModel)]="descricao" placeholder="ex: Inventário depósito A — julho" autocomplete="off" />
+        </div>
+
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Escopo</span>
+          <select name="escopoTipo" [(ngModel)]="escopoTipo">
+            <option value="local">Por local</option>
+            <option value="produtos_especificos">Produtos específicos</option>
+            <option value="grupo_produto">Grupo de produto</option>
+          </select>
+        </div>
+
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">
+            {{ escopoTipo === 'local' ? 'Códigos de local' : 'Códigos de produto' }} (separados por vírgula)
+          </span>
+          <input name="valores" [(ngModel)]="valoresBruto" placeholder="ex: DEP-A-01-03, DEP-B-02-01" autocomplete="off" />
+        </div>
+
+        @if (erroForm()) {
+          <oq-inline-alert tone="critical" [title]="erroForm()!" />
+        }
+      </div>
+
+      <div class="oq-modal__footer">
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="criando()" (click)="criarInventario()">
+          {{ criando() ? 'Abrindo…' : 'Abrir Inventário' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

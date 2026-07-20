@@ -1,0 +1,43 @@
+@if (items.length === 0) {
+  <div class="oq-item-list__empty">
+    <oq-icon name="box" [size]="28" />
+    <span>nenhum item bipado ainda</span>
+  </div>
+} @else {
+  <div class="oq-item-list__head">
+    <span>Item bipado</span>
+    <span>Qtd.</span>
+  </div>
+  <ul class="oq-item-list__rows">
+    @for (item of items; track item.id) {
+      <li class="oq-item-list__row">
+        @if (idEmEdicao === item.id) {
+          <div class="oq-item-list__edit">
+            <span class="oq-item-list__edit-nome">{{ item.nomeProduto }}</span>
+            <input
+              #inputEdicao
+              type="number"
+              [(ngModel)]="qtdEdicao"
+              name="qtdEdicao"
+              autofocus
+              (keydown.enter)="$event.preventDefault(); confirmarEdicao(item)"
+            />
+            <button type="button" class="oq-item-list__edit-ok" (click)="confirmarEdicao(item)">OK</button>
+            <button type="button" class="oq-item-list__edit-cancelar" (click)="cancelarEdicao()">
+              <oq-icon name="x" [size]="12" />
+            </button>
+          </div>
+        } @else {
+          <button type="button" class="oq-item-list__row-btn" (click)="abrirEdicao(item)">
+            <span class="oq-item-list__swatch"></span>
+            <span class="oq-item-list__info">
+              <span class="oq-item-list__nome">{{ item.nomeProduto }}</span>
+              <span class="oq-item-list__ctrl">{{ item.controle }}</span>
+            </span>
+            <span class="oq-item-list__qtd">{{ item.quantidade }}<span class="oq-item-list__unidade">{{ item.unidade }}</span></span>
+          </button>
+        }
+      </li>
+    }
+  </ul>
+}

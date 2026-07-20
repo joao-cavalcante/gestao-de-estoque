@@ -1,0 +1,76 @@
+<article class="oq-card" [ngClass]="classeCard">
+  @if (tarefa.alerta) {
+    <span
+      class="oq-card__dot oq-alert-pulse"
+      [class.oq-card__dot--critical]="tarefa.alerta === 'critico'"
+      [class.oq-card__dot--attention]="tarefa.alerta === 'atencao'"
+      aria-hidden="true"
+    ></span>
+  }
+
+  <header class="oq-card__header">
+    <span class="oq-card__client">{{ tarefa.cliente }}</span>
+    <div class="oq-card__status-line">
+      <oq-icon [name]="statusVisual.icone" [size]="13" [class.oq-gear-spin]="statusVisual.gira" [style.color]="statusVisual.corVar" />
+      <span class="oq-card__status-text">{{ statusVisual.label }}</span>
+
+      @if (tarefa.alerta) {
+        <span class="oq-card__status-sep">·</span>
+        <span
+          class="oq-card__alert-text"
+          [class.oq-card__alert-text--critical]="tarefa.alerta === 'critico'"
+          [class.oq-card__alert-text--attention]="tarefa.alerta === 'atencao'"
+        >
+          <oq-icon name="triangle" [size]="10" />
+          {{ tarefa.motivoAlerta }}
+        </span>
+      }
+    </div>
+  </header>
+
+  <div class="oq-card__divider"></div>
+
+  <div class="oq-card__grid">
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">Pedido</span>
+      <span class="oq-card__field-value">{{ tarefa.pedido }}</span>
+    </div>
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">Nº Único</span>
+      <span class="oq-card__field-value">{{ tarefa.numeroUnico }}</span>
+    </div>
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">NF</span>
+      <span class="oq-card__field-value">{{ tarefa.nf }}</span>
+    </div>
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">Data</span>
+      <span class="oq-card__field-value">{{ tarefa.data }}</span>
+    </div>
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">Transporte</span>
+      <span class="oq-card__field-value">{{ tarefa.transporte }}</span>
+    </div>
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">Resp.</span>
+      <span class="oq-card__field-value">{{ tarefa.responsavel }}</span>
+    </div>
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">Itens</span>
+      <span class="oq-card__field-value">{{ tarefa.itens }}</span>
+    </div>
+    <div class="oq-card__field">
+      <span class="oq-card__field-label">Valor</span>
+      <span class="oq-card__field-value">{{ formatarValor(tarefa.valor) }}</span>
+    </div>
+  </div>
+
+  <footer class="oq-card__footer">
+    <button type="button" class="oq-card__btn oq-card__btn--outline" (click)="verDetalhes.emit(tarefa)">
+      Detalhes
+    </button>
+    <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="conferir.emit(tarefa)">
+      Conferir
+    </button>
+  </footer>
+</article>

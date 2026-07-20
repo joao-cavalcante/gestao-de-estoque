@@ -1,0 +1,115 @@
+<div class="tenant-form-page">
+  <h1>{{ emEdicao ? 'Editar tenant' : 'Novo tenant' }}</h1>
+
+  @if (erro()) {
+    <div class="alert alert-erro">{{ erro() }}</div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="salvar()">
+    <fieldset>
+      <legend>Dados do tenant</legend>
+
+      <label>
+        Slug
+        <input formControlName="slug" placeholder="ex: negri, modial" autocomplete="off" />
+        @if (form.controls.slug.touched && form.controls.slug.invalid) {
+          <span class="erro-campo">obrigatório, só letras minúsculas/números/hífen</span>
+        }
+      </label>
+
+      <label>
+        Nome
+        <input formControlName="nome" placeholder="ex: Negri Distribuidora" />
+      </label>
+
+      <label>
+        Tier
+        <select formControlName="tier">
+          <option value="shared">shared (pool compartilhado)</option>
+          <option value="dedicated">dedicated (banco próprio)</option>
+        </select>
+      </label>
+
+      @if (exigeDbDedicado) {
+        <label>
+          URL do banco dedicado
+          <input formControlName="dedicatedDbUrl" placeholder="postgresql://..." />
+        </label>
+      }
+
+      @if (emEdicao) {
+        <label>
+          Status
+          <select formControlName="status">
+            <option value="trial">trial</option>
+            <option value="active">active</option>
+            <option value="suspended">suspended</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </label>
+      }
+    </fieldset>
+
+    <fieldset>
+      <legend>Conexão de ERP (opcional)</legend>
+
+      <label>
+        Tipo de ERP
+        <input formControlName="erpType" placeholder="sankhya" />
+      </label>
+
+      <label>
+        URL base
+        <input formControlName="baseUrl" placeholder="https://api.sankhya.com.br" />
+      </label>
+
+      <label>
+        Gateway path
+        <input formControlName="gatewayPath" placeholder="gateway/v1" />
+      </label>
+
+      <label>
+        Dialeto do banco do ERP
+        <select formControlName="dialect">
+          <option value="SQLSERVER">SQL Server</option>
+          <option value="ORACLE">Oracle</option>
+          <option value="POSTGRES">Postgres</option>
+          <option value="MYSQL">MySQL</option>
+        </select>
+      </label>
+
+      @if (emEdicao) {
+        <p class="aviso-credenciais">
+          @if (credenciaisJaConfiguradas()) {
+            Credenciais já configuradas (cifradas no banco — os campos abaixo mostram <code>{{ MASCARA_CREDENCIAL }}</code>, não o valor real).
+          } @else {
+            Nenhuma credencial configurada ainda.
+          }
+          Clique num campo pra apagar a máscara e digitar um valor novo. Pra trocar, preencha os três juntos.
+        </p>
+      }
+
+      <label>
+        Client ID
+        <input formControlName="clientId" autocomplete="off" (focus)="limparMascara('clientId')" />
+      </label>
+
+      <label>
+        Client Secret
+        <input formControlName="clientSecret" type="password" autocomplete="off" (focus)="limparMascara('clientSecret')" />
+      </label>
+
+      <label>
+        X-Token
+        <input formControlName="xToken" type="password" autocomplete="off" (focus)="limparMascara('xToken')" />
+      </label>
+    </fieldset>
+
+    <div class="acoes-form">
+      <button type="submit" class="btn btn-primary" [disabled]="salvando()">
+        {{ salvando() ? 'Salvando...' : 'Salvar' }}
+      </button>
+      <a routerLink="/tenants" class="btn">Cancelar</a>
+    </div>
+  </form>
+</div>
