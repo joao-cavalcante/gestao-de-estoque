@@ -30,19 +30,22 @@ const ITENS: ItemMenu[] = [
     label: 'Operações',
     icone: 'clock',
     subItens: [
-      { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
-      { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },
+      { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
       { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'badge' },
+      // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
+      // { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
+      // { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },
     ],
   },
-  {
-    label: 'Coletor',
-    icone: 'barcode',
-    subItens: [
-      { rota: '/transferencia', label: 'Transferência Rápida', icone: 'sync' },
-      { rota: '/inventario', label: 'Contagem de Inventário', icone: 'box' },
-    ],
-  },
+  // Grupo "Coletor" desabilitado por enquanto (Transferência Rápida + Contagem de Inventário):
+  // {
+  //   label: 'Coletor',
+  //   icone: 'barcode',
+  //   subItens: [
+  //     { rota: '/transferencia', label: 'Transferência Rápida', icone: 'sync' },
+  //     { rota: '/inventario', label: 'Contagem de Inventário', icone: 'box' },
+  //   ],
+  // },
   {
     label: 'Administração',
     icone: 'building',
@@ -52,7 +55,6 @@ const ITENS: ItemMenu[] = [
       { rota: '/downloads', label: 'Downloads', icone: 'download' },
       { rota: '/config-conferencia', label: 'Configuração de Conferência', icone: 'badge' },
       { rota: '/tipos-operacao', label: 'Tipos de Operação', icone: 'badge' },
-      { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'download' },
     ],
   },
 ];
