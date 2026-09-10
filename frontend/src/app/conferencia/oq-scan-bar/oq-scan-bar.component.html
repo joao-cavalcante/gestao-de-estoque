@@ -103,11 +103,11 @@
           <div class="oq-peso-modal__esperado">
             <span class="oq-label-caps">Esperado</span>
             <span class="oq-peso-modal__esperado-val">
-              {{ esperadoPrincipalQtd | number: '1.3-3' }} {{ esperadoPrincipalUn }}
+              {{ itemPendenteAtual.expected | number: '1.3-3' }} {{ itemPendenteAtual.unidadePadrao || '' }}
             </span>
             @if (temUnidadeComercialDistinta) {
               <span class="oq-peso-modal__esperado-comercial">
-                Padrão: {{ itemPendenteAtual.expected | number: '1.3-3' }} {{ itemPendenteAtual.unidadePadrao }}
+                Pedido: {{ itemPendenteAtual.quantidadeComercial | number: '1.3-3' }} {{ itemPendenteAtual.unidadeComercial }}
               </span>
             }
           </div>

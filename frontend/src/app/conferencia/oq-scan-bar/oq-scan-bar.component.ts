@@ -56,23 +56,10 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     return this.itensPendentes.find((it) => it.code === String(this.codprodAtual)) ?? null;
   }
 
-  /** true quando a unidade do pedido (comercial) difere da unidade padrão do produto. */
+  /** true quando a unidade do pedido (comercial) difere da unidade base do produto — mostra a conversão "(X BI)". */
   get temUnidadeComercialDistinta(): boolean {
     const it = this.itemPendenteAtual;
     return !!it && !!it.unidadeComercial && it.unidadeComercial !== it.unidadePadrao && it.quantidadeComercial != null;
-  }
-
-  /** Quantidade esperada PRINCIPAL exibida no modal — na unidade do pedido (comercial), caindo pra padrão. */
-  get esperadoPrincipalQtd(): number {
-    const it = this.itemPendenteAtual;
-    if (!it) return 0;
-    return this.temUnidadeComercialDistinta ? it.quantidadeComercial! : it.expected;
-  }
-
-  get esperadoPrincipalUn(): string {
-    const it = this.itemPendenteAtual;
-    if (!it) return '';
-    return (this.temUnidadeComercialDistinta ? it.unidadeComercial : it.unidadePadrao) ?? '';
   }
 
   @Output() conferido = new EventEmitter<ItemConferido>();

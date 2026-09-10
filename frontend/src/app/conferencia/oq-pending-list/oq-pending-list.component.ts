@@ -26,21 +26,8 @@ export class OqPendingListComponent {
     return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
 
-  /** true quando a linha tem unidade do pedido (comercial) distinta da unidade padrão do produto. */
+  /** true quando a unidade do pedido (comercial) difere da unidade base do produto — aí mostra a linha "Pedido: X". */
   temComercial(item: ConferenciaItem): boolean {
-    return (
-      !!item.unidadeComercial &&
-      item.unidadeComercial !== item.unidadePadrao &&
-      item.quantidadeComercial != null
-    );
-  }
-
-  /** Quantidade/unidade PRINCIPAL do item: sempre a do pedido (comercial), caindo pra padrão quando não há comercial. */
-  qtdPrincipal(item: ConferenciaItem): number {
-    return this.temComercial(item) ? item.quantidadeComercial! : item.expected;
-  }
-
-  unidadePrincipal(item: ConferenciaItem): string {
-    return (this.temComercial(item) ? item.unidadeComercial : item.unidadePadrao) ?? '';
+    return !!item.unidadeComercial && item.unidadeComercial !== item.unidadePadrao;
   }
 }
