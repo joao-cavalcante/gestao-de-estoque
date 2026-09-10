@@ -24,6 +24,16 @@ export class OqConferredListComponent {
     return item.status === 'critical';
   }
 
+  /** Divergência de PESO (item pesável fora de ±5%) — indicador visual próprio, diferente da divergência de qtd. */
+  isDivergenciaPeso(item: ConferenciaItem): boolean {
+    return !!item.divergenciaPeso;
+  }
+
+  /** Divergência "comum" de quantidade (excedente), sem ser a de peso. */
+  isDivergenciaQtd(item: ConferenciaItem): boolean {
+    return item.status === 'critical' && !item.divergenciaPeso;
+  }
+
   /** Diferença bipado - esperado (só positiva importa aqui, é o excesso). */
   excedente(item: ConferenciaItem): number {
     return item.scanned - item.expected;

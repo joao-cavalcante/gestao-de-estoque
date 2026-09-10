@@ -34,6 +34,14 @@
     padding-left: 9px;
   }
 
+  // Divergência de PESO (item pesável fora de ±5%) — vermelho, distinto do
+  // excedente de quantidade (âmbar).
+  &--peso-divergente {
+    background: var(--oq-critical-soft);
+    border-left: 3px solid var(--oq-critical);
+    padding-left: 9px;
+  }
+
   &--pesavel {
     border-left: 3px solid var(--oq-attention);
     padding-left: 9px;
@@ -61,6 +69,12 @@
     font-weight: 700;
     letter-spacing: 0.08em;
   }
+
+  &--erro {
+    background: var(--oq-critical-soft);
+    border-color: var(--oq-critical);
+    color: var(--oq-critical-foreground);
+  }
 }
 
 .item-glyph {
@@ -74,6 +88,7 @@
   color: var(--oq-success-foreground);
 
   &--alerta { color: var(--oq-warning-foreground); }
+  &--peso { color: var(--oq-critical-foreground); }
 }
 
 .item-dados {
@@ -133,6 +148,11 @@
     color: var(--oq-warning-foreground);
     .item-qtd-principal__un { color: var(--oq-warning-foreground); }
   }
+
+  &--peso {
+    color: var(--oq-critical-foreground);
+    .item-qtd-principal__un { color: var(--oq-critical-foreground); }
+  }
 }
 
 .item-divergencia {
@@ -142,6 +162,15 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--oq-warning-foreground);
+
+  &--peso {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    color: var(--oq-critical-foreground);
+  }
 }
 
 .item-info-sec {

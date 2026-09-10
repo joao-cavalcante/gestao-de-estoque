@@ -6,15 +6,27 @@
       @for (item of items; track item.code + item.seq) {
         <li
           class="item-row"
-          [class.item-row--excedente]="isCritico(item)"
+          [class.item-row--excedente]="isDivergenciaQtd(item)"
+          [class.item-row--peso-divergente]="isDivergenciaPeso(item)"
           [class.item-row--pesavel]="item.usaConfPeso && !isCritico(item)"
         >
-          <span class="item-glyph" [class.item-glyph--alerta]="isCritico(item)">
-            <oq-icon [name]="isCritico(item) ? 'circle-alert' : 'check'" [size]="14" />
+          <span
+            class="item-glyph"
+            [class.item-glyph--alerta]="isDivergenciaQtd(item)"
+            [class.item-glyph--peso]="isDivergenciaPeso(item)"
+          >
+            <oq-icon
+              [name]="isDivergenciaPeso(item) ? 'scale' : isCritico(item) ? 'circle-alert' : 'check'"
+              [size]="14"
+            />
           </span>
 
           @if (item.usaConfPeso) {
-            <span class="item-peso-tag" title="Item pesável — quantidade veio do peso">
+            <span
+              class="item-peso-tag"
+              [class.item-peso-tag--erro]="isDivergenciaPeso(item)"
+              title="Item pesável — quantidade veio do peso"
+            >
               <oq-icon name="scale" [size]="15" />
               <span class="item-peso-tag__txt">PESO</span>
             </span>
@@ -27,13 +39,25 @@
                 <span class="item-descricao__name"> — {{ item.name }}</span>
               </span>
               @if (exibirQtd) {
-                <span class="item-qtd-principal" [class.item-qtd-principal--excedente]="isCritico(item)">
+                <span
+                  class="item-qtd-principal"
+                  [class.item-qtd-principal--excedente]="isDivergenciaQtd(item)"
+                  [class.item-qtd-principal--peso]="isDivergenciaPeso(item)"
+                >
                   {{ formatarQtd(item.scanned) }}
                   @if (item.unidadePadrao) { <span class="item-qtd-principal__un">{{ item.unidadePadrao }}</span> }
                 </span>
               }
             </div>
-            @if (isCritico(item)) {
+            @if (isDivergenciaPeso(item)) {
+              <div class="item-linha">
+                <span class="item-divergencia item-divergencia--peso">
+                  <oq-icon name="scale" [size]="12" />
+                  Peso {{ excedente(item) > 0 ? '+' : '' }}{{ formatarQtd(excedente(item)) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
+                  · {{ item.desvioPesoPct }}% fora da tolerância (±5%)
+                </span>
+              </div>
+            } @else if (isDivergenciaQtd(item)) {
               <div class="item-linha">
                 <span class="item-divergencia">
                   Divergente {{ excedente(item) > 0 ? '+' : '' }}{{ formatarQtd(excedente(item)) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}

@@ -21,6 +21,10 @@ export interface ConferenciaItem {
   quantidadeComercial?: number;
   /** Produto fora do pedido (qtd_neg=0, só existe porque foi bipado) — ao devolver, some, não volta pra pendentes. */
   foraPedido?: boolean;
+  /** Item pesável cujo peso conferido saiu da tolerância de ±5% do esperado — divergência de PESO (indicador visual próprio). */
+  divergenciaPeso?: boolean;
+  /** Desvio do peso conferido vs. esperado, em % (só faz sentido quando divergenciaPeso). */
+  desvioPesoPct?: number;
   /** TGFPRO.AD_TIPOSEPARACAO — 1 Secos | 2 Resfriados | 3 Congelados. Conferência por etapa (V29). */
   tipoSeparacao?: number;
 }

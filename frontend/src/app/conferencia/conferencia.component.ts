@@ -8,7 +8,7 @@ import { OqPendingListComponent } from './oq-pending-list/oq-pending-list.compon
 import { OqConferredListComponent } from './oq-conferred-list/oq-conferred-list.component';
 import { OqLastScanPanelComponent } from './oq-last-scan-panel/oq-last-scan-panel.component';
 import { OqConferenciaFooterComponent } from './oq-conferencia-footer/oq-conferencia-footer.component';
-import { ConferenciaItem } from './conferencia.model';
+import { ConferenciaItem, ItemStatus } from './conferencia.model';
 import { SeparacaoService } from '../separacao/separacao.service';
 import {
   ConcluirEtapaResultado,
@@ -25,13 +25,31 @@ import { AuthService } from '../auth/auth.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { SomFeedbackService } from '../shared/som-feedback.service';
 
+/** Tolerância de peso: item pesável só entra em divergência se sair de ±5% do esperado (peso base). */
+const TOLERANCIA_PESO = 0.05;
+
+/** Desvio |conferido - esperado| / esperado. Retorna 0 quando não há esperado. */
+function desvioPeso(scanned: number, expected: number): number {
+  if (expected <= 0) return scanned > 0 ? 1 : 0;
+  return Math.abs(scanned - expected) / expected;
+}
+
+/** Item pesável fora da tolerância de ±5% (só considera divergente acima disso). */
+function pesoForaDaTolerancia(scanned: number, expected: number): boolean {
+  return desvioPeso(scanned, expected) > TOLERANCIA_PESO;
+}
+
 /** Mapeia o item real (vindo de app.separacao_itens) pro modelo visual do painel — mesmo shape do mock anterior. */
 function mapearItem(item: ItemSeparacao): ConferenciaItem {
   const expected = Number(item.qtdNeg);
   const scanned = Number(item.qtdConferidaLocal);
-  const divergente = scanned > expected;
   const unidadePadrao = item.unidadePadrao?.trim() || item.codvol?.trim() || undefined;
   const unidadeComercial = item.unidadeComercial?.trim() || unidadePadrao;
+  const conferido = item.usaConfPeso ? scanned > 0 : scanned >= expected;
+  // Pesável: só diverge acima de ±5% do esperado. Não-pesável: diverge se passou do esperado.
+  const divergePeso = item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, expected);
+  const divergeQtd = !item.usaConfPeso && scanned > expected;
+  const divergente = divergePeso || divergeQtd;
   return {
     seq: item.sequencia,
     code: String(item.codprod),
@@ -39,8 +57,16 @@ function mapearItem(item: ItemSeparacao): ConferenciaItem {
     control: item.controle.trim() || '—',
     expected,
     scanned,
-    status: divergente ? 'critical' : scanned >= expected ? 'ok' : 'pending',
-    divergenceReason: divergente ? 'QTD. DIVERGENTE' : item.foraPedido ? 'FORA DO PEDIDO' : undefined,
+    status: divergente ? 'critical' : conferido ? 'ok' : 'pending',
+    divergenceReason: divergePeso
+      ? 'PESO FORA DA TOLERÂNCIA'
+      : divergeQtd
+        ? 'QTD. DIVERGENTE'
+        : item.foraPedido
+          ? 'FORA DO PEDIDO'
+          : undefined,
+    divergenciaPeso: divergePeso || undefined,
+    desvioPesoPct: divergePeso ? Math.round(desvioPeso(scanned, expected) * 1000) / 10 : undefined,
     usaConfPeso: item.usaConfPeso,
     foraPedido: item.foraPedido,
     tipoSeparacao: item.tipoSeparacao,
@@ -242,6 +268,34 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * verdade: a lista de pendentes é sempre o pedido negociado ainda não
    * conferido, nunca o resultado da bipagem. Usado ao abrir e ao devolver.
    */
+  /**
+   * Status/divergência de um item conferido, aplicando a tolerância de ±5% pro
+   * peso: item pesável só é divergente se o peso conferido sair de ±5% do
+   * esperado; a divergência de peso tem indicador visual próprio (divergenciaPeso).
+   */
+  private avaliarDivergencia(
+    item: Pick<ConferenciaItem, 'usaConfPeso' | 'expected'>,
+    scanned: number,
+  ): {
+    conferido: boolean;
+    status: ItemStatus;
+    divergenceReason: string | undefined;
+    divergenciaPeso: true | undefined;
+    desvioPesoPct: number | undefined;
+  } {
+    const conferido = item.usaConfPeso ? scanned > 0 : scanned >= item.expected;
+    const divergePeso = !!item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, item.expected);
+    const divergeQtd = !item.usaConfPeso && scanned > item.expected;
+    const divergente = divergePeso || divergeQtd;
+    return {
+      conferido,
+      status: divergente ? 'critical' : conferido ? 'ok' : 'pending',
+      divergenceReason: divergePeso ? 'PESO FORA DA TOLERÂNCIA' : divergeQtd ? 'QTD. DIVERGENTE' : undefined,
+      divergenciaPeso: divergePeso || undefined,
+      desvioPesoPct: divergePeso ? Math.round(desvioPeso(scanned, item.expected) * 1000) / 10 : undefined,
+    };
+  }
+
   private recarregarItens(sessaoId: string, aoTerminar?: () => void): void {
     this.separacaoService.buscarItens(this.tenantAtual, sessaoId).subscribe({
       next: (itens) => {
@@ -375,11 +429,18 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       if (jaConf !== -1) {
         // Re-conferência de item já conferido (ex.: nova pesagem) — atualiza a qtd.
         const c = this.conferred()[jaConf];
-        const div = sc > c.expected;
+        const d = this.avaliarDivergencia(c, sc);
         this.conferred.update((arr) =>
           arr.map((it, i) =>
             i === jaConf
-              ? { ...it, scanned: sc, status: div ? 'critical' : 'ok', divergenceReason: div ? 'QTD. DIVERGENTE' : undefined }
+              ? {
+                  ...it,
+                  scanned: sc,
+                  status: d.status,
+                  divergenceReason: d.divergenceReason,
+                  divergenciaPeso: d.divergenciaPeso,
+                  desvioPesoPct: d.desvioPesoPct,
+                }
               : it,
           ),
         );
@@ -409,17 +470,17 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const item = this.items()[idx];
     const scannedNovo = Number(resultado.qtdConferidaLocal);
     // Item pesável: QUALQUER peso > 0 conclui o item (o peso raramente bate o
-    // nominal exato — mesma regra do projeto base). Não-pesável: precisa bater o
-    // total pra sair de pendentes (permite bipar em partes).
-    const concluido = item.usaConfPeso ? scannedNovo > 0 : scannedNovo >= item.expected;
-    const divergente = item.usaConfPeso
-      ? Math.abs(scannedNovo - item.expected) > 0.001
-      : scannedNovo > item.expected;
+    // nominal exato). Não-pesável: precisa bater o total pra sair de pendentes.
+    // A divergência do pesável só conta acima de ±5% do esperado (ver avaliarDivergencia).
+    const d = this.avaliarDivergencia(item, scannedNovo);
+    const concluido = d.conferido;
     const atualizado: ConferenciaItem = {
       ...item,
       scanned: scannedNovo,
-      status: divergente ? 'critical' : concluido ? 'ok' : 'pending',
-      divergenceReason: divergente ? 'QTD. DIVERGENTE' : undefined,
+      status: d.status,
+      divergenceReason: d.divergenceReason,
+      divergenciaPeso: d.divergenciaPeso,
+      desvioPesoPct: d.desvioPesoPct,
       imagemUrl: this.ultimaImagemIdentificada,
     };
 
