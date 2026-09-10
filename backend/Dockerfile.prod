@@ -13,7 +13,11 @@ COPY core ./core
 COPY backend ./backend
 
 # installDist gera build/install/backend/{bin,lib} (plugin `application`).
-RUN ./gradlew --no-daemon :backend:installDist
+# `clean` antes: sem isso, a compilação incremental do Kotlin às vezes deixa
+# classes anônimas órfãs de builds anteriores no cache de camada do Docker
+# (ex.: SeparacaoService$finalizar$2 com assinatura antiga) → NoSuchMethodError
+# em runtime. Numa camada nova o `clean` é praticamente grátis.
+RUN ./gradlew --no-daemon clean :backend:installDist
 
 # ── runtime ──────────────────────────────────────────────────────────────
 FROM eclipse-temurin:17-jre
