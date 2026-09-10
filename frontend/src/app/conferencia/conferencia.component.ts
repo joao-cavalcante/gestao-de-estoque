@@ -39,16 +39,28 @@ function pesoForaDaTolerancia(scanned: number, expected: number): boolean {
   return desvioPeso(scanned, expected) > TOLERANCIA_PESO;
 }
 
+/**
+ * Arredonda a 3 casas (mesma precisão exibida na tela). Comparações de
+ * conferido/divergente são feitas nesse arredondamento: o operador confere o
+ * valor QUE VÊ (ex.: 2,083), e o esperado real pode ter mais casas
+ * (25 BI ÷ 12 = 2,08333) — sem isso a conferência nunca "fecha" e o item fica
+ * pendente, levando o operador a bipar de novo e duplicar a quantidade.
+ */
+function round3(n: number): number {
+  return Math.round((n + Number.EPSILON) * 1000) / 1000;
+}
+
 /** Mapeia o item real (vindo de app.separacao_itens) pro modelo visual do painel — mesmo shape do mock anterior. */
 function mapearItem(item: ItemSeparacao): ConferenciaItem {
   const expected = Number(item.qtdNeg);
   const scanned = Number(item.qtdConferidaLocal);
   const unidadePadrao = item.unidadePadrao?.trim() || item.codvol?.trim() || undefined;
   const unidadeComercial = item.unidadeComercial?.trim() || unidadePadrao;
-  const conferido = item.usaConfPeso ? scanned > 0 : scanned >= expected;
-  // Pesável: só diverge acima de ±5% do esperado. Não-pesável: diverge se passou do esperado.
+  const conferido = item.usaConfPeso ? scanned > 0 : round3(scanned) >= round3(expected);
+  // Pesável: só diverge acima de ±5% do esperado. Não-pesável: diverge se passou do esperado
+  // (comparado no arredondamento de 3 casas — ver round3).
   const divergePeso = item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, expected);
-  const divergeQtd = !item.usaConfPeso && scanned > expected;
+  const divergeQtd = !item.usaConfPeso && round3(scanned) > round3(expected);
   const divergente = divergePeso || divergeQtd;
   return {
     seq: item.sequencia,
@@ -283,9 +295,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     divergenciaPeso: true | undefined;
     desvioPesoPct: number | undefined;
   } {
-    const conferido = item.usaConfPeso ? scanned > 0 : scanned >= item.expected;
+    const conferido = item.usaConfPeso ? scanned > 0 : round3(scanned) >= round3(item.expected);
     const divergePeso = !!item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, item.expected);
-    const divergeQtd = !item.usaConfPeso && scanned > item.expected;
+    const divergeQtd = !item.usaConfPeso && round3(scanned) > round3(item.expected);
     const divergente = divergePeso || divergeQtd;
     return {
       conferido,
