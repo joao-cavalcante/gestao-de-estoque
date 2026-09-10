@@ -33,7 +33,7 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     val exibirImgProd = text("exibir_img_prod").nullable()
     // Quantidade de volumes (modo simplificado, V30) — contador local, +/- na UI;
     // empurrado pro Sankhya só no `cortar` da finalização.
-    val qtdVol = integer("qtd_vol")
+    val qtdVol = integer("qtd_vol").default(0)
     val criadoEm = timestamp("criado_em")
     val atualizadoEm = timestamp("atualizado_em")
 
@@ -79,7 +79,7 @@ object SeparacaoEtapasTable : Table("app.separacao_etapas") {
     val tipoSeparacao = short("tipo_separacao")
     val status = text("status")             // 'P' pendente | 'C' concluída
     // Volume (modo simplificado) contado nesta etapa (V31). Finalização soma todas.
-    val qtdVol = integer("qtd_vol")
+    val qtdVol = integer("qtd_vol").default(0)
     val concluidaPor = text("concluida_por").nullable()
     val concluidaEm = timestamp("concluida_em").nullable()
     val criadoEm = timestamp("criado_em")
