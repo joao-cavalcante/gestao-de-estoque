@@ -10,7 +10,7 @@ export class OqKpiBarComponent {
   @Input() filaTotal = 0;
   @Input() aguardando = 0;
   @Input() andamento = 0;
-  @Input() concluido = 0;
+  @Input() aguardandoCorte = 0;
   @Input() atencao = 0;
 
   /** Sempre 3 dígitos (008, não 8) — regra explícita da spec. */

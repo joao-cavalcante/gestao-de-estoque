@@ -63,5 +63,5 @@ export interface FiltrosAvancados {
   ordemCarga: string | null;
 }
 
-export const FILTROS_STATUS = ['todos', 'aguardando', 'andamento', 'concluido', 'atencao'] as const;
+export const FILTROS_STATUS = ['todos', 'aguardando', 'andamento', 'aguardando_corte', 'atencao'] as const;
 export type FiltroStatus = (typeof FILTROS_STATUS)[number];

@@ -47,7 +47,7 @@ export class OqToolbarComponent {
     { valor: 'todos', label: 'Todos' },
     { valor: 'aguardando', label: 'Aguard.' },
     { valor: 'andamento', label: 'Andam.' },
-    { valor: 'concluido', label: 'Concl.' },
+    { valor: 'aguardando_corte', label: 'Corte' },
     { valor: 'atencao', label: 'Atenção' },
   ];
 

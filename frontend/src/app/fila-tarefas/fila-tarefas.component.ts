@@ -88,13 +88,20 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * A fila é uma FILA DE TRABALHO — só tarefas acionáveis: aguardando
+   * conferência, conferência em andamento e aguardando corte (recontagem
+   * entra como aguardando/andamento). Concluídas e canceladas não aparecem.
+   */
+  private readonly tarefasAtivas = computed(() => this.tarefas().filter((t) => t.status !== 'concluido'));
+
   readonly kpis = computed(() => {
-    const todas = this.tarefas();
+    const todas = this.tarefasAtivas();
     return {
       total: todas.length,
       aguardando: todas.filter((t) => t.status === 'aguardando').length,
       andamento: todas.filter((t) => t.status === 'andamento').length,
-      concluido: todas.filter((t) => t.status === 'concluido').length,
+      aguardandoCorte: todas.filter((t) => t.status === 'aguardando_corte').length,
       atencao: todas.filter((t) => t.alerta !== null).length,
     };
   });
@@ -109,7 +116,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     extrairLabel: (t: Tarefa) => string,
   ): OpcaoComCodigo[] {
     const vistos = new Map<string, string>();
-    for (const t of this.tarefas()) {
+    for (const t of this.tarefasAtivas()) {
       const codigo = extrairCodigo(t);
       const label = extrairLabel(t);
       if (codigo && label && label !== '—' && !vistos.has(codigo)) vistos.set(codigo, label);
@@ -125,7 +132,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   });
 
   /** true = alguma tarefa carregada tem etapas → tenant segmentado (V29). */
-  readonly temSegmentacao = computed(() => this.tarefas().some((t) => (t.etapas?.length ?? 0) > 0));
+  readonly temSegmentacao = computed(() => this.tarefasAtivas().some((t) => (t.etapas?.length ?? 0) > 0));
 
   readonly tarefasFiltradas = computed(() => {
     const filtro = this.filtroAtivo();
@@ -133,7 +140,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const avancados = this.filtrosAvancados();
     const tipos = this.filtroTipoSeparacao();
 
-    return this.tarefas().filter((t) => {
+    return this.tarefasAtivas().filter((t) => {
       const passaFiltro =
         filtro === 'todos' ||
         (filtro === 'atencao' ? t.alerta !== null : t.status === filtro);
