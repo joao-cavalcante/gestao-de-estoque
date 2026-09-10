@@ -103,13 +103,13 @@
           <div class="oq-peso-modal__esperado">
             <span class="oq-label-caps">Esperado</span>
             <span class="oq-peso-modal__esperado-val">
-              {{ itemPendenteAtual.expected | number: '1.3-3' }} {{ itemPendenteAtual.unidadePadrao || '' }}
-              @if (temUnidadeComercialDistinta && itemPendenteAtual.quantidadeComercial != null) {
-                <span class="oq-peso-modal__esperado-comercial">
-                  ({{ itemPendenteAtual.quantidadeComercial | number: '1.3-3' }} {{ itemPendenteAtual.unidadeComercial }})
-                </span>
-              }
+              {{ esperadoPrincipalQtd | number: '1.3-3' }} {{ esperadoPrincipalUn }}
             </span>
+            @if (temUnidadeComercialDistinta) {
+              <span class="oq-peso-modal__esperado-comercial">
+                Padrão: {{ itemPendenteAtual.expected | number: '1.3-3' }} {{ itemPendenteAtual.unidadePadrao }}
+              </span>
+            }
           </div>
         }
 
@@ -192,21 +192,83 @@
             </div>
           </div>
         } @else {
-          <div class="oq-peso-modal__display">
-            <span class="oq-peso-modal__valor">{{ pesoAoVivo != null ? (pesoAoVivo | number: '1.3-3') : '—' }}</span>
-            <span class="oq-label-caps">KG (AO VIVO)</span>
+          <div class="oq-peso-modal__balanca">
+            <div class="oq-peso-modal__status-row">
+              <span
+                class="oq-peso-modal__status"
+                [class.oq-peso-modal__status--ok]="statusBalanca === 'conectado'"
+                [class.oq-peso-modal__status--busy]="statusBalanca === 'conectando'"
+                [class.oq-peso-modal__status--err]="statusBalanca === 'desconectado'"
+              >
+                <span class="oq-peso-modal__status-dot"></span>
+                {{
+                  statusBalanca === 'conectado'
+                    ? 'Conectada'
+                    : statusBalanca === 'conectando'
+                      ? 'Conectando…'
+                      : 'Desconectada'
+                }}
+              </span>
+              <button
+                type="button"
+                class="oq-peso-modal__icon-btn"
+                (click)="reconectarBalanca()"
+                title="Atualizar / reconectar"
+              >
+                <oq-icon name="sync" [size]="14" />
+              </button>
+            </div>
+
+            <div class="oq-peso-modal__live" [class.oq-peso-modal__live--ativo]="statusBalanca === 'conectado'">
+              <span class="oq-peso-modal__live-val">{{ pesoAoVivo != null ? (pesoAoVivo | number: '1.3-3') : '—' }}</span>
+              <span class="oq-peso-modal__live-un">kg</span>
+              @if (statusBalanca === 'conectado') {
+                <span class="oq-peso-modal__live-pulse"><span class="oq-peso-modal__pulse-dot"></span>ao vivo</span>
+              }
+            </div>
+
+            <div class="oq-peso-modal__acoes-balanca">
+              <button
+                type="button"
+                class="oq-admin-btn oq-admin-btn--primary"
+                (click)="capturarPesoAoVivo()"
+                [disabled]="pesoAoVivo == null"
+              >
+                Capturar peso
+              </button>
+              <button
+                type="button"
+                class="oq-admin-btn oq-admin-btn--outline"
+                (click)="tararBalanca()"
+                [disabled]="pesoAoVivo == null"
+                title="Zerar display (Tara)"
+              >
+                Tara
+              </button>
+            </div>
+
+            <label class="oq-peso-modal__autocap">
+              <span class="oq-peso-modal__autocap-txt">Captura automática ao estabilizar (2 s)</span>
+              <input type="checkbox" [(ngModel)]="capturaAutoAtiva" name="capturaAuto" />
+              <span class="oq-peso-modal__switch"></span>
+            </label>
+
+            @if (statusBalanca === 'desconectado') {
+              <div class="oq-peso-modal__banner oq-peso-modal__banner--err">
+                <oq-icon name="scale" [size]="14" />
+                <span>Balança desconectada.</span>
+                <button type="button" class="oq-peso-modal__link" (click)="reconectarBalanca()">Reconectar</button>
+                <button type="button" class="oq-peso-modal__link" (click)="alternarModoPeso('manual')">Digitar manual</button>
+              </div>
+            }
+
+            @if (peso) {
+              <div class="oq-peso-modal__banner oq-peso-modal__banner--ok">
+                <oq-icon name="check" [size]="14" />
+                <span>Peso capturado: {{ peso }} kg</span>
+              </div>
+            }
           </div>
-          <div class="oq-peso-modal__acoes-balanca">
-            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="tararBalanca()" [disabled]="pesoAoVivo == null">
-              Tarar
-            </button>
-            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="capturarPesoAoVivo()" [disabled]="pesoAoVivo == null">
-              Usar este peso
-            </button>
-          </div>
-          @if (peso) {
-            <span class="oq-form-hint">Peso capturado: {{ peso }} kg</span>
-          }
         }
       </div>
       <div class="oq-modal__footer">

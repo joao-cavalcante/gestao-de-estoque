@@ -7,7 +7,7 @@ import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { SeparacaoService } from '../../separacao/separacao.service';
 import { ItemConferido, Uma } from '../../separacao/separacao.model';
 import { BalancaService } from '../../balancas/balanca.service';
-import { LocalScaleService } from '../../balancas/local-scale.service';
+import { LocalScaleService, StatusBalanca } from '../../balancas/local-scale.service';
 import { Balanca } from '../../balancas/balanca.model';
 import { SomFeedbackService } from '../../shared/som-feedback.service';
 
@@ -56,10 +56,23 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     return this.itensPendentes.find((it) => it.code === String(this.codprodAtual)) ?? null;
   }
 
-  /** true quando a unidade comercializada difere da unidade padrão — aí vale mostrar a conversão. */
+  /** true quando a unidade do pedido (comercial) difere da unidade padrão do produto. */
   get temUnidadeComercialDistinta(): boolean {
     const it = this.itemPendenteAtual;
-    return !!it && !!it.unidadeComercial && it.unidadeComercial !== it.unidadePadrao;
+    return !!it && !!it.unidadeComercial && it.unidadeComercial !== it.unidadePadrao && it.quantidadeComercial != null;
+  }
+
+  /** Quantidade esperada PRINCIPAL exibida no modal — na unidade do pedido (comercial), caindo pra padrão. */
+  get esperadoPrincipalQtd(): number {
+    const it = this.itemPendenteAtual;
+    if (!it) return 0;
+    return this.temUnidadeComercialDistinta ? it.quantidadeComercial! : it.expected;
+  }
+
+  get esperadoPrincipalUn(): string {
+    const it = this.itemPendenteAtual;
+    if (!it) return '';
+    return (this.temUnidadeComercialDistinta ? it.unidadeComercial : it.unidadePadrao) ?? '';
   }
 
   @Output() conferido = new EventEmitter<ItemConferido>();
@@ -278,8 +291,13 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   mostrarModalPeso = false;
   modoEntradaPeso: 'manual' | 'balanca' = 'manual';
   pesoAoVivo: number | null = null;
+  /** Status da conexão com o agente local (badge do painel de balança). */
+  statusBalanca: StatusBalanca = 'desconectado';
+  /** Captura automática quando o peso estabiliza (2 s) — ligada por padrão, igual ao legado. */
+  capturaAutoAtiva = true;
   private assinaturaPesoAoVivo?: Subscription;
   private assinaturaPesoEstavel?: Subscription;
+  private assinaturaStatusBalanca?: Subscription;
 
   abrirModalPeso(): void {
     this.mostrarModalPeso = true;
@@ -313,19 +331,29 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   private iniciarLeituraAoVivo(): void {
     if (!this.balancaAtiva || this.balancaAtiva.tipoComunicacao === 'HTTP' || !this.balancaAtiva.portaCom) return;
     this.erroBalanca = null;
+    this.statusBalanca = this.localScale.obterStatus();
     this.localScale.conectar();
     this.localScale.subscribe(this.balancaAtiva.portaCom);
+    this.assinaturaStatusBalanca?.unsubscribe();
+    this.assinaturaStatusBalanca = this.localScale.status$.subscribe((s) => {
+      this.statusBalanca = s;
+      // Reconexão do WS — reassina a porta pra voltar a receber leituras.
+      if (s === 'conectado' && this.balancaAtiva?.portaCom) this.localScale.subscribe(this.balancaAtiva.portaCom);
+    });
     this.assinaturaErroBalanca?.unsubscribe();
     this.assinaturaErroBalanca = this.localScale.erro$.subscribe((msg) => {
       if (this.mostrarModalPeso && this.modoEntradaPeso === 'balanca') this.erroBalanca = msg;
     });
     this.assinaturaPesoAoVivo?.unsubscribe();
-    this.assinaturaPesoAoVivo = this.localScale.peso$.subscribe((leitura) => (this.pesoAoVivo = leitura.peso));
+    this.assinaturaPesoAoVivo = this.localScale.peso$.subscribe((leitura) => {
+      this.pesoAoVivo = leitura.peso;
+      this.erroBalanca = null;
+    });
     // Auto-captura por estabilidade (LocalScaleService já debounce 2s / 0.005kg,
-    // com tara e auto-untare) — mesma UX do projeto base.
+    // com tara e auto-untare) — mesma UX do projeto base, mas só com o switch ligado.
     this.assinaturaPesoEstavel?.unsubscribe();
     this.assinaturaPesoEstavel = this.localScale.pesoEstavel$.subscribe((leitura) => {
-      if (!this.mostrarModalPeso || this.modoEntradaPeso !== 'balanca') return;
+      if (!this.mostrarModalPeso || this.modoEntradaPeso !== 'balanca' || !this.capturaAutoAtiva) return;
       if (leitura.peso < 0.001) return;
       this.peso = leitura.peso.toFixed(3);
       this.confirmarPeso();
@@ -339,8 +367,16 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.assinaturaPesoEstavel = undefined;
     this.assinaturaErroBalanca?.unsubscribe();
     this.assinaturaErroBalanca = undefined;
+    this.assinaturaStatusBalanca?.unsubscribe();
+    this.assinaturaStatusBalanca = undefined;
     if (this.balancaAtiva?.portaCom) this.localScale.unsubscribe(this.balancaAtiva.portaCom);
     this.pesoAoVivo = null;
+  }
+
+  /** Botão "atualizar status" / "reconectar" do painel de balança. */
+  reconectarBalanca(): void {
+    this.pararLeituraAoVivo();
+    this.iniciarLeituraAoVivo();
   }
 
   /** Usa o peso ao vivo exibido no momento — modo balança contínua (serial/TCP). Captura + confirma (deriva a qtd). */
