@@ -73,6 +73,14 @@
   color: var(--oq-surface);
 }
 
+.oq-toolbar__pills--tipo-sep { margin-left: 4px; }
+
+.oq-toolbar__pill--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .oq-toolbar__pill--alert:not(.oq-toolbar__pill--active) {
   color: var(--oq-critical-foreground);
 

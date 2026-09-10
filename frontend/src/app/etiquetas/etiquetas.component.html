@@ -1,0 +1,37 @@
+@if (carregando()) {
+  <p class="et-msg">Carregando etiquetas…</p>
+} @else if (erro()) {
+  <p class="et-msg et-msg--erro">{{ erro() }}</p>
+} @else if (!dados() || dados()!.totalVolumes === 0) {
+  <p class="et-msg">Nenhum volume registrado para esta conferência — nada a imprimir.</p>
+} @else {
+  <div class="et-toolbar">
+    <button type="button" (click)="imprimir()">Imprimir</button>
+    <span>{{ dados()!.totalVolumes }} etiqueta(s)</span>
+  </div>
+
+  @for (v of volumes; track v) {
+    <div class="etiqueta">
+      <div class="etiqueta__topo">
+        @if (logoSrc()) {
+          <img class="etiqueta__logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
+        }
+        <div class="etiqueta__data">{{ agora }}</div>
+      </div>
+      <div class="etiqueta__linha"><strong>Cliente:</strong> {{ dados()!.cliente || '—' }}</div>
+      <div class="etiqueta__linha"><strong>UF:</strong> {{ dados()!.uf || '—' }}</div>
+
+      <div class="etiqueta__numero">
+        @for (d of digitos; track $index) {
+          <span class="etiqueta__caixa">{{ d }}</span>
+        }
+      </div>
+
+      <div class="etiqueta__volume">
+        <span class="etiqueta__caixa etiqueta__caixa--vol">{{ v }}</span>
+        <span class="etiqueta__barra"></span>
+        <span class="etiqueta__caixa etiqueta__caixa--vol">{{ dados()!.totalVolumes }}</span>
+      </div>
+    </div>
+  }
+}

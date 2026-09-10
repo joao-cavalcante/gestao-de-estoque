@@ -5,6 +5,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import wms.backend.tenancy.TenantRepository
 import wms.backend.usuarios.LoginRequest
 import wms.backend.usuarios.LoginResponse
 import wms.backend.usuarios.UsuarioDto
@@ -29,10 +30,12 @@ fun Route.authRoutes() {
             }
 
             val token = JwtService.gerar(usuario.userId, usuario.tenantId, usuario.perfil)
+            val tenantSlug = TenantRepository.buscarPorId(usuario.tenantId)?.slug ?: ""
             call.respond(
                 LoginResponse(
                     token = token,
                     usuario = UsuarioDto(usuario.userId.toString(), usuario.nome, usuario.email, usuario.perfil, usuario.ativo),
+                    tenantSlug = tenantSlug,
                 ),
             )
         }

@@ -174,3 +174,64 @@
 .oq-cf-kpi__value--critical {
   color: var(--oq-critical-foreground);
 }
+
+/* Telas menores: header vira 2 linhas em vez de espremer/cortar o texto —
+   info (nota/parceiro/vendedor) numa linha, KPIs embaixo dela. */
+@media (max-width: 900px) {
+  .oq-cf-header {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .oq-cf-header__info {
+    order: 3;
+    flex-basis: 100%;
+    overflow: visible;
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .oq-cf-header__kpis {
+    margin-left: auto;
+  }
+}
+
+/* Vendedor é o dado menos crítico da barra — primeiro a sair quando o
+   espaço aperta ainda mais (o operador já vê nota + parceiro). */
+@media (max-width: 640px) {
+  .oq-cf-header__sep--vendedor,
+  .oq-cf-info-item--vendedor {
+    display: none;
+  }
+}
+
+/* Celular: só o essencial na barra — menu + logo + KPIs numa linha,
+   nota/parceiro logo abaixo. Pill "Conferência #" e o título somem
+   (a tela inteira já é a conferência). */
+@media (max-width: 639px) {
+  .oq-cf-header {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .oq-cf-header__title,
+  .oq-cf-header__divider,
+  .oq-cf-header__conf-pill,
+  .oq-cf-header__sep {
+    display: none;
+  }
+
+  .oq-cf-header__kpis {
+    gap: 3px;
+  }
+
+  .oq-cf-kpi {
+    padding: 2px 6px;
+    gap: 4px;
+  }
+
+  .oq-cf-kpi__value {
+    font-size: 12px;
+  }
+}

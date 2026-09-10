@@ -16,6 +16,11 @@ dist/
 .env.*
 *.local
 
+# Seeds de deploy — contêm credenciais Sankhya cifradas + dados de tenant/usuário.
+# Transferidos pro servidor via scp, nunca commitados (repo é público).
+# Os *.sql.example (referência, sem segredo) ficam versionados.
+deploy/seed/*.sql
+
 # IDE
 .idea/
 *.iml
@@ -27,3 +32,4 @@ Thumbs.db
 
 # Logs
 *.log
+.token_debug

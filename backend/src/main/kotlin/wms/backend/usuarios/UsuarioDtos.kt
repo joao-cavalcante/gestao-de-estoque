@@ -36,4 +36,4 @@ data class AlterarSenhaRequest(
 data class LoginRequest(val email: String, val senha: String)
 
 @Serializable
-data class LoginResponse(val token: String, val usuario: UsuarioDto)
+data class LoginResponse(val token: String, val usuario: UsuarioDto, val tenantSlug: String)

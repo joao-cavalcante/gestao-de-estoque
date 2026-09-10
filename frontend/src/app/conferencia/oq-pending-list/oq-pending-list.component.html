@@ -2,35 +2,47 @@
   @if (items.length === 0) {
     <div class="oq-empty-row">Nenhum item pendente</div>
   } @else {
-    <div class="oq-table-header">
-      <div class="oq-table-header__spacer-seq"></div>
-      <div class="oq-table-header__spacer-icon"></div>
-      <div class="oq-table-header__item oq-label-caps">ITEM / LOCALIZAÇÃO</div>
-      <div class="oq-table-header__col oq-label-caps">PEND.</div>
-    </div>
-
-    <ul class="oq-row-list">
-      @for (item of items; track item.code) {
-        <li class="oq-pending-row" [class.oq-pending-row--amber]="!!item.preAlert">
-          <oq-seq-badge [n]="item.seq" />
-          <div class="oq-pending-row__icon">
-            @if (item.preAlert) {
-              <oq-icon name="triangle" [size]="14" class="oq-icon-warning" />
+    <ul class="item-lista">
+      @for (item of items; track item.code; let idx = $index) {
+        <li
+          class="item-row item-row--clicavel"
+          [class.item-row--parcial]="!!item.preAlert"
+          [class.item-row--pesavel]="item.usaConfPeso"
+          (click)="selecionar.emit(item)"
+          title="Clique para identificar este item sem bipar o código de barras"
+        >
+          <span class="item-seq">{{ idx + 1 }}</span>
+          @if (item.usaConfPeso) {
+            <span class="item-peso-tag" title="Item pesável — capture o peso na balança">
+              <oq-icon name="scale" [size]="15" />
+              <span class="item-peso-tag__txt">PESO</span>
+            </span>
+          }
+          <div class="item-dados">
+            <div class="item-linha">
+              <span class="item-descricao">
+                <span class="item-descricao__code">{{ item.code }}</span>
+                <span class="item-descricao__name"> — {{ item.name }}</span>
+              </span>
+              @if (exibirQtd) {
+                <span class="item-qtd-principal" [class.item-qtd-principal--balanca]="item.usaConfPeso">
+                  {{ formatarQtd(item.expected) }}
+                  @if (item.unidadePadrao) { <span class="item-qtd-principal__un">{{ item.unidadePadrao }}</span> }
+                </span>
+              }
+            </div>
+            @if (item.unidadeComercial && item.unidadeComercial !== item.unidadePadrao) {
+              <div class="item-linha">
+                <span class="item-info-sec">
+                  Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
+                </span>
+              </div>
             }
-          </div>
-          <div class="oq-pending-row__main">
-            <span class="oq-pending-row__code">{{ item.code }}</span>
-            <span class="oq-pending-row__name">{{ item.name }}</span>
-            <span class="oq-pending-row__control">{{ item.control }}</span>
-            @if (item.preAlert) {
-              <oq-status-chip tone="warning">
-                <oq-icon icon name="triangle" [size]="10" />
-                {{ item.preAlert }}
-              </oq-status-chip>
+            @if (item.control && item.control !== '—') {
+              <div class="item-linha">
+                <span class="item-info-sec">Controle: {{ item.control }}</span>
+              </div>
             }
-          </div>
-          <div class="oq-pending-row__qty">
-            <oq-qty [value]="restante(item)" />
           </div>
         </li>
       }

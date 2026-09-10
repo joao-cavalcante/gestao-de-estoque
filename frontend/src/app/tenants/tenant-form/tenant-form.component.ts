@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TenantService } from '../tenant.service';
+import { MODULOS_DISPONIVEIS } from '../tenant.model';
 
 @Component({
   selector: 'app-tenant-form',
@@ -26,6 +27,21 @@ export class TenantFormComponent {
   erro = signal<string | null>(null);
   /** Só informativo — a API nunca devolve o segredo em si, só se há algo salvo. */
   credenciaisJaConfiguradas = signal(false);
+
+  /** Módulos (feature flags) por-tenant — ligados só aqui, pela plataforma. */
+  readonly MODULOS = MODULOS_DISPONIVEIS;
+  readonly modulosSelecionados = signal<ReadonlySet<string>>(new Set());
+
+  moduloAtivo(id: string): boolean {
+    return this.modulosSelecionados().has(id);
+  }
+
+  alternarModulo(id: string, ativo: boolean): void {
+    const proximo = new Set(this.modulosSelecionados());
+    if (ativo) proximo.add(id);
+    else proximo.delete(id);
+    this.modulosSelecionados.set(proximo);
+  }
 
   readonly form = this.fb.nonNullable.group({
     slug: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]],
@@ -77,6 +93,7 @@ export class TenantFormComponent {
         const conn = tenant.erpConnections[0];
         const configurada = conn?.credenciaisConfiguradas ?? false;
         this.credenciaisJaConfiguradas.set(configurada);
+        this.modulosSelecionados.set(new Set(conn?.modulos ?? []));
         // Mostra a máscara clássica (nunca o segredo real — a API não o
         // devolve) quando já existe algo salvo, em vez de deixar em branco.
         const mascara = configurada ? this.MASCARA_CREDENCIAL : '';
@@ -149,6 +166,7 @@ export class TenantFormComponent {
                 dialect: v.dialect || null,
                 ativo: true,
                 credenciais,
+                modulos: [...this.modulosSelecionados()],
               })
               .subscribe({
                 next: () => this.router.navigateByUrl('/tenants'),
@@ -181,6 +199,7 @@ export class TenantFormComponent {
                 dialect: v.dialect || null,
                 ativo: true,
                 credenciais: credenciais ?? '{}',
+                modulos: [...this.modulosSelecionados()],
               },
             ]
           : [],

@@ -51,6 +51,12 @@
       <span class="oq-card__field-label">Transporte</span>
       <span class="oq-card__field-value">{{ tarefa.transporte }}</span>
     </div>
+    @if (tarefa.ordemCarga) {
+      <div class="oq-card__field">
+        <span class="oq-card__field-label">Ordem de Carga</span>
+        <span class="oq-card__field-value">{{ tarefa.ordemCarga }}</span>
+      </div>
+    }
     <div class="oq-card__field">
       <span class="oq-card__field-label">Resp.</span>
       <span class="oq-card__field-value">{{ tarefa.responsavel }}</span>
@@ -65,12 +71,47 @@
     </div>
   </div>
 
-  <footer class="oq-card__footer">
-    <button type="button" class="oq-card__btn oq-card__btn--outline" (click)="verDetalhes.emit(tarefa)">
-      Detalhes
-    </button>
-    <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="conferir.emit(tarefa)">
-      Conferir
-    </button>
-  </footer>
+  <!-- Área de ação — sempre encostada na base do card (margin-top:auto) pra
+       alinhar entre cards da mesma linha, independente do conteúdo acima. -->
+  <div class="oq-card__actions">
+    @if (etapasVisiveis.length > 0) {
+      <!-- Conferência por etapa (V29) — chips clicáveis, um por tipo de separação com item. -->
+      <span class="oq-card__etapas-titulo">Conferir por etapa</span>
+      <div class="oq-card__etapas" role="group" aria-label="Etapas da conferência">
+        @for (etapa of etapasVisiveis; track etapa.tipo) {
+          <button
+            type="button"
+            class="oq-card__etapa-chip"
+            [class.oq-card__etapa-chip--ok]="etapa.concluida"
+            [class.oq-card__etapa-chip--andamento]="etapa.emAndamento"
+            [disabled]="etapa.concluida"
+            [title]="etapa.botao + ' — ' + etapa.label"
+            (click)="conferirEtapa(etapa.tipo)"
+          >
+            <oq-icon [name]="etapa.concluida ? 'check' : etapa.icone" [size]="13" />
+            <span class="oq-card__etapa-chip-label">{{ etapa.label }}</span>
+            @if (etapa.progresso && !etapa.concluida) {
+              <span class="oq-card__etapa-chip-prog">{{ etapa.progresso }}</span>
+            }
+          </button>
+        }
+      </div>
+    }
+
+    <footer class="oq-card__footer">
+      <button type="button" class="oq-card__btn oq-card__btn--outline" (click)="verDetalhes.emit(tarefa)">
+        Detalhes
+      </button>
+      @if (etapasVisiveis.length === 0) {
+        <button
+          type="button"
+          class="oq-card__btn oq-card__btn--primary"
+          [class.oq-card__btn--continuar]="tarefa.status === 'andamento'"
+          (click)="conferir.emit(tarefa)"
+        >
+          {{ tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+        </button>
+      }
+    </footer>
+  </div>
 </article>

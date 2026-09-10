@@ -2,46 +2,63 @@
   @if (items.length === 0) {
     <div class="oq-empty-row">Nenhum item conferido</div>
   } @else {
-    <div class="oq-table-header">
-      <div class="oq-table-header__spacer-seq"></div>
-      <div class="oq-table-header__spacer-icon"></div>
-      <div class="oq-table-header__item oq-label-caps">ITEM / LOCALIZAÇÃO</div>
-      <div class="oq-table-header__col oq-label-caps">ESPER.</div>
-      <div class="oq-table-header__col oq-label-caps">BIPADO</div>
-      <div class="oq-table-header__spacer-icon"></div>
-    </div>
-
-    <ul class="oq-row-list">
+    <ul class="item-lista">
       @for (item of items; track item.code + item.seq) {
-        <li class="oq-conferred-row" [class.oq-conferred-row--critical]="isCritico(item)">
-          <oq-seq-badge [n]="item.seq" [muted]="!isCritico(item)" />
-          <div class="oq-conferred-row__icon">
+        <li
+          class="item-row"
+          [class.item-row--excedente]="isCritico(item)"
+          [class.item-row--pesavel]="item.usaConfPeso && !isCritico(item)"
+        >
+          <span class="item-glyph" [class.item-glyph--alerta]="isCritico(item)">
+            <oq-icon [name]="isCritico(item) ? 'circle-alert' : 'check'" [size]="14" />
+          </span>
+
+          @if (item.usaConfPeso) {
+            <span class="item-peso-tag" title="Item pesável — quantidade veio do peso">
+              <oq-icon name="scale" [size]="15" />
+              <span class="item-peso-tag__txt">PESO</span>
+            </span>
+          }
+
+          <div class="item-dados">
+            <div class="item-linha">
+              <span class="item-descricao">
+                <span class="item-descricao__code">{{ item.code }}</span>
+                <span class="item-descricao__name"> — {{ item.name }}</span>
+              </span>
+              @if (exibirQtd) {
+                <span class="item-qtd-principal" [class.item-qtd-principal--excedente]="isCritico(item)">
+                  {{ formatarQtd(item.scanned) }}
+                  @if (item.unidadePadrao) { <span class="item-qtd-principal__un">{{ item.unidadePadrao }}</span> }
+                </span>
+              }
+            </div>
             @if (isCritico(item)) {
-              <oq-icon name="circle-alert" [size]="16" class="oq-icon-critical" />
-            } @else {
-              <oq-icon name="check" [size]="14" class="oq-icon-success" />
+              <div class="item-linha">
+                <span class="item-divergencia">
+                  Divergente {{ excedente(item) > 0 ? '+' : '' }}{{ formatarQtd(excedente(item)) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
+                </span>
+              </div>
+            }
+            @if (item.unidadeComercial && item.unidadeComercial !== item.unidadePadrao) {
+              <div class="item-linha">
+                <span class="item-info-sec">Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}</span>
+              </div>
+            }
+            @if (item.control && item.control !== '—') {
+              <div class="item-linha">
+                <span class="item-info-sec">Controle: {{ item.control }}</span>
+              </div>
             }
           </div>
-          <div class="oq-conferred-row__main">
-            <span class="oq-conferred-row__code" [class.oq-conferred-row__text--critical]="isCritico(item)">{{ item.code }}</span>
-            <span class="oq-conferred-row__name" [class.oq-conferred-row__text--critical]="isCritico(item)">{{ item.name }}</span>
-            <span class="oq-conferred-row__control" [class.oq-conferred-row__text--critical]="isCritico(item)">{{ item.control }}</span>
-            <!-- Chip de divergência removido por enquanto (pedido do usuário — visual "peba"). -->
 
-          </div>
-          <div class="oq-conferred-row__qty">
-            <oq-qty [value]="item.expected" tone="muted" />
-          </div>
-          <div class="oq-conferred-row__qty">
-            <oq-qty [value]="item.scanned" [tone]="isCritico(item) ? 'critical' : 'default'" />
-          </div>
           <button
             type="button"
-            class="oq-conferred-row__devolver"
-            title="Devolver — desfaz a conferência deste item"
+            class="btn-desfazer"
+            title="Desfazer — desfaz a conferência deste item"
             (click)="devolver.emit(item)"
           >
-            <oq-icon name="x" [size]="13" />
+            <oq-icon name="x" [size]="12" />
           </button>
         </li>
       }

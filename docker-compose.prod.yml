@@ -1,0 +1,82 @@
+# WMS — deploy de produção (mesmo servidor da fila-de-conferencia legado).
+# Uso: cp deploy/env.prod.example .env  → preencher  → docker compose -f docker-compose.prod.yml up -d --build
+#
+# Portas publicadas (livres no servidor, confirmadas): 3003 (API), 9005 (web).
+# Banco próprio (postgres:15), igual ao padrão da fila-conf-*-negri.
+services:
+  wms-db:
+    image: postgres:15
+    container_name: wms-db-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: wms
+    command: postgres -c max_connections=200
+    volumes:
+      - wms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wms"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # One-shot: aplica db/migrations/ + deploy/seed/ e sai. O backend só sobe
+  # depois deste terminar com sucesso.
+  wms-migrate:
+    image: postgres:15
+    container_name: wms-migrate-prod
+    restart: "no"
+    depends_on:
+      wms-db:
+        condition: service_healthy
+    environment:
+      PGHOST: wms-db
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: wms
+      WMS_DB_PASSWORD: ${WMS_DB_PASSWORD}
+    volumes:
+      - ./db/migrations:/migrations:ro
+      - ./deploy/seed:/seed:ro
+      - ./deploy/migrate.sh:/migrate.sh:ro
+    entrypoint: ["bash", "/migrate.sh"]
+
+  wms-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    container_name: wms-backend-prod
+    restart: unless-stopped
+    depends_on:
+      wms-db:
+        condition: service_healthy
+      wms-migrate:
+        condition: service_completed_successfully
+    environment:
+      WMS_PORT: 8080
+      WMS_DB_URL: jdbc:postgresql://wms-db:5432/wms
+      WMS_DB_USER: wms_app
+      WMS_DB_PASSWORD: ${WMS_DB_PASSWORD}
+      WMS_DB_POOL_SIZE: ${WMS_DB_POOL_SIZE:-20}
+      WMS_CREDENTIALS_KEY: ${WMS_CREDENTIALS_KEY}
+      WMS_JWT_SECRET: ${WMS_JWT_SECRET}
+      LIBERADOR_USUARIO: ${LIBERADOR_USUARIO:-}
+      LIBERADOR_SENHA: ${LIBERADOR_SENHA:-}
+    ports:
+      - "3003:8080"
+
+  wms-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: wms-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      - wms-backend
+    ports:
+      - "9005:80"
+
+volumes:
+  wms_pgdata:

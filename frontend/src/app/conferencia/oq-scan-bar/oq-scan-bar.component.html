@@ -12,6 +12,12 @@
         name="codigo"
         placeholder="Aguardando leitura…"
         class="oq-scan-bar__input oq-scan-bar__input--barcode"
+        inputmode="text"
+        enterkeyhint="go"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
         (keydown.enter)="$event.preventDefault(); onIdentificadorTab()"
         (keydown.tab)="$event.preventDefault(); onIdentificadorTab()"
       />
@@ -50,22 +56,128 @@
       }
     </div>
 
-    <div class="oq-scan-bar__field oq-scan-bar__field--qtd">
-      <label class="oq-label-caps">QTD.</label>
-      <input
-        #inputQtd
-        [ngModel]="qtd"
-        (ngModelChange)="onQtdInput($event)"
-        name="qtd"
-        inputmode="numeric"
-        class="oq-scan-bar__input oq-scan-bar__input--right"
-        (keydown.enter)="$event.preventDefault(); onQtdTab()"
-        (keydown.tab)="$event.preventDefault(); onQtdTab()"
-      />
-    </div>
+    @if (precisaPeso) {
+      <!-- Item pesável: a quantidade vem do peso (peso ÷ UMA). O operador não digita
+           qtd — captura o peso no modal e o item é conferido automático. -->
+      <div class="oq-scan-bar__field oq-scan-bar__field--peso">
+        <label class="oq-label-caps">PESO</label>
+        <button type="button" class="oq-scan-bar__peso-chip" (click)="abrirModalPeso()" title="Capturar / editar peso">
+          <oq-icon name="scale" [size]="12" />
+          {{ peso ? peso + ' kg' : 'Capturar peso' }}
+        </button>
+      </div>
+    } @else {
+      <div class="oq-scan-bar__field oq-scan-bar__field--qtd">
+        <label class="oq-label-caps">QTD.</label>
+        <input
+          #inputQtd
+          [ngModel]="qtd"
+          (ngModelChange)="onQtdInput($event)"
+          name="qtd"
+          inputmode="numeric"
+          enterkeyhint="done"
+          class="oq-scan-bar__input oq-scan-bar__input--right"
+          (keydown.enter)="$event.preventDefault(); onQtdTab()"
+          (keydown.tab)="$event.preventDefault(); onQtdTab()"
+        />
+      </div>
+    }
 
     <button type="button" class="oq-scan-bar__btn" [disabled]="!produtoIdentificado || carregando" (click)="onQtdTab()">
       Conferir
     </button>
   </form>
 </section>
+
+@if (mostrarModalPeso) {
+  <div class="oq-modal-backdrop" (click)="fecharModalPeso()">
+    <div class="oq-modal oq-peso-modal" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">Peso do produto</span>
+        <button type="button" class="oq-modal__fechar" (click)="fecharModalPeso()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+      <div class="oq-modal__body oq-peso-modal__body">
+        @if (umasDoProduto.length > 0) {
+          <div class="oq-scan-bar__field">
+            <label class="oq-label-caps">UMA</label>
+            <select
+              [(ngModel)]="codUmaSelecionada"
+              name="uma"
+              class="oq-scan-bar__input oq-scan-bar__select"
+              (ngModelChange)="onUmaChange()"
+            >
+              <option [ngValue]="null">Sem UMA — qtd = peso direto</option>
+              @for (u of umasDoProduto; track u.coduma) {
+                <option [ngValue]="u.coduma">{{ u.coduma }} — {{ u.descricao }} ({{ u.peso }} kg/un)</option>
+              }
+            </select>
+          </div>
+        }
+
+        <div class="oq-peso-modal__tabs">
+          <button
+            type="button"
+            class="oq-peso-modal__tab"
+            [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'manual'"
+            (click)="alternarModoPeso('manual')"
+          >
+            Manual
+          </button>
+          <button
+            type="button"
+            class="oq-peso-modal__tab"
+            [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'balanca'"
+            [disabled]="!balancaAtiva"
+            (click)="alternarModoPeso('balanca')"
+          >
+            Balança
+          </button>
+        </div>
+
+        @if (modoEntradaPeso === 'manual') {
+          <div class="oq-scan-bar__field">
+            <label class="oq-label-caps">PESO (KG)</label>
+            <div class="oq-scan-bar__peso-row">
+              <input
+                #inputPeso
+                [(ngModel)]="peso"
+                name="pesoModal"
+                inputmode="decimal"
+                placeholder="0,000"
+                class="oq-scan-bar__input oq-scan-bar__input--right"
+                (keydown.enter)="$event.preventDefault(); confirmarPeso()"
+              />
+              @if (balancaAtiva?.tipoComunicacao === 'HTTP') {
+                <button type="button" class="oq-scan-bar__peso-btn" [disabled]="capturandoPeso" (click)="obterPeso()" title="Obter da balança">
+                  <oq-icon name="scale" [size]="14" />
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="oq-peso-modal__display">
+            <span class="oq-peso-modal__valor">{{ pesoAoVivo != null ? (pesoAoVivo | number: '1.3-3') : '—' }}</span>
+            <span class="oq-label-caps">KG (AO VIVO)</span>
+          </div>
+          <div class="oq-peso-modal__acoes-balanca">
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="tararBalanca()" [disabled]="pesoAoVivo == null">
+              Tarar
+            </button>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="capturarPesoAoVivo()" [disabled]="pesoAoVivo == null">
+              Usar este peso
+            </button>
+          </div>
+          @if (peso) {
+            <span class="oq-form-hint">Peso capturado: {{ peso }} kg</span>
+          }
+        }
+      </div>
+      <div class="oq-modal__footer">
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModalPeso()">Cancelar</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!peso.trim()" (click)="confirmarPeso()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+}

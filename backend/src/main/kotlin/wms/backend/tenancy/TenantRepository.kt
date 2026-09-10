@@ -46,6 +46,19 @@ object TenantRepository {
         buscarPorSlugInterno(slug)
     }
 
+    /**
+     * Módulos (feature flags) habilitados pro tenant — união do `modulos text[]`
+     * de todas as conexões de ERP dele. Plano de controle, sem RLS/TenantTx
+     * (igual ao resto deste repositório). Usado pra isolar comportamento que só
+     * um cliente usa (ex.: conferência segmentada — ver Modulos.kt).
+     */
+    fun modulosHabilitados(tenantId: UUID): Set<String> = transaction {
+        ErpConnectionsTable.selectAll()
+            .where { ErpConnectionsTable.tenantId eq tenantId }
+            .flatMap { it[ErpConnectionsTable.modulos] }
+            .toSet()
+    }
+
     /** Usado pelo TenantDatabaseRouter — resolver tier/dedicated_db_url a partir só do UUID. */
     fun buscarPorId(id: UUID): TenantDto? = transaction {
         val tenantRow = TenantsTable.selectAll().where { TenantsTable.id eq id }.singleOrNull()
@@ -142,6 +155,7 @@ object TenantRepository {
                 it[baseUrl] = conn.baseUrl
                 it[gatewayPath] = conn.gatewayPath
                 it[dialect] = conn.dialect
+                it[modulos] = conn.modulos
                 it[ativo] = conn.ativo
                 it[atualizadoEm] = agora
             }
@@ -156,6 +170,7 @@ object TenantRepository {
             it[baseUrl] = conn.baseUrl
             it[gatewayPath] = conn.gatewayPath
             it[dialect] = conn.dialect
+            it[modulos] = conn.modulos
             it[credenciais] = cifrado
             it[ativo] = conn.ativo
             it[criadoEm] = agora
@@ -213,6 +228,7 @@ object TenantRepository {
             dialect = this[ErpConnectionsTable.dialect],
             ativo = this[ErpConnectionsTable.ativo],
             credenciaisConfiguradas = configurada,
+            modulos = this[ErpConnectionsTable.modulos],
         )
     }
 }

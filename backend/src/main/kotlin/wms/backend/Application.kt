@@ -18,6 +18,7 @@ import wms.backend.configconferencia.ConfigConferenciaSyncWorker
 import wms.backend.configconferencia.configConferenciaRoutes
 import wms.backend.downloads.downloadsRoutes
 import wms.backend.inventario.inventarioRoutes
+import wms.backend.liberacaocorte.liberacaoCorteRoutes
 import wms.backend.produtos.ProdutoCatalogoSyncWorker
 import wms.backend.separacao.separacaoRoutes
 import wms.backend.tarefas.SyncWorkerPool
@@ -87,5 +88,6 @@ fun Application.module() {
         inventarioRoutes()
         configConferenciaRoutes()
         tipoOperacaoRoutes()
+        liberacaoCorteRoutes()
     }
 }

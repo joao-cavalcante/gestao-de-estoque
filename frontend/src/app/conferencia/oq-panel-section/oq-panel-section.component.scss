@@ -61,3 +61,10 @@
   min-height: 0;
   overflow: auto;
 }
+
+/* No celular a aba já rotula e conta a lista — o header do painel é redundante. */
+@media (max-width: 639px) {
+  .oq-panel-section__header {
+    display: none;
+  }
+}

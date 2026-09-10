@@ -23,6 +23,18 @@
     <oq-searchable-select placeholder="Todos os tipos" [opcoes]="opcoesTiposOperacao" [valor]="rascunho.codigoTipoOperacao" (valorChange)="rascunho.codigoTipoOperacao = $event" />
   </div>
 
+  <div class="oq-filtros-avancados__campo">
+    <span class="oq-filtros-avancados__label">Ordem de Carga</span>
+    <input
+      type="text"
+      inputmode="numeric"
+      class="oq-filtros-avancados__input"
+      placeholder="Todas as cargas"
+      [(ngModel)]="rascunho.ordemCarga"
+      (keydown.enter)="aplicarFiltros()"
+    />
+  </div>
+
   <div class="oq-filtros-avancados__acoes">
     <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="limpar()">Limpar</button>
     <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="aplicarFiltros()">Aplicar</button>

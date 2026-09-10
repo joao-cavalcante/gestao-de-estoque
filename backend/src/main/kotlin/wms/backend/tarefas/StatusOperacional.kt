@@ -3,6 +3,10 @@ package wms.backend.tarefas
 enum class StatusOperacional(val codigo: String) {
     AGUARDANDO("aguardando"),
     ANDAMENTO("andamento"),
+    // TGFCON2.STATUS = 'C': o ConferenciaSP.cortar deixou a conferência aguardando
+    // liberação de corte (CCO com LIBCORTE='S'). Um liberador precisa aprovar/negar
+    // os itens cortados (ver wms.backend.liberacaocorte) — a nota NÃO voltou pra fila.
+    AGUARDANDO_CORTE("aguardando_corte"),
     CONCLUIDO("concluido"),
     CANCELADO("cancelado");
 
@@ -21,6 +25,7 @@ private val MAPA_STATUS_SANKHYA: Map<String, StatusOperacional> = mapOf(
     "" to StatusOperacional.AGUARDANDO,
     "AC" to StatusOperacional.AGUARDANDO,
     "A" to StatusOperacional.ANDAMENTO,
+    "C" to StatusOperacional.AGUARDANDO_CORTE,
     "F" to StatusOperacional.CONCLUIDO,
     "D" to StatusOperacional.CANCELADO,
 )
@@ -70,7 +75,7 @@ val TABELA_TRANSICAO: Map<Pair<StatusOperacional, StatusOperacional>, Transicao>
                     Transicao(para, limparExecucao = false, motivo = ::motivoCancelamento)
 
                 para == StatusOperacional.AGUARDANDO &&
-                    de in setOf(StatusOperacional.ANDAMENTO, StatusOperacional.CONCLUIDO) ->
+                    de in setOf(StatusOperacional.ANDAMENTO, StatusOperacional.AGUARDANDO_CORTE, StatusOperacional.CONCLUIDO) ->
                     Transicao(para, limparExecucao = true, motivo = ::motivoReabertura)
 
                 else ->

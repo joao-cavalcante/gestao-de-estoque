@@ -1,0 +1,99 @@
+.et-msg {
+  padding: 24px;
+  font-size: 14px;
+  &--erro { color: #c0392b; }
+}
+
+.et-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+
+  button {
+    border: 1px solid #1f6feb;
+    background: #1f6feb;
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  span { color: #666; font-size: 13px; }
+}
+
+.etiqueta {
+  width: 15cm;
+  height: 10cm;
+  box-sizing: border-box;
+  padding: 0.6cm;
+  margin: 8px auto;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25cm;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #fff;
+
+  &__topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  &__logo {
+    max-height: 1.6cm;
+    max-width: 6cm;
+    object-fit: contain;
+  }
+  &__data { text-align: right; font-size: 10px; color: #333; margin-left: auto; }
+  &__linha { font-size: 15px; }
+
+  &__numero {
+    display: flex;
+    gap: 4px;
+    margin-top: 0.2cm;
+  }
+
+  &__volume {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+  }
+
+  &__caixa {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1cm;
+    height: 1.4cm;
+    border: 2px solid #000;
+    border-radius: 6px;
+    font-size: 26px;
+    font-weight: 700;
+
+    &--vol { min-width: 1.4cm; height: 1.6cm; font-size: 30px; }
+  }
+
+  &__barra {
+    flex: 1;
+    height: 4px;
+    background: #000;
+  }
+}
+
+@media print {
+  @page {
+    size: 15cm 10cm;
+    margin: 0;
+  }
+
+  .et-toolbar { display: none; }
+
+  .etiqueta {
+    margin: 0;
+    border: none;
+    page-break-after: always;
+  }
+}

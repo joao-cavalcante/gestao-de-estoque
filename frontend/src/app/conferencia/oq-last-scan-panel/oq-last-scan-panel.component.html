@@ -1,29 +1,47 @@
-<section class="oq-last-scan oq-panel" [class.oq-last-scan--critical]="isCritico">
-  <div class="oq-last-scan__header">
-    <oq-icon name="barcode" [size]="15" class="oq-last-scan__label-icon" />
-    <span class="oq-last-scan__title">ÚLTIMA LEITURA</span>
-    @if (item) {
-      @if (isCritico) {
-        <oq-icon name="circle-alert" [size]="16" class="oq-icon-critical" />
+@if (compacto) {
+  <div class="oq-last-scan-strip" [class.oq-last-scan-strip--critical]="isCritico">
+    <div class="oq-last-scan-strip__thumb">
+      @if (item?.imagemUrl) {
+        <img [src]="item!.imagemUrl" alt="" />
       } @else {
-        <oq-icon name="check" [size]="14" class="oq-icon-success" />
+        <oq-icon name="barcode" [size]="16" />
       }
-    } @else {
-      <span class="oq-last-scan__dot"></span>
+    </div>
+    <span class="oq-last-scan-strip__name">
+      {{ item ? item.name : 'Aguardando bipe…' }}
+    </span>
+    @if (item && exibirQtd) {
+      <span class="oq-last-scan-strip__qty">{{ item.scanned }}/{{ item.expected }}</span>
     }
   </div>
-
-  <div class="oq-last-scan__body">
-    @if (item) {
-      <div class="oq-last-scan__imagem-stage">
-        @if (item.imagemUrl) {
-          <img class="oq-last-scan__imagem" [src]="item.imagemUrl" alt="" />
+} @else {
+  <section class="oq-last-scan oq-panel" [class.oq-last-scan--critical]="isCritico">
+    <div class="oq-last-scan__header">
+      <oq-icon name="barcode" [size]="15" class="oq-last-scan__label-icon" />
+      <span class="oq-last-scan__title">ÚLTIMA LEITURA</span>
+      @if (item) {
+        @if (isCritico) {
+          <oq-icon name="circle-alert" [size]="16" class="oq-icon-critical" />
         } @else {
-          <oq-icon name="box" [size]="40" class="oq-last-scan__imagem-placeholder" />
+          <oq-icon name="check" [size]="14" class="oq-icon-success" />
         }
-      </div>
-    } @else {
-      <span class="oq-last-scan__aguardando">Aguardando bipe…</span>
-    }
-  </div>
-</section>
+      } @else {
+        <span class="oq-last-scan__dot"></span>
+      }
+    </div>
+
+    <div class="oq-last-scan__body">
+      @if (item) {
+        <div class="oq-last-scan__imagem-stage">
+          @if (item.imagemUrl) {
+            <img class="oq-last-scan__imagem" [src]="item.imagemUrl" alt="" />
+          } @else {
+            <oq-icon name="box" [size]="40" class="oq-last-scan__imagem-placeholder" />
+          }
+        </div>
+      } @else {
+        <span class="oq-last-scan__aguardando">Aguardando bipe…</span>
+      }
+    </div>
+  </section>
+}

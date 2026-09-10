@@ -1,7 +1,15 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSearchableSelectComponent } from '../../shared/oq-searchable-select/oq-searchable-select.component';
 import { FiltrosAvancados, OpcaoComCodigo } from '../tarefa.model';
+
+const VAZIO: FiltrosAvancados = {
+  codigoParceiro: null,
+  codigoVendedor: null,
+  codigoTipoOperacao: null,
+  ordemCarga: null,
+};
 
 /**
  * Painel de filtros avançados — mesmo padrão do projeto base (fila-de-conferencia):
@@ -12,7 +20,7 @@ import { FiltrosAvancados, OpcaoComCodigo } from '../tarefa.model';
 @Component({
   selector: 'oq-filtros-avancados',
   standalone: true,
-  imports: [OqIconComponent, OqSearchableSelectComponent],
+  imports: [FormsModule, OqIconComponent, OqSearchableSelectComponent],
   templateUrl: './oq-filtros-avancados.component.html',
   styleUrl: './oq-filtros-avancados.component.scss',
 })
@@ -21,7 +29,7 @@ export class OqFiltrosAvancadosComponent {
   @Input() opcoesVendedores: OpcaoComCodigo[] = [];
   @Input() opcoesTiposOperacao: OpcaoComCodigo[] = [];
 
-  rascunho: FiltrosAvancados = { codigoParceiro: null, codigoVendedor: null, codigoTipoOperacao: null };
+  rascunho: FiltrosAvancados = { ...VAZIO };
 
   @Input({ required: true }) set valores(v: FiltrosAvancados) {
     this.rascunho = { ...v };
@@ -32,11 +40,14 @@ export class OqFiltrosAvancadosComponent {
 
   /** Limpa E já aplica — senão o filtro anterior continua valendo até alguém clicar "Aplicar" depois. */
   limpar(): void {
-    this.rascunho = { codigoParceiro: null, codigoVendedor: null, codigoTipoOperacao: null };
+    this.rascunho = { ...VAZIO };
     this.aplicar.emit(this.rascunho);
   }
 
   aplicarFiltros(): void {
-    this.aplicar.emit(this.rascunho);
+    this.aplicar.emit({
+      ...this.rascunho,
+      ordemCarga: this.rascunho.ordemCarga?.trim() || null,
+    });
   }
 }

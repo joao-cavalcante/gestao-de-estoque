@@ -32,6 +32,7 @@ const ITENS: ItemMenu[] = [
     subItens: [
       { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
       { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },
+      { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'badge' },
     ],
   },
   {
@@ -51,6 +52,7 @@ const ITENS: ItemMenu[] = [
       { rota: '/downloads', label: 'Downloads', icone: 'download' },
       { rota: '/config-conferencia', label: 'Configuração de Conferência', icone: 'badge' },
       { rota: '/tipos-operacao', label: 'Tipos de Operação', icone: 'badge' },
+      { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'download' },
     ],
   },
 ];

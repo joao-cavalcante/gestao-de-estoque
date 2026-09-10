@@ -43,6 +43,134 @@
   width: 56px;
 }
 
+.oq-scan-bar__field--peso {
+  width: 100px;
+}
+
+.oq-scan-bar__peso-row {
+  display: flex;
+  gap: 4px;
+}
+
+.oq-scan-bar__peso-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--oq-brand-accent);
+  }
+}
+
+.oq-peso-modal {
+  min-width: 320px;
+}
+
+@media (max-width: 639px) {
+  .oq-peso-modal {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.oq-peso-modal__body {
+  gap: 14px;
+}
+
+.oq-peso-modal__tabs {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  padding: 2px;
+}
+
+.oq-peso-modal__tab {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  border-radius: calc(var(--oq-radius-input) - 2px);
+  background: transparent;
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.oq-peso-modal__tab--ativa {
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+}
+
+.oq-peso-modal__display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface-2);
+}
+
+.oq-peso-modal__valor {
+  font-family: var(--oq-font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+}
+
+.oq-peso-modal__acoes-balanca {
+  display: flex;
+  gap: 8px;
+
+  .oq-admin-btn {
+    flex: 1;
+  }
+}
+
+.oq-scan-bar__peso-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--oq-brand-accent);
+    border-color: var(--oq-brand-accent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
 .oq-scan-bar__label {
   display: flex;
   align-items: center;
@@ -93,6 +221,43 @@
   text-align: right;
   font-size: 14px;
   font-weight: 600;
+}
+
+/* Abaixo de 640px o código de barras ocupa a linha inteira (é o campo
+   mais importante pra digitação/leitor) e o resto (controle/qtd/botão)
+   quebra pra uma segunda linha em vez de comprimir até virar ilegível. */
+@media (max-width: 639px) {
+  .oq-scan-bar__form {
+    flex-wrap: wrap;
+  }
+
+  .oq-scan-bar__field--barcode {
+    flex-basis: 100%;
+  }
+
+  .oq-scan-bar__field--controle {
+    flex: 1;
+    width: auto;
+    min-width: 96px;
+  }
+
+  .oq-scan-bar__field--qtd {
+    width: 72px;
+  }
+
+  .oq-scan-bar__field--peso {
+    width: auto;
+    flex: 1;
+    min-width: 90px;
+  }
+
+  /* Botão Conferir ocupa a linha inteira abaixo de controle/qtd — alvo de
+     toque grande, sem competir por espaço horizontal. */
+  .oq-scan-bar__btn {
+    flex: 1 1 100%;
+    margin-top: 4px;
+    height: 40px;
+  }
 }
 
 .oq-scan-bar__btn {

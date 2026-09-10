@@ -15,6 +15,10 @@ import { ConferenciaItem } from '../conferencia.model';
 })
 export class OqLastScanPanelComponent {
   @Input() item: ConferenciaItem | null = null;
+  /** Variante de uma linha (tarja) usada no layout de celular, abaixo do scan-bar. */
+  @Input() compacto = false;
+  /** CCO.EXIBIRQTDCONF — false esconde a quantidade na tarja compacta. */
+  @Input() exibirQtd = true;
   @Output() resolver = new EventEmitter<ConferenciaItem>();
 
   get isCritico(): boolean {

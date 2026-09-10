@@ -1,5 +1,6 @@
 .oq-card {
   position: relative;
+  width: 100%;
   background: var(--oq-surface);
   border: 1px solid var(--oq-border);
   padding: 14px;
@@ -126,10 +127,15 @@
   text-overflow: ellipsis;
 }
 
+/* Bloco de ação — encostado na base pra alinhar os botões entre cards da mesma linha. */
+.oq-card__actions {
+  margin-top: auto;
+  padding-top: 14px;
+}
+
 .oq-card__footer {
   display: flex;
   gap: 8px;
-  margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--oq-border);
 }
@@ -166,4 +172,83 @@
     background: var(--oq-brand-hover);
     border-color: var(--oq-brand-hover);
   }
+
+  &:disabled {
+    background: var(--oq-surface-2);
+    border-color: var(--oq-border);
+    color: var(--oq-text-secondary);
+    cursor: not-allowed;
+  }
+}
+
+/* Tarefa já em andamento — "Continuar" em vez de "Conferir". */
+.oq-card__btn--continuar {
+  background: var(--oq-attention, var(--oq-brand));
+  border-color: var(--oq-attention, var(--oq-brand));
+
+  &:hover { background: var(--oq-warning-foreground, var(--oq-brand-hover)); border-color: var(--oq-warning-foreground, var(--oq-brand-hover)); }
+}
+
+/* Conferência por etapa (V29) — chips clicáveis, linha de altura fixa. */
+.oq-card__etapas-titulo {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-card__etapas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.oq-card__etapa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--oq-border-strong, var(--oq-border));
+  border-radius: 999px;
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--oq-brand);
+    color: var(--oq-brand-text, var(--oq-text-primary));
+  }
+
+  &--andamento {
+    border-color: var(--oq-attention);
+    color: var(--oq-warning-foreground, var(--oq-text-primary));
+    background: var(--oq-warning-soft, var(--oq-surface));
+  }
+
+  &--ok {
+    border-color: transparent;
+    background: var(--oq-success-soft, var(--oq-surface-2));
+    color: var(--oq-success-foreground, var(--oq-text-secondary));
+    cursor: default;
+  }
+}
+
+.oq-card__etapa-chip-label {
+  white-space: nowrap;
+}
+
+.oq-card__etapa-chip-prog {
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
 }

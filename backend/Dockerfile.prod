@@ -1,0 +1,31 @@
+# ── build ────────────────────────────────────────────────────────────────
+# Contexto de build = raiz do repo (precisa de settings.gradle.kts, core/, gradle/).
+FROM eclipse-temurin:17-jdk AS build
+WORKDIR /src
+
+# Camada de cache das dependências: copia só o que o Gradle precisa pra resolver.
+COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradle ./gradle
+RUN chmod +x gradlew && ./gradlew --version >/dev/null
+
+# Fontes
+COPY core ./core
+COPY backend ./backend
+
+# installDist gera build/install/backend/{bin,lib} (plugin `application`).
+RUN ./gradlew --no-daemon :backend:installDist
+
+# ── runtime ──────────────────────────────────────────────────────────────
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+# Distribuição + assets estáticos servidos pela rota /api/downloads
+# (File("public/downloads") é relativo ao WORKDIR).
+COPY --from=build /src/backend/build/install/backend/ /app/
+COPY backend/public /app/public
+
+ENV WMS_PORT=8080
+EXPOSE 8080
+
+# O script de start do plugin `application` chama-se como o projeto: "backend".
+ENTRYPOINT ["/app/bin/backend"]

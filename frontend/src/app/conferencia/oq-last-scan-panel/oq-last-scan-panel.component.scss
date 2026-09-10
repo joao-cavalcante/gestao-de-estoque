@@ -94,3 +94,64 @@
   letter-spacing: 0.05em;
   color: var(--oq-text-secondary);
 }
+
+/* ─── Variante tarja (celular) ─────────────────────────────────────────── */
+.oq-last-scan-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+}
+
+.oq-last-scan-strip--critical {
+  background: var(--oq-critical-soft);
+  border-bottom-color: var(--oq-critical);
+}
+
+.oq-last-scan-strip__thumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--oq-radius-input);
+  border: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+.oq-last-scan-strip__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oq-last-scan-strip--critical .oq-last-scan-strip__name,
+.oq-last-scan-strip--critical .oq-last-scan-strip__qty {
+  color: var(--oq-critical-foreground);
+}
+
+.oq-last-scan-strip__qty {
+  flex: none;
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+}

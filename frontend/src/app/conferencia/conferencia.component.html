@@ -20,25 +20,111 @@
     [pendingCount]="pendingCount()"
     [conferredCount]="conferredCount()"
     [divergenceCount]="divergenceCount()"
+    (atalhos)="mostrarAtalhos.set(!mostrarAtalhos())"
   />
+
+  @if (modoEtapa()) {
+    <div class="oq-cf-etapa-bar">
+      <oq-icon [name]="etapaAtual() === 3 ? 'congelado' : etapaAtual() === 2 ? 'refrigerado' : 'seco'" [size]="14" />
+      <span>Etapa: <strong>{{ rotuloEtapaAtual() }}</strong></span>
+    </div>
+  }
+
+  @if (precisaEscolherEtapa()) {
+    <div class="oq-cf-etapa-escolha">
+      <span class="oq-cf-etapa-escolha__titulo">Qual etapa você vai conferir?</span>
+      <div class="oq-cf-etapa-escolha__botoes">
+        @for (e of etapasParaEscolher(); track e.tipo) {
+          <button
+            type="button"
+            class="oq-cf-etapa-escolha__btn"
+            [disabled]="e.concluida"
+            (click)="escolherEtapa(e.tipo)"
+          >
+            <oq-icon [name]="e.tipo === 3 ? 'congelado' : e.tipo === 2 ? 'refrigerado' : 'seco'" [size]="18" />
+            {{ e.rotulo }}
+            @if (e.concluida) { <span class="oq-cf-etapa-escolha__ok">✓ concluída</span> }
+          </button>
+        }
+      </div>
+    </div>
+  } @else {
 
   @if (sessaoIdAtual) {
     <oq-scan-bar
       [tenant]="tenantAtual"
       [sessaoId]="sessaoIdAtual"
+      [obterQtdBalanca]="obterQtdBalanca"
+      [etapa]="etapaAtual()"
       (identificado)="onIdentificado($event)"
       (conferido)="onConferido($event)"
       (naoEncontrado)="onNaoEncontrado($event)"
+      (erroConferir)="onErroConferir($event)"
     />
   }
 
-  <main class="oq-cf-page__body">
-    <oq-pending-list [items]="pendingItems()" />
+  <!-- Tarja de última leitura — só no celular (≤639px), abaixo do scan. -->
+  @if (exibirImgProd()) {
+    <oq-last-scan-panel
+      class="oq-cf-laststrip"
+      [item]="lastScan()"
+      [compacto]="true"
+      [exibirQtd]="exibirQtdConf()"
+      (resolver)="onResolver($event)"
+    />
+  }
 
-    <div class="oq-cf-page__right-col">
-      <oq-conferred-list [items]="sortedConferred()" (devolver)="onDevolver($event)" />
-      <oq-last-scan-panel [item]="lastScan()" (resolver)="onResolver($event)" />
+  <!-- Abas — só no celular (≤639px) e só quando os dois painéis estão visíveis. -->
+  @if (temAbas()) {
+    <div class="oq-cf-tabs">
+      <button
+        type="button"
+        class="oq-cf-tabs__btn"
+        [class.oq-cf-tabs__btn--ativa]="abaAtiva() === 'pendentes'"
+        (click)="trocarAba('pendentes')"
+      >
+        Pendentes <span class="oq-cf-tabs__badge">{{ pendingCount() }}</span>
+      </button>
+      <button
+        type="button"
+        class="oq-cf-tabs__btn"
+        [class.oq-cf-tabs__btn--ativa]="abaAtiva() === 'conferidos'"
+        (click)="trocarAba('conferidos')"
+      >
+        Conferidos <span class="oq-cf-tabs__badge">{{ conferredCount() }}</span>
+      </button>
     </div>
+  }
+
+  <main class="oq-cf-page__body" [class.oq-cf-page__body--uma-coluna]="umaColunaSo()">
+    @if (exibirProd()) {
+      <div class="oq-cf-pane oq-cf-pane--pendentes" [class.oq-cf-pane--ativa]="abaAtiva() === 'pendentes'">
+        <oq-pending-list
+          [items]="pendingItems()"
+          [exibirQtd]="exibirQtd()"
+          (selecionar)="onSelecionarPendente($event)"
+        />
+      </div>
+    }
+
+    @if (temColunaDireita()) {
+      <div
+        class="oq-cf-page__right-col oq-cf-pane oq-cf-pane--conferidos"
+        [class.oq-cf-page__right-col--um-painel]="!exibirProdConf() || !exibirImgProd()"
+        [class.oq-cf-pane--ativa]="abaAtiva() === 'conferidos'"
+      >
+        @if (exibirProdConf()) {
+          <oq-conferred-list
+            [items]="sortedConferred()"
+            [exibirQtd]="exibirQtdConf()"
+            (devolver)="onDevolver($event)"
+          />
+        }
+        @if (exibirImgProd()) {
+          <oq-last-scan-panel [item]="lastScan()" [exibirQtd]="exibirQtdConf()" (resolver)="onResolver($event)" />
+        }
+      </div>
+    }
   </main>
 
   <oq-conferencia-footer
@@ -46,8 +132,152 @@
     [pendingCount]="pendingCount()"
     [conferredCount]="conferredCount()"
     [canConfirm]="canConfirm()"
+    [confirmarLabel]="modoEtapa() ? 'Concluir Etapa ' + rotuloEtapaAtual() : 'Confirmar Conferência'"
+    [voltarLabel]="conferredCount() > 0 ? 'Salvar e sair' : 'Voltar'"
+    [volume]="volume()"
     (voltar)="onVoltar()"
     (confirmar)="onConfirmar()"
+    (volumeChange)="onVolumeChange($event)"
+    (cancelar)="onCancelarPedido()"
   />
+  }
+  }
+
+  @if (mostrarAtalhos()) {
+    <div class="oq-modal-backdrop" (click)="mostrarAtalhos.set(false)">
+      <div class="oq-modal" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Atalhos de teclado</span>
+          <button type="button" class="oq-modal__fechar" (click)="mostrarAtalhos.set(false)">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body oq-atalhos-lista">
+          <div class="oq-atalhos-item"><span class="oq-atalhos-tecla">F2</span><span>Focar código de barras</span></div>
+          <div class="oq-atalhos-item"><span class="oq-atalhos-tecla">F3</span><span>Focar quantidade</span></div>
+          <div class="oq-atalhos-item"><span class="oq-atalhos-tecla">F9</span><span>Confirmar bipagem atual</span></div>
+          <div class="oq-atalhos-item"><span class="oq-atalhos-tecla">Esc</span><span>Limpar campo e recomeçar</span></div>
+          <div class="oq-atalhos-item"><span class="oq-atalhos-tecla">Tab / Enter</span><span>Avançar pro próximo campo</span></div>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (mostrarModalCancelar()) {
+    <div class="oq-modal-backdrop" (click)="onFecharModalCancelar()">
+      <div class="oq-modal oq-modal--delete" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Cancelar pedido</span>
+          <button type="button" class="oq-modal__fechar" (click)="onFecharModalCancelar()">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body">
+          <oq-icon name="circle-alert" [size]="36" class="oq-modal-warn-icon" />
+          <span class="oq-form-hint">
+            Isso desiste da conferência inteira — tudo que já foi bipado neste pedido será perdido. Tem certeza?
+          </span>
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="onFecharModalCancelar()">Voltar</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="onConfirmarCancelamento()">Cancelar Pedido</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (mostrarModalDivergencia()) {
+    <div class="oq-modal-backdrop" (click)="onCancelarDivergencia()">
+      <div class="oq-modal oq-modal--delete" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Conferência divergente</span>
+          <button type="button" class="oq-modal__fechar" (click)="onCancelarDivergencia()">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body">
+          <oq-icon name="circle-alert" [size]="36" class="oq-modal-warn-icon" />
+          <span class="oq-form-hint">
+            @if (pendingCount() > 0 && divergenceCount() > 0) {
+              Há itens com quantidade a menor e a maior do que a negociada. O Sankhya vai aplicar o ajuste configurado (corte, pedido complementar ou nota de devolução, conforme a configuração de conferência).
+            } @else if (pendingCount() > 0) {
+              Há itens com quantidade menor do que a negociada. O Sankhya vai ajustar conforme a configuração de conferência ao finalizar.
+            } @else {
+              Há itens com quantidade maior do que a negociada. O Sankhya vai ajustar conforme a configuração de conferência ao finalizar.
+            }
+          </span>
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="onCancelarDivergencia()">Cancelar</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="onConfirmarDivergente()">Cortar</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="onConfirmarDivergente()">Finalizar divergente</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (mostrarModalLiberacaoCorte() && nuconfLiberacao !== null) {
+    <oq-liberacao-corte-modal
+      [nuconf]="nuconfLiberacao"
+      [rotulo]="'Conferência ' + nuconfLiberacao"
+      (fechado)="onLiberacaoCorteFechada()"
+    />
+  }
+
+  @if (mostrarModalFaturamento()) {
+    <div class="oq-modal-backdrop">
+      <div class="oq-modal" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Faturar pedido</span>
+        </div>
+        <div class="oq-modal__body">
+          @if (sucessoFaturamento()) {
+            <span class="oq-form-hint">Nota faturada com sucesso.</span>
+          } @else {
+            <span class="oq-form-hint">Selecione a TOP (tipo de operação) de destino do faturamento.</span>
+            <select class="oq-input" [(ngModel)]="codTipOperFaturamento">
+              <option [ngValue]="null" disabled>Selecione uma TOP…</option>
+              @for (t of topsFaturamento(); track t.codTipOper) {
+                <option [ngValue]="t.codTipOper">{{ t.codTipOper }} — {{ t.descricao }}</option>
+              }
+            </select>
+            @if (erroFaturamento()) { <span class="oq-form-hint oq-form-hint--erro">{{ erroFaturamento() }}</span> }
+          }
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModalFaturamento()">
+            {{ sucessoFaturamento() ? 'Fechar' : 'Pular' }}
+          </button>
+          @if (!sucessoFaturamento()) {
+            <button
+              type="button"
+              class="oq-admin-btn oq-admin-btn--primary"
+              [disabled]="codTipOperFaturamento === null || faturando()"
+              (click)="confirmarFaturamento()"
+            >
+              {{ faturando() ? 'Faturando…' : 'Faturar' }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (mostrarPainelFinalizada()) {
+    <div class="oq-modal-backdrop">
+      <div class="oq-modal" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Conferência finalizada</span>
+        </div>
+        <div class="oq-modal__body">
+          <oq-icon name="check" [size]="36" />
+          <span class="oq-form-hint">A conferência foi concluída no Sankhya.</span>
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirEtiquetas()">Imprimir etiquetas</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="sairParaFila()">Sair</button>
+        </div>
+      </div>
+    </div>
   }
 </div>

@@ -13,9 +13,25 @@ export class OqConferenciaFooterComponent {
   @Input() pendingCount = 0;
   @Input() conferredCount = 0;
   @Input() canConfirm = false;
+  /** Rótulo do botão primário — "Confirmar Conferência" (normal) ou "Concluir Etapa X" (conferência por etapa). */
+  @Input() confirmarLabel = 'Confirmar Conferência';
+  /** Rótulo do botão de sair — "Voltar" (normal) ou "Salvar e sair" (conferência por etapa: progresso persiste). */
+  @Input() voltarLabel = 'Voltar';
+  /** Modo simplificado (sem dimensão) — só a quantidade de volumes do pedido, nativo do Sankhya. */
+  @Input() volume = 0;
 
   @Output() voltar = new EventEmitter<void>();
   @Output() confirmar = new EventEmitter<void>();
+  @Output() volumeChange = new EventEmitter<number>();
+  @Output() cancelar = new EventEmitter<void>();
+
+  onVolumeMenos(): void {
+    if (this.volume > 0) this.volumeChange.emit(this.volume - 1);
+  }
+
+  onVolumeMais(): void {
+    this.volumeChange.emit(this.volume + 1);
+  }
 
   get textoDivergencia(): string {
     const plural = this.divergenceCount > 1 ? 'S' : '';

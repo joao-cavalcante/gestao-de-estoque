@@ -31,8 +31,8 @@
         <span class="oq-cf-info-item__value">{{ parceiro }}</span>
       </div>
     </div>
-    <div class="oq-cf-header__sep"></div>
-    <div class="oq-cf-info-item">
+    <div class="oq-cf-header__sep oq-cf-header__sep--vendedor"></div>
+    <div class="oq-cf-info-item oq-cf-info-item--vendedor">
       <oq-icon name="badge" [size]="15" class="oq-cf-info-item__icon" />
       <div class="oq-cf-info-item__text">
         <span class="oq-cf-info-item__label">Vendedor</span>
@@ -56,5 +56,8 @@
       <span class="oq-label-caps" [class.oq-cf-kpi__label--critical]="divergenceCount > 0">DIV</span>
       <span class="oq-cf-kpi__value" [class.oq-cf-kpi__value--critical]="divergenceCount > 0">{{ formatarKpi(divergenceCount) }}</span>
     </div>
+    <button type="button" class="oq-cf-header__nav-toggle" (click)="atalhos.emit()" title="Atalhos de teclado" aria-label="Atalhos de teclado">
+      ?
+    </button>
   </div>
 </header>

@@ -3,12 +3,20 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   CodigoBarra,
+  ConcluirEtapaResultado,
+  ConferenciasFinalizadasResposta,
+  EtiquetaDados,
+  FinalizarResultado,
   IdentificarProdutoResultado,
   IniciarSeparacaoResposta,
   ItemConferido,
   ItemResolvido,
   ItemSeparacao,
+  SessaoEtapa,
   SessaoSeparacao,
+  TopFaturamento,
+  Uma,
+  Volume,
 } from './separacao.model';
 
 /**
@@ -47,21 +55,77 @@ export class SeparacaoService {
   }
 
   /** Passo 1 do fluxo por Tab: identifica o produto e como o campo de controle deve se comportar. */
-  identificarProduto(tenant: string, sessaoId: string, codigoBarra: string): Observable<IdentificarProdutoResultado> {
+  identificarProduto(
+    tenant: string,
+    sessaoId: string,
+    codigoBarra: string,
+    codprod?: number,
+    etapa?: number,
+  ): Observable<IdentificarProdutoResultado> {
+    const body: Record<string, unknown> = { codigoBarra };
+    if (codprod != null) body['codprod'] = codprod;
+    if (etapa != null) body['etapa'] = etapa;
     return this.http.post<IdentificarProdutoResultado>(
       `${this.baseUrl}/sessoes/${sessaoId}/identificar`,
-      { codigoBarra },
+      body,
       { params: { tenant } },
     );
   }
 
-  /** Passo 2 (final): produto+controle já resolvidos — só grava a quantidade. */
-  conferir(tenant: string, sessaoId: string, codprod: number, controle: string, qtd: number): Observable<ItemConferido> {
-    return this.http.post<ItemConferido>(
-      `${this.baseUrl}/sessoes/${sessaoId}/conferir`,
-      { codprod, controle, qtd: String(qtd) },
+  /** Etapas da conferência segmentada (V29). Vazio quando a sessão não é segmentada. */
+  buscarEtapas(tenant: string, sessaoId: string): Observable<SessaoEtapa[]> {
+    return this.http.get<SessaoEtapa[]>(`${this.baseUrl}/sessoes/${sessaoId}/etapas`, { params: { tenant } });
+  }
+
+  /** Conclui uma etapa; a última dispara o finalizar real no Sankhya. */
+  concluirEtapa(
+    tenant: string,
+    sessaoId: string,
+    body: { tipoSeparacao: number; manterPendente: boolean; operador: string },
+  ): Observable<ConcluirEtapaResultado> {
+    return this.http.post<ConcluirEtapaResultado>(
+      `${this.baseUrl}/sessoes/${sessaoId}/concluir-etapa`,
+      body,
       { params: { tenant } },
     );
+  }
+
+  /** Passo 2 (final): produto+controle já resolvidos — só grava a quantidade (+ peso opcional, rotina de peso portada do projeto base). */
+  conferir(
+    tenant: string,
+    sessaoId: string,
+    codprod: number,
+    controle: string,
+    qtd: number,
+    peso?: number,
+    codvol?: string | null,
+    codigoBarra?: string | null,
+  ): Observable<ItemConferido> {
+    return this.http.post<ItemConferido>(
+      `${this.baseUrl}/sessoes/${sessaoId}/conferir`,
+      {
+        codprod,
+        controle,
+        qtd: String(qtd),
+        peso: peso != null ? String(peso) : null,
+        codvol: codvol ?? null,
+        codigoBarra: codigoBarra ?? null,
+      },
+      { params: { tenant } },
+    );
+  }
+
+  /** Imagem do produto — buscada à parte do /identificar pra não travar o primeiro Tab da bipagem. */
+  buscarImagemProduto(tenant: string, codprod: number): Observable<{ imagemBase64: string | null }> {
+    return this.http.get<{ imagemBase64: string | null }>(
+      `${this.baseUrl}/produtos/${codprod}/imagem`,
+      { params: { tenant } },
+    );
+  }
+
+  /** UMAs dos produtos pesáveis da sessão. */
+  buscarUma(tenant: string, sessaoId: string): Observable<Uma[]> {
+    return this.http.get<Uma[]>(`${this.baseUrl}/sessoes/${sessaoId}/uma`, { params: { tenant } });
   }
 
   /** Desfaz tudo que foi conferido pra esse produto+controle — corrige bipe errado. */
@@ -69,6 +133,70 @@ export class SeparacaoService {
     return this.http.post(
       `${this.baseUrl}/sessoes/${sessaoId}/devolver-item`,
       { codprod, controle },
+      { params: { tenant } },
+    );
+  }
+
+  /** Fecha a conferência DE VERDADE no Sankhya (corte de estoque + financeiro). */
+  finalizar(tenant: string, sessaoId: string): Observable<FinalizarResultado> {
+    return this.http.post<FinalizarResultado>(`${this.baseUrl}/sessoes/${sessaoId}/finalizar`, {}, { params: { tenant } });
+  }
+
+  /** TOPs de destino pro faturamento (só quando a CCO tem FATAOCONCLUIR='S'). */
+  topsFaturamento(tenant: string, sessaoId: string): Observable<TopFaturamento[]> {
+    return this.http.get<TopFaturamento[]>(`${this.baseUrl}/sessoes/${sessaoId}/tops-faturamento`, { params: { tenant } });
+  }
+
+  /** Fatura a nota da sessão na TOP escolhida. */
+  faturar(tenant: string, sessaoId: string, codTipOper: number, serie?: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(
+      `${this.baseUrl}/sessoes/${sessaoId}/faturar`,
+      { codTipOper, serie: serie ?? null },
+      { params: { tenant } },
+    );
+  }
+
+  /** Dados pra etiqueta de volume da sessão. */
+  dadosEtiqueta(tenant: string, sessaoId: string): Observable<EtiquetaDados> {
+    return this.http.get<EtiquetaDados>(`${this.baseUrl}/sessoes/${sessaoId}/etiquetas`, { params: { tenant } });
+  }
+
+  /** Dados pra etiqueta por número da nota (reimpressão fora da conferência). */
+  dadosEtiquetaPorNota(tenant: string, nunota: number): Observable<EtiquetaDados> {
+    return this.http.get<EtiquetaDados>(`${this.baseUrl}/etiquetas`, { params: { tenant, nunota: String(nunota) } });
+  }
+
+  /** Conferências finalizadas pelo WMS — pra tela de reimpressão de etiquetas. */
+  listarConferenciasFinalizadas(
+    tenant: string,
+    filtros: { nunota?: number; numnota?: number; page?: number; perPage?: number },
+  ): Observable<ConferenciasFinalizadasResposta> {
+    const params: Record<string, string> = { tenant };
+    if (filtros.nunota) params['nunota'] = String(filtros.nunota);
+    if (filtros.numnota) params['numnota'] = String(filtros.numnota);
+    params['page'] = String(filtros.page ?? 0);
+    params['perPage'] = String(filtros.perPage ?? 15);
+    return this.http.get<ConferenciasFinalizadasResposta>(`${this.baseUrl}/conferencias-finalizadas`, { params });
+  }
+
+  /** Desiste do pedido inteiro (não só devolve 1 item) — só local por enquanto, ver SeparacaoService.cancelar no backend. */
+  cancelar(tenant: string, sessaoId: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.baseUrl}/sessoes/${sessaoId}/cancelar`, {}, { params: { tenant } });
+  }
+
+  /** Recontagem — zera o que foi bipado e reabre a sessão do zero. */
+  recontar(tenant: string, sessaoId: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.baseUrl}/sessoes/${sessaoId}/recontar`, {}, { params: { tenant } });
+  }
+
+  buscarVolume(tenant: string, sessaoId: string): Observable<Volume> {
+    return this.http.get<Volume>(`${this.baseUrl}/sessoes/${sessaoId}/volume`, { params: { tenant } });
+  }
+
+  definirVolume(tenant: string, sessaoId: string, quantidade: number): Observable<Volume> {
+    return this.http.put<Volume>(
+      `${this.baseUrl}/sessoes/${sessaoId}/volume`,
+      { quantidade },
       { params: { tenant } },
     );
   }

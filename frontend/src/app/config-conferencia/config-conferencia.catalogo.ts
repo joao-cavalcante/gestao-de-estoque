@@ -137,7 +137,7 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
     controle: 'toggle',
     descricao: 'Mostra painel com grade dos produtos negociados no documento.',
     status: 'implementado',
-    statusObservacao: 'ConferenciaItem.name + templates de oq-pending-list/oq-conferred-list sempre exibem o produto.',
+    statusObservacao: 'Snapshot na sessão (V28) → SessaoSeparacao.exibirProd; conferencia.component esconde o painel de pendentes quando = "N".',
   },
   {
     nome: 'EXIBIRQTD',
@@ -147,7 +147,7 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
     controle: 'toggle',
     descricao: '(depende de Exibir produtos) Mostra coluna "Quantidade Negociada" na grade de itens.',
     status: 'implementado',
-    statusObservacao: 'ConferenciaItem.expected exibido via OqQtyComponent.',
+    statusObservacao: 'Snapshot na sessão (V28) → SessaoSeparacao.exibirQtd; oq-pending-list esconde a coluna de quantidade quando = "N".',
     dependeDe: ['EXIBIRPROD'],
     condicao: (v) => v['EXIBIRPROD'] === 'S',
   },
@@ -176,7 +176,7 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
     controle: 'toggle',
     descricao: 'Mostra painel com os produtos já conferidos.',
     status: 'implementado',
-    statusObservacao: 'oq-conferred-list.component.ts lista o produto já conferido.',
+    statusObservacao: 'Snapshot na sessão (V28) → SessaoSeparacao.exibirProdConf; conferencia.component esconde o painel de conferidos quando = "N".',
   },
   {
     nome: 'EXIBIRQTDCONF',
@@ -186,7 +186,7 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
     controle: 'toggle',
     descricao: '(depende de Exibir produtos conferidos) Mostra coluna de quantidade conferida.',
     status: 'implementado',
-    statusObservacao: '`scanned`/qtdConferidaLocal exibido via oq-qty na lista de conferidos e no last-scan-panel.',
+    statusObservacao: 'Snapshot na sessão (V28) → SessaoSeparacao.exibirQtdConf; oq-conferred-list e a tarja de última leitura escondem a quantidade quando = "N".',
     dependeDe: ['EXIBIRPRODCONF'],
     condicao: (v) => v['EXIBIRPRODCONF'] === 'S',
   },
@@ -198,7 +198,7 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
     controle: 'toggle',
     descricao: 'Liga automaticamente EXIBIRPRODCONF, EXIBIRQTDCONF, EXIBIRPROD e EXIBIRQTD ao ativar.',
     status: 'parcial',
-    statusObservacao: 'Há feedback visual (status chip, last-scan-panel) a cada bipe, mas sem som e sem esse gate vindo da config.',
+    statusObservacao: 'EXIBIRPROD/EXIBIRQTD/EXIBIRPRODCONF/EXIBIRQTDCONF agora são respeitados individualmente (V28); o Sankhya já resolve o cascata deste toggle nesses campos. Falta só o alerta sonoro (EXIBIRALERTASONORO).',
     dependeDe: ['EXIBIRPRODCONF', 'EXIBIRQTDCONF', 'EXIBIRPROD', 'EXIBIRQTD'],
   },
   {
@@ -209,7 +209,7 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
     controle: 'toggle',
     descricao: 'Mostra imagem cadastrada do produto durante a conferência.',
     status: 'implementado',
-    statusObservacao: 'ProdutoImagemService.buscarOuSincronizar + lastScan.imagemUrl exibem a foto do produto.',
+    statusObservacao: 'ProdutoImagemService + lastScan.imagemUrl exibem a foto; snapshot na sessão (V28) → SessaoSeparacao.exibirImgProd esconde o painel de última leitura quando = "N".',
   },
   {
     nome: 'EXIBIRALERTASONORO',

@@ -75,6 +75,21 @@
   color: var(--oq-text-secondary);
 }
 
+.oq-filtros-avancados__input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  font-family: var(--oq-font-body);
+  font-size: 13.5px;
+  color: var(--oq-text-primary);
+  outline: none;
+
+  &::placeholder { color: var(--oq-text-secondary); }
+  &:focus { border-color: var(--oq-brand); }
+}
+
 .oq-filtros-avancados__acoes {
   display: flex;
   justify-content: flex-end;

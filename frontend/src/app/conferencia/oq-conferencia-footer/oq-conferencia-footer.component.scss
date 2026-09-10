@@ -53,10 +53,67 @@
   }
 }
 
+.oq-cf-footer__actions-esquerda {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oq-cf-footer__btn--critico {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--oq-critical-foreground);
+
+  &:hover {
+    background: var(--oq-critical-soft);
+  }
+}
+
 .oq-cf-footer__progress-group {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.oq-cf-footer__volume {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 12px;
+  border-right: 1px solid var(--oq-border);
+}
+
+.oq-cf-footer__volume-btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--oq-border);
+  border-radius: 4px;
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--oq-surface-2);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.oq-cf-footer__volume-valor {
+  min-width: 16px;
+  text-align: center;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
 }
 
 .oq-cf-footer__progress {
@@ -81,5 +138,31 @@
     background: var(--oq-surface-2);
     color: rgba(107, 107, 118, 0.7);
     opacity: 0.7;
+  }
+}
+
+@media (max-width: 639px) {
+  .oq-cf-footer__actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .oq-cf-footer__actions-esquerda {
+    justify-content: space-between;
+  }
+
+  .oq-cf-footer__progress-group {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    justify-content: space-between;
+  }
+
+  /* Confirmar é a ação principal — linha inteira, alvo de toque grande. */
+  .oq-cf-footer__btn--primary {
+    flex: 1 1 100%;
+    padding: 10px;
+    justify-content: center;
   }
 }

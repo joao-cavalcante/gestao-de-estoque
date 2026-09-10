@@ -1,7 +1,35 @@
 package wms.backend.tenancy
 
+import org.jetbrains.exposed.sql.Column
+import org.jetbrains.exposed.sql.ColumnType
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.timestamp
+import org.postgresql.util.PGobject
+
+/**
+ * O projeto não depende de exposed extras (mesmo raciocínio de JsonbColumnType
+ * em tarefas/TarefaTables.kt) — um ColumnType customizado pra `text[]` do
+ * Postgres, lido como List<String> e escrito como PGobject tipo "text[]".
+ */
+class TextArrayColumnType : ColumnType<List<String>>() {
+    override fun sqlType(): String = "text[]"
+
+    override fun valueFromDB(value: Any): List<String> = when (value) {
+        is java.sql.Array -> (value.array as? Array<*>)?.map { it.toString() } ?: emptyList()
+        is List<*> -> value.map { it.toString() }
+        is String -> value.trim('{', '}').split(',').map { it.trim('"', ' ') }.filter { it.isNotEmpty() }
+        else -> emptyList()
+    }
+
+    override fun notNullValueToDB(value: List<String>): Any {
+        val obj = PGobject()
+        obj.type = "text[]"
+        obj.value = value.joinToString(",", "{", "}") { "\"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" }
+        return obj
+    }
+}
+
+fun Table.textArray(name: String): Column<List<String>> = registerColumn(name, TextArrayColumnType())
 
 /**
  * Espelha exatamente db/migrations/V1__tenancy_foundation.sql — este objeto
@@ -28,6 +56,8 @@ object ErpConnectionsTable : Table("tenancy.erp_connections") {
     val baseUrl = text("base_url")
     val gatewayPath = text("gateway_path").nullable()
     val dialect = text("dialect").nullable()
+    // modulos text[] — feature flags por-tenant (ver Modulos.kt); ligado/desligado só pela plataforma
+    val modulos = textArray("modulos")
     // credenciais é jsonb no banco; lido/escrito aqui como texto JSON cru
     // (serialização/desserialização fica por conta da camada de rotas) pra
     // não precisar de um column-type jsonb dedicado do Exposed nesta fase

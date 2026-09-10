@@ -1,0 +1,80 @@
+<div class="lc-backdrop" (click)="fechar()">
+  <div class="lc-modal" (click)="$event.stopPropagation()">
+    <header class="lc-modal__head">
+      <div>
+        <span class="lc-modal__title">Liberação de corte</span>
+        @if (rotulo) { <span class="lc-modal__sub">{{ rotulo }}</span> }
+      </div>
+      <button type="button" class="lc-x" (click)="fechar()">✕</button>
+    </header>
+
+    @if (etapa() === 'AUTENTICACAO') {
+      <div class="lc-modal__body">
+        <p class="lc-hint">Informe usuário e senha do liberador no Sankhya.</p>
+        <label class="lc-field">
+          Usuário
+          <input type="text" [(ngModel)]="usuario" autocomplete="off" />
+        </label>
+        <label class="lc-field">
+          Senha
+          <div class="lc-senha">
+            <input [type]="mostrarSenha ? 'text' : 'password'" [(ngModel)]="senha" autocomplete="off" />
+            <button type="button" (click)="mostrarSenha = !mostrarSenha">{{ mostrarSenha ? 'ocultar' : 'ver' }}</button>
+          </div>
+        </label>
+        @if (erroAutenticacao()) { <div class="lc-erro">{{ erroAutenticacao() }}</div> }
+      </div>
+      <footer class="lc-modal__foot">
+        <button type="button" class="lc-btn" (click)="fechar()">Cancelar</button>
+        <button type="button" class="lc-btn lc-btn--primary" [disabled]="!podeAvancar" (click)="avancar()">
+          {{ autenticando() ? 'Validando…' : 'Avançar' }}
+        </button>
+      </footer>
+    } @else {
+      <div class="lc-modal__body">
+        @if (carregandoPendentes()) {
+          <p class="lc-hint">Carregando itens pendentes…</p>
+        } @else if (pendentes().length === 0) {
+          <p class="lc-hint">Nenhum item pendente de liberação.</p>
+        } @else {
+          @if (pendentes().length > 1) {
+            <div class="lc-acoes-sel">
+              <button type="button" (click)="selecionarTodos()">Selecionar todos</button>
+              <button type="button" (click)="limparSelecao()">Limpar seleção</button>
+            </div>
+          }
+          <table class="lc-tabela">
+            <thead>
+              <tr><th></th><th>Produto</th><th>Qtd. pedido</th><th>Qtd. conferida</th><th>Diferença</th></tr>
+            </thead>
+            <tbody>
+              @for (p of pendentes(); track p.sequencia) {
+                <tr (click)="alternarItem(p.sequencia)" [class.lc-row--sel]="itemSelecionado(p.sequencia)">
+                  <td><input type="checkbox" [checked]="itemSelecionado(p.sequencia)" (click)="$event.stopPropagation(); alternarItem(p.sequencia)" /></td>
+                  <td>{{ p.produto ?? '—' }}</td>
+                  <td>{{ p.qtdPedido ?? '—' }} {{ p.unidadePedido ?? '' }}</td>
+                  <td>{{ p.qtdConferida ?? '—' }} {{ p.unidadeConferida ?? '' }}</td>
+                  <td [class.lc-dif--menos]="(p.diferenca ?? 0) < 0" [class.lc-dif--mais]="(p.diferenca ?? 0) > 0">
+                    {{ p.diferenca == null ? '—' : (p.diferenca > 0 ? '+' : '') + p.diferenca }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <label class="lc-field">
+            Observação (opcional)
+            <input type="text" [(ngModel)]="obs" />
+          </label>
+        }
+        @if (mensagem()) { <div class="lc-ok">{{ mensagem() }}</div> }
+        @if (erroAcao()) { <div class="lc-erro">{{ erroAcao() }}</div> }
+      </div>
+      <footer class="lc-modal__foot">
+        <button type="button" class="lc-btn" (click)="voltar()">Voltar</button>
+        <span class="lc-sel-count">{{ selecionadas().size }} selecionado(s)</span>
+        <button type="button" class="lc-btn lc-btn--danger" [disabled]="processando() || selecionadas().size === 0" (click)="liberarOuNegar('N')">Negar</button>
+        <button type="button" class="lc-btn lc-btn--primary" [disabled]="processando() || selecionadas().size === 0" (click)="liberarOuNegar('S')">Liberar corte</button>
+      </footer>
+    }
+  </div>
+</div>

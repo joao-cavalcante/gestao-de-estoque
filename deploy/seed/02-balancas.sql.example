@@ -1,0 +1,27 @@
+-- Cadastro de balança para a Negri.
+--
+-- NOTA: as tabelas Balanca/BalancaUsuario do fila-de-conferencia-negri no
+-- servidor estão VAZIAS (no legado novo a config de balança fica no PC do
+-- operador, no config.json do agente local — não no banco). Estes valores
+-- vieram do fila-conferencia-agente-local/config.json (as balanças "Stage 02"
+-- em uso). Ajuste nome/porta COM/baud/etc. na tela "Balanças" do WMS se
+-- estiver diferente da estação real.
+--
+-- Vinculadas ao usuário super.negri (o operador só vê as balanças dele).
+
+insert into app.balancas
+  (id, tenant_id, nome, fabricante, tipo_comunicacao, porta_com, baud_rate, data_bits, paridade, stop_bits, protocolo_serial, ip, porta, rota, ativo, criado_em, atualizado_em)
+values
+  ('a11cede0-0000-4000-a000-0000000000b1', '1710dfa5-9a2e-4094-a4df-acc6e00feb15',
+   'Balança Média (ST02)', 'Toledo', 'SERIAL_RS232', 'COM7', 4800, 8, 'NONE', 1, 'P05', null, null, '/peso', true, now(), now()),
+  ('a11cede0-0000-4000-a000-0000000000b2', '1710dfa5-9a2e-4094-a4df-acc6e00feb15',
+   'Balança Pequena (ST02)', 'Toledo', 'SERIAL_RS232', 'COM8', 4800, 8, 'NONE', 1, 'P05', null, null, '/peso', true, now(), now())
+on conflict (id) do nothing;
+
+insert into app.balanca_usuarios (id, tenant_id, balanca_id, usuario_id)
+values
+  ('a11cede0-0000-4000-a000-00000000c0b1', '1710dfa5-9a2e-4094-a4df-acc6e00feb15',
+   'a11cede0-0000-4000-a000-0000000000b1', '0f2fb6b1-8cb2-4efd-b83c-55b23a3454f9'),
+  ('a11cede0-0000-4000-a000-00000000c0b2', '1710dfa5-9a2e-4094-a4df-acc6e00feb15',
+   'a11cede0-0000-4000-a000-0000000000b2', '0f2fb6b1-8cb2-4efd-b83c-55b23a3454f9')
+on conflict (id) do nothing;

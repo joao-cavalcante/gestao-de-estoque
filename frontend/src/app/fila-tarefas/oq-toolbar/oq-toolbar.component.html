@@ -20,6 +20,22 @@
       }
     </div>
 
+    @if (temSegmentacao) {
+      <div class="oq-toolbar__pills oq-toolbar__pills--tipo-sep" role="group" aria-label="Filtro por tipo de separação">
+        @for (tipo of tiposSeparacao; track tipo.id) {
+          <button
+            type="button"
+            class="oq-toolbar__pill oq-toolbar__pill--icon"
+            [class.oq-toolbar__pill--active]="tiposSeparacaoSelecionados.has(tipo.id)"
+            (click)="tipoSeparacaoToggle.emit(tipo.id)"
+          >
+            <oq-icon [name]="tipo.icone" [size]="12" />
+            {{ tipo.label }}
+          </button>
+        }
+      </div>
+    }
+
     <label class="oq-toolbar__search">
       <oq-icon name="search" [size]="12" />
       <input

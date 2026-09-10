@@ -12,6 +12,11 @@ export class BalancaService {
     return this.http.get<Balanca[]>(this.baseUrl);
   }
 
+  /** Balanças vinculadas ao usuário logado (fallback: todas as ativas, se sem vínculo). */
+  listarMinhas(): Observable<Balanca[]> {
+    return this.http.get<Balanca[]>(`${this.baseUrl}/minhas`);
+  }
+
   criar(req: SalvarBalancaRequest): Observable<Balanca> {
     return this.http.post<Balanca>(this.baseUrl, req);
   }

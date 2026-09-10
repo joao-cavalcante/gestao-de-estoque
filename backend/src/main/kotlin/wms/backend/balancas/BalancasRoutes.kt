@@ -21,6 +21,12 @@ fun Route.balancasRoutes() {
             call.respond(BalancasRepository.listarAtivas(claims.tenantId))
         }
 
+        /** Balanças vinculadas ao usuário logado — mesma UX do projeto base (fallback pra todas as ativas se sem vínculo). */
+        get("/minhas") {
+            val claims = call.exigirAuth() ?: return@get
+            call.respond(BalancasRepository.listarParaUsuario(claims.tenantId, claims.userId))
+        }
+
         post {
             val claims = call.exigirAdmin() ?: return@post
             val req = call.receive<SalvarBalancaRequest>()

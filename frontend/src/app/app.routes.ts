@@ -15,6 +15,9 @@ import { authGuard } from './auth/auth.guard';
 import { UsuarioListComponent } from './usuarios/usuario-list/usuario-list.component';
 import { BalancaListComponent } from './balancas/balanca-list/balanca-list.component';
 import { DownloadsComponent } from './downloads/downloads.component';
+import { LiberacaoCorteComponent } from './liberacao-corte/liberacao-corte.component';
+import { EtiquetasComponent } from './etiquetas/etiquetas.component';
+import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -27,6 +30,10 @@ export const routes: Routes = [
   { path: 'inventarios', component: InventariosDesktopComponent, canActivate: [authGuard] },
   { path: 'inventarios/:id', component: InventarioDetalheComponent, canActivate: [authGuard] },
   { path: 'config-conferencia', component: ConfigConferenciaComponent, canActivate: [authGuard] },
+  { path: 'liberacao-corte', component: LiberacaoCorteComponent, canActivate: [authGuard] },
+  { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
+  { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },
+  { path: 'etiquetas/:sessaoId', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'tipos-operacao', component: TiposOperacaoComponent, canActivate: [authGuard] },
   { path: 'usuarios', component: UsuarioListComponent, canActivate: [authGuard] },
   { path: 'balancas', component: BalancaListComponent, canActivate: [authGuard] },

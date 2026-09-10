@@ -27,6 +27,44 @@ object BalancasRepository {
             .map { it.toDto() }
     }
 
+    /** Balanças vinculadas ao usuário; sem nenhum vínculo cadastrado, cai pra todas as ativas (nunca deixa o operador sem opção). */
+    fun listarParaUsuario(tenantId: UUID, usuarioId: UUID): List<BalancaDto> = TenantTx.run(tenantId) {
+        val idsVinculados = BalancaUsuariosTable.selectAll()
+            .where { (BalancaUsuariosTable.tenantId eq tenantId) and (BalancaUsuariosTable.usuarioId eq usuarioId) }
+            .map { it[BalancaUsuariosTable.balancaId] }
+
+        if (idsVinculados.isEmpty()) {
+            BalancasTable.selectAll()
+                .where { (BalancasTable.tenantId eq tenantId) and (BalancasTable.ativo eq true) }
+                .orderBy(BalancasTable.nome)
+                .map { it.toDto() }
+        } else {
+            BalancasTable.selectAll()
+                .where { (BalancasTable.tenantId eq tenantId) and (BalancasTable.ativo eq true) and (BalancasTable.id inList idsVinculados) }
+                .orderBy(BalancasTable.nome)
+                .map { it.toDto() }
+        }
+    }
+
+    /** Substitui os vínculos de uma balança por completo (edição via tela de balanças). */
+    fun definirUsuarios(tenantId: UUID, balancaId: UUID, usuarioIds: List<UUID>): Unit = TenantTx.run(tenantId) {
+        BalancaUsuariosTable.deleteWhere { (BalancaUsuariosTable.tenantId eq tenantId) and (BalancaUsuariosTable.balancaId eq balancaId) }
+        usuarioIds.forEach { usuarioId ->
+            BalancaUsuariosTable.insert {
+                it[id] = UUID.randomUUID()
+                it[BalancaUsuariosTable.tenantId] = tenantId
+                it[BalancaUsuariosTable.balancaId] = balancaId
+                it[BalancaUsuariosTable.usuarioId] = usuarioId
+            }
+        }
+    }
+
+    fun listarUsuarios(tenantId: UUID, balancaId: UUID): List<String> = TenantTx.run(tenantId) {
+        BalancaUsuariosTable.selectAll()
+            .where { (BalancaUsuariosTable.tenantId eq tenantId) and (BalancaUsuariosTable.balancaId eq balancaId) }
+            .map { it[BalancaUsuariosTable.usuarioId].toString() }
+    }
+
     fun buscarPorId(tenantId: UUID, id: UUID): BalancaDto? = TenantTx.run(tenantId) {
         BalancasTable.selectAll()
             .where { (BalancasTable.tenantId eq tenantId) and (BalancasTable.id eq id) }

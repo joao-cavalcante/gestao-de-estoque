@@ -5,7 +5,8 @@ export type OqIconName =
   | 'search' | 'filter' | 'sync' | 'barcode' | 'x' | 'arrow-left'
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check'
   | 'menu' | 'box' | 'user' | 'scale' | 'download' | 'building' | 'logout'
-  | 'sun' | 'moon';
+  | 'sun' | 'moon'
+  | 'seco' | 'refrigerado' | 'congelado';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -142,6 +143,20 @@ export type OqIconName =
         }
         @case ('moon') {
           <path d="M20 14.2A8.5 8.5 0 1 1 9.8 4a6.6 6.6 0 0 0 10.2 10.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+        }
+        @case ('seco') {
+          <!-- caixa/pacote — tipo de separação "Secos" (AD_TIPOSEPARACAO=1) -->
+          <path d="M3.5 8 12 3.5 20.5 8 12 12.5 3.5 8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+          <path d="M3.5 8v8L12 20.5V12.5M20.5 8v8L12 20.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        }
+        @case ('refrigerado') {
+          <!-- floco de neve simples — "Refrigerado / Resfriados" (AD_TIPOSEPARACAO=2) -->
+          <path d="M12 2.5v19M3.8 7.25l16.4 9.5M20.2 7.25l-16.4 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+        }
+        @case ('congelado') {
+          <!-- floco de neve com pontas — "Congelado" (AD_TIPOSEPARACAO=3) -->
+          <path d="M12 2.5v19M3.8 7.25l16.4 9.5M20.2 7.25l-16.4 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+          <path d="M12 2.5 10 5m2-2.5L14 5M12 21.5 10 19m2 2.5L14 19M3.8 7.25l.1 2.9m-.1-2.9 2.8.5M20.2 16.75l-.1-2.9m.1 2.9-2.8-.5M20.2 7.25l-2.8.5m2.8-.5-.1 2.9M3.8 16.75l2.8-.5m-2.8.5.1-2.9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
         }
       }
     </svg>

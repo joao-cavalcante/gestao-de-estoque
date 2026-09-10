@@ -6,6 +6,7 @@ import { LoginResponse, Usuario } from './auth.model';
 
 const CHAVE_TOKEN = 'wms_token';
 const CHAVE_USUARIO = 'wms_usuario';
+const CHAVE_TENANT = 'wms_tenant_slug';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -13,13 +14,16 @@ export class AuthService {
   private readonly router = inject(Router);
 
   readonly usuario = signal<Usuario | null>(lerUsuarioSalvo());
+  readonly tenantSlug = signal<string | null>(localStorage.getItem(CHAVE_TENANT));
 
   login(email: string, senha: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/login', { email, senha }).pipe(
       tap((res) => {
         localStorage.setItem(CHAVE_TOKEN, res.token);
         localStorage.setItem(CHAVE_USUARIO, JSON.stringify(res.usuario));
+        localStorage.setItem(CHAVE_TENANT, res.tenantSlug);
         this.usuario.set(res.usuario);
+        this.tenantSlug.set(res.tenantSlug);
       }),
     );
   }
@@ -27,12 +31,18 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(CHAVE_TOKEN);
     localStorage.removeItem(CHAVE_USUARIO);
+    localStorage.removeItem(CHAVE_TENANT);
     this.usuario.set(null);
+    this.tenantSlug.set(null);
     this.router.navigate(['/login']);
   }
 
   obterToken(): string | null {
     return localStorage.getItem(CHAVE_TOKEN);
+  }
+
+  obterTenantSlug(): string | null {
+    return this.tenantSlug();
   }
 
   estaLogado(): boolean {

@@ -1,0 +1,15 @@
+# Contexto do build do backend (docker-compose.prod.yml → wms-backend) é a raiz do repo.
+# Só core/, backend/, gradle/ e os arquivos de build do Gradle importam.
+.git
+.gradle
+.kotlin
+**/build
+**/node_modules
+.angular
+frontend
+deploy
+*.log
+.idea
+.vscode
+.token_debug
+print referencia

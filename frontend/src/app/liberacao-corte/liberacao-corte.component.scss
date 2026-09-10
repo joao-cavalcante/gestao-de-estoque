@@ -1,0 +1,192 @@
+// Padrão visual da Fila de Tarefas (oq-card) — tokens --oq-*, mono/display,
+// raios 2-3px, paleta contida.
+
+.lc-page {
+  padding: 20px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    h1 {
+      font-family: var(--oq-font-display);
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--oq-text-primary);
+    }
+  }
+
+  &__hint {
+    color: var(--oq-text-secondary);
+    font-size: 13px;
+    max-width: 640px;
+  }
+
+  &__vazio {
+    color: var(--oq-text-secondary);
+    font-size: 13px;
+    padding: 24px 0;
+  }
+
+  &__erro {
+    background: var(--oq-critical-bg);
+    color: var(--oq-critical-foreground);
+    padding: 10px 12px;
+    border-radius: var(--oq-radius-block);
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  &__refresh {
+    border: 1px solid var(--oq-border);
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    border-radius: var(--oq-radius-input);
+    padding: 6px 12px;
+    font-family: var(--oq-font-display);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+
+    &:hover { border-color: var(--oq-text-primary); }
+  }
+}
+
+.lc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+// ─── oq-card (mesmo idioma do oq-task-card) ──────────────────────────────
+
+.oq-card {
+  position: relative;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.oq-card__dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+
+  &--attention { background: var(--oq-attention); }
+}
+
+.oq-card__header {
+  min-width: 0;
+  padding-right: 24px;
+}
+
+.oq-card__client {
+  display: block;
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.25;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oq-card__status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.oq-card__status-text {
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-warning-foreground);
+}
+
+.oq-card__divider {
+  border-top: 1px dashed var(--oq-border);
+  margin: 12px 0;
+}
+
+.oq-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.oq-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.oq-card__field-label {
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-card__field-value {
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oq-card__footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--oq-border);
+}
+
+.oq-card__btn {
+  flex: 1;
+  border-radius: var(--oq-radius-input);
+  padding: 6px 8px;
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &--primary {
+    background: var(--oq-brand);
+    border: 1px solid var(--oq-brand);
+    color: #fff;
+
+    &:hover {
+      background: var(--oq-brand-hover);
+      border-color: var(--oq-brand-hover);
+    }
+  }
+}

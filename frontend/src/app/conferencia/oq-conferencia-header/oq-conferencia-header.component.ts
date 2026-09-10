@@ -1,4 +1,4 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { NavMenuService } from '../../shared/nav-menu/nav-menu.service';
 
@@ -26,6 +26,8 @@ export class OqConferenciaHeaderComponent {
   @Input() pendingCount = 0;
   @Input() conferredCount = 0;
   @Input() divergenceCount = 0;
+
+  @Output() atalhos = new EventEmitter<void>();
 
   formatarKpi(v: number): string {
     return String(v).padStart(3, '0');

@@ -1,6 +1,7 @@
 .oq-cf-page {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* no celular desconta a barra de endereço do navegador */
   flex-direction: column;
   overflow: hidden;
   background: var(--oq-bg-page);
@@ -9,10 +10,10 @@
 
 .oq-cf-page__body {
   display: grid;
-  /* Sempre 2 colunas lado a lado, sem empilhar em nenhuma largura —
-     mesmo padrão do .workspace do projeto core (grid-template-columns
-     fixo, sem media query). Em telas estreitas o conteúdo comprime e
-     rola internamente, não empilha. */
+  /* 2 colunas lado a lado em telas largas; abaixo de 900px comprimir mais
+     não ajuda (lista de pendentes/conferidos fica ilegível) — empilha em
+     2 linhas, cada uma com scroll interno próprio (mesma altura total de
+     viewport, sem rolagem da página). */
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 8px;
@@ -20,6 +21,89 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+
+  /* Tablet e abaixo: comprimir 2 colunas não ajuda (listas ficam ilegíveis)
+     — empilha em 2 linhas, cada uma com scroll interno próprio. */
+  @media (max-width: 1024px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+}
+
+/* CCO escondeu um dos lados (EXIBIRPROD / EXIBIRPRODCONF+EXIBIRIMGPROD = 'N')
+   — o painel que sobra ocupa a largura inteira. */
+.oq-cf-page__body--uma-coluna {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* Conferência por etapa (V29) — faixa indicando qual etapa está sendo conferida. */
+.oq-cf-etapa-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--oq-brand-soft, var(--oq-surface-2));
+  border-bottom: 1px solid var(--oq-border);
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  color: var(--oq-text-primary);
+
+  strong { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+}
+
+/* Seletor de etapa — quando a nota segmentada é aberta sem ?etapa= e há mais de uma pendente. */
+.oq-cf-etapa-escolha {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+}
+
+.oq-cf-etapa-escolha__titulo {
+  font-family: var(--oq-font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.oq-cf-etapa-escolha__botoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.oq-cf-etapa-escolha__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+  padding: 20px 24px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { border-color: var(--oq-brand); color: var(--oq-brand-text); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.oq-cf-etapa-escolha__ok {
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  color: var(--oq-success-foreground, var(--oq-text-secondary));
 }
 
 .oq-cf-page__status {
@@ -73,4 +157,146 @@
   gap: 8px;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Só um painel visível na coluna direita (CCO escondeu conferidos OU a
+   última leitura) — o que sobra ocupa a altura inteira, sem linha vazia. */
+.oq-cf-page__right-col--um-painel {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.oq-atalhos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 260px;
+}
+
+.oq-atalhos-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--oq-text-primary);
+}
+
+.oq-atalhos-tecla {
+  flex: none;
+  min-width: 64px;
+  text-align: center;
+  padding: 2px 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--oq-text-secondary);
+}
+
+/* ─── Layout de celular (≤639px): tarja de última leitura + abas ───────── */
+
+/* Tarja e abas só existem no celular. Acima disso, as duas listas e o
+   painel grande de última leitura aparecem juntos (grid do body). */
+.oq-cf-tabs {
+  display: none;
+}
+
+/* host de <oq-last-scan-panel> tem `display:flex` inline — precisa de !important */
+.oq-cf-laststrip {
+  display: none !important;
+}
+
+.oq-cf-tabs {
+  flex: none;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+}
+
+.oq-cf-tabs__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.oq-cf-tabs__btn--ativa {
+  background: var(--oq-brand);
+  border-color: var(--oq-brand);
+  color: var(--oq-brand-ink);
+}
+
+.oq-cf-tabs__badge {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.oq-cf-tabs__btn--ativa .oq-cf-tabs__badge {
+  background: var(--oq-brand-ink);
+  color: var(--oq-brand);
+}
+
+.oq-cf-pane {
+  min-height: 0;
+}
+
+@media (max-width: 639px) {
+  .oq-cf-laststrip {
+    display: block !important;
+    flex: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .oq-cf-tabs {
+    display: flex;
+  }
+
+  .oq-cf-page__body {
+    display: block;
+    padding: 0;
+  }
+
+  .oq-cf-pane {
+    display: none;
+    height: 100%;
+  }
+
+  .oq-cf-pane.oq-cf-pane--ativa {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* A coluna direita, quando é a aba ativa, deixa de ser grid (2 painéis)
+     e mostra só a lista de conferidos — o painel grande de última leitura
+     é redundante com a tarja fixa do topo. */
+  .oq-cf-page__right-col.oq-cf-pane--ativa {
+    display: flex;
+  }
+
+  .oq-cf-page__right-col > oq-last-scan-panel {
+    display: none !important;
+  }
 }

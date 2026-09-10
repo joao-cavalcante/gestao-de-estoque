@@ -1,6 +1,9 @@
 package wms.backend.produtos
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
@@ -26,6 +29,28 @@ import java.util.UUID
  * disparada por produto sob demanda em vez de em lote agendado.
  */
 object ProdutoImagemService {
+
+    private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Aquece o cache da imagem sem bloquear o chamador (fire-and-forget). */
+    fun prefetchEmBackground(tenantSlug: String, tenantId: UUID, codprod: Int) {
+        escopo.launch {
+            runCatching { buscarOuSincronizar(tenantSlug, tenantId, codprod) }
+        }
+    }
+
+    /**
+     * Só o cache LOCAL — leitura rápida, nunca toca o Sankhya. Usado no caminho
+     * da bipagem (POST /identificar), onde a latência de uma ida ao Sankhya
+     * atrasaria o primeiro Tab. Retorna Pair(achou, imagem): achou=false
+     * significa "nunca foi buscado" (vale disparar o sync em background).
+     */
+    fun buscarCacheado(tenantId: UUID, codprod: Int): Pair<Boolean, String?> = TenantTx.run(tenantId) {
+        val row = ProdutoImagemCacheTable.selectAll()
+            .where { (ProdutoImagemCacheTable.tenantId eq tenantId) and (ProdutoImagemCacheTable.codprod eq codprod) }
+            .singleOrNull()
+        if (row == null) false to null else true to row[ProdutoImagemCacheTable.imagem]
+    }
 
     suspend fun buscarOuSincronizar(tenantSlug: String, tenantId: UUID, codprod: Int): String? {
         val cacheado = withContext(Dispatchers.IO) {

@@ -1,0 +1,71 @@
+<div class="lc-page">
+  <header class="lc-page__head">
+    <h1>Liberação de Corte</h1>
+    <button type="button" class="lc-page__refresh" (click)="carregar()">Atualizar</button>
+  </header>
+
+  <p class="lc-page__hint">
+    Conferências que o Sankhya deixou aguardando liberação de corte (TGFCON2.STATUS = 'C').
+    O liberador aprova ou nega os itens cortados para a nota seguir.
+  </p>
+
+  @if (erro()) {
+    <div class="lc-page__erro">{{ erro() }}</div>
+  }
+
+  @if (carregando()) {
+    <p class="lc-page__vazio">Carregando…</p>
+  } @else if (lista().length === 0) {
+    <p class="lc-page__vazio">Nenhuma conferência aguardando liberação.</p>
+  } @else {
+    <div class="lc-grid">
+      @for (item of lista(); track item.nunota) {
+        <article class="oq-card">
+          <div class="oq-card__dot oq-card__dot--attention"></div>
+
+          <div class="oq-card__header">
+            <span class="oq-card__client">{{ item.nomeParceiro ?? '—' }}</span>
+            <div class="oq-card__status-line">
+              <span class="oq-card__status-text">Aguardando liberação de corte</span>
+            </div>
+          </div>
+
+          <div class="oq-card__divider"></div>
+
+          <div class="oq-card__grid">
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">Nota</span>
+              <span class="oq-card__field-value">{{ item.numeroNota ?? item.nunota }}</span>
+            </div>
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">Nº Único</span>
+              <span class="oq-card__field-value">{{ item.nunota }}</span>
+            </div>
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">Tipo de Operação</span>
+              <span class="oq-card__field-value">{{ item.descricaoTipoOperacao ?? '—' }}</span>
+            </div>
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">Data</span>
+              <span class="oq-card__field-value">{{ item.dataMovimento ?? '—' }}</span>
+            </div>
+          </div>
+
+          <div class="oq-card__footer">
+            <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="abrir(item)">
+              Liberar Corte
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  @if (selecionada(); as sel) {
+    <oq-liberacao-corte-modal
+      [nuconf]="sel.nuconf!"
+      [rotulo]="rotulo(sel)"
+      (fechado)="aoFechar($event)"
+    />
+  }
+</div>

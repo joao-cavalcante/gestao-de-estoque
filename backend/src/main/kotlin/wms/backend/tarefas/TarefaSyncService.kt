@@ -40,6 +40,9 @@ object TarefaSyncService {
         "NUNOTA", "NUMNOTA", "DTNEG", "CODEMP", "Empresa.NOMEFANTASIA",
         "CODTIPOPER", "TipoOperacao.DESCROPER", "TipoOperacao.NUCCO", "CODVEND", "Vendedor.APELIDO",
         "STATUSNOTA", "TIPMOV", "CODPARC", "Parceiro.NOMEPARC",
+        // TGFCAB.ORDEMCARGA — número da ordem/onda de carga; base do filtro
+        // "Ordem de Carga" da fila (igual ao fila-de-conferencia legado).
+        "ORDEMCARGA",
     )
 
     // Status real da conferência: NÃO vem de um campo calculado em

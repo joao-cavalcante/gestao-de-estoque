@@ -17,6 +17,8 @@ data class TarefaApiDto(
     val dataMovimento: String?,
     val codigoTipoOperacao: String?,
     val descricaoTipoOperacao: String?,
+    /** TGFCAB.ORDEMCARGA — número da ordem/onda de carga (null quando a nota não está numa carga). */
+    val ordemCarga: Long? = null,
     /** Base pro indicador de sincronização já existente na UI ("dados de Xs atrás"). */
     val segundosDesdeSync: Long,
     val pendenteWriteBack: Boolean,

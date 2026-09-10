@@ -1,0 +1,77 @@
+<div class="ie-page">
+  <header class="ie-page__head">
+    <h1>Impressão de Etiquetas</h1>
+    <span class="ie-page__count">{{ total() }} finalizada(s)</span>
+  </header>
+
+  <div class="ie-filtros">
+    <input
+      type="number"
+      placeholder="Nº da nota (NF)"
+      [(ngModel)]="filtroNota"
+      (ngModelChange)="onFiltroChange()"
+    />
+    <input
+      type="number"
+      placeholder="Nº único (NUNOTA)"
+      [(ngModel)]="filtroUnico"
+      (ngModelChange)="onFiltroChange()"
+    />
+  </div>
+
+  @if (erro()) {
+    <div class="ie-page__erro">{{ erro() }}</div>
+  }
+
+  @if (carregando()) {
+    <p class="ie-page__vazio">Carregando…</p>
+  } @else if (itens().length === 0) {
+    <p class="ie-page__vazio">Nenhuma conferência finalizada.</p>
+  } @else {
+    <div class="ie-grid">
+      @for (item of itens(); track item.sessaoId) {
+        <article class="oq-card">
+          <div class="oq-card__header">
+            <span class="oq-card__client">{{ item.nomeParceiro ?? '—' }}</span>
+            <div class="oq-card__status-line">
+              <span class="oq-card__status-text">{{ item.descricaoTipoOperacao ?? 'Conferência finalizada' }}</span>
+            </div>
+          </div>
+
+          <div class="oq-card__divider"></div>
+
+          <div class="oq-card__grid">
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">NF</span>
+              <span class="oq-card__field-value">{{ item.numeroNota ?? '—' }}</span>
+            </div>
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">Nº Único</span>
+              <span class="oq-card__field-value">{{ item.nunota }}</span>
+            </div>
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">Vendedor</span>
+              <span class="oq-card__field-value">{{ item.apelidoVendedor ?? '—' }}</span>
+            </div>
+            <div class="oq-card__field">
+              <span class="oq-card__field-label">Data</span>
+              <span class="oq-card__field-value">{{ data(item.dataMovimento) }}</span>
+            </div>
+          </div>
+
+          <div class="oq-card__footer">
+            <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="imprimir(item)">
+              Imprimir Etiquetas
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+
+    <footer class="ie-pager">
+      <button type="button" [disabled]="page() === 0" (click)="anterior()">‹</button>
+      <span>{{ page() + 1 }} / {{ totalPaginas }}</span>
+      <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()">›</button>
+    </footer>
+  }
+</div>

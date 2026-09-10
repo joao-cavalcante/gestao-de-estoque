@@ -16,6 +16,8 @@ data class ErpConnectionDto(
     val dialect: String? = null,
     val ativo: Boolean = true,
     val credenciaisConfiguradas: Boolean = false,
+    /** Módulos (feature flags) habilitados pra este tenant — ver wms.backend.tenancy.Modulos. */
+    val modulos: List<String> = emptyList(),
 )
 
 /**
@@ -36,6 +38,8 @@ data class ErpConnectionInput(
      * de edição, que nunca recebe o segredo de volta pra reenviar).
      */
     val credenciais: String? = null,
+    /** Módulos (feature flags) habilitados pra este tenant — ver wms.backend.tenancy.Modulos. Sempre reenviado inteiro (substitui a lista). */
+    val modulos: List<String> = emptyList(),
 )
 
 @Serializable

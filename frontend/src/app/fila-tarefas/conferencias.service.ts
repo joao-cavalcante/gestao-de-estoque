@@ -1,8 +1,17 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-import { Tarefa } from './tarefa.model';
+import { Observable, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
+import { Tarefa, TarefaEtapa } from './tarefa.model';
+
+/** Resposta de POST /api/separacao/etapas-fila — `{ [nunota]: { tipos, concluidos } }`. `{}` = tenant não segmentado. */
+interface FilaEtapasResposta {
+  [nunota: string]: {
+    tipos: number[];
+    concluidos: number[];
+    progresso?: { [tipo: string]: { total: number; conferidos: number } };
+  };
+}
 
 /**
  * DTO cru devolvido por GET /api/tarefas (TarefasRoutes.kt) — lido
@@ -14,7 +23,7 @@ import { Tarefa } from './tarefa.model';
 export interface TarefaApiDto {
   nunota: number;
   tipo: string;
-  statusOperacional: 'aguardando' | 'andamento' | 'concluido' | 'cancelado';
+  statusOperacional: 'aguardando' | 'andamento' | 'aguardando_corte' | 'concluido' | 'cancelado';
   statusSankhya: string;
   numeroNota: number | null;
   codigoParceiro: string | null;
@@ -24,6 +33,8 @@ export interface TarefaApiDto {
   dataMovimento: string | null;
   codigoTipoOperacao: string | null;
   descricaoTipoOperacao: string | null;
+  /** TGFCAB.ORDEMCARGA — número da ordem/onda de carga. */
+  ordemCarga: number | null;
   /** Base pro indicador de sincronização da UI ("dados de Xs atrás"). */
   segundosDesdeSync: number;
   pendenteWriteBack: boolean;
@@ -35,9 +46,21 @@ export class ConferenciasService {
   private readonly baseUrl = '/api/tarefas';
 
   listarFila(tenant: string): Observable<Tarefa[]> {
-    return this.http
-      .get<TarefaApiDto[]>(this.baseUrl, { params: { tenant } })
-      .pipe(map((tarefas) => tarefas.map(mapearParaTarefa)));
+    return this.http.get<TarefaApiDto[]>(this.baseUrl, { params: { tenant } }).pipe(
+      map((tarefas) => tarefas.map(mapearParaTarefa)),
+      switchMap((tarefas) => {
+        // Conferência por etapa (V29): pergunta ao backend o breakdown de tipos
+        // de separação. Tenant sem o módulo devolve `{}` → nada muda.
+        const nunotas = tarefas.map((t) => Number(t.numeroUnico)).filter((n) => Number.isFinite(n));
+        if (nunotas.length === 0) return of(tarefas);
+        return this.http
+          .post<FilaEtapasResposta>('/api/separacao/etapas-fila', { nunotas }, { params: { tenant } })
+          .pipe(
+            map((etapasPorNota) => mergeEtapas(tarefas, etapasPorNota)),
+            catchError(() => of(tarefas)),
+          );
+      }),
+    );
   }
 
   concluir(tenant: string, nunota: number, operador: string): Observable<{ ok: boolean; pendenteWriteBack: boolean }> {
@@ -52,6 +75,7 @@ export class ConferenciasService {
 const STATUS_MAP: Record<TarefaApiDto['statusOperacional'], Tarefa['status']> = {
   aguardando: 'aguardando',
   andamento: 'andamento',
+  aguardando_corte: 'aguardando_corte',
   concluido: 'concluido',
   // O card ainda não tem um visual dedicado pra "cancelado" — cai em
   // "concluído" (fora da fila ativa) até essa distinção ser desenhada.
@@ -75,7 +99,27 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     codigoResponsavel: p.codigoVendedor,
     tipoOperacao: p.descricaoTipoOperacao ?? '—',
     codigoTipoOperacao: p.codigoTipoOperacao,
+    ordemCarga: p.ordemCarga,
     itens: 0, // exige query extra (TGFITE) — não incluída nesta integração
     valor: 0, // não faz parte do fieldset base da fila
   };
+}
+
+/** Anexa `etapas` às tarefas segmentadas (tipos presentes na nota + quais já concluídos). */
+function mergeEtapas(tarefas: Tarefa[], etapasPorNota: FilaEtapasResposta): Tarefa[] {
+  if (!etapasPorNota || Object.keys(etapasPorNota).length === 0) return tarefas;
+  return tarefas.map((t) => {
+    const info = etapasPorNota[t.numeroUnico];
+    if (!info || info.tipos.length === 0) return t;
+    const etapas: TarefaEtapa[] = info.tipos.map((tipo) => {
+      const p = info.progresso?.[String(tipo)];
+      return {
+        tipo,
+        status: info.concluidos.includes(tipo) ? 'C' : 'P',
+        total: p?.total ?? 0,
+        conferidos: p?.conferidos ?? 0,
+      };
+    });
+    return { ...t, etapas };
+  });
 }

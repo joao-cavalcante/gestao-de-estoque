@@ -105,6 +105,24 @@
       </label>
     </fieldset>
 
+    <fieldset>
+      <legend>Módulos</legend>
+      <p class="aviso-credenciais">
+        Feature flags exclusivas — ativadas só aqui, pela plataforma, pra clientes que usam
+        comportamento que nenhum outro tenant enxerga. Salvas junto com a conexão de ERP.
+      </p>
+      @for (modulo of MODULOS; track modulo.id) {
+        <label class="modulo-check">
+          <input
+            type="checkbox"
+            [checked]="moduloAtivo(modulo.id)"
+            (change)="alternarModulo(modulo.id, $any($event.target).checked)"
+          />
+          {{ modulo.label }}
+        </label>
+      }
+    </fieldset>
+
     <div class="acoes-form">
       <button type="submit" class="btn btn-primary" [disabled]="salvando()">
         {{ salvando() ? 'Salvando...' : 'Salvar' }}

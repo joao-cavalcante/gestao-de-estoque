@@ -461,6 +461,23 @@ body {
   background: var(--oq-surface-2);
 }
 
+/* Celular: modal encosta no topo (longe do teclado virtual) e os botões
+   do rodapé podem quebrar (ex.: modal de conferência divergente tem 3). */
+@media (max-width: 639px) {
+  .oq-modal-backdrop {
+    align-items: start;
+    padding: 12px;
+  }
+
+  .oq-modal {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .oq-modal__footer {
+    flex-wrap: wrap;
+  }
+}
+
 .oq-form-card {
   border: 1px solid var(--oq-border);
   border-radius: var(--oq-radius-block);

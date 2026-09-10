@@ -1,3 +1,12 @@
+/**
+ * Módulos (feature flags) por-tenant — conceito do WMS, ligado só pela
+ * plataforma pra isolar comportamento que só um cliente usa. Espelha
+ * wms.backend.tenancy.Modulos.
+ */
+export const MODULOS_DISPONIVEIS = [
+  { id: 'conferencia_segmentada', label: 'Conferência segmentada' },
+] as const;
+
 /** Leitura — nunca traz segredo em texto plano, só se está configurado ou não. */
 export interface ErpConnection {
   erpType: string;
@@ -6,6 +15,7 @@ export interface ErpConnection {
   dialect?: string | null;
   ativo: boolean;
   credenciaisConfiguradas: boolean;
+  modulos: string[];
 }
 
 /** Escrita — vai em texto plano só nesta chamada; o backend cifra antes de gravar. */
@@ -17,6 +27,8 @@ export interface ErpConnectionInput {
   ativo: boolean;
   /** null = "não mexe no segredo já salvo" (edição sem preencher os campos de novo). */
   credenciais: string | null;
+  /** Lista completa de módulos habilitados — substitui a lista salva. */
+  modulos: string[];
 }
 
 export interface Tenant {

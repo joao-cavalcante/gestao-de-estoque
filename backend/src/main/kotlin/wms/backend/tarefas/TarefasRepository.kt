@@ -230,6 +230,10 @@ object TarefasRepository {
                     dataMovimento = dados?.get("DTNEG")?.jsonPrimitive?.contentOrNull,
                     codigoTipoOperacao = dados?.get("CODTIPOPER")?.jsonPrimitive?.contentOrNull,
                     descricaoTipoOperacao = dados?.get("TipoOperacao.DESCROPER")?.jsonPrimitive?.contentOrNull,
+                    ordemCarga = dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull
+                        ?.trim()?.takeIf { it.isNotEmpty() }
+                        // vem como "1234" ou "1234.0" do loadRecords — normaliza pra Long
+                        ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
                     segundosDesdeSync = Instant.now().epochSecond - sankhyaAtualizadoEm.epochSecond,
                     pendenteWriteBack = row[TarefasTable.pendenteWriteBack],
                 )
@@ -247,6 +251,30 @@ object TarefasRepository {
             it[concluidoEm] = agora
             it[localAtualizadoEm] = agora
             it[pendenteWriteBack] = true
+        }
+        linhas > 0
+    }
+
+    /**
+     * Conclusão local depois de um write-back SÍNCRONO já confirmado (ex.:
+     * SeparacaoService.finalizar, que já chamou ConferenciaSP.cortar de
+     * verdade) — diferente de [concluirLocal], não marca
+     * `pendente_write_back` (não há nada pendente, já aconteceu).
+     *
+     * Necessário porque uma nota com TGFCON2.STATUS='F' sai do critério de
+     * busca do TarefaSyncService (mesmo critério da fila nativa do Sankhya:
+     * conferência finalizada não aparece mais) — sem isto, este mirror local
+     * ficaria travado em 'andamento' pra sempre, já que o próximo ciclo de
+     * sync nunca mais devolve essa nota pra reconciliar.
+     */
+    fun concluirLocalSemWriteBack(tenantId: UUID, nunota: Long): Boolean = TenantTx.run(tenantId) {
+        val agora = Instant.now()
+        val linhas = TarefasTable.update({
+            (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt())
+        }) {
+            it[statusOperacional] = StatusOperacional.CONCLUIDO.codigo
+            it[concluidoEm] = agora
+            it[localAtualizadoEm] = agora
         }
         linhas > 0
     }
@@ -282,4 +310,21 @@ object TarefasRepository {
                 dados?.get("TipoOperacao.NUCCO")?.jsonPrimitive?.contentOrNull?.toIntOrNull()
             }
     }
+
+    private fun campoDosDados(tenantId: UUID, nunota: Long, campo: String): String? = TenantTx.run(tenantId) {
+        TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) }
+            .singleOrNull()
+            ?.let { row ->
+                val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                dados?.get(campo)?.jsonPrimitive?.contentOrNull
+            }
+    }
+
+    /** TIPMOV da nota (já sincronizado, ver TarefaSyncService.FIELDS) — 'V' venda, 'C' compra, etc. Usado pra listar TOPs de faturamento. */
+    fun buscarTipMovLocal(tenantId: UUID, nunota: Long): String? = campoDosDados(tenantId, nunota, "TIPMOV")
+
+    /** CODPARC da nota (já sincronizado) — usado pra montar os dados da etiqueta de volume. */
+    fun buscarCodParcLocal(tenantId: UUID, nunota: Long): Int? =
+        campoDosDados(tenantId, nunota, "CODPARC")?.toIntOrNull()
 }

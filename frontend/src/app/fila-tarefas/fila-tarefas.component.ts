@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { SyncTickService } from '../shared/app-header/sync-tick.service';
+import { AuthService } from '../auth/auth.service';
 import { OqKpiBarComponent } from './oq-kpi-bar/oq-kpi-bar.component';
 import { OqToolbarComponent } from './oq-toolbar/oq-toolbar.component';
 import { OqTaskCardComponent } from './oq-task-card/oq-task-card.component';
@@ -21,12 +22,12 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   private readonly conferenciasService = inject(ConferenciasService);
   private readonly router = inject(Router);
   private readonly syncTick = inject(SyncTickService);
+  private readonly authService = inject(AuthService);
   private syncSub?: Subscription;
 
-  // TODO: ainda não existe login/JWT amarrando o usuário a um tenant (Fase 0/1
-  // do motor de tarefas) — por enquanto fixo em 'modial' pra validar a
-  // integração real com o Sankhya.
-  private readonly tenantAtual = 'modial';
+  private get tenantAtual(): string {
+    return this.authService.obterTenantSlug() ?? '';
+  }
 
   carregando = signal(true);
   erro = signal<string | null>(null);
@@ -38,8 +39,15 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   paginaAtual = signal(1);
   itensPorPagina = signal(20);
 
+  /** Filtro de tipo de separação (V29) — só aparece quando há tarefas segmentadas. Multi-select. */
+  filtroTipoSeparacao = signal<ReadonlySet<number>>(new Set());
   dropdownFiltrosAberto = signal(false);
-  filtrosAvancados = signal<FiltrosAvancados>({ codigoParceiro: null, codigoVendedor: null, codigoTipoOperacao: null });
+  filtrosAvancados = signal<FiltrosAvancados>({
+    codigoParceiro: null,
+    codigoVendedor: null,
+    codigoTipoOperacao: null,
+    ordemCarga: null,
+  });
 
   ngOnInit(): void {
     this.carregarFila();
@@ -113,13 +121,17 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
 
   readonly totalFiltrosAvancadosAtivos = computed(() => {
     const f = this.filtrosAvancados();
-    return [f.codigoParceiro, f.codigoVendedor, f.codigoTipoOperacao].filter((v) => v !== null).length;
+    return [f.codigoParceiro, f.codigoVendedor, f.codigoTipoOperacao, f.ordemCarga].filter((v) => v !== null).length;
   });
+
+  /** true = alguma tarefa carregada tem etapas → tenant segmentado (V29). */
+  readonly temSegmentacao = computed(() => this.tarefas().some((t) => (t.etapas?.length ?? 0) > 0));
 
   readonly tarefasFiltradas = computed(() => {
     const filtro = this.filtroAtivo();
     const termo = this.termoBusca().trim().toLowerCase();
     const avancados = this.filtrosAvancados();
+    const tipos = this.filtroTipoSeparacao();
 
     return this.tarefas().filter((t) => {
       const passaFiltro =
@@ -136,9 +148,14 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       const passaAvancados =
         (!avancados.codigoParceiro || t.codigoCliente === avancados.codigoParceiro) &&
         (!avancados.codigoVendedor || t.codigoResponsavel === avancados.codigoVendedor) &&
-        (!avancados.codigoTipoOperacao || t.codigoTipoOperacao === avancados.codigoTipoOperacao);
+        (!avancados.codigoTipoOperacao || t.codigoTipoOperacao === avancados.codigoTipoOperacao) &&
+        (!avancados.ordemCarga || String(t.ordemCarga ?? '') === avancados.ordemCarga.trim());
 
-      return passaFiltro && passaBusca && passaAvancados;
+      // Filtro de tipo de separação: passa se tem etapa PENDENTE de algum tipo selecionado.
+      const passaTipoSeparacao =
+        tipos.size === 0 || (t.etapas ?? []).some((e) => e.status === 'P' && tipos.has(e.tipo));
+
+      return passaFiltro && passaBusca && passaAvancados && passaTipoSeparacao;
     });
   });
 
@@ -173,6 +190,15 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.paginaAtual.set(1);
   }
 
+  /** Alterna um tipo de separação no filtro (V29). */
+  onTipoSeparacaoToggle(tipo: number): void {
+    const atual = new Set(this.filtroTipoSeparacao());
+    if (atual.has(tipo)) atual.delete(tipo);
+    else atual.add(tipo);
+    this.filtroTipoSeparacao.set(atual);
+    this.paginaAtual.set(1);
+  }
+
   onItensPorPaginaChange(valor: number): void {
     this.itensPorPagina.set(valor);
     this.paginaAtual.set(1);
@@ -192,7 +218,18 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     console.log('Ver detalhes:', tarefa.id);
   }
 
-  onConferir(tarefa: Tarefa): void {
-    this.router.navigate(['/conferencia', tarefa.numeroUnico], { state: { tarefa } });
+  onConferir(evento: Tarefa | { tarefa: Tarefa; etapa?: number }): void {
+    const tarefa = 'tarefa' in evento ? evento.tarefa : evento;
+    const etapa = 'tarefa' in evento ? evento.etapa : undefined;
+    // Conferência já cortada e aguardando liberação — o operador vai pra tela
+    // de liberação de corte, não reabre a conferência.
+    if (tarefa.status === 'aguardando_corte') {
+      this.router.navigate(['/liberacao-corte']);
+      return;
+    }
+    this.router.navigate(['/conferencia', tarefa.numeroUnico], {
+      state: { tarefa },
+      queryParams: etapa != null ? { etapa } : undefined,
+    });
   }
 }

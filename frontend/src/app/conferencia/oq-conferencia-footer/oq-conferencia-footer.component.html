@@ -2,12 +2,29 @@
   <!-- Banner de divergência removido por enquanto (pedido do usuário — visual "peba"). -->
 
   <div class="oq-cf-footer__actions">
-    <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--outline" (click)="voltar.emit()">
-      <oq-icon name="arrow-left" [size]="14" />
-      Voltar
-    </button>
+    <div class="oq-cf-footer__actions-esquerda">
+      <button
+        type="button"
+        class="oq-cf-footer__btn oq-cf-footer__btn--outline"
+        title="Tudo que já foi bipado fica salvo — você pode continuar esta conferência depois, de qualquer dispositivo"
+        (click)="voltar.emit()"
+      >
+        <oq-icon name="arrow-left" [size]="14" />
+        {{ voltarLabel }}
+      </button>
+      <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--critico" (click)="cancelar.emit()">
+        Cancelar Pedido
+      </button>
+    </div>
 
     <div class="oq-cf-footer__progress-group">
+      <div class="oq-cf-footer__volume">
+        <span class="oq-label-caps">VOLUMES</span>
+        <button type="button" class="oq-cf-footer__volume-btn" (click)="onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
+        <span class="oq-cf-footer__volume-valor">{{ volume }}</span>
+        <button type="button" class="oq-cf-footer__volume-btn" (click)="onVolumeMais()" aria-label="Aumentar volumes">+</button>
+      </div>
+
       <span class="oq-cf-footer__progress">
         PROGRESSO {{ conferredCount }}/{{ pendingCount + conferredCount }}
       </span>
@@ -17,7 +34,7 @@
         [disabled]="!canConfirm"
         (click)="confirmar.emit()"
       >
-        Confirmar Conferência
+        {{ confirmarLabel }}
       </button>
     </div>
   </div>
