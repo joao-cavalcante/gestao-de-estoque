@@ -140,12 +140,28 @@ object LiberacaoCorteService {
         )
     }
 
+    /** ±5% da qtd pedida — mesma tolerância do indicador de divergência de peso na conferência. */
+    private const val TOLERANCIA_PESO = 0.05
+
     /**
-     * Auto-liberação de corte por peso (fila-conferencia autoLiberarCortePesavel):
-     * credenciais do liberador via env LIBERADOR_USUARIO / LIBERADOR_SENHA. Sem
-     * elas (ou qualquer falha) → retorna false e o corte segue pra liberação manual.
+     * Auto-liberação de corte por peso, ITEM A ITEM (fila-conferencia
+     * autoLiberarCortePesavel, agora seletivo): toda linha de item PESÁVEL cujo
+     * corte está dentro de ±5% do pedido é liberada em silêncio pela aplicação,
+     * mesmo que a nota tenha outras divergências — item normal, ou pesável fora
+     * dos 5% seguem pra liberação manual (ficam pendentes na ViewLiberacaoLimite).
+     *
+     * Credenciais do liberador via env LIBERADOR_USUARIO / LIBERADOR_SENHA — sem
+     * elas nada é liberado.
+     *
+     * Retorna `true` só quando, depois das liberações automáticas, NÃO sobra nada
+     * pendente e a conferência foi finalizada aqui (nota deixa de aguardar corte).
      */
-    suspend fun autoLiberar(tenantSlug: String, nuconf: Int): Boolean {
+    suspend fun autoLiberarPesoDentroTolerancia(
+        tenantSlug: String,
+        tenantId: UUID,
+        nuconf: Int,
+        sessaoId: UUID,
+    ): Boolean {
         val usuario = System.getenv("LIBERADOR_USUARIO")
         val senha = System.getenv("LIBERADOR_SENHA")
         if (usuario.isNullOrBlank() || senha.isNullOrBlank()) {
@@ -153,13 +169,55 @@ object LiberacaoCorteService {
             return false
         }
         return try {
-            val codusu = validarLiberador(tenantSlug, usuario, senha)
             val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
             if (pendentes.isEmpty()) return false
+
+            // Descrições dos produtos pesáveis da sessão (match por descrição — é o
+            // que a ViewLiberacaoLimite expõe na OBSERVACAO).
+            val descPesaveis = withContext(Dispatchers.IO) {
+                wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId)
+            }
+                .filter { it.usaConfPeso }
+                .mapNotNull { it.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty) }
+                .toSet()
+
+            val liberaveis = pendentes.filter { linha ->
+                val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
+                val prod = obs.produto?.trim()?.uppercase() ?: return@filter false
+                val conf = obs.qtdConferida ?: return@filter false
+                val ped = obs.qtdPedido ?: return@filter false
+                val base = if (ped != 0.0) ped else conf
+                prod in descPesaveis && base != 0.0 && kotlin.math.abs(conf - ped) / base <= TOLERANCIA_PESO
+            }
+            if (liberaveis.isEmpty()) {
+                println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar — tudo pra liberação manual.")
+                return false
+            }
+
+            val codusu = validarLiberador(tenantSlug, usuario, senha)
             chamarLiberarNegar(
-                tenantSlug, pendentes, codusu, "S",
-                "Liberação automática — corte silencioso por divergência de peso (regra de negócio)",
+                tenantSlug, liberaveis, codusu, "S",
+                "Liberação automática — corte de peso dentro da tolerância (±${(TOLERANCIA_PESO * 100).toInt()}%)",
             )
+
+            val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(emptyList())
+            if (restantes.isNotEmpty()) {
+                println("INFO: corte $nuconf — ${liberaveis.size} item(ns) pesável(is) liberado(s) em silêncio; ${restantes.size} segue(m) pra liberação manual.")
+                return false
+            }
+
+            // Nada mais pendente → finaliza a conferência aqui mesmo.
+            runCatching {
+                SankhyaSpClient.chamarRaw(
+                    tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
+                    buildJsonObject {
+                        putJsonObject("params") { put("nuConf", nuconf.toString()); put("peso", 0); put("qtdVol", 0) }
+                        CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                    },
+                )
+            }.onFailure {
+                println("AVISO: auto-liberação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+            }
             true
         } catch (e: Exception) {
             println("AVISO: auto-liberação de corte falhou (nuconf $nuconf): ${e.message} — segue pra liberação manual.")

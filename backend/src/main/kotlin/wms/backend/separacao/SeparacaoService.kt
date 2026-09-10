@@ -374,14 +374,16 @@ object SeparacaoService {
         // ponto de vista do WMS, o Sankhya é dono da liberação agora.
         var aguardandoCorte = runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()?.trim() == "C"
 
-        // Auto-liberação de corte por peso (fila-conferencia autoLiberarCortePesavel):
-        // se a ÚNICA divergência é de item pesável DENTRO de ±5%, o corte é liberado
-        // automaticamente (credenciais de env). Fora disso → liberação manual.
-        if (aguardandoCorte && withContext(Dispatchers.IO) { divergenciaSoDePesoDentroDaTolerancia(tenantId, sessaoId) }) {
-            val liberou = runCatching { LiberacaoCorteService.autoLiberar(tenantSlug, nuconf) }.getOrDefault(false)
-            if (liberou && runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()?.trim() != "C") {
-                aguardandoCorte = false
-            }
+        // Auto-liberação de corte por peso, ITEM A ITEM: toda linha de item pesável
+        // dentro de ±5% do pedido é liberada em silêncio pela aplicação, mesmo que
+        // a nota tenha outras divergências (item normal, ou pesável fora dos 5%) —
+        // essas seguem pra liberação manual. Só zera `aguardandoCorte` se, depois
+        // disso, não sobrou nada pendente e a conferência foi finalizada.
+        if (aguardandoCorte) {
+            val liberouTudo = runCatching {
+                LiberacaoCorteService.autoLiberarPesoDentroTolerancia(tenantSlug, tenantId, nuconf, sessaoId)
+            }.getOrDefault(false)
+            if (liberouTudo) aguardandoCorte = false
         }
 
         if (!aguardandoCorte) {
@@ -408,28 +410,6 @@ object SeparacaoService {
         }
 
         return FinalizarResultadoDto(ok = true, aguardandoCorte = aguardandoCorte, nuconf = nuconf)
-    }
-
-    /**
-     * true = a única divergência da conferência é de item PESÁVEL e está dentro de
-     * ±5% da quantidade negociada. Espelha conferencia.service.ts:1275-1297
-     * (apenasDivergenciaPesavel = houveDivPesavel && !houveDivergencia && !houvePesavelForaTol).
-     */
-    private fun divergenciaSoDePesoDentroDaTolerancia(tenantId: UUID, sessaoId: UUID): Boolean {
-        val itens = SeparacaoRepository.listarItens(tenantId, sessaoId)
-        val t = 0.05
-        fun round5(x: Double) = Math.round(x * 1e5) / 1e5
-        fun conf(i: ItemSeparacaoDto) = i.qtdConferidaLocal.toDoubleOrNull()?.let(::round5) ?: 0.0
-        fun neg(i: ItemSeparacaoDto) = i.qtdNeg.toDoubleOrNull()?.let(::round5) ?: 0.0
-
-        val houveDivPesavel = itens.any { it.usaConfPeso && conf(it) != neg(it) }
-        val houvePesavelForaTol = itens.any {
-            if (!it.usaConfPeso) return@any false
-            val base = neg(it).takeIf { b -> b != 0.0 } ?: conf(it)
-            base != 0.0 && kotlin.math.abs(conf(it) - neg(it)) / base > t
-        }
-        val houveDivergencia = itens.any { !it.usaConfPeso && conf(it) != neg(it) }
-        return houveDivPesavel && !houveDivergencia && !houvePesavelForaTol
     }
 
     class ConcluirEtapaException(message: String) : Exception(message)
