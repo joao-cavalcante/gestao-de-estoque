@@ -406,7 +406,14 @@ fun Route.separacaoRoutes() {
                 return@get
             }
 
-            call.respond(VolumeDto(SeparacaoRepository.buscarQtdVol(tenantId, sessaoId)))
+            // ?etapa=N → contador dessa etapa (conferência segmentada); sem etapa → contador da sessão.
+            val etapa = call.request.queryParameters["etapa"]?.toShortOrNull()
+            val qtd = if (etapa != null) {
+                SeparacaoRepository.buscarQtdVolEtapa(tenantId, sessaoId, etapa)
+            } else {
+                SeparacaoRepository.buscarQtdVol(tenantId, sessaoId)
+            }
+            call.respond(VolumeDto(qtd))
         }
 
         put("/sessoes/{id}/volume") {
@@ -429,8 +436,14 @@ fun Route.separacaoRoutes() {
             }
 
             // Contador LOCAL (modo simplificado) — resposta imediata, sem round-trip
-            // ao Sankhya. O total vai pro Sankhya no `cortar` da finalização.
-            val gravado = SeparacaoRepository.definirQtdVol(tenantId, sessaoId, body.quantidade)
+            // ao Sankhya. ?etapa=N grava no contador da etapa (cada operador conta
+            // o seu, sem corrida); a finalização soma tudo e manda no `cortar`.
+            val etapa = call.request.queryParameters["etapa"]?.toShortOrNull()
+            val gravado = if (etapa != null) {
+                SeparacaoRepository.definirQtdVolEtapa(tenantId, sessaoId, etapa, body.quantidade)
+            } else {
+                SeparacaoRepository.definirQtdVol(tenantId, sessaoId, body.quantidade)
+            }
             call.respond(VolumeDto(gravado))
         }
 

@@ -189,15 +189,15 @@ export class SeparacaoService {
     return this.http.post<{ ok: boolean }>(`${this.baseUrl}/sessoes/${sessaoId}/recontar`, {}, { params: { tenant } });
   }
 
-  buscarVolume(tenant: string, sessaoId: string): Observable<Volume> {
-    return this.http.get<Volume>(`${this.baseUrl}/sessoes/${sessaoId}/volume`, { params: { tenant } });
+  buscarVolume(tenant: string, sessaoId: string, etapa?: number | null): Observable<Volume> {
+    const params: Record<string, string> = { tenant };
+    if (etapa != null) params['etapa'] = String(etapa);
+    return this.http.get<Volume>(`${this.baseUrl}/sessoes/${sessaoId}/volume`, { params });
   }
 
-  definirVolume(tenant: string, sessaoId: string, quantidade: number): Observable<Volume> {
-    return this.http.put<Volume>(
-      `${this.baseUrl}/sessoes/${sessaoId}/volume`,
-      { quantidade },
-      { params: { tenant } },
-    );
+  definirVolume(tenant: string, sessaoId: string, quantidade: number, etapa?: number | null): Observable<Volume> {
+    const params: Record<string, string> = { tenant };
+    if (etapa != null) params['etapa'] = String(etapa);
+    return this.http.put<Volume>(`${this.baseUrl}/sessoes/${sessaoId}/volume`, { quantidade }, { params });
   }
 }

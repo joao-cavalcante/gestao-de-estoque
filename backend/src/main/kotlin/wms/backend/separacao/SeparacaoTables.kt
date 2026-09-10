@@ -78,6 +78,8 @@ object SeparacaoEtapasTable : Table("app.separacao_etapas") {
     val sessaoId = uuid("sessao_id")
     val tipoSeparacao = short("tipo_separacao")
     val status = text("status")             // 'P' pendente | 'C' concluída
+    // Volume (modo simplificado) contado nesta etapa (V31). Finalização soma todas.
+    val qtdVol = integer("qtd_vol")
     val concluidaPor = text("concluida_por").nullable()
     val concluidaEm = timestamp("concluida_em").nullable()
     val criadoEm = timestamp("criado_em")

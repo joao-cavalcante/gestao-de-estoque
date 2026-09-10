@@ -231,7 +231,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   escolherEtapa(tipo: number): void {
     this.etapaAtual.set(tipo);
-    if (this.sessaoIdAtual) this.recarregarItens(this.sessaoIdAtual);
+    if (this.sessaoIdAtual) {
+      this.recarregarItens(this.sessaoIdAtual);
+      this.carregarVolume(this.sessaoIdAtual); // contador de volume é por etapa
+    }
     // reflete na URL sem recarregar (permite F5 / compartilhar link da etapa)
     this.router.navigate([], { relativeTo: this.route, queryParams: { etapa: tipo }, replaceUrl: true });
   }
@@ -352,13 +355,6 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.exibirProdConf.set(sessao.exibirProdConf !== 'N');
           this.exibirQtdConf.set(sessao.exibirQtdConf !== 'N');
           this.exibirImgProd.set(sessao.exibirImgProd !== 'N');
-          this.separacaoService.buscarVolume(this.tenantAtual, sessaoId).subscribe({
-            next: (v) => this.volume.set(v.quantidade),
-            error: () => {
-              // Não bloqueia a conferência — operador ainda pode ajustar depois via o próprio stepper.
-            },
-          });
-
           if (sessao.conferenciaSegmentada) {
             // Resolve a etapa ativa ANTES de listar os itens (o filtro por etapa depende dela).
             this.separacaoService.buscarEtapas(this.tenantAtual, sessaoId).subscribe({
@@ -371,11 +367,13 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
                   this.etapaAtual.set(pendentes[0]); // sem ?etapa= e só sobra uma → assume ela
                 }
                 // >1 etapa pendente e sem ?etapa= válido → etapaAtual null → template mostra o seletor.
+                this.carregarVolume(sessaoId);
                 this.recarregarItens(sessaoId, () => this.carregando.set(false));
               },
               error: () => this.recarregarItens(sessaoId, () => this.carregando.set(false)),
             });
           } else {
+            this.carregarVolume(sessaoId);
             this.recarregarItens(sessaoId, () => this.carregando.set(false));
           }
         },
@@ -384,6 +382,19 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.carregando.set(false);
         },
       });
+  }
+
+  /**
+   * Carrega o contador de volumes: por ETAPA na conferência segmentada (cada
+   * operador conta o seu), pelo contador da sessão nas não segmentadas.
+   */
+  private carregarVolume(sessaoId: string): void {
+    this.separacaoService.buscarVolume(this.tenantAtual, sessaoId, this.etapaAtual()).subscribe({
+      next: (v) => this.volume.set(v.quantidade),
+      error: () => {
+        /* não bloqueia a conferência */
+      },
+    });
   }
 
   /** Imagem do último produto identificado — carregada junto pro onConferido não perder ela ao confirmar. */
@@ -566,7 +577,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!this.sessaoIdAtual || quantidade < 0) return;
     const anterior = this.volume();
     this.volume.set(quantidade);
-    this.separacaoService.definirVolume(this.tenantAtual, this.sessaoIdAtual, quantidade).subscribe({
+    this.separacaoService.definirVolume(this.tenantAtual, this.sessaoIdAtual, quantidade, this.etapaAtual()).subscribe({
       next: (v) => this.volume.set(v.quantidade),
       error: () => this.volume.set(anterior),
     });

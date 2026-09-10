@@ -204,6 +204,42 @@ object SeparacaoRepository {
         q
     }
 
+    /** Volume contado numa ETAPA (conferência segmentada V29/V31). */
+    fun buscarQtdVolEtapa(tenantId: UUID, sessaoId: UUID, tipoSeparacao: Short): Int = TenantTx.run(tenantId) {
+        SeparacaoEtapasTable.selectAll()
+            .where {
+                (SeparacaoEtapasTable.tenantId eq tenantId) and
+                    (SeparacaoEtapasTable.sessaoId eq sessaoId) and
+                    (SeparacaoEtapasTable.tipoSeparacao eq tipoSeparacao)
+            }
+            .singleOrNull()
+            ?.get(SeparacaoEtapasTable.qtdVol) ?: 0
+    }
+
+    fun definirQtdVolEtapa(tenantId: UUID, sessaoId: UUID, tipoSeparacao: Short, quantidade: Int): Int = TenantTx.run(tenantId) {
+        val q = quantidade.coerceAtLeast(0)
+        SeparacaoEtapasTable.update({
+            (SeparacaoEtapasTable.tenantId eq tenantId) and
+                (SeparacaoEtapasTable.sessaoId eq sessaoId) and
+                (SeparacaoEtapasTable.tipoSeparacao eq tipoSeparacao)
+        }) {
+            it[qtdVol] = q
+        }
+        q
+    }
+
+    /** Total consolidado de volumes da conferência: soma das etapas (segmentada) ou o contador da sessão. */
+    fun totalQtdVol(tenantId: UUID, sessaoId: UUID): Int = TenantTx.run(tenantId) {
+        val somaEtapas = SeparacaoEtapasTable.selectAll()
+            .where { (SeparacaoEtapasTable.tenantId eq tenantId) and (SeparacaoEtapasTable.sessaoId eq sessaoId) }
+            .sumOf { it[SeparacaoEtapasTable.qtdVol] }
+        if (somaEtapas > 0) return@run somaEtapas
+        SeparacaoSessoesTable.selectAll()
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
+            .singleOrNull()
+            ?.get(SeparacaoSessoesTable.qtdVol) ?: 0
+    }
+
     fun buscarNuconf(tenantId: UUID, sessaoId: UUID): Int? = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()
             .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }

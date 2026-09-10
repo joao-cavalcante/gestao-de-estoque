@@ -348,9 +348,10 @@ object SeparacaoService {
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
         }
 
-        // Volumes (modo simplificado): o total local vai junto no `cortar`, igual
-        // ao legado (ConferenciaSP.cortar recebe { nuNota, peso, qtdVol }).
-        val qtdVol = withContext(Dispatchers.IO) { SeparacaoRepository.buscarQtdVol(tenantId, sessaoId) }
+        // Volumes (modo simplificado): total CONSOLIDADO (soma das etapas na
+        // conferência segmentada, ou o contador da sessão) vai junto no `cortar`,
+        // igual ao legado (ConferenciaSP.cortar recebe { nuNota, peso, qtdVol }).
+        val qtdVol = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
         SankhyaSpClient.chamar(
             tenantSlug,
             "ConferenciaSP.cortar",
@@ -592,9 +593,9 @@ object SeparacaoService {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
         val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
-        // Durante/logo após a conferência: usa o contador LOCAL da sessão (o
-        // Sankhya só recebe o total no `cortar` da finalização).
-        val qtdVolLocal = withContext(Dispatchers.IO) { SeparacaoRepository.buscarQtdVol(tenantId, sessaoId) }
+        // Durante/logo após a conferência: usa o total LOCAL consolidado (soma
+        // das etapas ou contador da sessão). O Sankhya só recebe no `cortar`.
+        val qtdVolLocal = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
         return montarDadosEtiqueta(tenantSlug, tenantId, sessao.nunota, nuconf, qtdVolLocal)
     }
 
