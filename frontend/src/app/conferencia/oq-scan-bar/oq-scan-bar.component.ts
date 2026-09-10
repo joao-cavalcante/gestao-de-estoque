@@ -62,6 +62,41 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     return !!it && !!it.unidadeComercial && it.unidadeComercial !== it.unidadePadrao && it.quantidadeComercial != null;
   }
 
+  private confereEmComercialItem(it: ConferenciaItem | null): boolean {
+    return (
+      !this.usaConfPesoAtual &&
+      !!it &&
+      !!it.unidadeComercial &&
+      it.unidadeComercial !== it.unidadePadrao &&
+      it.quantidadeComercial != null &&
+      it.quantidadeComercial > 0 &&
+      it.expected > 0
+    );
+  }
+
+  /**
+   * Item NÃO pesável negociado numa unidade (ex.: BI) diferente da base do
+   * produto (ex.: CX): o operador confere na unidade DO PEDIDO e a aplicação
+   * converte pra base antes de gravar (TGFITE.QTDNEG e as leituras são sempre
+   * na unidade base). Pesável segue no peso (KG), sem essa troca.
+   */
+  get conferirEmComercial(): boolean {
+    return this.confereEmComercialItem(this.itemPendenteAtual);
+  }
+
+  /** Unidade em que o operador digita a quantidade deste item. */
+  get unidadeConferencia(): string {
+    const it = this.itemPendenteAtual;
+    return (this.conferirEmComercial ? it?.unidadeComercial : it?.unidadePadrao) ?? '';
+  }
+
+  /** Converte a qtd digitada (unidade de conferência) → unidade base do produto (o que vai pro backend). */
+  private qtdParaBase(qtdDigitada: number): number {
+    if (!this.conferirEmComercial) return qtdDigitada;
+    const it = this.itemPendenteAtual!;
+    return Number(((qtdDigitada * it.expected) / it.quantidadeComercial!).toFixed(5));
+  }
+
   @Output() conferido = new EventEmitter<ItemConferido>();
   @Output() naoEncontrado = new EventEmitter<string>();
   @Output() identificado = new EventEmitter<ProdutoIdentificadoEvento>();
@@ -223,6 +258,14 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         this.codvolEscanado = resultado.codvol ?? null;
         // Clique na lista não tem código de barras real — não manda um CODPROD como CODBARRA.
         this.codigoBarraEscanado = this.codprodDaLista != null ? null : codigo;
+
+        // Item não pesável negociado noutra unidade (BI vs CX): pré-preenche a qtd
+        // com o restante do pedido NA UNIDADE DO PEDIDO — 1 Enter confere tudo.
+        const pend = this.itensPendentes.find((i) => i.code === String(resultado.codprod));
+        if (!resultado.usaConfPeso && this.confereEmComercialItem(pend ?? null) && pend) {
+          const restanteBase = Math.max(0, pend.expected - pend.scanned);
+          this.qtd = String(Number(((restanteBase * pend.quantidadeComercial!) / pend.expected).toFixed(3)));
+        }
 
         // UMAs do produto + default na UMA marcada como padrão (casa por CODPROD, igual ao legado).
         this.umasDoProduto = this.umasDaSessao.filter((u) => u.codprod === resultado.codprod);
@@ -433,6 +476,9 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     if (this.carregando) return;
 
     const pesoN = this.precisaPeso ? Number(this.peso.replace(',', '.')) : undefined;
+    // qtdN é o que o operador digitou (na unidade de conferência). O backend
+    // sempre recebe a qtd na unidade BASE do produto.
+    const qtdBase = this.qtdParaBase(qtdN);
     this.carregando = true;
     this.separacaoService
       .conferir(
@@ -440,7 +486,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         this.sessaoId,
         this.codprodAtual,
         this.controle,
-        qtdN,
+        qtdBase,
         pesoN,
         this.codvolEscanado,
         this.codigoBarraEscanado,

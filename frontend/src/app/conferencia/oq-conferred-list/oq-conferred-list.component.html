@@ -44,8 +44,8 @@
                   [class.item-qtd-principal--excedente]="isDivergenciaQtd(item)"
                   [class.item-qtd-principal--peso]="isDivergenciaPeso(item)"
                 >
-                  {{ formatarQtd(item.scanned) }}
-                  @if (item.unidadePadrao) { <span class="item-qtd-principal__un">{{ item.unidadePadrao }}</span> }
+                  {{ formatarQtd(qtdPrincipal(item)) }}
+                  @if (unidadePrincipal(item)) { <span class="item-qtd-principal__un">{{ unidadePrincipal(item) }}</span> }
                 </span>
               }
             </div>
@@ -60,13 +60,19 @@
             } @else if (isDivergenciaQtd(item)) {
               <div class="item-linha">
                 <span class="item-divergencia">
-                  Divergente {{ excedente(item) > 0 ? '+' : '' }}{{ formatarQtd(excedente(item)) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
+                  Divergente {{ excedentePrincipal(item) > 0 ? '+' : '' }}{{ formatarQtd(excedentePrincipal(item)) }}{{ unidadePrincipal(item) ? ' ' + unidadePrincipal(item) : '' }}
                 </span>
               </div>
             }
             @if (item.unidadeComercial && item.unidadeComercial !== item.unidadePadrao) {
               <div class="item-linha">
-                <span class="item-info-sec">Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}</span>
+                <span class="item-info-sec">
+                  @if (mostraComercial(item)) {
+                    Base: {{ formatarQtd(item.scanned) }} {{ item.unidadePadrao }}
+                  } @else {
+                    Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
+                  }
+                </span>
               </div>
             }
             @if (item.control && item.control !== '—') {

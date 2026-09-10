@@ -68,7 +68,7 @@
       </div>
     } @else {
       <div class="oq-scan-bar__field oq-scan-bar__field--qtd">
-        <label class="oq-label-caps">QTD.</label>
+        <label class="oq-label-caps">{{ unidadeConferencia || 'QTD.' }}</label>
         <input
           #inputQtd
           [ngModel]="qtd"

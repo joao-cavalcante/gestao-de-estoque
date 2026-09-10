@@ -26,8 +26,21 @@ export class OqPendingListComponent {
     return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
 
-  /** true quando a unidade do pedido (comercial) difere da unidade base do produto — aí mostra a linha "Pedido: X". */
+  /** true quando a unidade do pedido (comercial) difere da unidade base do produto. */
   temComercial(item: ConferenciaItem): boolean {
     return !!item.unidadeComercial && item.unidadeComercial !== item.unidadePadrao;
+  }
+
+  /** Item NÃO pesável negociado noutra unidade — mostra a qtd DO PEDIDO como número principal. */
+  mostraComercial(item: ConferenciaItem): boolean {
+    return !item.usaConfPeso && this.temComercial(item) && item.quantidadeComercial != null;
+  }
+
+  qtdPrincipal(item: ConferenciaItem): number {
+    return this.mostraComercial(item) ? item.quantidadeComercial! : item.expected;
+  }
+
+  unidadePrincipal(item: ConferenciaItem): string {
+    return (this.mostraComercial(item) ? item.unidadeComercial : item.unidadePadrao) ?? '';
   }
 }

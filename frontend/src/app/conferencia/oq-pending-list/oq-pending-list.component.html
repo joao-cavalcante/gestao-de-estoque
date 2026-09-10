@@ -26,15 +26,19 @@
               </span>
               @if (exibirQtd) {
                 <span class="item-qtd-principal" [class.item-qtd-principal--balanca]="item.usaConfPeso">
-                  {{ formatarQtd(item.expected) }}
-                  @if (item.unidadePadrao) { <span class="item-qtd-principal__un">{{ item.unidadePadrao }}</span> }
+                  {{ formatarQtd(qtdPrincipal(item)) }}
+                  @if (unidadePrincipal(item)) { <span class="item-qtd-principal__un">{{ unidadePrincipal(item) }}</span> }
                 </span>
               }
             </div>
             @if (exibirQtd && temComercial(item)) {
               <div class="item-linha">
                 <span class="item-info-sec">
-                  Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
+                  @if (mostraComercial(item)) {
+                    Base: {{ formatarQtd(item.expected) }} {{ item.unidadePadrao }}
+                  } @else {
+                    Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
+                  }
                 </span>
               </div>
             }

@@ -34,9 +34,37 @@ export class OqConferredListComponent {
     return item.status === 'critical' && !item.divergenciaPeso;
   }
 
-  /** Diferença bipado - esperado (só positiva importa aqui, é o excesso). */
+  /** Diferença bipado - esperado (na unidade base). */
   excedente(item: ConferenciaItem): number {
     return item.scanned - item.expected;
+  }
+
+  /** Item NÃO pesável negociado noutra unidade — exibe conferido/divergência na unidade DO PEDIDO. */
+  mostraComercial(item: ConferenciaItem): boolean {
+    return (
+      !item.usaConfPeso &&
+      !!item.unidadeComercial &&
+      item.unidadeComercial !== item.unidadePadrao &&
+      item.quantidadeComercial != null &&
+      item.expected > 0
+    );
+  }
+
+  private paraComercial(item: ConferenciaItem, valorBase: number): number {
+    return (valorBase * item.quantidadeComercial!) / item.expected;
+  }
+
+  qtdPrincipal(item: ConferenciaItem): number {
+    return this.mostraComercial(item) ? this.paraComercial(item, item.scanned) : item.scanned;
+  }
+
+  excedentePrincipal(item: ConferenciaItem): number {
+    const e = item.scanned - item.expected;
+    return this.mostraComercial(item) ? this.paraComercial(item, e) : e;
+  }
+
+  unidadePrincipal(item: ConferenciaItem): string {
+    return (this.mostraComercial(item) ? item.unidadeComercial : item.unidadePadrao) ?? '';
   }
 
   formatarQtd(n: number): string {
