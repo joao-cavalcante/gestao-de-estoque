@@ -102,23 +102,6 @@ object SeparacaoService {
         return SankhyaLoadRecordsClient.parseRows(raw, fields).firstOrNull()?.get("QTDVOL")?.toIntOrNull() ?: 0
     }
 
-    /**
-     * ConferenciaSP.salvarVolumeSimplificado grava VALOR ABSOLUTO em
-     * TGFCON2.QTDVOL (confirmado: chamar com volume=1 depois volume=5 resultou
-     * em QTDVOL=5, não 6) — corrigir a contagem é só chamar de novo com o
-     * número certo, não precisa de rotina de "remover".
-     */
-    suspend fun definirQtdVolumes(tenantSlug: String, nuconf: Int, nunota: Long, quantidade: Int) {
-        SankhyaSpClient.chamar(
-            tenantSlug,
-            "ConferenciaSP.salvarVolumeSimplificado",
-            mapOf(
-                "numConf" to JsonPrimitive(nuconf),
-                "nuNota" to JsonPrimitive(nunota),
-                "volume" to JsonPrimitive(quantidade),
-            ),
-        )
-    }
 
     private suspend fun carregarEmBackground(tenantSlug: String, tenantId: UUID, sessaoId: UUID, nunota: Long) {
         try {
@@ -365,7 +348,18 @@ object SeparacaoService {
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
         }
 
-        SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.cortar", mapOf("nuNota" to JsonPrimitive(sessao.nunota)))
+        // Volumes (modo simplificado): o total local vai junto no `cortar`, igual
+        // ao legado (ConferenciaSP.cortar recebe { nuNota, peso, qtdVol }).
+        val qtdVol = withContext(Dispatchers.IO) { SeparacaoRepository.buscarQtdVol(tenantId, sessaoId) }
+        SankhyaSpClient.chamar(
+            tenantSlug,
+            "ConferenciaSP.cortar",
+            mapOf(
+                "nuNota" to JsonPrimitive(sessao.nunota),
+                "peso" to JsonPrimitive(0),
+                "qtdVol" to JsonPrimitive(qtdVol),
+            ),
+        )
 
         // Se a CCO exige liberação de corte (LIBCORTE='S') e houve divergência, o
         // `cortar` deixa a conferência em TGFCON2.STATUS='C' em vez de 'F' — um
@@ -598,7 +592,10 @@ object SeparacaoService {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
         val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
-        return montarDadosEtiqueta(tenantSlug, tenantId, sessao.nunota, nuconf)
+        // Durante/logo após a conferência: usa o contador LOCAL da sessão (o
+        // Sankhya só recebe o total no `cortar` da finalização).
+        val qtdVolLocal = withContext(Dispatchers.IO) { SeparacaoRepository.buscarQtdVol(tenantId, sessaoId) }
+        return montarDadosEtiqueta(tenantSlug, tenantId, sessao.nunota, nuconf, qtdVolLocal)
     }
 
     suspend fun dadosEtiquetaPorNota(tenantSlug: String, tenantId: UUID, nunota: Long): EtiquetaDadosDto {
@@ -606,8 +603,16 @@ object SeparacaoService {
         return montarDadosEtiqueta(tenantSlug, tenantId, nunota, nuconf)
     }
 
-    private suspend fun montarDadosEtiqueta(tenantSlug: String, tenantId: UUID, nunota: Long, nuconf: Int?): EtiquetaDadosDto {
-        val totalVolumes = nuconf?.let { runCatching { buscarQtdVolumes(tenantSlug, it) }.getOrDefault(0) } ?: 0
+    private suspend fun montarDadosEtiqueta(
+        tenantSlug: String,
+        tenantId: UUID,
+        nunota: Long,
+        nuconf: Int?,
+        qtdVolOverride: Int? = null,
+    ): EtiquetaDadosDto {
+        val totalVolumes = qtdVolOverride
+            ?: nuconf?.let { runCatching { buscarQtdVolumes(tenantSlug, it) }.getOrDefault(0) }
+            ?: 0
         val codparc = withContext(Dispatchers.IO) { TarefasRepository.buscarCodParcLocal(tenantId, nunota) }
 
         var cliente = ""

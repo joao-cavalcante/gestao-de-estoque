@@ -184,6 +184,26 @@ object SeparacaoRepository {
     }
 
     /** null se a sessão não existe ou o carregamento ainda não descobriu o NUCONF. */
+    /** Quantidade de volumes (modo simplificado) — contador local da sessão. */
+    fun buscarQtdVol(tenantId: UUID, sessaoId: UUID): Int = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.selectAll()
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
+            .singleOrNull()
+            ?.get(SeparacaoSessoesTable.qtdVol) ?: 0
+    }
+
+    /** Define o total de volumes (valor absoluto, não incremento) e devolve o valor gravado. */
+    fun definirQtdVol(tenantId: UUID, sessaoId: UUID, quantidade: Int): Int = TenantTx.run(tenantId) {
+        val q = quantidade.coerceAtLeast(0)
+        SeparacaoSessoesTable.update({
+            (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId)
+        }) {
+            it[qtdVol] = q
+            it[atualizadoEm] = Instant.now()
+        }
+        q
+    }
+
     fun buscarNuconf(tenantId: UUID, sessaoId: UUID): Int? = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()
             .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }

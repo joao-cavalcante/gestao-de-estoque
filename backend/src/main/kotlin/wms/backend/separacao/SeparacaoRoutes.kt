@@ -406,13 +406,7 @@ fun Route.separacaoRoutes() {
                 return@get
             }
 
-            val nuconf = SeparacaoRepository.buscarNuconf(tenantId, sessaoId)
-            if (nuconf == null) {
-                call.respond(HttpStatusCode.Conflict, mapOf("erro" to "sessão ainda não tem NUCONF (carregamento não terminou ou falhou)"))
-                return@get
-            }
-
-            call.respond(VolumeDto(SeparacaoService.buscarQtdVolumes(slug, nuconf)))
+            call.respond(VolumeDto(SeparacaoRepository.buscarQtdVol(tenantId, sessaoId)))
         }
 
         put("/sessoes/{id}/volume") {
@@ -428,22 +422,16 @@ fun Route.separacaoRoutes() {
                 return@put
             }
 
-            val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
-            val nuconf = SeparacaoRepository.buscarNuconf(tenantId, sessaoId)
-            if (sessao == null || nuconf == null) {
-                call.respond(HttpStatusCode.Conflict, mapOf("erro" to "sessão não encontrada ou ainda sem NUCONF"))
-                return@put
-            }
-
             val body = call.receive<DefinirVolumeRequest>()
             if (body.quantidade < 0) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'quantidade' não pode ser negativa"))
                 return@put
             }
 
-            SeparacaoService.definirQtdVolumes(slug, nuconf, sessao.nunota, body.quantidade)
-            // Relê em vez de assumir que gravou o valor pedido — mesma cautela do resto do projeto.
-            call.respond(VolumeDto(SeparacaoService.buscarQtdVolumes(slug, nuconf)))
+            // Contador LOCAL (modo simplificado) — resposta imediata, sem round-trip
+            // ao Sankhya. O total vai pro Sankhya no `cortar` da finalização.
+            val gravado = SeparacaoRepository.definirQtdVol(tenantId, sessaoId, body.quantidade)
+            call.respond(VolumeDto(gravado))
         }
 
         /** Desfaz tudo que foi conferido pra esse produto+controle — volta a pendente do zero (corrige bipe errado). */

@@ -557,14 +557,18 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Grava o total de volumes nativamente no Sankhya (TGFCON2.QTDVOL) — relê o valor confirmado, não assume otimisticamente. */
+  /**
+   * Total de volumes (modo simplificado) — contador local da sessão, resposta
+   * imediata. Vai pro Sankhya no `cortar` da finalização. Otimista: mostra na
+   * hora e reverte se a gravação falhar.
+   */
   onVolumeChange(quantidade: number): void {
-    if (!this.sessaoIdAtual) return;
+    if (!this.sessaoIdAtual || quantidade < 0) return;
+    const anterior = this.volume();
+    this.volume.set(quantidade);
     this.separacaoService.definirVolume(this.tenantAtual, this.sessaoIdAtual, quantidade).subscribe({
       next: (v) => this.volume.set(v.quantidade),
-      error: () => {
-        // Falha ao gravar — mantém o valor anterior, operador pode tentar de novo.
-      },
+      error: () => this.volume.set(anterior),
     });
   }
 

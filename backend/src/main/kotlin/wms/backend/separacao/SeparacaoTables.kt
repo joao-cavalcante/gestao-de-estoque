@@ -31,6 +31,9 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     val exibirProdConf = text("exibir_prod_conf").nullable()
     val exibirQtdConf = text("exibir_qtd_conf").nullable()
     val exibirImgProd = text("exibir_img_prod").nullable()
+    // Quantidade de volumes (modo simplificado, V30) — contador local, +/- na UI;
+    // empurrado pro Sankhya só no `cortar` da finalização.
+    val qtdVol = integer("qtd_vol")
     val criadoEm = timestamp("criado_em")
     val atualizadoEm = timestamp("atualizado_em")
 
