@@ -21,6 +21,7 @@ import wms.backend.produtos.ProdutosCacheTable
 import wms.backend.tarefas.TarefasTable
 import wms.backend.tenancy.TenantTx
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import java.util.UUID
 
@@ -1089,8 +1090,17 @@ object SeparacaoRepository {
                 if (total <= BigDecimal.ZERO) {
                     null
                 } else {
+                    val negociado = linhas.fold(BigDecimal.ZERO) { acc, row -> acc + row[SeparacaoItensTable.qtdNeg] }
+                    // Se o conferido bate o negociado no arredondamento de 3 casas (a
+                    // precisão exibida na tela: operador viu "2,083" e digitou 2,083,
+                    // mas o negociado real é 2,08333), envia o negociado EXATO — senão
+                    // o Sankhya corta a fração e aciona liberação de corte à toa.
+                    val enviar = if (
+                        negociado > BigDecimal.ZERO &&
+                        total.setScale(3, RoundingMode.HALF_UP) == negociado.setScale(3, RoundingMode.HALF_UP)
+                    ) negociado else total
                     val (cv, cb) = escaneadoPara(chave.first, chave.second)
-                    GrupoConferido(chave.first, chave.second, total, codvol = cv, codigoBarra = cb)
+                    GrupoConferido(chave.first, chave.second, enviar, codvol = cv, codigoBarra = cb)
                 }
             }
     }
