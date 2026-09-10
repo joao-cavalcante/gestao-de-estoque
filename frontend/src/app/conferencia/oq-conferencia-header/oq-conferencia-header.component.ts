@@ -21,7 +21,8 @@ export class OqConferenciaHeaderComponent {
   @Input() nf = '';
   @Input() parceiro = '';
   @Input() vendedor = '';
-  @Input() numeroConferencia = '';
+  /** NUNOTA da nota — número único no Sankhya. */
+  @Input() numeroUnico = '';
 
   @Input() pendingCount = 0;
   @Input() conferredCount = 0;

@@ -87,7 +87,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   nf = '—';
   parceiro = '—';
   vendedor = '—';
-  numeroConferencia = '—';
+  numeroUnico = '—';
 
   private readonly items = signal<ConferenciaItem[]>([]);
   private readonly conferred = signal<ConferenciaItem[]>([]);
@@ -216,7 +216,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       this.parceiro = tarefa.cliente;
       this.vendedor = tarefa.responsavel;
     }
-    this.numeroConferencia = `NUNOTA-${nunota}`;
+    this.numeroUnico = nunota ? String(nunota) : '—';
 
     if (!nunota) {
       this.erro.set('Número da nota inválido.');

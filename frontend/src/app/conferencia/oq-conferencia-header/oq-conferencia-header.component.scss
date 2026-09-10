@@ -126,18 +126,6 @@
   text-overflow: ellipsis;
 }
 
-.oq-cf-header__conf-pill {
-  flex: none;
-  font-family: var(--oq-font-display);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--oq-brand-text);
-  background: var(--oq-surface-2);
-  padding: 4px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
 .oq-cf-header__kpis {
   display: flex;
   align-items: center;
@@ -207,8 +195,7 @@
 }
 
 /* Celular: só o essencial na barra — menu + logo + KPIs numa linha,
-   nota/parceiro logo abaixo. Pill "Conferência #" e o título somem
-   (a tela inteira já é a conferência). */
+   nota/parceiro logo abaixo. O título some (a tela inteira já é a conferência). */
 @media (max-width: 639px) {
   .oq-cf-header {
     gap: 8px;
@@ -217,7 +204,6 @@
 
   .oq-cf-header__title,
   .oq-cf-header__divider,
-  .oq-cf-header__conf-pill,
   .oq-cf-header__sep {
     display: none;
   }

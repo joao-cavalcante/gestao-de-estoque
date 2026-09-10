@@ -3,7 +3,7 @@ import { Component, Input } from '@angular/core';
 export type OqIconName =
   | 'circle' | 'circle-filled' | 'circle-alert' | 'gear' | 'check' | 'triangle'
   | 'search' | 'filter' | 'sync' | 'barcode' | 'x' | 'arrow-left'
-  | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check'
+  | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
   | 'menu' | 'box' | 'user' | 'scale' | 'download' | 'building' | 'logout'
   | 'sun' | 'moon'
   | 'seco' | 'refrigerado' | 'congelado';
@@ -83,6 +83,9 @@ export type OqIconName =
         }
         @case ('x') {
           <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+        }
+        @case ('hash') {
+          <path d="M9 4 7 20M17 4l-2 16M4.5 9h15M3.5 15h15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
         }
         @case ('arrow-left') {
           <path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />

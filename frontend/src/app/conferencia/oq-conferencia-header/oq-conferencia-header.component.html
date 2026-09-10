@@ -19,8 +19,16 @@
     <div class="oq-cf-info-item">
       <oq-icon name="receipt" [size]="15" class="oq-cf-info-item__icon" />
       <div class="oq-cf-info-item__text">
-        <span class="oq-cf-info-item__label">Nota</span>
+        <span class="oq-cf-info-item__label">Nro. Nota</span>
         <span class="oq-cf-info-item__value">{{ nf }}</span>
+      </div>
+    </div>
+    <div class="oq-cf-header__sep"></div>
+    <div class="oq-cf-info-item">
+      <oq-icon name="hash" [size]="15" class="oq-cf-info-item__icon" />
+      <div class="oq-cf-info-item__text">
+        <span class="oq-cf-info-item__label">Nro. Único</span>
+        <span class="oq-cf-info-item__value">{{ numeroUnico }}</span>
       </div>
     </div>
     <div class="oq-cf-header__sep"></div>
@@ -39,8 +47,6 @@
         <span class="oq-cf-info-item__value">{{ vendedor }}</span>
       </div>
     </div>
-    <div class="oq-cf-header__sep"></div>
-    <span class="oq-cf-header__conf-pill">Conferência #{{ numeroConferencia }}</span>
   </div>
 
   <div class="oq-cf-header__kpis">
