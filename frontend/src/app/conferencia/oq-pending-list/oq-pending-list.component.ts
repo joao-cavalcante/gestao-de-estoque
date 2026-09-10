@@ -31,7 +31,11 @@ export class OqPendingListComponent {
     return !!item.unidadeComercial && item.unidadeComercial !== item.unidadePadrao;
   }
 
-  /** Item NÃO pesável negociado noutra unidade — mostra a qtd DO PEDIDO como número principal. */
+  /**
+   * Item NÃO pesável negociado noutra unidade — mostra a qtd DO PEDIDO como
+   * número principal. Pesável NÃO entra: o operador pesa e registra em KG
+   * (unidade padrão); o Sankhya corrige pra unidade comercial na nota.
+   */
   mostraComercial(item: ConferenciaItem): boolean {
     return !item.usaConfPeso && this.temComercial(item) && item.quantidadeComercial != null;
   }

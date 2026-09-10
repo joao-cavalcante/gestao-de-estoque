@@ -39,7 +39,7 @@ export class OqConferredListComponent {
     return item.scanned - item.expected;
   }
 
-  /** Item NÃO pesável negociado noutra unidade — exibe conferido/divergência na unidade DO PEDIDO. */
+  /** Item NÃO pesável negociado noutra unidade — exibe conferido na unidade DO PEDIDO (pesável fica em KG). */
   mostraComercial(item: ConferenciaItem): boolean {
     return (
       !item.usaConfPeso &&
