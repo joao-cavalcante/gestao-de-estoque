@@ -114,6 +114,21 @@
   gap: 2px;
   align-items: flex-end;
   white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  padding: 3px 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--oq-border);
+    background: var(--oq-surface-2);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
 }
 
 .oq-header__sync-line {

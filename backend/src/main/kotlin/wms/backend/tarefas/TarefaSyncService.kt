@@ -84,12 +84,21 @@ object TarefaSyncService {
             LinhaSankhya(nunota, statusRaw, dadosJson)
         }
 
-        withContext(Dispatchers.IO) {
+        val notasResetadas = withContext(Dispatchers.IO) {
             // 1 transação por tenant por ciclo, reconciliação em LOTE (1
             // SELECT + no máximo 2 lotes de escrita, não ~2 idas ao banco
             // por nota) — statement_timeout mais folgado que o da API.
             TenantTx.run(tenantId, statementTimeoutMs = 30_000) {
                 TarefasRepository.reconciliarLoteTx(tenantId, linhas)
+            }
+        }
+
+        // Nota que voltou pra 'aguardando'/'cancelado' (conferência excluída ou
+        // reaberta no Sankhya): a sessão de separação local ficou obsoleta (etapas
+        // concluídas, itens conferidos) — cancela pra o próximo `iniciar` criar uma limpa.
+        if (notasResetadas.isNotEmpty()) {
+            withContext(Dispatchers.IO) {
+                wms.backend.separacao.SeparacaoRepository.cancelarSessoesAtivasPorNotas(tenantId, notasResetadas)
             }
         }
     }

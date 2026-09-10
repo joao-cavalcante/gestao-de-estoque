@@ -189,6 +189,24 @@ object SeparacaoRepository {
         Unit
     }
 
+    /**
+     * Cancela as sessões locais ATIVAS (carregando/pronta) das notas dadas —
+     * usado pelo sync quando o Sankhya volta a nota pra 'aguardando' (conferência
+     * excluída/reaberta): a sessão local (com etapas já concluídas etc.) está
+     * obsoleta, e o próximo `iniciar` precisa criar uma limpa. Retorna quantas cancelou.
+     */
+    fun cancelarSessoesAtivasPorNotas(tenantId: UUID, nunotas: List<Long>): Int = TenantTx.run(tenantId) {
+        if (nunotas.isEmpty()) return@run 0
+        SeparacaoSessoesTable.update({
+            (SeparacaoSessoesTable.tenantId eq tenantId) and
+                (SeparacaoSessoesTable.nunota inList nunotas.map { it.toInt() }) and
+                (SeparacaoSessoesTable.status inList listOf(SeparacaoStatus.CARREGANDO, SeparacaoStatus.PRONTA))
+        }) {
+            it[status] = SeparacaoStatus.CANCELADA
+            it[atualizadoEm] = Instant.now()
+        }
+    }
+
     /** Cancela a sessão local — usado só depois que o Sankhya já confirmou a desistência (ver SeparacaoService.cancelar). */
     fun marcarCancelada(tenantId: UUID, sessaoId: UUID): Unit = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {

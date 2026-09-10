@@ -63,8 +63,14 @@ object TarefasRepository {
      * tabela de transição, auditoria condicional) é idêntica, só decidida
      * em memória em vez de round-trip por linha.
      */
-    fun reconciliarLoteTx(tenantId: UUID, linhas: List<LinhaSankhya>) {
-        if (linhas.isEmpty()) return
+    /**
+     * Retorna as NUNOTAs cuja execução foi RESETADA neste ciclo (transição com
+     * `limparExecucao` — ex.: conferência excluída no Sankhya, nota voltou pra
+     * 'aguardando'/'cancelado'). Quem chama usa isso pra invalidar a sessão de
+     * separação local correspondente.
+     */
+    fun reconciliarLoteTx(tenantId: UUID, linhas: List<LinhaSankhya>): List<Long> {
+        if (linhas.isEmpty()) return emptyList()
         val nunotasInt = linhas.map { it.nunota.toInt() }
 
         val existentesPorNunota = TarefasTable.selectAll()
@@ -207,6 +213,8 @@ object TarefasRepository {
                 this[TarefasAuditoriaTable.criadoEm] = agora
             }
         }
+
+        return paraAtualizar.filter { it.limparExecucao }.map { it.nunotaInt.toLong() }
     }
 
     fun listar(tenantId: UUID): List<TarefaApiDto> = TenantTx.run(tenantId) {

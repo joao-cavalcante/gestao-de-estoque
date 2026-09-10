@@ -30,6 +30,31 @@ fun Route.tarefasRoutes() {
             call.respond(TarefasRepository.listar(tenantId))
         }
 
+        // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
+        // background na hora e devolve a fila já atualizada. Útil quando o operador
+        // mexeu na conferência direto no Sankhya e não quer esperar o ciclo de ~60s.
+        post("/sincronizar") {
+            val slug = call.request.queryParameters["tenant"]
+            if (slug.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "query param 'tenant' é obrigatório"))
+                return@post
+            }
+            val tenantId = resolverTenantId(slug)
+            if (tenantId == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            try {
+                TarefaSyncService.sincronizarTenant(slug, tenantId)
+                call.respond(TarefasRepository.listar(tenantId))
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.BadGateway,
+                    mapOf("erro" to "Falha ao sincronizar com o Sankhya: ${e.message ?: e::class.simpleName ?: "erro desconhecido"}"),
+                )
+            }
+        }
+
         post("/{nunota}/concluir") {
             val slug = call.request.queryParameters["tenant"]
             val nunota = call.parameters["nunota"]?.toLongOrNull()

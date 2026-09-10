@@ -24,15 +24,21 @@
   </div>
 
   <div class="oq-header__right">
-    <div class="oq-header__sync">
+    <button
+      type="button"
+      class="oq-header__sync"
+      (click)="sync.forcarSync()"
+      [disabled]="sync.sincronizando()"
+      title="Forçar sincronização com o Sankhya agora"
+    >
       <span class="oq-header__sync-line">
         <oq-icon name="sync" [size]="10" [class.oq-gear-spin]="sync.girando" />
-        SYNC · {{ sync.segundosDesdeSync() }}s
+        {{ sync.sincronizando() ? 'SINCRONIZANDO…' : 'SYNC · ' + sync.segundosDesdeSync() + 's' }}
       </span>
       <span class="oq-header__sync-line oq-header__sync-line--muted">
-        próx. atualização em {{ sync.proximaSegundos }}s
+        {{ sync.sincronizando() ? 'aguarde' : 'toque p/ sincronizar · ' + sync.proximaSegundos + 's' }}
       </span>
-    </div>
+    </button>
     <button
       type="button"
       class="oq-header__theme-toggle"
