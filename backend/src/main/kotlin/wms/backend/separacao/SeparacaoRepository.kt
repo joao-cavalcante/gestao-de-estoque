@@ -75,6 +75,11 @@ object SeparacaoRepository {
      * se já existe.
      */
     fun criarSessao(tenantId: UUID, nunota: Long): UUID = TenantTx.run(tenantId) {
+        val tarefa = TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) }
+            .singleOrNull()
+        val statusTarefa = tarefa?.get(TarefasTable.statusOperacional)
+
         val ativa = SeparacaoSessoesTable.selectAll()
             .where {
                 (SeparacaoSessoesTable.tenantId eq tenantId) and
@@ -82,11 +87,23 @@ object SeparacaoRepository {
                     (SeparacaoSessoesTable.status inList listOf(SeparacaoStatus.CARREGANDO, SeparacaoStatus.PRONTA))
             }
             .singleOrNull()
-        if (ativa != null) throw SessaoJaAtivaException(ativa[SeparacaoSessoesTable.id])
-
-        val tarefa = TarefasTable.selectAll()
-            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) }
-            .singleOrNull()
+        if (ativa != null) {
+            // Sessão local ativa numa nota que o sync já devolveu pra
+            // 'aguardando'/'cancelado' (conferência excluída ou reaberta no
+            // Sankhya) está OBSOLETA — as etapas/itens são da conferência
+            // anterior. Cancela e segue pra criar uma limpa, em vez de reusar.
+            if (statusTarefa == "aguardando" || statusTarefa == "cancelado") {
+                SeparacaoSessoesTable.update({
+                    (SeparacaoSessoesTable.tenantId eq tenantId) and
+                        (SeparacaoSessoesTable.id eq ativa[SeparacaoSessoesTable.id])
+                }) {
+                    it[status] = SeparacaoStatus.CANCELADA
+                    it[atualizadoEm] = Instant.now()
+                }
+            } else {
+                throw SessaoJaAtivaException(ativa[SeparacaoSessoesTable.id])
+            }
+        }
 
         val agora = Instant.now()
         val id = UUID.randomUUID()
