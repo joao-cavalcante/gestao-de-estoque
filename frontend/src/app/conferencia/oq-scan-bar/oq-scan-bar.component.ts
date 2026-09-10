@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, Output, ViewChild, inject } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ConferenciaItem } from '../conferencia.model';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
@@ -46,6 +47,20 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   @Input() obterQtdBalanca: string | null = null;
   /** Etapa (tipo de separação) sendo conferida — item fora do pedido nasce nela. null = conferência normal. */
   @Input() etapa: number | null = null;
+  /** Itens pendentes da sessão — usados só p/ mostrar "Esperado: X UN (Y CX)" no modal de peso (igual ao legado). */
+  @Input() itensPendentes: ConferenciaItem[] = [];
+
+  /** Item pendente correspondente ao produto identificado (p/ exibir unidade padrão + comercial no modal de peso). */
+  get itemPendenteAtual(): ConferenciaItem | null {
+    if (this.codprodAtual == null) return null;
+    return this.itensPendentes.find((it) => it.code === String(this.codprodAtual)) ?? null;
+  }
+
+  /** true quando a unidade comercializada difere da unidade padrão — aí vale mostrar a conversão. */
+  get temUnidadeComercialDistinta(): boolean {
+    const it = this.itemPendenteAtual;
+    return !!it && !!it.unidadeComercial && it.unidadeComercial !== it.unidadePadrao;
+  }
 
   @Output() conferido = new EventEmitter<ItemConferido>();
   @Output() naoEncontrado = new EventEmitter<string>();
@@ -74,7 +89,33 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   /** TGFVOL.UTILICONFPESO do produto identificado — rotina de peso portada do projeto base. */
   usaConfPesoAtual = false;
   capturandoPeso = false;
-  balancaAtiva: Balanca | null = null;
+
+  /** Balanças disponíveis pro operador (listarMinhas) + a escolhida, persistida por estação. */
+  balancas: Balanca[] = [];
+  balancaSelecionadaId: string | null = null;
+  private static readonly LS_BALANCA = 'wms_balanca_conf';
+  /** Erro vindo do agente local (ex.: porta COM não configurada) — mostrado no modal de peso. */
+  erroBalanca: string | null = null;
+  private assinaturaErroBalanca?: Subscription;
+
+  get balancaAtiva(): Balanca | null {
+    return this.balancas.find((b) => b.id === this.balancaSelecionadaId) ?? null;
+  }
+
+  onBalancaChange(): void {
+    if (this.balancaSelecionadaId) {
+      try {
+        localStorage.setItem(OqScanBarComponent.LS_BALANCA, this.balancaSelecionadaId);
+      } catch {
+        /* storage indisponível — segue sem lembrar */
+      }
+    }
+    this.erroBalanca = null;
+    if (this.mostrarModalPeso && this.modoEntradaPeso === 'balanca') {
+      this.pararLeituraAoVivo();
+      this.iniciarLeituraAoVivo();
+    }
+  }
 
   /** Unidade escanada (VOA) + código bipado — reenviados no /conferir p/ CODVOL/CODBARRA no Sankhya. */
   codvolEscanado: string | null = null;
@@ -116,8 +157,23 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     // Busca 1x, fica em memória — evita round-trip a cada bipe. Só importa
     // quando alguma sessão realmente pedir peso (usaConfPesoAtual).
     this.balancaService.listarMinhas().subscribe({
-      next: (balancas) => (this.balancaAtiva = balancas[0] ?? null),
-      error: () => (this.balancaAtiva = null),
+      next: (balancas) => {
+        this.balancas = balancas;
+        let lembrada: string | null = null;
+        try {
+          lembrada = localStorage.getItem(OqScanBarComponent.LS_BALANCA);
+        } catch {
+          /* storage indisponível */
+        }
+        const existe = balancas.some((b) => b.id === lembrada);
+        // Estação lembra a balança escolhida; sem lembrança, só auto-seleciona
+        // se houver exatamente uma (com 7, o operador precisa escolher).
+        this.balancaSelecionadaId = existe ? lembrada : balancas.length === 1 ? balancas[0].id : null;
+      },
+      error: () => {
+        this.balancas = [];
+        this.balancaSelecionadaId = null;
+      },
     });
     // UMAs da sessão — 1x, filtradas por produto no identificar.
     this.separacaoService.buscarUma(this.tenant, this.sessaoId).subscribe({
@@ -256,8 +312,13 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   /** Assina o peso contínuo do agente local — só faz sentido pra balança não-HTTP (serial/TCP). HTTP é one-shot (obterPeso). */
   private iniciarLeituraAoVivo(): void {
     if (!this.balancaAtiva || this.balancaAtiva.tipoComunicacao === 'HTTP' || !this.balancaAtiva.portaCom) return;
+    this.erroBalanca = null;
     this.localScale.conectar();
     this.localScale.subscribe(this.balancaAtiva.portaCom);
+    this.assinaturaErroBalanca?.unsubscribe();
+    this.assinaturaErroBalanca = this.localScale.erro$.subscribe((msg) => {
+      if (this.mostrarModalPeso && this.modoEntradaPeso === 'balanca') this.erroBalanca = msg;
+    });
     this.assinaturaPesoAoVivo?.unsubscribe();
     this.assinaturaPesoAoVivo = this.localScale.peso$.subscribe((leitura) => (this.pesoAoVivo = leitura.peso));
     // Auto-captura por estabilidade (LocalScaleService já debounce 2s / 0.005kg,
@@ -276,6 +337,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.assinaturaPesoAoVivo = undefined;
     this.assinaturaPesoEstavel?.unsubscribe();
     this.assinaturaPesoEstavel = undefined;
+    this.assinaturaErroBalanca?.unsubscribe();
+    this.assinaturaErroBalanca = undefined;
     if (this.balancaAtiva?.portaCom) this.localScale.unsubscribe(this.balancaAtiva.portaCom);
     this.pesoAoVivo = null;
   }

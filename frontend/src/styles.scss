@@ -565,6 +565,10 @@ body {
   font-size: 10px;
   color: var(--oq-text-secondary);
   line-height: 1.4;
+
+  &--erro {
+    color: var(--oq-critical);
+  }
 }
 
 .oq-modal-erro {

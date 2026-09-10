@@ -57,7 +57,9 @@ export class LocalScaleService {
       } else if (msg.tipo === 'erro') {
         this.erro$.next(msg.mensagem);
       } else if (msg.tipo === 'portas') {
-        this.portas$.next(msg.portas ?? []);
+        // O agente local (fila-conferencia-agente-local/src/wsServer.js) responde
+        // { tipo:'portas', valores:[...] } — nunca 'portas'.
+        this.portas$.next(msg.valores ?? msg.portas ?? []);
       }
     };
 

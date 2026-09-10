@@ -120,6 +120,28 @@
   color: var(--oq-brand-ink);
 }
 
+.oq-peso-modal__esperado {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+}
+
+.oq-peso-modal__esperado-val {
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.oq-peso-modal__esperado-comercial {
+  font-weight: 400;
+  color: var(--oq-text-secondary);
+}
+
 .oq-peso-modal__display {
   display: flex;
   flex-direction: column;

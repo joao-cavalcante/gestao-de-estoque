@@ -99,6 +99,20 @@
         </button>
       </div>
       <div class="oq-modal__body oq-peso-modal__body">
+        @if (itemPendenteAtual) {
+          <div class="oq-peso-modal__esperado">
+            <span class="oq-label-caps">Esperado</span>
+            <span class="oq-peso-modal__esperado-val">
+              {{ itemPendenteAtual.expected | number: '1.3-3' }} {{ itemPendenteAtual.unidadePadrao || '' }}
+              @if (temUnidadeComercialDistinta && itemPendenteAtual.quantidadeComercial != null) {
+                <span class="oq-peso-modal__esperado-comercial">
+                  ({{ itemPendenteAtual.quantidadeComercial | number: '1.3-3' }} {{ itemPendenteAtual.unidadeComercial }})
+                </span>
+              }
+            </span>
+          </div>
+        }
+
         @if (umasDoProduto.length > 0) {
           <div class="oq-scan-bar__field">
             <label class="oq-label-caps">UMA</label>
@@ -111,6 +125,23 @@
               <option [ngValue]="null">Sem UMA — qtd = peso direto</option>
               @for (u of umasDoProduto; track u.coduma) {
                 <option [ngValue]="u.coduma">{{ u.coduma }} — {{ u.descricao }} ({{ u.peso }} kg/un)</option>
+              }
+            </select>
+          </div>
+        }
+
+        @if (balancas.length > 0) {
+          <div class="oq-scan-bar__field">
+            <label class="oq-label-caps">BALANÇA</label>
+            <select
+              [(ngModel)]="balancaSelecionadaId"
+              name="balanca"
+              class="oq-scan-bar__input oq-scan-bar__select"
+              (ngModelChange)="onBalancaChange()"
+            >
+              <option [ngValue]="null">Selecione a balança…</option>
+              @for (b of balancas; track b.id) {
+                <option [ngValue]="b.id">{{ b.nome }}{{ b.portaCom ? ' (' + b.portaCom + ')' : '' }}</option>
               }
             </select>
           </div>
@@ -135,6 +166,10 @@
             Balança
           </button>
         </div>
+
+        @if (erroBalanca && modoEntradaPeso === 'balanca') {
+          <span class="oq-form-hint oq-form-hint--erro">{{ erroBalanca }}</span>
+        }
 
         @if (modoEntradaPeso === 'manual') {
           <div class="oq-scan-bar__field">
