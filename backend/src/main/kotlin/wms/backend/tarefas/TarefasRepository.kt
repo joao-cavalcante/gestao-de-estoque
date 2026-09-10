@@ -64,10 +64,10 @@ object TarefasRepository {
      * em memória em vez de round-trip por linha.
      */
     /**
-     * Retorna as NUNOTAs cuja execução foi RESETADA neste ciclo (transição com
-     * `limparExecucao` — ex.: conferência excluída no Sankhya, nota voltou pra
-     * 'aguardando'/'cancelado'). Quem chama usa isso pra invalidar a sessão de
-     * separação local correspondente.
+     * Retorna as NUNOTAs deste ciclo cujo status operacional FINAL é
+     * 'aguardando' ou 'cancelado' — quem chama usa pra invalidar a sessão de
+     * separação local (uma nota nesses estados não deve ter conferência viva;
+     * cobre conferência excluída/reaberta no Sankhya, com ou sem transição).
      */
     fun reconciliarLoteTx(tenantId: UUID, linhas: List<LinhaSankhya>): List<Long> {
         if (linhas.isEmpty()) return emptyList()
@@ -214,7 +214,17 @@ object TarefasRepository {
             }
         }
 
-        return paraAtualizar.filter { it.limparExecucao }.map { it.nunotaInt.toLong() }
+        // Estado FINAL desta transação (inserts + updates + as que não mudaram) —
+        // re-lê pra pegar também as notas que já estavam 'aguardando' de ciclos
+        // anteriores (sessão obsoleta que nunca foi limpa).
+        return TarefasTable
+            .selectAll()
+            .where {
+                (TarefasTable.tenantId eq tenantId) and
+                    (TarefasTable.nunota inList nunotasInt) and
+                    (TarefasTable.statusOperacional inList listOf("aguardando", "cancelado"))
+            }
+            .map { it[TarefasTable.nunota].toLong() }
     }
 
     fun listar(tenantId: UUID): List<TarefaApiDto> = TenantTx.run(tenantId) {

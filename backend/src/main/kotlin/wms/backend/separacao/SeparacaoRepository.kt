@@ -9,6 +9,7 @@ import kotlinx.serialization.json.put
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.deleteWhere
@@ -212,12 +213,17 @@ object SeparacaoRepository {
      * excluída/reaberta): a sessão local (com etapas já concluídas etc.) está
      * obsoleta, e o próximo `iniciar` precisa criar uma limpa. Retorna quantas cancelou.
      */
-    fun cancelarSessoesAtivasPorNotas(tenantId: UUID, nunotas: List<Long>): Int = TenantTx.run(tenantId) {
+    fun cancelarSessoesAtivasPorNotas(tenantId: UUID, nunotas: List<Long>, minIdadeSegundos: Long = 90): Int = TenantTx.run(tenantId) {
         if (nunotas.isEmpty()) return@run 0
+        // Guarda de idade: não cancela sessão recém-criada (janela entre o
+        // `iniciar` e o sync mover a tarefa pra 'andamento') — só as antigas,
+        // que são de fato de uma conferência que não existe mais.
+        val corte = Instant.now().minusSeconds(minIdadeSegundos)
         SeparacaoSessoesTable.update({
             (SeparacaoSessoesTable.tenantId eq tenantId) and
                 (SeparacaoSessoesTable.nunota inList nunotas.map { it.toInt() }) and
-                (SeparacaoSessoesTable.status inList listOf(SeparacaoStatus.CARREGANDO, SeparacaoStatus.PRONTA))
+                (SeparacaoSessoesTable.status inList listOf(SeparacaoStatus.CARREGANDO, SeparacaoStatus.PRONTA)) and
+                (SeparacaoSessoesTable.atualizadoEm less corte)
         }) {
             it[status] = SeparacaoStatus.CANCELADA
             it[atualizadoEm] = Instant.now()
@@ -1225,8 +1231,14 @@ object SeparacaoRepository {
         if (nunotas.isEmpty()) return@run emptyMap()
         val nunotasInt = nunotas.map { it.toInt() }
         // sessao_id -> nunota (todas as sessões dessas notas)
+        // Só sessões ATIVAS (carregando/pronta) — uma sessão cancelada/concluída
+        // é de uma conferência anterior; suas etapas não valem pro card da fila.
         val nunotaPorSessao = SeparacaoSessoesTable.selectAll()
-            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota inList nunotasInt) }
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and
+                    (SeparacaoSessoesTable.nunota inList nunotasInt) and
+                    (SeparacaoSessoesTable.status inList listOf(SeparacaoStatus.CARREGANDO, SeparacaoStatus.PRONTA))
+            }
             .associate { it[SeparacaoSessoesTable.id] to it[SeparacaoSessoesTable.nunota].toLong() }
         if (nunotaPorSessao.isEmpty()) return@run emptyMap()
         SeparacaoEtapasTable.selectAll()
