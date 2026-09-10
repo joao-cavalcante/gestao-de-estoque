@@ -21,7 +21,7 @@ import { ThemeService } from './shared/theme/theme.service';
  * espaço nas laterais, então não há motivo pra esconder o header/menu e
  * deixar o operador sem como navegar pra outra tela.
  */
-const PREFIXOS_SEM_HEADER_GLOBAL = ['/login', '/conferencia', '/tenants'];
+const PREFIXOS_SEM_HEADER_GLOBAL = ['/login', '/conferencia', '/tenants', '/etiquetas'];
 
 /** Match exato de segmento — startsWith cru faria '/transferencia' casar com '/transferencias' também. */
 function casaPrefixo(url: string, prefixo: string): boolean {

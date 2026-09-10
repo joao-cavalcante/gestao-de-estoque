@@ -671,3 +671,22 @@ select:focus-visible,
   outline: 2px solid var(--oq-brand-accent);
   outline-offset: 2px;
 }
+
+/* Impressão — só o conteúdo da rota importa (etiquetas de volume etc.).
+   Esconde a "moldura" do app (header, menu lateral) pra não sair a página
+   inteira do portal na impressora. */
+@media print {
+  app-header,
+  app-nav-menu {
+    display: none !important;
+  }
+
+  .oq-app-shell,
+  .oq-app-shell__content {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
