@@ -24,6 +24,12 @@ const URL_AGENTE = 'ws://127.0.0.1:3099';
 const LIMIAR_ESTABILIDADE_KG = 0.005;
 const TEMPO_ESTABILIDADE_MS = 2000;
 const RECONEXAO_MS = 3000;
+/** Abaixo disso o display é considerado "zerado". */
+const LIMIAR_ZERO_KG = 0.005;
+/** A balança em modo contínuo intercala frames de 0 com o peso real (motion/entre
+ * frames). Só aceita a ida pra zero se ela PERSISTIR esse tempo — senão o display
+ * fica piscando entre o valor e 0. */
+const TEMPO_ZERO_MS = 800;
 
 @Injectable({ providedIn: 'root' })
 export class LocalScaleService {
@@ -31,6 +37,7 @@ export class LocalScaleService {
   private status: StatusBalanca = 'desconectado';
   private pesoAnterior: number | null = null;
   private timerEstabilidade: ReturnType<typeof setTimeout> | null = null;
+  private timerZero: ReturnType<typeof setTimeout> | null = null;
   private taraValor = 0;
 
   readonly peso$ = new Subject<LeituraPeso>();
@@ -73,6 +80,16 @@ export class LocalScaleService {
   }
 
   subscribe(portaCom: string): void {
+    // Novo ciclo de leitura — zera o estado de estabilização/anti-flicker.
+    this.pesoAnterior = null;
+    if (this.timerZero) {
+      clearTimeout(this.timerZero);
+      this.timerZero = null;
+    }
+    if (this.timerEstabilidade) {
+      clearTimeout(this.timerEstabilidade);
+      this.timerEstabilidade = null;
+    }
     this.enviar({ tipo: 'subscribe', portaCom });
   }
 
@@ -97,11 +114,36 @@ export class LocalScaleService {
       this.taraValor = 0;
     }
 
-    const leituraAjustada: LeituraPeso = { ...leitura, peso: pesoLiquido };
+    const ehZero = pesoLiquido < LIMIAR_ZERO_KG;
+    const displayEstavaZerado = (this.pesoAnterior ?? 0) < LIMIAR_ZERO_KG;
+
+    // Frame zerado enquanto o display mostra peso → provável "0" transitório do
+    // modo contínuo. Segura a emissão; só zera de verdade se persistir.
+    if (ehZero && !displayEstavaZerado) {
+      if (!this.timerZero) {
+        this.timerZero = setTimeout(() => {
+          this.timerZero = null;
+          this.emitir({ ...leitura, peso: 0 });
+        }, TEMPO_ZERO_MS);
+      }
+      return;
+    }
+
+    // Peso real (ou já estava zerado) — emite na hora e cancela qualquer
+    // pendência de zerar.
+    if (this.timerZero) {
+      clearTimeout(this.timerZero);
+      this.timerZero = null;
+    }
+    this.emitir({ ...leitura, peso: pesoLiquido });
+  }
+
+  private emitir(leituraAjustada: LeituraPeso): void {
     this.peso$.next(leituraAjustada);
 
-    const variou = this.pesoAnterior === null || Math.abs(pesoLiquido - this.pesoAnterior) >= LIMIAR_ESTABILIDADE_KG;
-    this.pesoAnterior = pesoLiquido;
+    const variou =
+      this.pesoAnterior === null || Math.abs(leituraAjustada.peso - this.pesoAnterior) >= LIMIAR_ESTABILIDADE_KG;
+    this.pesoAnterior = leituraAjustada.peso;
 
     if (variou) {
       if (this.timerEstabilidade) clearTimeout(this.timerEstabilidade);
