@@ -54,7 +54,7 @@
                 <span class="item-divergencia item-divergencia--peso">
                   <oq-icon name="scale" [size]="12" />
                   Peso {{ excedente(item) > 0 ? '+' : '' }}{{ formatarQtd(excedente(item)) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
-                  · {{ item.desvioPesoPct }}% fora da tolerância (±5%)
+                  · {{ formatarPct(item.desvioPesoPct) }}% fora da tolerância (±5%)
                 </span>
               </div>
             } @else if (isDivergenciaQtd(item)) {

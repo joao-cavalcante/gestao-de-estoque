@@ -42,4 +42,9 @@ export class OqConferredListComponent {
   formatarQtd(n: number): string {
     return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
+
+  /** % de desvio do peso, em pt-BR (vírgula) — ex.: "7,1". */
+  formatarPct(n: number | undefined): string {
+    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
 }
