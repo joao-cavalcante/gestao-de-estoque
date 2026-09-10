@@ -1,5 +1,17 @@
+/* Etiqueta de volume — portada 1:1 do template-etiqueta.html (JRXML 425x283pt
+   escalado 1.334 pra 15x10cm). NÃO usa os tokens do app: é impressão física. */
+
+:host {
+  display: block;
+  background: #fff;
+  font-family: 'Arial Narrow', Arial, sans-serif;
+  font-weight: bold;
+  color: #000;
+}
+
 .et-msg {
   padding: 24px;
+  font-family: Arial, sans-serif;
   font-size: 14px;
   &--erro { color: #c0392b; }
 }
@@ -9,6 +21,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
+  font-family: Arial, sans-serif;
 
   button {
     border: 1px solid #1f6feb;
@@ -19,68 +32,97 @@
     font-size: 13px;
     cursor: pointer;
   }
-  span { color: #666; font-size: 13px; }
+  span { color: #666; font-size: 13px; font-weight: normal; }
 }
 
-.etiqueta {
+.page-outer {
   width: 15cm;
   height: 10cm;
-  box-sizing: border-box;
-  padding: 0.6cm;
-  margin: 8px auto;
-  border: 1px solid #ccc;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25cm;
-  font-family: Arial, Helvetica, sans-serif;
+  overflow: hidden;
+  page-break-after: always;
+  margin: 6px auto;
   background: #fff;
+}
 
-  &__topo {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  &__logo {
-    max-height: 1.6cm;
-    max-width: 6cm;
-    object-fit: contain;
-  }
-  &__data { text-align: right; font-size: 10px; color: #333; margin-left: auto; }
-  &__linha { font-size: 15px; }
+.page {
+  position: relative;
+  width: 425px;
+  height: 283px;
+  transform: scale(1.334);
+  transform-origin: 0 0;
+}
 
-  &__numero {
-    display: flex;
-    gap: 4px;
-    margin-top: 0.2cm;
-  }
+.f { position: absolute; font-size: 22px; }
+.bottom { display: flex; align-items: flex-end; }
+.center { display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.2; }
 
-  &__volume {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: auto;
-  }
+.et-data {
+  position: absolute;
+  right: 3px;
+  top: 10px;
+  font-size: 13px;
+  font-weight: normal;
+  white-space: nowrap;
+}
 
-  &__caixa {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.1cm;
-    height: 1.4cm;
-    border: 2px solid #000;
-    border-radius: 6px;
-    font-size: 26px;
-    font-weight: 700;
+.et-cliente {
+  left: 15px;
+  top: 16px;
+  width: 395px;
+  height: 30px;
+  font-size: 15px;
+  overflow: hidden;
+  white-space: nowrap;
+}
 
-    &--vol { min-width: 1.4cm; height: 1.6cm; font-size: 30px; }
-  }
+.et-uf {
+  left: 15px;
+  top: 46px;
+  width: 112px;
+  height: 30px;
+  font-size: 15px;
+}
 
-  &__barra {
-    flex: 1;
-    height: 4px;
-    background: #000;
-  }
+.et-num-label {
+  left: 15px;
+  top: 90px;
+  width: 75px;
+  height: 75px;
+}
+
+.digit {
+  position: absolute;
+  border: 1px solid #000;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  width: 54px;
+  height: 75px;
+}
+
+.et-num { top: 90px; }
+.et-seq { top: 180px; }
+.et-total { top: 180px; }
+
+.sep {
+  position: absolute;
+  left: 268px;
+  top: 208px;
+  width: 25px;
+  height: 10px;
+  background: #000;
+}
+
+.et-logo {
+  position: absolute;
+  left: 15px;
+  top: 165px;
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  padding-left: 5px;
 }
 
 @media print {
@@ -91,9 +133,5 @@
 
   .et-toolbar { display: none; }
 
-  .etiqueta {
-    margin: 0;
-    border: none;
-    page-break-after: always;
-  }
+  .page-outer { margin: 0; }
 }

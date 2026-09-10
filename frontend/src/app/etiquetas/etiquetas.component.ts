@@ -50,9 +50,19 @@ export class EtiquetasComponent implements OnInit {
     return Array.from({ length: total }, (_, i) => i + 1);
   }
 
-  /** Dígitos do número da nota, um por caixa. */
-  get digitos(): string[] {
-    return (this.dados()?.numeroNota ?? '').split('');
+  /** 5 dígitos do número único (NUNOTA), zero à esquerda — igual ao JRXML do legado. */
+  get digitosNumero(): string[] {
+    return (this.dados()?.numeroNota ?? '').padStart(5, '0').slice(-5).split('');
+  }
+
+  /** 2 dígitos do nº do volume atual (01, 02, …). */
+  digitos2(v: number): string[] {
+    return String(v).padStart(2, '0').slice(-2).split('');
+  }
+
+  /** 2 dígitos do total de volumes. */
+  get digitosTotal(): string[] {
+    return String(this.dados()?.totalVolumes ?? 0).padStart(2, '0').slice(-2).split('');
   }
 
   ngOnInit(): void {

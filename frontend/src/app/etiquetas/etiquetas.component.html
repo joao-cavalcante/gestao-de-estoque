@@ -10,27 +10,35 @@
     <span>{{ dados()!.totalVolumes }} etiqueta(s)</span>
   </div>
 
+  <!-- Layout portado 1:1 do template-etiqueta.html do fila-de-conferencia
+       (coords em px no espaço 425x283, escalado 1.334 pra preencher 15x10cm). -->
   @for (v of volumes; track v) {
-    <div class="etiqueta">
-      <div class="etiqueta__topo">
+    <div class="page-outer">
+      <div class="page">
+        <div class="et-data">{{ agora }}</div>
+
+        <div class="f bottom et-cliente">Cliente: {{ dados()!.cliente || '—' }}</div>
+        <div class="f bottom et-uf">UF: {{ dados()!.uf || '—' }}</div>
+
+        <div class="f center et-num-label">Número<br />Pedido:</div>
+
+        @for (d of digitosNumero; track $index) {
+          <div class="digit et-num" [style.left.px]="121 + $index * 59">{{ d }}</div>
+        }
+
         @if (logoSrc()) {
-          <img class="etiqueta__logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
+          <img class="et-logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
         }
-        <div class="etiqueta__data">{{ agora }}</div>
-      </div>
-      <div class="etiqueta__linha"><strong>Cliente:</strong> {{ dados()!.cliente || '—' }}</div>
-      <div class="etiqueta__linha"><strong>UF:</strong> {{ dados()!.uf || '—' }}</div>
 
-      <div class="etiqueta__numero">
-        @for (d of digitos; track $index) {
-          <span class="etiqueta__caixa">{{ d }}</span>
+        @for (d of digitos2(v); track $index) {
+          <div class="digit et-seq" [style.left.px]="150 + $index * 59">{{ d }}</div>
         }
-      </div>
 
-      <div class="etiqueta__volume">
-        <span class="etiqueta__caixa etiqueta__caixa--vol">{{ v }}</span>
-        <span class="etiqueta__barra"></span>
-        <span class="etiqueta__caixa etiqueta__caixa--vol">{{ dados()!.totalVolumes }}</span>
+        <div class="sep"></div>
+
+        @for (d of digitosTotal; track $index) {
+          <div class="digit et-total" [style.left.px]="298 + $index * 58">{{ d }}</div>
+        }
       </div>
     </div>
   }
