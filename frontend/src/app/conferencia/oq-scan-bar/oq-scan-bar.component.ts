@@ -323,8 +323,13 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   pesoAoVivo: number | null = null;
   /** Status da conexão com o agente local (badge do painel de balança). */
   statusBalanca: StatusBalanca = 'desconectado';
-  /** Captura automática quando o peso estabiliza (2 s) — ligada por padrão, igual ao legado. */
-  capturaAutoAtiva = true;
+  /**
+   * Captura automática quando o peso estabiliza (2 s) — DESLIGADA por padrão,
+   * igual ao legado (separacao.component.ts: capturaAutoAtiva = false). O
+   * operador liga só quando quer; com ela sempre ligada, um item ainda sendo
+   * ajustado na balança pode "estabilizar" cedo demais e capturar peso errado.
+   */
+  capturaAutoAtiva = false;
   private assinaturaPesoAoVivo?: Subscription;
   private assinaturaPesoEstavel?: Subscription;
   private assinaturaStatusBalanca?: Subscription;
