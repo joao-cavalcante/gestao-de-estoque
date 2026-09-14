@@ -21,6 +21,13 @@
               <span class="oq-admin-row__sub">{{ b.tipoComunicacao }} · {{ endereco(b) }}</span>
             </div>
             <oq-status-chip [tone]="b.ativo ? 'success' : 'neutral'">{{ b.ativo ? 'ATIVA' : 'INATIVA' }}</oq-status-chip>
+            @if (balancaDaEstacao() === b.id) {
+              <oq-status-chip tone="success">ESTA ESTAÇÃO</oq-status-chip>
+            } @else {
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fixarNestaEstacao(b)" title="Login por crachá nesta estação vai usar esta balança">
+                Fixar nesta estação
+              </button>
+            }
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirEdicao(b)">Configurar</button>
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="pedirExclusao(b)">
               <oq-icon name="x" [size]="12" />

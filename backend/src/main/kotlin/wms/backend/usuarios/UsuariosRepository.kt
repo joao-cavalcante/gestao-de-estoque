@@ -18,6 +18,7 @@ import java.util.Base64
 import java.util.UUID
 
 class EmailJaExisteException(email: String) : Exception("e-mail '$email' já está em uso")
+class CrachaoJaExisteException(codigo: String) : Exception("crachá '$codigo' já está em uso neste tenant")
 
 data class UsuarioParaLogin(val tenantId: UUID, val userId: UUID, val senhaHash: String?, val perfil: String, val ativo: Boolean, val nome: String, val email: String)
 
@@ -73,6 +74,52 @@ object UsuariosRepository {
         }
 
         return UsuarioDto(userId.toString(), req.nome, email, req.perfil, true)
+    }
+
+    fun buscarPorId(tenantId: UUID, userId: UUID): UsuarioDto? = TenantTx.run(tenantId) {
+        UsersTable.selectAll()
+            .where { (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }
+            .singleOrNull()
+            ?.toDto()
+    }
+
+    /**
+     * Resolve o operador pelo crachá — tenant já resolvido pela estação
+     * (slug salvo no navegador, ver V32), então a busca já roda dentro do
+     * contexto de RLS normal, sem precisar de lookup central tipo
+     * buscarParaLogin.
+     */
+    fun buscarParaLoginCracha(tenantId: UUID, crachaoCodigo: String): UsuarioParaLogin? = TenantTx.run(tenantId) {
+        UsersTable.selectAll()
+            .where { (UsersTable.tenantId eq tenantId) and (UsersTable.crachaoCodigo eq crachaoCodigo) }
+            .singleOrNull()
+            ?.let { row ->
+                UsuarioParaLogin(
+                    tenantId = tenantId,
+                    userId = row[UsersTable.id],
+                    senhaHash = row[UsersTable.senhaHash],
+                    perfil = row[UsersTable.perfil],
+                    ativo = row[UsersTable.ativo],
+                    nome = row[UsersTable.nome],
+                    email = row[UsersTable.email],
+                )
+            }
+    }
+
+    /** Define (ou remove, se null) o crachá do usuário. Único por tenant — ver índice parcial em V32. */
+    fun definirCracha(tenantId: UUID, userId: UUID, crachaoCodigo: String?): Boolean {
+        val codigo = crachaoCodigo?.trim()?.takeIf { it.isNotBlank() }
+        try {
+            return TenantTx.run(tenantId) {
+                val linhas = UsersTable.update({ (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }) {
+                    it[UsersTable.crachaoCodigo] = codigo
+                    it[atualizadoEm] = Instant.now()
+                }
+                linhas > 0
+            }
+        } catch (e: Exception) {
+            throw CrachaoJaExisteException(codigo ?: "")
+        }
     }
 
     fun listar(tenantId: UUID): List<UsuarioDto> = TenantTx.run(tenantId) {

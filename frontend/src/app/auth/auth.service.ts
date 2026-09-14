@@ -17,15 +17,27 @@ export class AuthService {
   readonly tenantSlug = signal<string | null>(localStorage.getItem(CHAVE_TENANT));
 
   login(email: string, senha: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>('/api/auth/login', { email, senha }).pipe(
-      tap((res) => {
-        localStorage.setItem(CHAVE_TOKEN, res.token);
-        localStorage.setItem(CHAVE_USUARIO, JSON.stringify(res.usuario));
-        localStorage.setItem(CHAVE_TENANT, res.tenantSlug);
-        this.usuario.set(res.usuario);
-        this.tenantSlug.set(res.tenantSlug);
-      }),
-    );
+    return this.http.post<LoginResponse>('/api/auth/login', { email, senha }).pipe(tap((res) => this.aplicarSessao(res)));
+  }
+
+  /**
+   * Login por crachá (estações de pesagem) — mesmo backend/claims do login
+   * normal, só troca o método de identificação. `tenant` é o slug já salvo
+   * nesta estação (ver EstacaoService) — o crachá sozinho não resolve o
+   * tenant (não é globalmente único, diferente do e-mail).
+   */
+  loginCracha(tenant: string, crachaoCodigo: string, balancaId: string): Observable<LoginResponse> {
+    return this.http
+      .post<LoginResponse>('/api/auth/login-cracha', { tenant, crachaoCodigo, balancaId })
+      .pipe(tap((res) => this.aplicarSessao(res)));
+  }
+
+  private aplicarSessao(res: LoginResponse): void {
+    localStorage.setItem(CHAVE_TOKEN, res.token);
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(res.usuario));
+    localStorage.setItem(CHAVE_TENANT, res.tenantSlug);
+    this.usuario.set(res.usuario);
+    this.tenantSlug.set(res.tenantSlug);
   }
 
   logout(): void {

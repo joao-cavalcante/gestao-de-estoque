@@ -53,6 +53,24 @@ fun Route.usuariosRoutes() {
             call.respond(HttpStatusCode.NoContent)
         }
 
+        post("/{id}/crachao") {
+            val claims = call.exigirAdmin() ?: return@post
+            val userId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "id inválido"))
+
+            val req = call.receive<DefinirCrachaRequest>()
+            try {
+                val definido = UsuariosRepository.definirCracha(claims.tenantId, userId, req.crachaoCodigo)
+                if (!definido) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("erro" to "usuário não encontrado"))
+                    return@post
+                }
+                call.respond(mapOf("ok" to true))
+            } catch (e: CrachaoJaExisteException) {
+                call.respond(HttpStatusCode.Conflict, mapOf("erro" to e.message))
+            }
+        }
+
         post("/{id}/alterar-senha") {
             val claims = call.exigirAuth() ?: return@post
             val userId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }

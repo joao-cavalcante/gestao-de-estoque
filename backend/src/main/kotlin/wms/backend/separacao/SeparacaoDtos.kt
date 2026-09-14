@@ -73,7 +73,9 @@ data class ConcluirEtapaRequest(
     val tipoSeparacao: Int,
     /** true = concluir a etapa mesmo com item pendente nela (operador confirmou no modal). */
     val manterPendente: Boolean = false,
-    val operador: String,
+    // Sem campo `operador` aqui de propósito — quem concluiu vem do JWT
+    // (call.exigirAuth() na rota), nunca do corpo da requisição, senão
+    // dava pra forjar a autoria.
 )
 
 @Serializable

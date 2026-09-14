@@ -81,7 +81,7 @@ export class SeparacaoService {
   concluirEtapa(
     tenant: string,
     sessaoId: string,
-    body: { tipoSeparacao: number; manterPendente: boolean; operador: string },
+    body: { tipoSeparacao: number; manterPendente: boolean },
   ): Observable<ConcluirEtapaResultado> {
     return this.http.post<ConcluirEtapaResultado>(
       `${this.baseUrl}/sessoes/${sessaoId}/concluir-etapa`,

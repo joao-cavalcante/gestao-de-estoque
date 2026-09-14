@@ -17,6 +17,8 @@ object UsersTable : Table("app.users") {
     val atualizadoEm = timestamp("atualizado_em")
     val resetToken = text("reset_token").nullable()
     val resetTokenExpira = timestamp("reset_token_expira").nullable()
+    /** Código do crachá (login nas estações de pesagem) — único por tenant, ver V32. */
+    val crachaoCodigo = text("crachao_codigo").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

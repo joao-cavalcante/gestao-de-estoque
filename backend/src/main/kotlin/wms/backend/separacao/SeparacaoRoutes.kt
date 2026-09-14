@@ -4,8 +4,10 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import wms.backend.auth.exigirAuth
 import wms.backend.produtos.ProdutoImagemService
 import wms.backend.tenancy.TenantRepository
+import wms.backend.usuarios.UsuariosRepository
 import java.util.UUID
 
 /**
@@ -280,6 +282,10 @@ fun Route.separacaoRoutes() {
          * real (push pro Sankhya) e devolve os campos de FinalizarResultado.
          */
         post("/sessoes/{id}/concluir-etapa") {
+            // Quem conclui vem do JWT, nunca do corpo — ver comentário em
+            // ConcluirEtapaRequest. exigirAuth já responde 401 sozinho.
+            val claims = call.exigirAuth() ?: return@post
+
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -288,11 +294,17 @@ fun Route.separacaoRoutes() {
             }
             val tenantId = resolverTenantId(slug)
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+                return@post
+            }
+            val operador = UsuariosRepository.buscarPorId(tenantId, claims.userId)
+                ?: return@post call.respond(HttpStatusCode.Unauthorized, mapOf("erro" to "usuário do token não encontrado"))
 
             val body = call.receive<ConcluirEtapaRequest>()
             try {
                 val resultado = SeparacaoService.concluirEtapa(
-                    slug, tenantId, sessaoId, body.tipoSeparacao, body.manterPendente, body.operador,
+                    slug, tenantId, sessaoId, body.tipoSeparacao, body.manterPendente, operador.nome,
                 )
                 call.respond(resultado)
             } catch (e: SeparacaoService.EtapaComPendentesException) {

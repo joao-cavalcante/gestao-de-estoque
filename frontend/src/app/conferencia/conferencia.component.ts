@@ -662,9 +662,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!this.sessaoIdAtual || tipo == null || this.concluindoEtapa || this.finalizando()) return;
     this.concluindoEtapa = true;
     this.finalizando.set(true);
-    const operador = this.authService.usuario()?.email ?? 'operador';
+    // Quem conclui vem do JWT no backend (call.exigirAuth()), não daqui.
     this.separacaoService
-      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente, operador })
+      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente })
       .subscribe({
         next: (res: ConcluirEtapaResultado) => {
           this.concluindoEtapa = false;
