@@ -11,10 +11,11 @@ interface FormUsuario {
   email: string;
   senha: string;
   perfil: string;
+  crachaoCodigo: string;
 }
 
 function formVazio(): FormUsuario {
-  return { nome: '', email: '', senha: '', perfil: 'OPERADOR' };
+  return { nome: '', email: '', senha: '', perfil: 'OPERADOR', crachaoCodigo: '' };
 }
 
 @Component({
@@ -64,7 +65,7 @@ export class UsuarioListComponent implements OnInit {
 
   abrirEdicao(usuario: Usuario): void {
     this.editandoId.set(usuario.id);
-    this.form = { nome: usuario.nome, email: usuario.email, senha: '', perfil: usuario.perfil };
+    this.form = { nome: usuario.nome, email: usuario.email, senha: '', perfil: usuario.perfil, crachaoCodigo: usuario.crachaoCodigo ?? '' };
     this.modalErro.set(null);
     this.modalAberto.set(true);
   }
@@ -80,11 +81,7 @@ export class UsuarioListComponent implements OnInit {
     if (!id) {
       this.modalCarregando.set(true);
       this.service.criar({ nome: this.form.nome, email: this.form.email, senha: this.form.senha, perfil: this.form.perfil }).subscribe({
-        next: () => {
-          this.modalCarregando.set(false);
-          this.modalAberto.set(false);
-          this.carregar();
-        },
+        next: (criado) => this.salvarCracha(criado.id, 'Usuário criado, mas falha ao atribuir o crachá.'),
         error: (err) => {
           this.modalCarregando.set(false);
           this.modalErro.set(err?.error?.erro ?? 'Falha ao criar usuário.');
@@ -97,17 +94,11 @@ export class UsuarioListComponent implements OnInit {
     this.service.atualizar(id, { nome: this.form.nome, perfil: this.form.perfil }).subscribe({
       next: () => {
         if (!this.form.senha) {
-          this.modalCarregando.set(false);
-          this.modalAberto.set(false);
-          this.carregar();
+          this.salvarCracha(id, 'Dados salvos, mas falha ao atribuir o crachá.');
           return;
         }
         this.service.alterarSenha(id, this.form.senha).subscribe({
-          next: () => {
-            this.modalCarregando.set(false);
-            this.modalAberto.set(false);
-            this.carregar();
-          },
+          next: () => this.salvarCracha(id, 'Senha trocada, mas falha ao atribuir o crachá.'),
           error: (err) => {
             this.modalCarregando.set(false);
             this.modalErro.set(err?.error?.erro ?? 'Dados salvos, mas falha ao trocar a senha.');
@@ -117,6 +108,22 @@ export class UsuarioListComponent implements OnInit {
       error: (err) => {
         this.modalCarregando.set(false);
         this.modalErro.set(err?.error?.erro ?? 'Falha ao salvar usuário.');
+      },
+    });
+  }
+
+  /** Último passo do salvar — sempre roda, mesmo com o campo vazio (null remove o crachá). */
+  private salvarCracha(id: string, mensagemErro: string): void {
+    const codigo = this.form.crachaoCodigo.trim() || null;
+    this.service.definirCracha(id, codigo).subscribe({
+      next: () => {
+        this.modalCarregando.set(false);
+        this.modalAberto.set(false);
+        this.carregar();
+      },
+      error: (err) => {
+        this.modalCarregando.set(false);
+        this.modalErro.set(err?.error?.erro ?? mensagemErro);
       },
     });
   }

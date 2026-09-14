@@ -9,6 +9,7 @@ data class UsuarioDto(
     val email: String,
     val perfil: String,
     val ativo: Boolean,
+    val crachaoCodigo: String? = null,
 )
 
 @Serializable

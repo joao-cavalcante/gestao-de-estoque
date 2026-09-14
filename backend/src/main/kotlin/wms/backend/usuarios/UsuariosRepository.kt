@@ -257,5 +257,6 @@ object UsuariosRepository {
         email = this[UsersTable.email],
         perfil = this[UsersTable.perfil],
         ativo = this[UsersTable.ativo],
+        crachaoCodigo = this[UsersTable.crachaoCodigo],
     )
 }

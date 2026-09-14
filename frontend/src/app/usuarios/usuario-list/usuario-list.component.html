@@ -21,6 +21,9 @@
               <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}</span>
             </div>
             <oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip>
+            @if (u.crachaoCodigo) {
+              <oq-status-chip tone="success" title="Código do crachá: {{ u.crachaoCodigo }}">CRACHÁ</oq-status-chip>
+            }
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="alternarAtivo(u)">
               {{ u.ativo ? 'Desativar' : 'Ativar' }}
             </button>
@@ -64,6 +67,10 @@
         <div class="oq-form-field">
           <span class="oq-form-field__label">{{ editandoId() ? 'Nova senha (opcional)' : 'Senha' }}</span>
           <input name="senha" type="password" [(ngModel)]="form.senha" [required]="!editandoId()" />
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Código do crachá (login nas estações — opcional)</span>
+          <input name="crachaoCodigo" [(ngModel)]="form.crachaoCodigo" placeholder="bipe o crachá aqui ou digite o código" autocomplete="off" />
         </div>
 
         @if (modalErro()) {

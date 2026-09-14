@@ -4,6 +4,7 @@ export interface Usuario {
   email: string;
   perfil: string;
   ativo: boolean;
+  crachaoCodigo: string | null;
 }
 
 export interface CriarUsuarioRequest {
