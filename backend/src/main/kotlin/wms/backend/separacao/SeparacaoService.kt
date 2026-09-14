@@ -645,49 +645,14 @@ object SeparacaoService {
 
     class CancelarSeparacaoException(message: String) : Exception(message)
 
-    /** Eventos do clientEventList de `ConferenciaSP.excluirConferencia` — payload confirmado ao vivo contra o SNK nativo. */
-    private val EXCLUIR_CONFERENCIA_CLIENT_EVENTS = listOf(
-        "br.com.sankhya.comercial.recalcula.pis.cofins",
-        "br.com.sankhya.financeiro.alert.mudanca.titulo.baixa",
-        "br.com.sankhya.actionbutton.clientconfirm",
-        "br.com.sankhya.mgecom.enviar.recebimento.wms.sncm",
-        "comercial.status.nfe.situacao.diferente",
-        "comercial.status.nfcom.situacao.diferente",
-        "br.com.sankhya.mgecom.compra.SolicitacaoComprador",
-        "br.com.sankhya.mgecom.expedicao.SolicitarUsuarioConferente",
-        "br.com.sankhya.mgecom.nota.adicional.SolicitarUsuarioGerente",
-        "br.com.sankhya.mgecom.cancelamento.nfeAcimaTolerancia",
-        "br.com.sankhya.mgecom.cancelamento.nfComForaPrazo",
-        "br.com.sankhya.mgecom.cancelamento.processo.wms.andamento",
-        "br.com.sankhya.mgecom.msg.nao.possui.itens.pendentes",
-        "br.com.sankhya.mgecomercial.event.baixaPortal",
-        "br.com.sankhya.comercial.desfaz.renegociacoes.vendamais",
-        "br.com.sankhya.comercial.desfaz.renegociacoes.vendamais.devolucao",
-        "br.com.sankhya.mgecom.valida.ChaveNFeCompraTerceiros",
-        "br.com.sankhya.mgewms.expedicao.validarPedidos",
-        "br.com.sankhya.mgecom.gera.lote.xmlRejeitado",
-        "br.com.sankhya.comercial.solicitaContingencia",
-        "br.com.sankhya.mgecom.cancelamento.notas.remessa",
-        "br.com.sankhya.mgecomercial.event.compensacao.credito.debito",
-        "br.com.sankhya.modelcore.comercial.cancela.nota.devolucao.wms",
-        "br.com.sankhya.mgewms.expedicao.selecaoDocas",
-        "br.com.sankhya.mgewms.expedicao.cortePedidos",
-        "br.com.sankhya.modelcore.comercial.cancela.nfce.baixa.caixa.fechado",
-        "br.com.utiliza.dtneg.servidor",
-        "comercial.status.nfe.aceita.naoSomarItem.SelecaoDocumento",
-    )
-
     /**
      * Cancela a sessão — desiste do pedido inteiro (não só devolve 1 item).
      *
-     * Chama `ConferenciaSP.excluirConferencia` — o mesmo cancelamento nativo do
-     * botão "Excluir conferência" do Sankhya. ANTES fazia um `DatasetSP.save`
-     * setando `CabecalhoConferencia.STATUS='D'` achando que era "desistida",
-     * mas 'D' no domínio do Sankhya é "Finalizada divergente" — ou seja, o
-     * cancelamento estava gravando a conferência como FINALIZADA (com
-     * divergência) em vez de excluída. Fire-and-forget: falhar no Sankhya não
-     * bloqueia o cancelamento local (a conferência fica aberta lá — inofensivo,
-     * um supervisor exclui manual). O local é a fonte da verdade.
+     * Chama `ConferenciaSP.excluirConferencia` (cancelamento nativo do Sankhya).
+     * ANTES gravava STATUS='D' achando que era "desistida", mas 'D' no domínio
+     * do Sankhya é "Finalizada divergente" — cancelar estava, na prática,
+     * finalizando a conferência com divergência. Fire-and-forget, igual às
+     * outras chamadas ConferenciaSP.* deste arquivo.
      */
     suspend fun cancelar(tenantSlug: String, tenantId: UUID, sessaoId: UUID) {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
@@ -696,21 +661,8 @@ object SeparacaoService {
             throw CancelarSeparacaoException("sessão em status '${sessao.status}', não é possível cancelar")
         }
 
-        runCatching {
-            SankhyaSpClient.chamarRaw(
-                tenantSlug, "ConferenciaSP.excluirConferencia", "mgecom",
-                buildJsonObject {
-                    putJsonObject("notas") {
-                        putJsonArray("nota") { addJsonObject { put("$", sessao.nunota) } }
-                    }
-                    putJsonObject("clientEventList") {
-                        putJsonArray("clientEvent") {
-                            EXCLUIR_CONFERENCIA_CLIENT_EVENTS.forEach { add(buildJsonObject { put("$", it) }) }
-                        }
-                    }
-                },
-            )
-        }.onFailure { println("AVISO: ConferenciaSP.excluirConferencia falhou (nunota ${sessao.nunota}): ${it.message}") }
+        runCatching { excluirConferenciaSankhya(tenantSlug, sessao.nunota) }
+            .onFailure { println("AVISO: ConferenciaSP.excluirConferencia falhou (nunota ${sessao.nunota}): ${it.message}") }
 
         withContext(Dispatchers.IO) {
             SeparacaoRepository.marcarCancelada(tenantId, sessaoId)
@@ -718,6 +670,22 @@ object SeparacaoService {
             // (senão a nota reaparece na Fila de Tarefas no próximo ciclo).
             TarefasRepository.concluirLocalSemWriteBack(tenantId, sessao.nunota)
         }
+    }
+
+    suspend fun excluirConferenciaSankhya(tenantSlug: String, nunota: Long) {
+        SankhyaSpClient.chamarRaw(
+            tenantSlug, "ConferenciaSP.excluirConferencia", "mgecom",
+            buildJsonObject {
+                putJsonObject("notas") {
+                    putJsonArray("nota") { addJsonObject { put("$", nunota) } }
+                }
+                putJsonObject("clientEventList") {
+                    putJsonArray("clientEvent") {
+                        add(buildJsonObject { put("$", "br.com.sankhya.actionbutton.clientconfirm") })
+                    }
+                }
+            },
+        )
     }
 
     class RecontagemException(message: String) : Exception(message)

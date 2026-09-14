@@ -351,6 +351,25 @@ fun Route.separacaoRoutes() {
             }
         }
 
+        /**
+         * TEMPORÁRIO — só pra validar o payload de ConferenciaSP.excluirConferencia
+         * direto contra o Sankhya (sem depender de sessão local). Remover depois do teste.
+         */
+        post("/debug/excluir-conferencia-sankhya") {
+            val slug = call.request.queryParameters["tenant"]
+            val nunota = call.request.queryParameters["nunota"]?.toLongOrNull()
+            if (slug.isNullOrBlank() || nunota == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'tenant' e 'nunota' (query) são obrigatórios"))
+                return@post
+            }
+            try {
+                SeparacaoService.excluirConferenciaSankhya(slug, nunota)
+                call.respond(mapOf("ok" to true))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha")))
+            }
+        }
+
         /** Recontagem — reabre a sessão pra bipar tudo de novo do zero (mesmos itens/config, só zera o que foi conferido). */
         post("/sessoes/{id}/recontar") {
             val slug = call.request.queryParameters["tenant"]
