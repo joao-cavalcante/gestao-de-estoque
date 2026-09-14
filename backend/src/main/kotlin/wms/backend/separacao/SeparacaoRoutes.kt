@@ -325,9 +325,8 @@ fun Route.separacaoRoutes() {
         }
 
         /**
-         * Cancela a sessão inteira (desiste do pedido) — só LOCAL por
-         * enquanto, ver SeparacaoService.cancelar pro motivo (contrato do
-         * ConferenciaSP.excluirConferencia ainda não confirmado).
+         * Cancela a sessão inteira (desiste do pedido) — chama
+         * ConferenciaSP.excluirConferencia no Sankhya (ver SeparacaoService.cancelar).
          */
         post("/sessoes/{id}/cancelar") {
             val slug = call.request.queryParameters["tenant"]
