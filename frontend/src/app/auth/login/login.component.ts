@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { AuthService } from '../auth.service';
 
 const CHAVE_TENANT = 'wms_tenant_slug';
+/** Este deploy só serve o tenant negri — sem seletor de tenant nem dependência do cache do navegador pro login por crachá. */
+const TENANT_PADRAO = 'negri';
 
 type AbaLogin = 'senha' | 'cracha';
 
@@ -27,8 +29,7 @@ export class LoginComponent implements AfterViewInit {
   carregando = signal(false);
   erro = signal<string | null>(null);
 
-  /** Login por crachá só funciona se este dispositivo já fez 1 login normal antes (é o que resolve o tenant). */
-  readonly tenantSlug = localStorage.getItem(CHAVE_TENANT);
+  readonly tenantSlug = localStorage.getItem(CHAVE_TENANT) ?? TENANT_PADRAO;
   crachaoCodigo = '';
 
   ngAfterViewInit(): void {

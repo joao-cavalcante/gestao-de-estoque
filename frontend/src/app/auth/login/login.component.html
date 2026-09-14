@@ -35,30 +35,24 @@
         </button>
       </form>
     } @else {
-      @if (!tenantSlug) {
-        <div class="oq-login-erro">
-          Este dispositivo ainda não fez nenhum login. Entre uma vez com e-mail e senha pra liberar o login por crachá aqui.
-        </div>
-      } @else {
-        <form class="oq-login-form" (ngSubmit)="entrarComCracha()">
-          <label class="oq-login-field">
-            <span class="oq-label-caps">Bipe o crachá</span>
-            <input
-              #inputCracha
-              type="password"
-              name="crachaoCodigo"
-              [(ngModel)]="crachaoCodigo"
-              [disabled]="carregando()"
-              autocomplete="off"
-              inputmode="none"
-            />
-          </label>
+      <form class="oq-login-form" (ngSubmit)="entrarComCracha()">
+        <label class="oq-login-field">
+          <span class="oq-label-caps">Bipe o crachá</span>
+          <input
+            #inputCracha
+            type="password"
+            name="crachaoCodigo"
+            [(ngModel)]="crachaoCodigo"
+            [disabled]="carregando()"
+            autocomplete="off"
+            inputmode="none"
+          />
+        </label>
 
-          @if (erro()) {
-            <div class="oq-login-erro">{{ erro() }}</div>
-          }
-        </form>
-      }
+        @if (erro()) {
+          <div class="oq-login-erro">{{ erro() }}</div>
+        }
+      </form>
     }
   </div>
 </div>
