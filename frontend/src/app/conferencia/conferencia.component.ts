@@ -124,9 +124,15 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   erro = signal<string | null>(null);
 
   // ─── Bipagem de crachá na entrada (V33) ─────────────────────────────────
+  /**
+   * Só exige bipar quem está logado é uma conta de ESTAÇÃO (PC fixo, ex.:
+   * "Stage1") — aí sim o login não identifica quem está de fato conferindo.
+   * Login pessoal normal já identifica; não tem por que bipar de novo.
+   */
+  readonly exigeCracha = this.authService.usuario()?.perfil === 'ESTACAO';
   /** sessaoId já existe (iniciar() respondeu) — usado pelo template pra saber se já pode mostrar o campo de crachá. */
   sessaoIdParaOperador: string | null = null;
-  readonly operadorIdentificado = signal(false);
+  readonly operadorIdentificado = signal(!this.exigeCracha);
   readonly nomeOperador = signal<string | null>(null);
   readonly identificandoOperador = signal(false);
   readonly erroOperador = signal<string | null>(null);
@@ -278,7 +284,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.separacaoService.iniciar(this.tenantAtual, nunota).subscribe({
       next: (resp) => {
         this.sessaoIdParaOperador = resp.sessaoId;
-        setTimeout(() => this.inputCrachaOperador?.nativeElement.focus());
+        if (this.exigeCracha) setTimeout(() => this.inputCrachaOperador?.nativeElement.focus());
         this.aguardarSessaoPronta(resp.sessaoId);
       },
       error: (err) => {

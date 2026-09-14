@@ -315,11 +315,14 @@ fun Route.separacaoRoutes() {
          * real (push pro Sankhya) e devolve os campos de FinalizarResultado.
          */
         post("/sessoes/{id}/concluir-etapa") {
-            // exigirAuth garante que o navegador está logado; quem CONCLUI de
+            // exigirAuth garante que o navegador está logado. Quem CONCLUI de
             // fato é o operador que bipou o crachá pra esta sessão
-            // (sessao.operadorId, ver identificar-operador acima) — nunca o
-            // que vier do corpo, nem necessariamente quem está logado no
-            // navegador (pode ser conta genérica/supervisor).
+            // (sessao.operadorId, ver identificar-operador acima) — MAS só é
+            // obrigatório bipar quando o login do navegador é uma conta de
+            // ESTAÇÃO (PC fixo, ex.: "Stage1"): aí sim o login não identifica
+            // quem está de fato conferindo. Login pessoal normal (ADMINISTRADOR/
+            // OPERADOR, incluindo o login por crachá direto) já identifica quem
+            // está usando a tela — não tem por que bipar de novo.
             val claims = call.exigirAuth() ?: return@post
 
             val slug = call.request.queryParameters["tenant"]
@@ -337,6 +340,7 @@ fun Route.separacaoRoutes() {
             val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
             val operadorId = sessao.operadorId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: (if (claims.perfil != "ESTACAO") claims.userId else null)
                 ?: return@post call.respond(HttpStatusCode.Conflict, mapOf("erro" to "nenhum operador bipou o crachá nesta conferência ainda"))
             val operador = UsuariosRepository.buscarPorId(tenantId, operadorId)
                 ?: return@post call.respond(HttpStatusCode.Conflict, mapOf("erro" to "operador que bipou o crachá não existe mais"))
