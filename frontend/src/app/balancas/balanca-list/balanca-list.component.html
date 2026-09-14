@@ -24,7 +24,7 @@
             @if (balancaDaEstacao() === b.id) {
               <oq-status-chip tone="success">ESTA ESTAÇÃO</oq-status-chip>
             } @else {
-              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fixarNestaEstacao(b)" title="Login por crachá nesta estação vai usar esta balança">
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fixarNestaEstacao(b)" title="Opcional — só pra estação de pesagem: liga o login por crachá desta estação a esta balança, pra registrar quem está pesando aqui agora">
                 Fixar nesta estação
               </button>
             }

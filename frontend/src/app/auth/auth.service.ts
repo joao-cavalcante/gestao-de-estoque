@@ -21,12 +21,14 @@ export class AuthService {
   }
 
   /**
-   * Login por crachá (estações de pesagem) — mesmo backend/claims do login
-   * normal, só troca o método de identificação. `tenant` é o slug já salvo
-   * nesta estação (ver EstacaoService) — o crachá sozinho não resolve o
-   * tenant (não é globalmente único, diferente do e-mail).
+   * Login por crachá — mesmo backend/claims do login normal, só troca o
+   * método de identificação. `tenant` é o slug já salvo nesta estação (ver
+   * EstacaoService) — o crachá sozinho não resolve o tenant (não é
+   * globalmente único, diferente do e-mail). `balancaId` é OPCIONAL: só
+   * existe em estação de pesagem; conferência normal (sem balança) loga
+   * igual, sem ele.
    */
-  loginCracha(tenant: string, crachaoCodigo: string, balancaId: string): Observable<LoginResponse> {
+  loginCracha(tenant: string, crachaoCodigo: string, balancaId: string | null): Observable<LoginResponse> {
     return this.http
       .post<LoginResponse>('/api/auth/login-cracha', { tenant, crachaoCodigo, balancaId })
       .pipe(tap((res) => this.aplicarSessao(res)));

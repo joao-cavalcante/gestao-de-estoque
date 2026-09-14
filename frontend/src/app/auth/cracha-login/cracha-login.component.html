@@ -10,7 +10,8 @@
     } @else if (!estacaoConfigurada) {
       <div class="oq-login-erro">
         Esta estação ainda não está configurada pro login por crachá. Faça
-        <a routerLink="/login">login normal</a> e fixe a balança desta estação na tela Balanças.
+        <a routerLink="/login">login normal</a> aqui uma vez pra liberar o crachá nesta estação
+        (se for estação de pesagem, fixe também a balança na tela Balanças).
       </div>
     } @else {
       <form class="oq-login-field" (ngSubmit)="ler()">

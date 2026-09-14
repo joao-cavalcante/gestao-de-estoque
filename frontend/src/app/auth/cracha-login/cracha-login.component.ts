@@ -9,16 +9,19 @@ const CHAVE_TENANT = 'wms_tenant_slug';
 const TEMPO_BOAS_VINDAS_MS = 1500;
 
 /**
- * Login por crachá (código de barras) nas estações de pesagem — mesmo
- * padrão de captura do oq-scan-bar.component.ts: um <input> sempre focado,
- * sem HostListener de teclado; o leitor emula digitação + Enter.
+ * Login por crachá (código de barras) — serve pra QUALQUER estação
+ * (conferência normal ou pesagem), mesmo padrão de captura do
+ * oq-scan-bar.component.ts: um <input> sempre focado, sem HostListener de
+ * teclado; o leitor emula digitação + Enter.
  *
- * Depende de 2 configs locais já salvas neste navegador por um login
- * normal anterior (feito uma vez, na configuração da estação):
- * - `wms_tenant_slug` (AuthService, salvo em todo login normal)
- * - a balança fixada aqui (EstacaoService, tela Balanças → "Fixar nesta estação")
- * Sem as duas, a estação ainda não está pronta pra crachá — mostra a
- * orientação pra fazer login normal e configurar.
+ * Depende de 1 config local já salva neste navegador por um login normal
+ * anterior (feito uma vez, na configuração da estação):
+ * - `wms_tenant_slug` (AuthService, salvo em todo login normal) — sem ela
+ *   a estação ainda não está pronta pra crachá.
+ *
+ * A balança fixada aqui (EstacaoService, tela Balanças → "Fixar nesta
+ * estação") é OPCIONAL — só existe em estação de pesagem (Stage 01/02
+ * etc.); conferência normal loga igual, sem balança nenhuma.
  */
 @Component({
   selector: 'app-cracha-login',
@@ -43,7 +46,7 @@ export class CrachaLoginComponent implements AfterViewInit {
   readonly balancaId = this.estacao.obterBalancaId();
 
   get estacaoConfigurada(): boolean {
-    return !!this.tenantSlug && !!this.balancaId;
+    return !!this.tenantSlug;
   }
 
   ngAfterViewInit(): void {
@@ -56,7 +59,7 @@ export class CrachaLoginComponent implements AfterViewInit {
 
   ler(): void {
     const codigo = this.codigo.trim();
-    if (!codigo || this.carregando() || !this.tenantSlug || !this.balancaId) return;
+    if (!codigo || this.carregando() || !this.tenantSlug) return;
 
     this.carregando.set(true);
     this.erro.set(null);

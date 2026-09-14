@@ -23,12 +23,15 @@ data class RedefinirSenhaRequest(val email: String, val token: String, val senha
  * `tenant` = slug do tenant — diferente do login por e-mail, o crachá não
  * é globalmente único, então não dá pra resolver o tenant só pelo código
  * (ver V32). A estação já sabe o slug (salvo no navegador desde o primeiro
- * login normal feito ali, mesma config local que fixa `balancaId`).
- * `balancaId` identifica a estação que está lendo o crachá — usado pra
- * registrar em app.balanca_sessoes_ativas quem está logado ali agora.
+ * login normal feito ali).
+ *
+ * `balancaId` é OPCIONAL — só existe em estação de pesagem (Stage 01/02
+ * etc.). Conferência normal (sem balança) loga por crachá igual, só que
+ * sem registrar nada em app.balanca_sessoes_ativas, que só faz sentido
+ * pra "quem está pesando nesta balança agora".
  */
 @Serializable
-data class LoginCrachaRequest(val tenant: String, val crachaoCodigo: String, val balancaId: String)
+data class LoginCrachaRequest(val tenant: String, val crachaoCodigo: String, val balancaId: String? = null)
 
 fun Route.authRoutes() {
     route("/api/auth") {
@@ -61,14 +64,18 @@ fun Route.authRoutes() {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '${req.tenant}' não encontrado"))
                 return@post
             }
-            val balancaId = runCatching { UUID.fromString(req.balancaId) }.getOrNull()
-            if (balancaId == null) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "balancaId inválido"))
-                return@post
-            }
-            if (BalancasRepository.buscarPorId(tenantId, balancaId) == null) {
-                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "estação (balança) não encontrada"))
-                return@post
+            // balancaId só existe em estação de pesagem — conferência normal manda null.
+            var balancaId: UUID? = null
+            if (!req.balancaId.isNullOrBlank()) {
+                balancaId = runCatching { UUID.fromString(req.balancaId) }.getOrNull()
+                if (balancaId == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "balancaId inválido"))
+                    return@post
+                }
+                if (BalancasRepository.buscarPorId(tenantId, balancaId) == null) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("erro" to "estação (balança) não encontrada"))
+                    return@post
+                }
             }
 
             val usuario = UsuariosRepository.buscarParaLoginCracha(tenantId, req.crachaoCodigo.trim())
@@ -77,7 +84,9 @@ fun Route.authRoutes() {
                 return@post
             }
 
-            BalancasRepository.definirOperadorAtual(tenantId, balancaId, usuario.userId)
+            if (balancaId != null) {
+                BalancasRepository.definirOperadorAtual(tenantId, balancaId, usuario.userId)
+            }
 
             val token = JwtService.gerar(usuario.userId, usuario.tenantId, usuario.perfil)
             call.respond(
