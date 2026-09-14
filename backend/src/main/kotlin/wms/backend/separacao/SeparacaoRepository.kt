@@ -966,8 +966,16 @@ object SeparacaoRepository {
                     exibirProdConf = it[SeparacaoSessoesTable.exibirProdConf],
                     exibirQtdConf = it[SeparacaoSessoesTable.exibirQtdConf],
                     exibirImgProd = it[SeparacaoSessoesTable.exibirImgProd],
+                    operadorId = it[SeparacaoSessoesTable.operadorId]?.toString(),
                 )
             }
+    }
+
+    /** Bipagem de crachá na entrada da tela (V33) — "assume" a conferência pra este operador. */
+    fun definirOperador(tenantId: UUID, sessaoId: UUID, usuarioId: UUID): Boolean = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
+            it[operadorId] = usuarioId
+        } > 0
     }
 
     /**
@@ -1219,6 +1227,7 @@ object SeparacaoRepository {
         exibirProdConf = row[SeparacaoSessoesTable.exibirProdConf],
         exibirQtdConf = row[SeparacaoSessoesTable.exibirQtdConf],
         exibirImgProd = row[SeparacaoSessoesTable.exibirImgProd],
+        operadorId = row[SeparacaoSessoesTable.operadorId]?.toString(),
     )
 
     // ─── Conferência por etapa (V29) ─────────────────────────────────────────

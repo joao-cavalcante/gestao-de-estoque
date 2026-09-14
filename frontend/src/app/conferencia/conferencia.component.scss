@@ -148,6 +148,32 @@
   cursor: pointer;
 }
 
+.oq-cf-cracha-gate__form {
+  width: 240px;
+  max-width: 100%;
+
+  input {
+    width: 100%;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    padding: 10px 12px;
+    font-family: var(--oq-font-mono);
+    font-size: 14px;
+    text-align: center;
+    color: var(--oq-text-primary);
+
+    &:focus {
+      outline: 2px solid var(--oq-brand-accent);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.oq-cf-cracha-gate__erro {
+  color: var(--oq-critical-foreground);
+}
+
 .oq-cf-page__right-col {
   display: grid;
   /* Mesma proporção do .coluna-direita do core: o painel de baixo

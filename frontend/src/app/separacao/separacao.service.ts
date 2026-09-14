@@ -12,6 +12,7 @@ import {
   ItemConferido,
   ItemResolvido,
   ItemSeparacao,
+  OperadorIdentificado,
   SessaoEtapa,
   SessaoSeparacao,
   TopFaturamento,
@@ -35,6 +36,11 @@ export class SeparacaoService {
 
   buscarSessao(tenant: string, sessaoId: string): Observable<SessaoSeparacao> {
     return this.http.get<SessaoSeparacao>(`${this.baseUrl}/sessoes/${sessaoId}`, { params: { tenant } });
+  }
+
+  /** Bipagem de crachá na entrada da tela — não é login, só marca quem assumiu esta conferência. */
+  identificarOperador(sessaoId: string, crachaoCodigo: string): Observable<OperadorIdentificado> {
+    return this.http.post<OperadorIdentificado>(`${this.baseUrl}/sessoes/${sessaoId}/identificar-operador`, { crachaoCodigo });
   }
 
   buscarItens(tenant: string, sessaoId: string): Observable<ItemSeparacao[]> {

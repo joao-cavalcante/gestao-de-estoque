@@ -278,12 +278,42 @@ fun Route.separacaoRoutes() {
         }
 
         /**
+         * Bipagem de crachá na ENTRADA da tela de conferência (V33) — não é
+         * login (não gera token novo, não troca a sessão do navegador). Só
+         * marca "quem assumiu esta conferência", pra distinguir de quem está
+         * logado no navegador (pode ser uma conta genérica/supervisor).
+         * exigirAuth() continua exigido: o navegador precisa estar logado
+         * normalmente pra sequer chamar essa rota.
+         */
+        post("/sessoes/{id}/identificar-operador") {
+            val claims = call.exigirAuth() ?: return@post
+            val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "id inválido"))
+
+            val req = call.receive<IdentificarOperadorRequest>()
+            val usuario = UsuariosRepository.buscarParaLoginCracha(claims.tenantId, req.crachaoCodigo.trim())
+            if (usuario == null || !usuario.ativo) {
+                call.respond(HttpStatusCode.Unauthorized, mapOf("erro" to "crachá não reconhecido"))
+                return@post
+            }
+
+            if (!SeparacaoRepository.definirOperador(claims.tenantId, sessaoId, usuario.userId)) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
+                return@post
+            }
+            call.respond(OperadorIdentificadoDto(nome = usuario.nome))
+        }
+
+        /**
          * Conclui uma etapa. Se for a última pendente, dispara o `finalizar`
          * real (push pro Sankhya) e devolve os campos de FinalizarResultado.
          */
         post("/sessoes/{id}/concluir-etapa") {
-            // Quem conclui vem do JWT, nunca do corpo — ver comentário em
-            // ConcluirEtapaRequest. exigirAuth já responde 401 sozinho.
+            // exigirAuth garante que o navegador está logado; quem CONCLUI de
+            // fato é o operador que bipou o crachá pra esta sessão
+            // (sessao.operadorId, ver identificar-operador acima) — nunca o
+            // que vier do corpo, nem necessariamente quem está logado no
+            // navegador (pode ser conta genérica/supervisor).
             val claims = call.exigirAuth() ?: return@post
 
             val slug = call.request.queryParameters["tenant"]
@@ -298,8 +328,12 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
-            val operador = UsuariosRepository.buscarPorId(tenantId, claims.userId)
-                ?: return@post call.respond(HttpStatusCode.Unauthorized, mapOf("erro" to "usuário do token não encontrado"))
+            val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
+            val operadorId = sessao.operadorId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: return@post call.respond(HttpStatusCode.Conflict, mapOf("erro" to "nenhum operador bipou o crachá nesta conferência ainda"))
+            val operador = UsuariosRepository.buscarPorId(tenantId, operadorId)
+                ?: return@post call.respond(HttpStatusCode.Conflict, mapOf("erro" to "operador que bipou o crachá não existe mais"))
 
             val body = call.receive<ConcluirEtapaRequest>()
             try {

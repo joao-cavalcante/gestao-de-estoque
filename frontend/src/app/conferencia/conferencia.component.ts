@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, interval } from 'rxjs';
 import { filter, first, switchMap, timeout } from 'rxjs/operators';
@@ -114,6 +114,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   private sessaoSub?: Subscription;
 
   @ViewChild(OqScanBarComponent) private scanBar?: OqScanBarComponent;
+  @ViewChild('inputCrachaOperador') private inputCrachaOperador?: ElementRef<HTMLInputElement>;
 
   get tenantAtual(): string {
     return this.authService.obterTenantSlug() ?? '';
@@ -121,6 +122,15 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   carregando = signal(true);
   erro = signal<string | null>(null);
+
+  // ─── Bipagem de crachá na entrada (V33) ─────────────────────────────────
+  /** sessaoId já existe (iniciar() respondeu) — usado pelo template pra saber se já pode mostrar o campo de crachá. */
+  sessaoIdParaOperador: string | null = null;
+  readonly operadorIdentificado = signal(false);
+  readonly nomeOperador = signal<string | null>(null);
+  readonly identificandoOperador = signal(false);
+  readonly erroOperador = signal<string | null>(null);
+  crachaoOperador = '';
 
   nf = '—';
   parceiro = '—';
@@ -266,10 +276,44 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     }
 
     this.separacaoService.iniciar(this.tenantAtual, nunota).subscribe({
-      next: (resp) => this.aguardarSessaoPronta(resp.sessaoId),
+      next: (resp) => {
+        this.sessaoIdParaOperador = resp.sessaoId;
+        setTimeout(() => this.inputCrachaOperador?.nativeElement.focus());
+        this.aguardarSessaoPronta(resp.sessaoId);
+      },
       error: (err) => {
         this.erro.set(err?.error?.erro ?? 'Falha ao iniciar separação.');
         this.carregando.set(false);
+      },
+    });
+  }
+
+  /**
+   * Bipagem de crachá pedida SEMPRE ao entrar nesta tela (V33) — mesmo se o
+   * navegador já está logado (conta genérica/supervisor da estação, por
+   * exemplo). Não troca a sessão/token; só marca "quem assumiu esta
+   * conferência" — backend usa isso pra registrar autoria (concluida_por),
+   * nunca o que vier solto no corpo.
+   */
+  identificarOperadorCracha(): void {
+    const codigo = this.crachaoOperador.trim();
+    if (!codigo || this.identificandoOperador() || !this.sessaoIdParaOperador) return;
+
+    this.identificandoOperador.set(true);
+    this.erroOperador.set(null);
+
+    this.separacaoService.identificarOperador(this.sessaoIdParaOperador, codigo).subscribe({
+      next: (res) => {
+        this.crachaoOperador = '';
+        this.identificandoOperador.set(false);
+        this.nomeOperador.set(res.nome);
+        this.operadorIdentificado.set(true);
+      },
+      error: (err) => {
+        this.crachaoOperador = '';
+        this.identificandoOperador.set(false);
+        this.erroOperador.set(err?.error?.erro ?? 'Crachá não reconhecido.');
+        setTimeout(() => this.inputCrachaOperador?.nativeElement.focus());
       },
     });
   }

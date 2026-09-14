@@ -27,6 +27,13 @@ export interface SessaoSeparacao {
   exibirQtdConf: string | null;
   /** CCO.EXIBIRIMGPROD — painel de imagem / última leitura. */
   exibirImgProd: string | null;
+  /** Quem bipou o crachá pra assumir esta conferência (V33) — null = ninguém ainda, tela bloqueia. */
+  operadorId: string | null;
+}
+
+/** Resposta de POST /sessoes/{id}/identificar-operador. */
+export interface OperadorIdentificado {
+  nome: string;
 }
 
 /** Resposta de POST /sessoes/{id}/finalizar. */

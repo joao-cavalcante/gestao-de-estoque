@@ -36,6 +36,8 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     val qtdVol = integer("qtd_vol").default(0)
     val criadoEm = timestamp("criado_em")
     val atualizadoEm = timestamp("atualizado_em")
+    /** Quem bipou o crachá pra "assumir" esta conferência (V33) — null até a primeira bipagem. */
+    val operadorId = uuid("operador_id").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

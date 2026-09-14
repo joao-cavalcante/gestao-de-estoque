@@ -1,5 +1,33 @@
 <div class="oq-cf-page">
-  @if (carregando()) {
+  @if (!operadorIdentificado()) {
+    <div class="oq-cf-page__status oq-cf-cracha-gate">
+      <span class="oq-cf-page__status-titulo">Bipe seu crachá pra começar a conferência</span>
+      <span class="oq-cf-page__status-sub">Nota {{ numeroUnico }} — confirma quem está fazendo esta conferência.</span>
+
+      @if (!sessaoIdParaOperador) {
+        <span class="oq-cf-page__status-sub">Preparando…</span>
+      } @else {
+        <form class="oq-cf-cracha-gate__form" (ngSubmit)="identificarOperadorCracha()">
+          <input
+            #inputCrachaOperador
+            type="text"
+            name="crachaoOperador"
+            [(ngModel)]="crachaoOperador"
+            [disabled]="identificandoOperador()"
+            autocomplete="off"
+            inputmode="none"
+            autofocus
+          />
+        </form>
+
+        @if (erroOperador()) {
+          <span class="oq-cf-page__status-sub oq-cf-cracha-gate__erro">{{ erroOperador() }}</span>
+        }
+      }
+
+      <button type="button" class="oq-cf-page__status-btn" (click)="onVoltar()">Voltar à fila</button>
+    </div>
+  } @else if (carregando()) {
     <div class="oq-cf-page__status">
       <span class="oq-cf-page__status-titulo">Carregando itens do pedido…</span>
       <span class="oq-cf-page__status-sub">Consultando Sankhya — normalmente leva poucos segundos.</span>

@@ -46,7 +46,15 @@ data class SessaoSeparacaoDto(
     val exibirQtdConf: String? = null,
     /** CCO.EXIBIRIMGPROD — painel de imagem / última leitura. */
     val exibirImgProd: String? = null,
+    /** Quem bipou o crachá pra assumir esta conferência (V33) — null = ninguém bipou ainda, tela deve bloquear. */
+    val operadorId: String? = null,
 )
+
+@Serializable
+data class IdentificarOperadorRequest(val crachaoCodigo: String)
+
+@Serializable
+data class OperadorIdentificadoDto(val nome: String)
 
 @Serializable
 data class FinalizarResultadoDto(
