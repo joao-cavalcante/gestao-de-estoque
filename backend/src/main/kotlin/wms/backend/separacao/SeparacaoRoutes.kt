@@ -303,7 +303,7 @@ fun Route.separacaoRoutes() {
                 return@post
             }
 
-            if (!SeparacaoRepository.definirOperador(claims.tenantId, sessaoId, usuario.userId)) {
+            if (!SeparacaoRepository.definirOperador(claims.tenantId, sessaoId, usuario.userId, claims.userId)) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
                 return@post
             }

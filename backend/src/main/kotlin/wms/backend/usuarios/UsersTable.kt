@@ -11,6 +11,7 @@ object UsersTable : Table("app.users") {
     val nome = text("nome")
     val email = text("email")
     val senhaHash = text("senha_hash").nullable()
+    /** ADMINISTRADOR | OPERADOR | ESTACAO (V35 — login fixo de PC, ex.: "Stage1"; sem regra especial de permissão, só rótulo). */
     val perfil = text("perfil")
     val ativo = bool("ativo")
     val criadoEm = timestamp("criado_em")

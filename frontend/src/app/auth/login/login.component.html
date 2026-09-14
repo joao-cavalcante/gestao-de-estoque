@@ -1,26 +1,64 @@
 <div class="oq-login-page">
-  <form class="oq-login-card" (ngSubmit)="entrar()">
+  <div class="oq-login-card">
     <div class="oq-login-brand">
       <span class="oq-login-logo">LG</span>
       <span class="oq-login-title">LOGÍSTICA ÁGIL</span>
     </div>
 
-    <label class="oq-login-field">
-      <span class="oq-label-caps">E-mail</span>
-      <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
-    </label>
+    <div class="oq-login-abas">
+      <button type="button" class="oq-login-aba" [class.oq-login-aba--ativa]="aba() === 'senha'" (click)="trocarAba('senha')">
+        E-mail e senha
+      </button>
+      <button type="button" class="oq-login-aba" [class.oq-login-aba--ativa]="aba() === 'cracha'" (click)="trocarAba('cracha')">
+        Crachá
+      </button>
+    </div>
 
-    <label class="oq-login-field">
-      <span class="oq-label-caps">Senha</span>
-      <input type="password" name="senha" [(ngModel)]="senha" autocomplete="current-password" required />
-    </label>
+    @if (aba() === 'senha') {
+      <form class="oq-login-form" (ngSubmit)="entrar()">
+        <label class="oq-login-field">
+          <span class="oq-label-caps">E-mail</span>
+          <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
+        </label>
 
-    @if (erro()) {
-      <div class="oq-login-erro">{{ erro() }}</div>
+        <label class="oq-login-field">
+          <span class="oq-label-caps">Senha</span>
+          <input type="password" name="senha" [(ngModel)]="senha" autocomplete="current-password" required />
+        </label>
+
+        @if (erro()) {
+          <div class="oq-login-erro">{{ erro() }}</div>
+        }
+
+        <button type="submit" class="oq-login-btn" [disabled]="carregando()">
+          {{ carregando() ? 'ENTRANDO…' : 'ENTRAR' }}
+        </button>
+      </form>
+    } @else {
+      @if (!tenantSlug) {
+        <div class="oq-login-erro">
+          Este dispositivo ainda não fez nenhum login. Entre uma vez com e-mail e senha pra liberar o login por crachá aqui.
+        </div>
+      } @else {
+        <form class="oq-login-form" (ngSubmit)="entrarComCracha()">
+          <label class="oq-login-field">
+            <span class="oq-label-caps">Bipe o crachá</span>
+            <input
+              #inputCracha
+              type="password"
+              name="crachaoCodigo"
+              [(ngModel)]="crachaoCodigo"
+              [disabled]="carregando()"
+              autocomplete="off"
+              inputmode="none"
+            />
+          </label>
+
+          @if (erro()) {
+            <div class="oq-login-erro">{{ erro() }}</div>
+          }
+        </form>
+      }
     }
-
-    <button type="submit" class="oq-login-btn" [disabled]="carregando()">
-      {{ carregando() ? 'ENTRANDO…' : 'ENTRAR' }}
-    </button>
-  </form>
+  </div>
 </div>

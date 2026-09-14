@@ -967,14 +967,22 @@ object SeparacaoRepository {
                     exibirQtdConf = it[SeparacaoSessoesTable.exibirQtdConf],
                     exibirImgProd = it[SeparacaoSessoesTable.exibirImgProd],
                     operadorId = it[SeparacaoSessoesTable.operadorId]?.toString(),
+                    estacaoId = it[SeparacaoSessoesTable.estacaoId]?.toString(),
                 )
             }
     }
 
-    /** Bipagem de crachá na entrada da tela (V33) — "assume" a conferência pra este operador. */
-    fun definirOperador(tenantId: UUID, sessaoId: UUID, usuarioId: UUID): Boolean = TenantTx.run(tenantId) {
+    /**
+     * Bipagem de crachá na entrada da tela (V33) — "assume" a conferência
+     * pra este operador. `estacaoUsuarioId` (V35) é quem estava logado no
+     * navegador na hora (claims do JWT da rota) — em PC de estação fixa
+     * (ex.: login "Stage1"), é diferente do operador que bipou; usado só
+     * pra filtrar depois "quem bipou em qual estação".
+     */
+    fun definirOperador(tenantId: UUID, sessaoId: UUID, usuarioId: UUID, estacaoUsuarioId: UUID): Boolean = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
             it[operadorId] = usuarioId
+            it[estacaoId] = estacaoUsuarioId
         } > 0
     }
 
@@ -1228,6 +1236,7 @@ object SeparacaoRepository {
         exibirQtdConf = row[SeparacaoSessoesTable.exibirQtdConf],
         exibirImgProd = row[SeparacaoSessoesTable.exibirImgProd],
         operadorId = row[SeparacaoSessoesTable.operadorId]?.toString(),
+        estacaoId = row[SeparacaoSessoesTable.estacaoId]?.toString(),
     )
 
     // ─── Conferência por etapa (V29) ─────────────────────────────────────────

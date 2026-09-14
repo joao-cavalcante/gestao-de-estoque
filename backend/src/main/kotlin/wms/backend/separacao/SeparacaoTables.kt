@@ -38,6 +38,8 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     val atualizadoEm = timestamp("atualizado_em")
     /** Quem bipou o crachá pra "assumir" esta conferência (V33) — null até a primeira bipagem. */
     val operadorId = uuid("operador_id").nullable()
+    /** Qual conta estava logada no navegador quando o crachá foi bipado (V35) — ex.: "Stage1"/"Stage2". */
+    val estacaoId = uuid("estacao_id").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

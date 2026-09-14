@@ -44,6 +44,39 @@
   color: var(--oq-text-primary);
 }
 
+.oq-login-abas {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--oq-bg-page);
+  border-radius: var(--oq-radius-input);
+}
+
+.oq-login-aba {
+  flex: 1;
+  border: none;
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  padding: 8px;
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &--ativa {
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .oq-login-field {
   display: flex;
   flex-direction: column;

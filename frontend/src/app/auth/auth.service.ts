@@ -20,6 +20,18 @@ export class AuthService {
     return this.http.post<LoginResponse>('/api/auth/login', { email, senha }).pipe(tap((res) => this.aplicarSessao(res)));
   }
 
+  /**
+   * Login por crachá (pensado pros tablets) — mesmas claims/token do login
+   * normal, só troca o método de identificação. `tenant` precisa já estar
+   * salvo neste dispositivo (de um login normal anterior) — o crachá
+   * sozinho não resolve o tenant, só é único dentro de cada um.
+   */
+  loginCracha(tenant: string, crachaoCodigo: string): Observable<LoginResponse> {
+    return this.http
+      .post<LoginResponse>('/api/auth/login-cracha', { tenant, crachaoCodigo })
+      .pipe(tap((res) => this.aplicarSessao(res)));
+  }
+
   private aplicarSessao(res: LoginResponse): void {
     localStorage.setItem(CHAVE_TOKEN, res.token);
     localStorage.setItem(CHAVE_USUARIO, JSON.stringify(res.usuario));

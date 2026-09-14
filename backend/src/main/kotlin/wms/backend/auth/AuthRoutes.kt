@@ -10,12 +10,22 @@ import wms.backend.usuarios.LoginRequest
 import wms.backend.usuarios.LoginResponse
 import wms.backend.usuarios.UsuarioDto
 import wms.backend.usuarios.UsuariosRepository
+import java.util.UUID
 
 @Serializable
 data class EsqueciSenhaRequest(val email: String)
 
 @Serializable
 data class RedefinirSenhaRequest(val email: String, val token: String, val senhaNova: String)
+
+/**
+ * `tenant` = slug — diferente do e-mail, o crachá é único só POR tenant
+ * (V32), não globalmente, então não dá pra resolver o tenant só pelo
+ * código. O app (tablet/estação) já sabe o slug — salvo no dispositivo
+ * desde o primeiro login normal feito ali (AuthService.aplicarSessao).
+ */
+@Serializable
+data class LoginCrachaRequest(val tenant: String, val crachaoCodigo: String)
 
 fun Route.authRoutes() {
     route("/api/auth") {
@@ -36,6 +46,38 @@ fun Route.authRoutes() {
                     token = token,
                     usuario = UsuarioDto(usuario.userId.toString(), usuario.nome, usuario.email, usuario.perfil, usuario.ativo),
                     tenantSlug = tenantSlug,
+                ),
+            )
+        }
+
+        /**
+         * Login por crachá — mesmas claims/token do login normal, só troca
+         * o método de identificação (pensado pros tablets, ver
+         * LoginCrachaRequest). 401 aqui é seguro: esta rota já está sob
+         * /api/auth/, que o interceptor do front nunca trata como "sessão
+         * morta" (diferente de identificar-operador em SeparacaoRoutes.kt).
+         */
+        post("/login-cracha") {
+            val req = call.receive<LoginCrachaRequest>()
+
+            val tenantId = TenantRepository.buscarPorSlug(req.tenant)?.id?.let { UUID.fromString(it) }
+            if (tenantId == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '${req.tenant}' não encontrado"))
+                return@post
+            }
+
+            val usuario = UsuariosRepository.buscarParaLoginCracha(tenantId, req.crachaoCodigo.trim())
+            if (usuario == null || !usuario.ativo) {
+                call.respond(HttpStatusCode.Unauthorized, mapOf("erro" to "crachá não reconhecido"))
+                return@post
+            }
+
+            val token = JwtService.gerar(usuario.userId, usuario.tenantId, usuario.perfil)
+            call.respond(
+                LoginResponse(
+                    token = token,
+                    usuario = UsuarioDto(usuario.userId.toString(), usuario.nome, usuario.email, usuario.perfil, usuario.ativo),
+                    tenantSlug = req.tenant,
                 ),
             )
         }

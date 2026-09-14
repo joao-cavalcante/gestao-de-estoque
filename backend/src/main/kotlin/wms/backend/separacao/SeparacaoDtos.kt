@@ -48,6 +48,8 @@ data class SessaoSeparacaoDto(
     val exibirImgProd: String? = null,
     /** Quem bipou o crachá pra assumir esta conferência (V33) — null = ninguém bipou ainda, tela deve bloquear. */
     val operadorId: String? = null,
+    /** Conta logada no navegador quando o crachá foi bipado (V35) — ex.: "Stage1"/"Stage2", pra filtrar depois. */
+    val estacaoId: String? = null,
 )
 
 @Serializable
