@@ -284,6 +284,12 @@ fun Route.separacaoRoutes() {
          * logado no navegador (pode ser uma conta genérica/supervisor).
          * exigirAuth() continua exigido: o navegador precisa estar logado
          * normalmente pra sequer chamar essa rota.
+         *
+         * "Crachá não reconhecido" responde 400, NUNCA 401 — o interceptor
+         * do front desloga o navegador em qualquer 401 fora de /api/auth/
+         * (mesmo raciocínio de RequireAuth.kt), e aqui é só um crachá digitado
+         * errado, não sessão inválida (isso continua sendo o exigirAuth()
+         * logo acima, que aí sim responde 401 de verdade).
          */
         post("/sessoes/{id}/identificar-operador") {
             val claims = call.exigirAuth() ?: return@post
@@ -293,7 +299,7 @@ fun Route.separacaoRoutes() {
             val req = call.receive<IdentificarOperadorRequest>()
             val usuario = UsuariosRepository.buscarParaLoginCracha(claims.tenantId, req.crachaoCodigo.trim())
             if (usuario == null || !usuario.ativo) {
-                call.respond(HttpStatusCode.Unauthorized, mapOf("erro" to "crachá não reconhecido"))
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "crachá não reconhecido"))
                 return@post
             }
 
