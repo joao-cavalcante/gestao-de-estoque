@@ -115,7 +115,10 @@ export class LocalScaleService {
     }
 
     const ehZero = pesoLiquido < LIMIAR_ZERO_KG;
-    const displayEstavaZerado = (this.pesoAnterior ?? 0) < LIMIAR_ZERO_KG;
+    // pesoAnterior null (logo após subscribe/reconexão) NÃO conta como "já
+    // zerado" — senão a primeira leitura pós-reset pula a proteção de
+    // TEMPO_ZERO_MS e um frame de "0" transitório vaza direto pro display.
+    const displayEstavaZerado = this.pesoAnterior !== null && this.pesoAnterior < LIMIAR_ZERO_KG;
 
     // Frame zerado enquanto o display mostra peso → provável "0" transitório do
     // modo contínuo. Segura a emissão; só zera de verdade se persistir.
