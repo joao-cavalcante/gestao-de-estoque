@@ -5,7 +5,6 @@ import { Subscription } from 'rxjs';
 import { BalancaService } from '../balanca.service';
 import { Balanca, SalvarBalancaRequest, TipoComunicacao } from '../balanca.model';
 import { LocalScaleService, StatusBalanca } from '../local-scale.service';
-import { EstacaoService } from '../estacao.service';
 import { OqPanelSectionComponent } from '../../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqStatusChipComponent } from '../../conferencia/oq-status-chip/oq-status-chip.component';
 import { OqIconComponent, OqIconName } from '../../shared/icons/oq-icon.component';
@@ -48,13 +47,10 @@ function formVazio(): FormBalanca {
 export class BalancaListComponent implements OnInit, OnDestroy {
   private readonly service = inject(BalancaService);
   private readonly agente = inject(LocalScaleService);
-  private readonly estacao = inject(EstacaoService);
   private subs: Subscription[] = [];
 
   balancas = signal<Balanca[]>([]);
   carregando = signal(true);
-  /** Balança fixada nesta estação (login por crachá) — null se ainda não configurada aqui. */
-  balancaDaEstacao = signal<string | null>(null);
 
   // Modal criar/editar
   modalAberto = signal(false);
@@ -81,7 +77,6 @@ export class BalancaListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.carregar();
-    this.balancaDaEstacao.set(this.estacao.obterBalancaId());
     this.subPortas = this.agente.portas$.subscribe((portas) => {
       this.portasDisponiveis.set(portas);
       this.buscandoPortas.set(false);
@@ -313,11 +308,5 @@ export class BalancaListComponent implements OnInit, OnDestroy {
 
   iconePorTipo(tipo: TipoComunicacao): OqIconName {
     return tipo === 'HTTP' ? 'sync' : 'scale';
-  }
-
-  /** Fixa esta balança como a da estação (PC) atual — usada pelo login por crachá. */
-  fixarNestaEstacao(b: Balanca): void {
-    this.estacao.definirBalancaId(b.id);
-    this.balancaDaEstacao.set(b.id);
   }
 }

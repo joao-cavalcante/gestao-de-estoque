@@ -11,7 +11,6 @@ import { InventarioDetalheComponent } from './inventarios-desktop/inventario-det
 import { ConfigConferenciaComponent } from './config-conferencia/config-conferencia.component';
 import { TiposOperacaoComponent } from './tipos-operacao/tipos-operacao.component';
 import { LoginComponent } from './auth/login/login.component';
-import { CrachaLoginComponent } from './auth/cracha-login/cracha-login.component';
 import { authGuard } from './auth/auth.guard';
 import { UsuarioListComponent } from './usuarios/usuario-list/usuario-list.component';
 import { BalancaListComponent } from './balancas/balanca-list/balanca-list.component';
@@ -22,7 +21,6 @@ import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-eti
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
-  { path: 'crachao', component: CrachaLoginComponent },
   { path: '', redirectTo: 'fila-tarefas', pathMatch: 'full' },
   { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard] },
   { path: 'conferencia/:nunota', component: ConferenciaComponent, canActivate: [authGuard] },

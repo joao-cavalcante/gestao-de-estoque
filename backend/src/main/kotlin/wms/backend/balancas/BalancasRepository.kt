@@ -59,34 +59,6 @@ object BalancasRepository {
         }
     }
 
-    /**
-     * Registra qual operador está logado agora nesta balança (login por
-     * crachá) — substitui quem estava antes. Não mexe em
-     * BalancaUsuariosTable (lista de autorização, assunto separado).
-     */
-    fun definirOperadorAtual(tenantId: UUID, balancaId: UUID, usuarioId: UUID): Unit = TenantTx.run(tenantId) {
-        val agora = Instant.now()
-        val linhas = BalancaSessoesAtivasTable.update({ BalancaSessoesAtivasTable.balancaId eq balancaId }) {
-            it[BalancaSessoesAtivasTable.usuarioId] = usuarioId
-            it[atualizadoEm] = agora
-        }
-        if (linhas == 0) {
-            BalancaSessoesAtivasTable.insert {
-                it[BalancaSessoesAtivasTable.balancaId] = balancaId
-                it[BalancaSessoesAtivasTable.tenantId] = tenantId
-                it[BalancaSessoesAtivasTable.usuarioId] = usuarioId
-                it[atualizadoEm] = agora
-            }
-        }
-    }
-
-    fun operadorAtual(tenantId: UUID, balancaId: UUID): UUID? = TenantTx.run(tenantId) {
-        BalancaSessoesAtivasTable.selectAll()
-            .where { BalancaSessoesAtivasTable.balancaId eq balancaId }
-            .singleOrNull()
-            ?.get(BalancaSessoesAtivasTable.usuarioId)
-    }
-
     fun listarUsuarios(tenantId: UUID, balancaId: UUID): List<String> = TenantTx.run(tenantId) {
         BalancaUsuariosTable.selectAll()
             .where { (BalancaUsuariosTable.tenantId eq tenantId) and (BalancaUsuariosTable.balancaId eq balancaId) }
