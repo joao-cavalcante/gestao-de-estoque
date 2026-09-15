@@ -15,13 +15,4 @@
     <span class="oq-kpi-bar__label">Aguard. Corte</span>
     <span class="oq-kpi-bar__value">{{ formatarKpi(aguardandoCorte) }}</span>
   </div>
-  <div class="oq-kpi-bar__block oq-kpi-bar__block--attention">
-    <span class="oq-kpi-bar__label">Atenção</span>
-    <span class="oq-kpi-bar__value-row">
-      <span class="oq-kpi-bar__value" [class.oq-kpi-bar__value--zero]="atencao === 0">{{ formatarKpi(atencao) }}</span>
-      @if (atencao > 0) {
-        <span class="oq-kpi-bar__dot oq-alert-pulse" aria-hidden="true"></span>
-      }
-    </span>
-  </div>
 </div>

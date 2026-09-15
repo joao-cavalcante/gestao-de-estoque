@@ -46,12 +46,18 @@
             [disabled]="carregando()"
             autocomplete="off"
             inputmode="none"
+            (keydown.enter)="$event.preventDefault(); entrarComCracha()"
+            (keydown.tab)="$event.preventDefault(); entrarComCracha()"
           />
         </label>
 
         @if (erro()) {
           <div class="oq-login-erro">{{ erro() }}</div>
         }
+
+        <button type="submit" class="oq-login-btn" [disabled]="carregando() || !crachaoCodigo.trim()">
+          {{ carregando() ? 'ENTRANDO…' : 'ENTRAR' }}
+        </button>
       </form>
     }
   </div>

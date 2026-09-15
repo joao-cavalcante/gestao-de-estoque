@@ -11,8 +11,6 @@
           type="button"
           class="oq-toolbar__pill"
           [class.oq-toolbar__pill--active]="filtroAtivo === pill.valor"
-          [class.oq-toolbar__pill--alert]="pill.valor === 'atencao'"
-          [class.oq-toolbar__pill--active-alert]="filtroAtivo === pill.valor && pill.valor === 'atencao'"
           (click)="filtroChange.emit(pill.valor)"
         >
           {{ pill.label }}

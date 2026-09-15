@@ -48,7 +48,6 @@ export class OqToolbarComponent {
     { valor: 'aguardando', label: 'Aguard.' },
     { valor: 'andamento', label: 'Andam.' },
     { valor: 'aguardando_corte', label: 'Corte' },
-    { valor: 'atencao', label: 'Atenção' },
   ];
 
   readonly tiposSeparacao = TIPOS_SEPARACAO;

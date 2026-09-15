@@ -28,12 +28,6 @@
   color: var(--oq-text-secondary);
 }
 
-.oq-kpi-bar__value-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
 .oq-kpi-bar__value {
   font-family: var(--oq-font-mono);
   font-weight: 600;
@@ -41,31 +35,6 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--oq-text-primary);
-}
-
-.oq-kpi-bar__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--oq-critical);
-  display: inline-block;
-}
-
-.oq-kpi-bar__block--attention {
-  background: var(--oq-critical-bg);
-
-  .oq-kpi-bar__label {
-    font-weight: 600;
-    color: var(--oq-critical-foreground);
-  }
-
-  .oq-kpi-bar__value {
-    color: var(--oq-critical-foreground);
-
-    &.oq-kpi-bar__value--zero {
-      color: var(--oq-text-primary);
-    }
-  }
 }
 
 @media (max-width: 700px) {

@@ -102,7 +102,6 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       aguardando: todas.filter((t) => t.status === 'aguardando').length,
       andamento: todas.filter((t) => t.status === 'andamento').length,
       aguardandoCorte: todas.filter((t) => t.status === 'aguardando_corte').length,
-      atencao: todas.filter((t) => t.alerta !== null).length,
     };
   });
 
@@ -141,9 +140,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const tipos = this.filtroTipoSeparacao();
 
     return this.tarefasAtivas().filter((t) => {
-      const passaFiltro =
-        filtro === 'todos' ||
-        (filtro === 'atencao' ? t.alerta !== null : t.status === filtro);
+      const passaFiltro = filtro === 'todos' || t.status === filtro;
 
       const passaBusca =
         !termo ||

@@ -81,20 +81,6 @@
   gap: 5px;
 }
 
-.oq-toolbar__pill--alert:not(.oq-toolbar__pill--active) {
-  color: var(--oq-critical-foreground);
-
-  &:hover {
-    background: var(--oq-critical-bg);
-    color: var(--oq-critical-foreground);
-  }
-}
-
-.oq-toolbar__pill--active-alert {
-  background: var(--oq-critical);
-  color: #fff;
-}
-
 .oq-toolbar__search {
   display: flex;
   align-items: center;

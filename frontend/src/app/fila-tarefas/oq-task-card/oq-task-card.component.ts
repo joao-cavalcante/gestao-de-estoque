@@ -11,7 +11,7 @@ interface StatusVisual {
 }
 
 const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
-  aguardando: { icone: 'circle', label: 'AGUARDANDO', corVar: 'var(--oq-status-idle)', gira: false },
+  aguardando: { icone: 'circle', label: 'AGUARDANDO CONFERÊNCIA', corVar: 'var(--oq-status-idle)', gira: false },
   andamento: { icone: 'gear', label: 'EM ANDAMENTO', corVar: 'var(--oq-status-active)', gira: true },
   aguardando_corte: { icone: 'circle-alert', label: 'AGUARDANDO CORTE', corVar: 'var(--oq-status-active)', gira: false },
   concluido: { icone: 'check', label: 'CONCLUÍDO', corVar: 'var(--oq-status-done)', gira: false },
