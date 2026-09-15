@@ -187,6 +187,7 @@
                     <span class="oq-form-hint">Salve a configuração para habilitar a leitura via agente local.</span>
                   }
                 } @else {
+                  <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="pesoAtual() === null" (click)="capturarPeso()">Capturar</button>
                   <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="pararLeitura()">Parar Leitura</button>
                 }
               }

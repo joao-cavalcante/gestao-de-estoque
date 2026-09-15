@@ -281,10 +281,13 @@ export class BalancaListComponent implements OnInit, OnDestroy {
         }
       }),
     );
+    // Peso AO VIVO (peso$), não o estabilizado (pesoEstavel$, debounce de 2s) —
+    // o teste é pra mostrar o que a balança está lendo agora, sem esperar
+    // estabilizar; o registro (log) só acontece quando o operador clica em
+    // "Capturar", não sozinho a cada leitura.
     this.subs.push(
-      this.agente.pesoEstavel$.subscribe((leitura) => {
+      this.agente.peso$.subscribe((leitura) => {
         this.pesoAtual.set(leitura.peso);
-        this.registrarLog(`Peso estável: ${leitura.peso.toFixed(3)} kg`, true);
       }),
     );
     this.subs.push(
@@ -303,6 +306,16 @@ export class BalancaListComponent implements OnInit, OnDestroy {
     this.subs.forEach((s) => s.unsubscribe());
     this.subs = [];
     this.lendoSerial.set(false);
+  }
+
+  /** Registra no log o peso AO VIVO no instante do clique — não espera estabilizar. */
+  capturarPeso(): void {
+    const peso = this.pesoAtual();
+    if (peso == null) {
+      this.registrarLog('Nenhuma leitura recebida da balança ainda.', false);
+      return;
+    }
+    this.registrarLog(`Peso capturado: ${peso.toFixed(3)} kg`, true);
   }
 
   limparLog(): void {
