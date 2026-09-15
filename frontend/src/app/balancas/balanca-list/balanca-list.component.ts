@@ -263,6 +263,15 @@ export class BalancaListComponent implements OnInit, OnDestroy {
     this.registrarLog(`Conectando ao agente local — porta ${this.form.portaCom}…`, true);
     this.agente.conectar();
 
+    // status$ é um Subject comum — quem assina agora não recebe o status atual,
+    // só transições futuras. Como o agente é singleton (socket persiste entre
+    // navegações), se já estava conectado a assinatura abaixo nunca dispararia.
+    this.statusTeste.set(this.agente.obterStatus());
+    if (this.agente.obterStatus() === 'conectado') {
+      this.agente.subscribe(this.form.portaCom);
+      this.registrarLog('Agente conectado — aguardando leituras…', true);
+    }
+
     this.subs.push(
       this.agente.status$.subscribe((s) => {
         this.statusTeste.set(s);
