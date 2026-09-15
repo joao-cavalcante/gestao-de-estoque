@@ -23,7 +23,7 @@ export interface ConferenciaItem {
   foraPedido?: boolean;
   /** Item pesável cujo peso conferido saiu da tolerância de ±5% do esperado — divergência de PESO (indicador visual próprio). */
   divergenciaPeso?: boolean;
-  /** Desvio do peso conferido vs. esperado, em % (só faz sentido quando divergenciaPeso). */
+  /** Desvio SIGNED do peso conferido vs. esperado, em % (+ maior, - menor) — presente pra TODO item pesável já conferido, não só quando diverge. */
   desvioPesoPct?: number;
   /** TGFPRO.AD_TIPOSEPARACAO — 1 Secos | 2 Resfriados | 3 Congelados. Conferência por etapa (V29). */
   tipoSeparacao?: number;

@@ -54,7 +54,14 @@
                 <span class="item-divergencia item-divergencia--peso">
                   <oq-icon name="scale" [size]="12" />
                   Peso {{ excedente(item) > 0 ? '+' : '' }}{{ formatarQtd(excedente(item)) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
-                  · {{ formatarPct(item.desvioPesoPct) }}% fora da tolerância (5%)
+                  · {{ formatarPctAbs(item.desvioPesoPct) }}% fora da tolerância (5%)
+                </span>
+              </div>
+            } @else if (temObservacaoPeso(item)) {
+              <div class="item-linha">
+                <span class="item-observacao item-observacao--peso">
+                  <oq-icon name="scale" [size]="12" />
+                  Peso {{ (item.desvioPesoPct ?? 0) > 0 ? '+' : '' }}{{ formatarPct(item.desvioPesoPct) }}% do pedido
                 </span>
               </div>
             } @else if (isDivergenciaQtd(item)) {

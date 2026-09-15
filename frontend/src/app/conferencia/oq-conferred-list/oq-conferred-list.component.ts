@@ -71,8 +71,18 @@ export class OqConferredListComponent {
     return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
 
-  /** % de desvio do peso, em pt-BR (vírgula) — ex.: "7,1". */
+  /** % de desvio do peso, em pt-BR (vírgula) — ex.: "7,1" ou "-7,1". */
   formatarPct(n: number | undefined): string {
     return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  /** Mesma formatação, mas sempre positiva — pro alerta vermelho (a menor), onde o sinal já está implícito no texto. */
+  formatarPctAbs(n: number | undefined): string {
+    return this.formatarPct(Math.abs(n ?? 0));
+  }
+
+  /** Item pesável já conferido, mas dentro da tolerância — mostra observação neutra (sem cor) com o desvio vs. pedido. */
+  temObservacaoPeso(item: ConferenciaItem): boolean {
+    return !!item.usaConfPeso && item.scanned > 0 && !item.divergenciaPeso;
   }
 }

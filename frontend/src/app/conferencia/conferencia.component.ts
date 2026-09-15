@@ -48,6 +48,19 @@ function pesoForaDaTolerancia(scanned: number, expected: number): boolean {
 }
 
 /**
+ * Desvio SIGNED (conferido - esperado) / esperado, em %, 1 casa — positivo =
+ * a maior, negativo = a menor. Diferente de desvioPeso() (sempre absoluto,
+ * usado só pra decidir tolerância): este é pra EXIBIÇÃO, sempre calculado
+ * pra todo item pesável já conferido, divergente ou não — vira uma
+ * observação neutra na tela; só vira alerta vermelho quando
+ * pesoForaDaTolerancia() for true.
+ */
+function desvioPesoPctSigned(scanned: number, expected: number): number {
+  if (expected <= 0) return scanned > 0 ? 100 : 0;
+  return Math.round(((scanned - expected) / expected) * 1000) / 10;
+}
+
+/**
  * Arredonda a 3 casas (mesma precisão exibida na tela). Comparações de
  * conferido/divergente são feitas nesse arredondamento: o operador confere o
  * valor QUE VÊ (ex.: 2,083), e o esperado real pode ter mais casas
@@ -86,7 +99,9 @@ function mapearItem(item: ItemSeparacao): ConferenciaItem {
           ? 'FORA DO PEDIDO'
           : undefined,
     divergenciaPeso: divergePeso || undefined,
-    desvioPesoPct: divergePeso ? Math.round(desvioPeso(scanned, expected) * 1000) / 10 : undefined,
+    // Observação de peso: SEMPRE presente pra item pesável já conferido (não só
+    // quando diverge) — vira alerta vermelho só quando divergenciaPeso é true.
+    desvioPesoPct: item.usaConfPeso && scanned > 0 ? desvioPesoPctSigned(scanned, expected) : undefined,
     usaConfPeso: item.usaConfPeso,
     foraPedido: item.foraPedido,
     tipoSeparacao: item.tipoSeparacao,
@@ -365,7 +380,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       status: divergente ? 'critical' : conferido ? 'ok' : 'pending',
       divergenceReason: divergePeso ? 'PESO FORA DA TOLERÂNCIA' : divergeQtd ? 'QTD. DIVERGENTE' : undefined,
       divergenciaPeso: divergePeso || undefined,
-      desvioPesoPct: divergePeso ? Math.round(desvioPeso(scanned, item.expected) * 1000) / 10 : undefined,
+      desvioPesoPct: item.usaConfPeso && scanned > 0 ? desvioPesoPctSigned(scanned, item.expected) : undefined,
     };
   }
 

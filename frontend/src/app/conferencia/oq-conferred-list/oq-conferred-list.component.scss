@@ -173,6 +173,21 @@
   }
 }
 
+/** Observação neutra (sem cor de alerta) — peso dentro da tolerância, só informativo. */
+.item-observacao {
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--oq-text-secondary);
+
+  &--peso {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
 .item-info-sec {
   font-family: var(--oq-font-mono);
   font-size: 10px;
