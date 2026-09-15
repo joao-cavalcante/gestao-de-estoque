@@ -16,6 +16,7 @@ import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.upsert
 import wms.backend.produtos.CodigosBarraCacheTable
 import wms.backend.produtos.ProdutosCacheTable
 import wms.backend.tarefas.TarefasTable
@@ -1067,6 +1068,37 @@ object SeparacaoRepository {
             .orderBy(SeparacaoSessoesTable.criadoEm to SortOrder.DESC)
             .firstOrNull()
             ?.get(SeparacaoSessoesTable.nuconf)
+    }
+
+    /**
+     * Registra a decisão (liberado/negado) de um item numa rodada de
+     * liberação de corte — TGFITE não guarda isso em campo nenhum (ver V36),
+     * então sem persistir aqui não tem como saber depois, ao montar uma nova
+     * sessão de recontagem, que um item já foi resolvido.
+     */
+    fun registrarDecisaoLiberacao(tenantId: UUID, nunota: Long, codprod: Int, liberado: Boolean, nuconf: Int): Unit = TenantTx.run(tenantId) {
+        SeparacaoCorteLiberacoesTable.upsert(SeparacaoCorteLiberacoesTable.tenantId, SeparacaoCorteLiberacoesTable.nunota, SeparacaoCorteLiberacoesTable.codprod) {
+            it[id] = UUID.randomUUID()
+            it[SeparacaoCorteLiberacoesTable.tenantId] = tenantId
+            it[SeparacaoCorteLiberacoesTable.nunota] = nunota.toInt()
+            it[SeparacaoCorteLiberacoesTable.codprod] = codprod
+            it[SeparacaoCorteLiberacoesTable.liberado] = liberado
+            it[SeparacaoCorteLiberacoesTable.nuconf] = nuconf
+            it[decididoEm] = Instant.now()
+        }
+        Unit
+    }
+
+    /** CODPRODs já liberados (aceitos, não precisam voltar pra conferência/recontagem) pra esta nota. */
+    fun buscarCodprodsLiberados(tenantId: UUID, nunota: Long): Set<Int> = TenantTx.run(tenantId) {
+        SeparacaoCorteLiberacoesTable.selectAll()
+            .where {
+                (SeparacaoCorteLiberacoesTable.tenantId eq tenantId) and
+                    (SeparacaoCorteLiberacoesTable.nunota eq nunota.toInt()) and
+                    (SeparacaoCorteLiberacoesTable.liberado eq true)
+            }
+            .map { it[SeparacaoCorteLiberacoesTable.codprod] }
+            .toSet()
     }
 
     fun listarItens(tenantId: UUID, sessaoId: UUID): List<ItemSeparacaoDto> = TenantTx.run(tenantId) {

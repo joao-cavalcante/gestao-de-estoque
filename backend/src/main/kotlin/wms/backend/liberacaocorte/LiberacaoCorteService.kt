@@ -174,21 +174,22 @@ object LiberacaoCorteService {
             val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
             if (pendentes.isEmpty()) return false
 
-            // Descrições dos produtos pesáveis da sessão (match por descrição — é o
-            // que a ViewLiberacaoLimite expõe na OBSERVACAO).
-            val descPesaveis = withContext(Dispatchers.IO) {
+            // Produtos pesáveis da sessão, por descrição (match por descrição — é o
+            // que a ViewLiberacaoLimite expõe na OBSERVACAO) — Map, não Set, porque
+            // precisamos do CODPROD depois pra persistir a decisão (ver V36).
+            val pesaveisPorDescricao = withContext(Dispatchers.IO) {
                 wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId)
             }
                 .filter { it.usaConfPeso }
-                .mapNotNull { it.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty) }
-                .toSet()
+                .mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
+                .toMap()
 
             val liberaveis = pendentes.filter { linha ->
                 val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
                 val prod = obs.produto?.trim()?.uppercase() ?: return@filter false
                 val conf = obs.qtdConferida ?: return@filter false
                 val ped = obs.qtdPedido ?: return@filter false
-                if (prod !in descPesaveis) return@filter false
+                if (prod !in pesaveisPorDescricao) return@filter false
                 // A MAIOR (pesou mais que o pedido) nunca precisa de liberação — sempre libera.
                 if (conf > ped) return@filter true
                 // A MENOR: só libera sozinho dentro da tolerância de 5%.
@@ -205,6 +206,19 @@ object LiberacaoCorteService {
                 tenantSlug, liberaveis, codusu, "S",
                 "Liberação automática — peso a maior, ou a menor dentro da tolerância (${(TOLERANCIA_PESO * 100).toInt()}%)",
             )
+
+            // Registra a decisão localmente (TGFITE não guarda isso — ver V36),
+            // senão o item liberado reaparece na recontagem igual ao negado.
+            val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
+            if (nunota != null) {
+                withContext(Dispatchers.IO) {
+                    liberaveis.forEach { linha ->
+                        val prod = parseObservacaoLiberacao(linha["OBSERVACAO"]).produto?.trim()?.uppercase() ?: return@forEach
+                        val codprod = pesaveisPorDescricao[prod]?.codprod ?: return@forEach
+                        wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(tenantId, nunota, codprod, liberado = true, nuconf = nuconf)
+                    }
+                }
+            }
 
             val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(emptyList())
             if (restantes.isNotEmpty()) {
@@ -336,36 +350,63 @@ object LiberacaoCorteService {
 
         chamarLiberarNegar(tenantSlug, selecionados, codusu, liberarNorm, obsFinal)
 
-        if (liberarNorm == "S") {
-            val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(emptyList())
-            if (restantes.isEmpty()) {
-                runCatching {
-                    SankhyaSpClient.chamarRaw(
-                        tenantSlug,
-                        "ConferenciaSP.finalizarConferencia",
-                        "mgecom",
-                        buildJsonObject {
-                            putJsonObject("params") {
-                                put("nuConf", nuconf.toString())
-                                put("peso", 0)
-                                put("qtdVol", 0)
-                            }
-                            CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
-                        },
-                    )
-                }.onFailure {
-                    println("AVISO: liberação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
-                }
+        val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
 
-                // Corte 100% liberado + conferência fechada no Sankhya → fecha a
-                // tarefa local na hora (senão o card só some no próximo ciclo do
-                // sync, que ainda vê status_operacional='aguardando_corte').
-                runCatching {
-                    val nunota = wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf)
-                    if (nunota != null) {
-                        withContext(Dispatchers.IO) {
-                            wms.backend.tarefas.TarefasRepository.concluirLocalSemWriteBack(tenantId, nunota)
+        // Registra a decisão localmente, liberado ou negado — TGFITE não guarda
+        // isso em campo nenhum (ver V36); sem isto um item liberado reaparece
+        // na recontagem igual a um negado de verdade.
+        if (nunota != null) {
+            withContext(Dispatchers.IO) {
+                val itensPorDescricao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota)
+                    ?.let { sessao -> wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id)) }
+                    ?.mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item.codprod } }
+                    ?.toMap()
+                    ?: emptyMap()
+                selecionados.forEach { linha ->
+                    val prod = parseObservacaoLiberacao(linha["OBSERVACAO"]).produto?.trim()?.uppercase() ?: return@forEach
+                    val codprod = itensPorDescricao[prod] ?: return@forEach
+                    wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(tenantId, nunota, codprod, liberado = liberarNorm == "S", nuconf = nuconf)
+                }
+            }
+        }
+
+        // Verifica se sobrou algo pendente INDEPENDENTE da ação ter sido liberar
+        // ou negar — negar o ÚLTIMO item pendente também precisa fechar o corte
+        // (é o que de fato manda o Sankhya aplicar o corte e, pelo AOLIBERAR=M,
+        // reabrir a nota pra recontagem dos itens negados). Bug real encontrado
+        // aqui: antes só verificava quando liberarNorm=="S" — negar o último
+        // item nunca finalizava a conferência, e o corte silencioso de outro
+        // item (já decidido antes) nunca era aplicado na nota de verdade.
+        val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(selecionados)
+        if (restantes.isEmpty()) {
+            runCatching {
+                SankhyaSpClient.chamarRaw(
+                    tenantSlug,
+                    "ConferenciaSP.finalizarConferencia",
+                    "mgecom",
+                    buildJsonObject {
+                        putJsonObject("params") {
+                            put("nuConf", nuconf.toString())
+                            put("peso", 0)
+                            put("qtdVol", 0)
                         }
+                        CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                    },
+                )
+            }.onFailure {
+                println("AVISO: liberação/negação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+            }
+
+            // Corte 100% decidido + conferência fechada no Sankhya → fecha a
+            // tarefa local na hora (senão o card só some no próximo ciclo do
+            // sync, que ainda vê status_operacional='aguardando_corte'). Se
+            // sobrou item negado precisando de recontagem, o próprio sync
+            // seguinte já corrige pra 'aguardando' assim que o Sankhya refletir
+            // isso — mesmo mecanismo de auto-correção usado em outras notas.
+            if (nunota != null) {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        wms.backend.tarefas.TarefasRepository.concluirLocalSemWriteBack(tenantId, nunota)
                     }
                 }.onFailure { println("AVISO: falha ao fechar a tarefa local após liberação de corte (nuconf $nuconf): ${it.message}") }
             }

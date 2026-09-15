@@ -144,7 +144,7 @@ object SeparacaoService {
             // pra checar o cache local em lote, então não dá mais pra rodar em
             // paralelo com buscarItens como antes. NUCCO é leitura local, roda
             // no meio sem bloquear nada.
-            val itens = buscarItens(tenantSlug, nunota)
+            val itens = buscarItens(tenantSlug, tenantId, nunota)
             val nucco = withContext(Dispatchers.IO) { TarefasRepository.buscarNuccoLocal(tenantId, nunota) }
             val codprods = itens.map { it.codprod }.distinct()
             val voaJob = escopo.async { buscarVoa(tenantSlug, tenantId, codprods) }
@@ -741,7 +741,7 @@ object SeparacaoService {
         return SankhyaLoadRecordsClient.parseRows(raw, fields).firstOrNull()?.get("NUCONF")?.toIntOrNull()
     }
 
-    private suspend fun buscarItens(tenantSlug: String, nunota: Long): List<ItemParaSalvar> {
+    private suspend fun buscarItens(tenantSlug: String, tenantId: UUID, nunota: Long): List<ItemParaSalvar> {
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,
             LoadRecordsRequest(
@@ -752,15 +752,23 @@ object SeparacaoService {
             ),
         )
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
+        // Itens cuja divergência já foi ACEITA (liberada) numa rodada de corte
+        // anterior — TGFITE não reflete essa decisão em campo nenhum
+        // (QTDENTREGUE e PENDENTE continuam iguais pro item liberado e pro
+        // negado, confirmado ao vivo: nota 57394, item liberado no corte
+        // silencioso continuava com PENDENTE='S'/QTDENTREGUE=0). Sem filtrar
+        // por isto, um item já resolvido reaparece na recontagem do mesmo
+        // jeito que o item que realmente precisa ser reconferido.
+        val codprodsLiberados = withContext(Dispatchers.IO) { SeparacaoRepository.buscarCodprodsLiberados(tenantId, nunota) }
         return rows.mapNotNull { r ->
-            // PENDENTE='N' = item já resolvido (conferido certo, ou divergência
-            // liberada na Liberação de Limites) — não entra na conferência/
-            // recontagem. Ausente/em branco trata como pendente (fail-safe:
-            // melhor mostrar a mais um item do que esconder um que precisa de
-            // ação — mesmo critério que a Fila de Conferência nativa usa).
+            // PENDENTE='N' = item já resolvido do ponto de vista de quantidade
+            // entregue — não entra na conferência/recontagem. Ausente/em
+            // branco trata como pendente (fail-safe: melhor mostrar a mais um
+            // item do que esconder um que precisa de ação).
             if (r["PENDENTE"]?.trim()?.uppercase() == "N") return@mapNotNull null
             val sequencia = r["SEQUENCIA"]?.toIntOrNull() ?: return@mapNotNull null
             val codprod = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
+            if (codprod in codprodsLiberados) return@mapNotNull null
             val dadosJson = buildJsonObject {
                 FIELDS_ITEM.forEach { campo -> put(campo, r[campo]) }
             }.toString()

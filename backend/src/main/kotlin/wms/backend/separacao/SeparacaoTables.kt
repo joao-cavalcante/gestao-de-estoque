@@ -149,6 +149,23 @@ object SeparacaoUmaTable : Table("app.separacao_uma") {
     override val primaryKey = PrimaryKey(id)
 }
 
+/**
+ * app.separacao_corte_liberacoes (V36) — decisão (liberado/negado) mais
+ * recente de cada item numa rodada de liberação de corte. Ver migração pro
+ * raciocínio completo (TGFITE não reflete essa decisão em campo nenhum).
+ */
+object SeparacaoCorteLiberacoesTable : Table("app.separacao_corte_liberacoes") {
+    val id = uuid("id")
+    val tenantId = uuid("tenant_id")
+    val nunota = integer("nunota")
+    val codprod = integer("codprod")
+    val liberado = bool("liberado")
+    val nuconf = integer("nuconf")
+    val decididoEm = timestamp("decidido_em")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
 /** Status possíveis de app.separacao_sessoes.status — texto simples, sem enum de banco (mesmo estilo de StatusOperacional). */
 object SeparacaoStatus {
     const val CARREGANDO = "carregando"
