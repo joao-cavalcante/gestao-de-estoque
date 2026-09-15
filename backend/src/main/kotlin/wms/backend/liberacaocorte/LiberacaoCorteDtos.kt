@@ -24,6 +24,8 @@ data class LiberacaoPendenteDto(
     val qtdConferida: Double? = null,
     val unidadeConferida: String? = null,
     val diferenca: Double? = null,
+    /** true = qtdPedido/qtdConferida vieram da sessão local (peso real bipado), não da ViewLiberacaoLimite do Sankhya. */
+    val pesavel: Boolean = false,
 )
 
 @Serializable

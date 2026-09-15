@@ -17,6 +17,8 @@ export interface LiberacaoPendente {
   qtdConferida: number | null;
   unidadeConferida: string | null;
   diferenca: number | null;
+  /** true = qtdPedido/qtdConferida vieram da sessão local (peso real bipado), não do texto do Sankhya. */
+  pesavel: boolean;
 }
 
 export interface ValidarLiberadorParams {

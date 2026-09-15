@@ -46,7 +46,7 @@ fun Route.liberacaoCorteRoutes() {
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
-                call.respond(LiberacaoCorteService.listarPendentes(slug, nuconf))
+                call.respond(LiberacaoCorteService.listarPendentes(slug, claims.tenantId, nuconf))
             } catch (e: LiberacaoCorteService.LiberacaoCorteException) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to (e.message ?: "falha")))
             } catch (e: Exception) {

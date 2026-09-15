@@ -25,7 +25,14 @@ import { AuthService } from '../auth/auth.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { SomFeedbackService } from '../shared/som-feedback.service';
 
-/** Tolerância de peso: item pesável só entra em divergência se sair de ±5% do esperado (peso base). */
+/**
+ * Tolerância de peso — só vale pra divergência A MENOR (conferido < esperado):
+ * item pesável só entra em divergência se pesar mais de 5% abaixo do esperado.
+ * A MAIOR (conferido > esperado) NUNCA diverge — pesar mais que o negociado
+ * não precisa de liberação nem alerta, por maior que seja o excesso. Mesma
+ * regra da auto-liberação de corte por peso
+ * (LiberacaoCorteService.autoLiberarPesoDentroTolerancia, backend).
+ */
 const TOLERANCIA_PESO = 0.05;
 
 /** Desvio |conferido - esperado| / esperado. Retorna 0 quando não há esperado. */
@@ -34,8 +41,9 @@ function desvioPeso(scanned: number, expected: number): number {
   return Math.abs(scanned - expected) / expected;
 }
 
-/** Item pesável fora da tolerância de ±5% (só considera divergente acima disso). */
+/** Item pesável fora da tolerância — só a menor, além de 5%. A maior nunca diverge. */
 function pesoForaDaTolerancia(scanned: number, expected: number): boolean {
+  if (scanned > expected) return false;
   return desvioPeso(scanned, expected) > TOLERANCIA_PESO;
 }
 

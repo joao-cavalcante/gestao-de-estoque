@@ -57,6 +57,15 @@ object SeparacaoService {
 
     private val FIELDS_ITEM = listOf(
         "SEQUENCIA", "CODPROD", "CODVOL", "CONTROLE", "QTDNEG", "QTDENTREGUE",
+        // PENDENTE = mesmo campo que a Fila de Conferência nativa usa (ver
+        // TarefaSyncService.CRITERIO_BASE: "ITE.PENDENTE = 'S'") pra saber se o
+        // item ainda precisa de conferência. QTDENTREGUE NÃO reflete liberação/
+        // negação de corte (fica 0 mesmo depois de liberado) — só PENDENTE
+        // captura isso; sem filtrar por ele, um item já liberado na Liberação
+        // de Limites volta pra tela de recontagem do mesmo jeito que um item
+        // negado (bug real, confirmado nota 57355: liberação individual não
+        // sendo respeitada na recontagem).
+        "PENDENTE",
         "Produto.DESCRPROD", "Produto.COMPLDESC", "Produto.MARCA", "Produto.REFERENCIA",
         // TIPCONTEST='L' = lote (digitação livre); LISCONTEST = lista de
         // controles pré-cadastrados (separados por linha) pro produto —
@@ -744,6 +753,12 @@ object SeparacaoService {
         )
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
         return rows.mapNotNull { r ->
+            // PENDENTE='N' = item já resolvido (conferido certo, ou divergência
+            // liberada na Liberação de Limites) — não entra na conferência/
+            // recontagem. Ausente/em branco trata como pendente (fail-safe:
+            // melhor mostrar a mais um item do que esconder um que precisa de
+            // ação — mesmo critério que a Fila de Conferência nativa usa).
+            if (r["PENDENTE"]?.trim()?.uppercase() == "N") return@mapNotNull null
             val sequencia = r["SEQUENCIA"]?.toIntOrNull() ?: return@mapNotNull null
             val codprod = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
             val dadosJson = buildJsonObject {

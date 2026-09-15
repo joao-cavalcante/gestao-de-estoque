@@ -1,10 +1,11 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 
 @Component({
   selector: 'oq-conferencia-footer',
   standalone: true,
-  imports: [OqIconComponent],
+  imports: [OqIconComponent, OqSpinnerComponent],
   templateUrl: './oq-conferencia-footer.component.html',
   styleUrl: './oq-conferencia-footer.component.scss',
 })
@@ -13,6 +14,8 @@ export class OqConferenciaFooterComponent {
   @Input() pendingCount = 0;
   @Input() conferredCount = 0;
   @Input() canConfirm = false;
+  /** true = requisição de confirmar/concluir etapa em voo — mostra spinner no botão primário. */
+  @Input() confirmando = false;
   /** Rótulo do botão primário — "Confirmar Conferência" (normal) ou "Concluir Etapa X" (conferência por etapa). */
   @Input() confirmarLabel = 'Confirmar Conferência';
   /** Rótulo do botão de sair — "Voltar" (normal) ou "Salvar e sair" (conferência por etapa: progresso persiste). */

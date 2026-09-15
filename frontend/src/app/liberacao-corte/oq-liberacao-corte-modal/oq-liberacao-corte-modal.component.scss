@@ -133,6 +133,18 @@
   .lc-row--sel { background: color-mix(in srgb, var(--oq-brand) 10%, var(--oq-surface)); }
 }
 
+.lc-peso-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .lc-dif--menos { color: var(--oq-critical-foreground); }
 .lc-dif--mais { color: var(--oq-warning-foreground); }
 

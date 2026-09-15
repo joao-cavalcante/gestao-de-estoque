@@ -24,7 +24,7 @@ export class OqConferredListComponent {
     return item.status === 'critical';
   }
 
-  /** Divergência de PESO (item pesável fora de ±5%) — indicador visual próprio, diferente da divergência de qtd. */
+  /** Divergência de PESO (item pesável pesando >5% menos que o esperado — a maior nunca diverge) — indicador visual próprio, diferente da divergência de qtd. */
   isDivergenciaPeso(item: ConferenciaItem): boolean {
     return !!item.divergenciaPeso;
   }

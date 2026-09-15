@@ -51,7 +51,7 @@
               @for (p of pendentes(); track p.sequencia) {
                 <tr (click)="alternarItem(p.sequencia)" [class.lc-row--sel]="itemSelecionado(p.sequencia)">
                   <td><input type="checkbox" [checked]="itemSelecionado(p.sequencia)" (click)="$event.stopPropagation(); alternarItem(p.sequencia)" /></td>
-                  <td>{{ p.produto ?? '—' }}</td>
+                  <td>{{ p.produto ?? '—' }}@if (p.pesavel) { <span class="lc-peso-badge" title="Peso real bipado na conferência">peso</span> }</td>
                   <td>{{ p.qtdPedido ?? '—' }} {{ p.unidadePedido ?? '' }}</td>
                   <td>{{ p.qtdConferida ?? '—' }} {{ p.unidadeConferida ?? '' }}</td>
                   <td [class.lc-dif--menos]="(p.diferenca ?? 0) < 0" [class.lc-dif--mais]="(p.diferenca ?? 0) > 0">

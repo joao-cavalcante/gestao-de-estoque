@@ -140,15 +140,17 @@ object LiberacaoCorteService {
         )
     }
 
-    /** ±5% da qtd pedida — mesma tolerância do indicador de divergência de peso na conferência. */
+    /** 5% da qtd pedida — mesma tolerância do indicador de divergência de peso na conferência. */
     private const val TOLERANCIA_PESO = 0.05
 
     /**
      * Auto-liberação de corte por peso, ITEM A ITEM (fila-conferencia
-     * autoLiberarCortePesavel, agora seletivo): toda linha de item PESÁVEL cujo
-     * corte está dentro de ±5% do pedido é liberada em silêncio pela aplicação,
-     * mesmo que a nota tenha outras divergências — item normal, ou pesável fora
-     * dos 5% seguem pra liberação manual (ficam pendentes na ViewLiberacaoLimite).
+     * autoLiberarCortePesavel, agora seletivo): toda linha de item PESÁVEL é
+     * liberada em silêncio pela aplicação quando o corte é A MAIOR (conferido
+     * > pedido — pesou mais que o negociado, nunca precisa de liberação) OU
+     * A MENOR dentro de 5% do pedido. A MENOR além de 5% segue pra liberação
+     * manual (fica pendente na ViewLiberacaoLimite), assim como item normal
+     * (não pesável).
      *
      * Credenciais do liberador via env LIBERADOR_USUARIO / LIBERADOR_SENHA — sem
      * elas nada é liberado.
@@ -186,8 +188,12 @@ object LiberacaoCorteService {
                 val prod = obs.produto?.trim()?.uppercase() ?: return@filter false
                 val conf = obs.qtdConferida ?: return@filter false
                 val ped = obs.qtdPedido ?: return@filter false
+                if (prod !in descPesaveis) return@filter false
+                // A MAIOR (pesou mais que o pedido) nunca precisa de liberação — sempre libera.
+                if (conf > ped) return@filter true
+                // A MENOR: só libera sozinho dentro da tolerância de 5%.
                 val base = if (ped != 0.0) ped else conf
-                prod in descPesaveis && base != 0.0 && kotlin.math.abs(conf - ped) / base <= TOLERANCIA_PESO
+                base != 0.0 && (ped - conf) / base <= TOLERANCIA_PESO
             }
             if (liberaveis.isEmpty()) {
                 println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar — tudo pra liberação manual.")
@@ -197,7 +203,7 @@ object LiberacaoCorteService {
             val codusu = validarLiberador(tenantSlug, usuario, senha)
             chamarLiberarNegar(
                 tenantSlug, liberaveis, codusu, "S",
-                "Liberação automática — corte de peso dentro da tolerância (±${(TOLERANCIA_PESO * 100).toInt()}%)",
+                "Liberação automática — peso a maior, ou a menor dentro da tolerância (${(TOLERANCIA_PESO * 100).toInt()}%)",
             )
 
             val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(emptyList())
@@ -247,24 +253,58 @@ object LiberacaoCorteService {
             ?: throw LiberacaoCorteException("Não foi possível validar o usuário liberador.")
     }
 
-    /** Itens pendentes de liberação (ViewLiberacaoLimite) já parseados. */
-    suspend fun listarPendentes(tenantSlug: String, nuconf: Int): List<LiberacaoPendenteDto> {
+    /**
+     * Itens pendentes de liberação (ViewLiberacaoLimite) já parseados. Pra
+     * item PESÁVEL, troca qtd./unidade pedido/conferida pelo que a sessão
+     * local de fato registrou (separacao_itens.qtd_neg/qtd_conferida_local,
+     * unidade_padrao — normalmente KG) em vez do texto que o Sankhya expõe
+     * na OBSERVACAO (sempre unidade comercial, ex.: CX — não é a referência
+     * usada durante a conferência pra produto pesável). Match por descrição
+     * do produto, mesma técnica de [autoLiberarPesoDentroTolerancia].
+     */
+    suspend fun listarPendentes(tenantSlug: String, tenantId: UUID, nuconf: Int): List<LiberacaoPendenteDto> {
+        val itensPesaveisPorDescricao = withContext(Dispatchers.IO) {
+            val nunota = wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) ?: return@withContext emptyMap()
+            val sessao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota) ?: return@withContext emptyMap()
+            wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id))
+                .filter { it.usaConfPeso }
+                .mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
+                .toMap()
+        }
+
         return buscarPendentesRaw(tenantSlug, nuconf).map { linha ->
             val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
-            val diferenca = if (obs.qtdConferida != null && obs.qtdPedido != null) {
-                round3(obs.qtdConferida - obs.qtdPedido)
+            val itemPesavel = obs.produto?.trim()?.uppercase()?.let { itensPesaveisPorDescricao[it] }
+
+            if (itemPesavel != null) {
+                val pedido = itemPesavel.qtdNeg.toDoubleOrNull()
+                val conferido = itemPesavel.qtdConferidaLocal.toDoubleOrNull()
+                LiberacaoPendenteDto(
+                    sequencia = linha["SEQUENCIA"]?.toIntOrNull() ?: 0,
+                    produto = obs.produto,
+                    qtdPedido = pedido,
+                    unidadePedido = itemPesavel.unidadePadrao,
+                    qtdConferida = conferido,
+                    unidadeConferida = itemPesavel.unidadePadrao,
+                    diferenca = if (pedido != null && conferido != null) round3(conferido - pedido) else null,
+                    pesavel = true,
+                )
             } else {
-                null
+                val diferenca = if (obs.qtdConferida != null && obs.qtdPedido != null) {
+                    round3(obs.qtdConferida - obs.qtdPedido)
+                } else {
+                    null
+                }
+                LiberacaoPendenteDto(
+                    sequencia = linha["SEQUENCIA"]?.toIntOrNull() ?: 0,
+                    produto = obs.produto,
+                    qtdPedido = obs.qtdPedido,
+                    unidadePedido = obs.unidadePedido,
+                    qtdConferida = obs.qtdConferida,
+                    unidadeConferida = obs.unidadeConferida,
+                    diferenca = diferenca,
+                )
             }
-            LiberacaoPendenteDto(
-                sequencia = linha["SEQUENCIA"]?.toIntOrNull() ?: 0,
-                produto = obs.produto,
-                qtdPedido = obs.qtdPedido,
-                unidadePedido = obs.unidadePedido,
-                qtdConferida = obs.qtdConferida,
-                unidadeConferida = obs.unidadeConferida,
-                diferenca = diferenca,
-            )
         }
     }
 
