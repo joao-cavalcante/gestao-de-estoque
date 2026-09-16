@@ -114,7 +114,22 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
     this.selecionadas.set(new Set());
   }
 
+  /**
+   * "Negar" só pode ser a ÚLTIMA ação da rodada — confirmado ao vivo (nota
+   * 57251): assim que UM item é negado, o Sankhya já muda o status da
+   * conferência pra "Aguardando recontagem", e qualquer "liberar" tentado
+   * DEPOIS disso é recusado por regra do próprio motor deles ("Conferência
+   * não pode ser reprocessada no status atual"). Sem essa trava, dava pra
+   * negar um item antes de liberar os outros e travar os demais pra sempre.
+   * Só libera negar quando a seleção cobre TUDO que ainda está pendente —
+   * ou seja, não sobra nada pra liberar depois.
+   */
+  get podeNegar(): boolean {
+    return this.selecionadas().size > 0 && this.selecionadas().size === this.pendentes().length;
+  }
+
   liberarOuNegar(liberar: 'S' | 'N'): void {
+    if (liberar === 'N' && !this.podeNegar) return;
     const sequencias = [...this.selecionadas()];
     if (!sequencias.length || this.processando()) return;
     this.processando.set(true);

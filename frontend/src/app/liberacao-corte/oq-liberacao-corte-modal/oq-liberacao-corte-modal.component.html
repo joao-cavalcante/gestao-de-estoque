@@ -68,11 +68,24 @@
         }
         @if (mensagem()) { <div class="lc-ok">{{ mensagem() }}</div> }
         @if (erroAcao()) { <div class="lc-erro">{{ erroAcao() }}</div> }
+        @if (selecionadas().size > 0 && !podeNegar) {
+          <div class="lc-hint lc-hint--aviso">
+            "Negar" só fica disponível quando a seleção cobre <strong>todos</strong> os itens ainda pendentes — libere primeiro os que você não vai negar (o Sankhya trava novas liberações assim que um item é negado).
+          </div>
+        }
       </div>
       <footer class="lc-modal__foot">
         <button type="button" class="lc-btn" (click)="voltar()">Voltar</button>
         <span class="lc-sel-count">{{ selecionadas().size }} selecionado(s)</span>
-        <button type="button" class="lc-btn lc-btn--danger" [disabled]="processando() || selecionadas().size === 0" (click)="liberarOuNegar('N')">Negar</button>
+        <button
+          type="button"
+          class="lc-btn lc-btn--danger"
+          [disabled]="processando() || !podeNegar"
+          [title]="!podeNegar && selecionadas().size > 0 ? 'Libere os demais itens pendentes antes de negar' : ''"
+          (click)="liberarOuNegar('N')"
+        >
+          Negar
+        </button>
         <button type="button" class="lc-btn lc-btn--primary" [disabled]="processando() || selecionadas().size === 0" (click)="liberarOuNegar('S')">Liberar corte</button>
       </footer>
     }

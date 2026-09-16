@@ -344,6 +344,18 @@ object LiberacaoCorteService {
             throw LiberacaoCorteException("Nenhum dos itens selecionados está mais pendente de liberação.")
         }
 
+        // "Negar" só pode ser a ÚLTIMA ação da rodada — confirmado ao vivo
+        // (nota 57251): assim que UM item é negado, o Sankhya muda o status
+        // da conferência pra "Aguardando recontagem", e qualquer "liberar"
+        // tentado depois é recusado ("Conferência não pode ser reprocessada
+        // no status atual"). Defesa em camada — o frontend já trava isso na
+        // UI, isto cobre chamada direta à API.
+        if (liberarNorm == "N" && selecionados.size < pendentes.size) {
+            throw LiberacaoCorteException(
+                "Libere os demais itens pendentes antes de negar — o Sankhya não permite liberar mais nada depois que um item é negado.",
+            )
+        }
+
         val obsFinal = obs?.trim()?.takeIf { it.isNotEmpty() }
             ?: if (liberarNorm == "S") "Liberado manualmente pela tela de Liberação de Corte"
             else "Negado manualmente pela tela de Liberação de Corte"
