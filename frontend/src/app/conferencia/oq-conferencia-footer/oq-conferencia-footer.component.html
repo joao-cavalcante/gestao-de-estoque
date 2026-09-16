@@ -18,8 +18,8 @@
     </div>
 
     <div class="oq-cf-footer__progress-group">
-      <div class="oq-cf-footer__volume">
-        <span class="oq-label-caps">VOLUMES</span>
+      <div class="oq-cf-footer__volume" [class.oq-cf-footer__volume--exige]="faltaVolume" [title]="faltaVolume ? 'Esta Configuração de Conferência exige volume apontado' : ''">
+        <span class="oq-label-caps">VOLUMES{{ faltaVolume ? ' *' : '' }}</span>
         <button type="button" class="oq-cf-footer__volume-btn" (click)="onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
         <span class="oq-cf-footer__volume-valor">{{ volume }}</span>
         <button type="button" class="oq-cf-footer__volume-btn" (click)="onVolumeMais()" aria-label="Aumentar volumes">+</button>
@@ -32,6 +32,7 @@
         type="button"
         class="oq-cf-footer__btn oq-cf-footer__btn--primary"
         [disabled]="!canConfirm"
+        [title]="tituloBotaoPrimario"
         (click)="confirmar.emit()"
       >
         {{ confirmarLabel }}

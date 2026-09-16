@@ -50,6 +50,14 @@ data class SessaoSeparacaoDto(
     val operadorId: String? = null,
     /** Conta logada no navegador quando o crachá foi bipado (V35) — ex.: "Stage1"/"Stage2", pra filtrar depois. */
     val estacaoId: String? = null,
+    /**
+     * CCO.FORMACAOVOLUMES cru — 'N' não usa, 'S'/'T' registro simplificado
+     * (o contador +/- que a tela já tem), 'D' detalhado (não implementado —
+     * cai no mesmo requisito do simplificado por ora). null/'N' = sem
+     * exigência de volume pra finalizar; qualquer outro valor exige
+     * quantidade > 0 antes de liberar o botão de confirmar/concluir etapa.
+     */
+    val formacaoVolumes: String? = null,
 )
 
 @Serializable
@@ -226,6 +234,20 @@ data class ConferirItemRequest(
 data class DevolverItemRequest(val codprod: Int, val controle: String)
 
 @Serializable
+data class LinhaConferidaDto(val sequencia: Int, val qtdConferidaLocal: String)
+
+/**
+ * `linhas` — TODAS as SEQUENCIA do grupo (mesmo codprod+controle) afetadas
+ * por este /conferir, cada uma com sua qtd_conferida_local pós-alocação.
+ * Uma nota pode ter o mesmo produto+controle em mais de uma SEQUENCIA (ex.:
+ * entregas parciais) — conferirItem() redistribui a quantidade lida entre
+ * TODAS as linhas do grupo, mas antes de V37 só devolvia a ÚLTIMA linha
+ * (sequencia/qtdConferidaLocal top-level, mantidos por compatibilidade) —
+ * as demais linhas do grupo ficavam com o valor atualizado no banco, mas o
+ * frontend nunca aprendia disso (só reage à sequencia informada), ficando
+ * pendente pra sempre com a barra "debitando" mas nunca virando conferido.
+ */
+@Serializable
 data class ItemConferidoResultado(
     val sequencia: Int,
     val codprod: Int,
@@ -233,6 +255,7 @@ data class ItemConferidoResultado(
     val descricaoProduto: String?,
     val qtdConferidaLocal: String,
     val qtdTotalLida: String,
+    val linhas: List<LinhaConferidaDto> = emptyList(),
 )
 
 @Serializable

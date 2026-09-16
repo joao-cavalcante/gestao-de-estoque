@@ -139,6 +139,7 @@ object SeparacaoRepository {
         exibirProdConf: String?,
         exibirQtdConf: String?,
         exibirImgProd: String?,
+        formacaoVolumes: String?,
     ): Unit = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
             it[status] = SeparacaoStatus.PRONTA
@@ -154,9 +155,20 @@ object SeparacaoRepository {
             it[SeparacaoSessoesTable.exibirProdConf] = exibirProdConf
             it[SeparacaoSessoesTable.exibirQtdConf] = exibirQtdConf
             it[SeparacaoSessoesTable.exibirImgProd] = exibirImgProd
+            it[SeparacaoSessoesTable.formacaoVolumes] = formacaoVolumes
             it[atualizadoEm] = Instant.now()
         }
         Unit
+    }
+
+    /** true = CCO exige volume apontado (FORMACAOVOLUMES 'S'/'T'/'D') pra finalizar/concluir etapa. */
+    fun exigeVolume(tenantId: UUID, sessaoId: UUID): Boolean = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.selectAll()
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
+            .singleOrNull()
+            ?.get(SeparacaoSessoesTable.formacaoVolumes)
+            ?.trim()?.uppercase()
+            ?.let { it in setOf("S", "T", "D") } ?: false
     }
 
     /** 'N' (ou ausente) = não obter peso pela balança; qualquer outro valor = fluxo de peso ativo pros itens usaConfPeso. */
@@ -871,16 +883,18 @@ object SeparacaoRepository {
             var ultimaSequencia = linhasAlvo.first()[SeparacaoItensTable.sequencia]
             var ultimaQtdConferida = BigDecimal.ZERO
             var descricaoProduto: String? = null
+            val linhasAfetadas = mutableListOf<LinhaConferidaDto>()
             for ((idx, linha) in linhasAlvo.withIndex()) {
                 val ehUltima = idx == linhasAlvo.lastIndex
                 val qtdNegLinha = linha[SeparacaoItensTable.qtdNeg]
-                val alocado = if (ehUltima) restante else restante.min(qtdNegLinha)
+                val alocado = (if (ehUltima) restante else restante.min(qtdNegLinha)).max(BigDecimal.ZERO)
                 SeparacaoItensTable.update({ SeparacaoItensTable.id eq linha[SeparacaoItensTable.id] }) {
-                    it[qtdConferidaLocal] = alocado.max(BigDecimal.ZERO)
+                    it[qtdConferidaLocal] = alocado
                 }
                 restante = (restante - alocado).max(BigDecimal.ZERO)
                 ultimaSequencia = linha[SeparacaoItensTable.sequencia]
-                ultimaQtdConferida = alocado.max(BigDecimal.ZERO)
+                ultimaQtdConferida = alocado
+                linhasAfetadas += LinhaConferidaDto(linha[SeparacaoItensTable.sequencia], alocado.toPlainString())
                 if (ehUltima) {
                     val dados = runCatching { Json.parseToJsonElement(linha[SeparacaoItensTable.dados]) as JsonObject }.getOrNull()
                     descricaoProduto = dados?.get("Produto.DESCRPROD")?.jsonPrimitive?.contentOrNull
@@ -894,6 +908,7 @@ object SeparacaoRepository {
                 descricaoProduto = descricaoProduto,
                 qtdConferidaLocal = ultimaQtdConferida.toPlainString(),
                 qtdTotalLida = totalLido.toPlainString(),
+                linhas = linhasAfetadas,
             )
         }
 
@@ -1269,6 +1284,7 @@ object SeparacaoRepository {
         exibirImgProd = row[SeparacaoSessoesTable.exibirImgProd],
         operadorId = row[SeparacaoSessoesTable.operadorId]?.toString(),
         estacaoId = row[SeparacaoSessoesTable.estacaoId]?.toString(),
+        formacaoVolumes = row[SeparacaoSessoesTable.formacaoVolumes],
     )
 
     // ─── Conferência por etapa (V29) ─────────────────────────────────────────

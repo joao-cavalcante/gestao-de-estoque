@@ -81,6 +81,11 @@
   gap: 6px;
   padding-right: 12px;
   border-right: 1px solid var(--oq-border);
+
+  &--exige {
+    .oq-label-caps { color: var(--oq-critical-foreground); font-weight: 600; }
+    .oq-cf-footer__volume-valor { color: var(--oq-critical-foreground); }
+  }
 }
 
 .oq-cf-footer__volume-btn {

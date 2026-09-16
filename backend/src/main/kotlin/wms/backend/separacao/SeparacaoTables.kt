@@ -40,6 +40,8 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     val operadorId = uuid("operador_id").nullable()
     /** Qual conta estava logada no navegador quando o crachá foi bipado (V35) — ex.: "Stage1"/"Stage2". */
     val estacaoId = uuid("estacao_id").nullable()
+    /** CCO.FORMACAOVOLUMES (V37) — gateia a exigência de volume > 0 pra finalizar. */
+    val formacaoVolumes = text("formacao_volumes").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

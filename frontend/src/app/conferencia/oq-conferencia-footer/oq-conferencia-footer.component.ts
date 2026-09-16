@@ -16,6 +16,8 @@ export class OqConferenciaFooterComponent {
   @Input() canConfirm = false;
   /** true = requisição de confirmar/concluir etapa em voo — mostra spinner no botão primário. */
   @Input() confirmando = false;
+  /** CCO.FORMACAOVOLUMES 'S'/'T'/'D' — exige volume > 0; destaca o contador quando ainda zerado. */
+  @Input() exigeVolume = false;
   /** Rótulo do botão primário — "Confirmar Conferência" (normal) ou "Concluir Etapa X" (conferência por etapa). */
   @Input() confirmarLabel = 'Confirmar Conferência';
   /** Rótulo do botão de sair — "Voltar" (normal) ou "Salvar e sair" (conferência por etapa: progresso persiste). */
@@ -34,6 +36,15 @@ export class OqConferenciaFooterComponent {
 
   onVolumeMais(): void {
     this.volumeChange.emit(this.volume + 1);
+  }
+
+  /** true = CCO exige volume mas o contador ainda está zerado — destaca e explica o botão desabilitado. */
+  get faltaVolume(): boolean {
+    return this.exigeVolume && this.volume === 0;
+  }
+
+  get tituloBotaoPrimario(): string {
+    return this.faltaVolume ? 'Informe a quantidade de volumes antes de confirmar' : '';
   }
 
   get textoDivergencia(): string {

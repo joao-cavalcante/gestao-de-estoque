@@ -177,6 +177,9 @@ object SeparacaoService {
             // 'S' = após finalizar a conferência, oferecer faturamento (escolha de TOP) —
             // fluxo portado do fila-de-conferencia. Ausente/qualquer outro valor = sem faturamento.
             val fatAoConcluir = configDetalhe?.campos?.get("FATAOCONCLUIR")?.trim()?.takeIf { it.isNotEmpty() }
+            // 'N'/ausente = não usa formação de volumes; 'S'/'T'/'D' = exige volume > 0
+            // pra finalizar/concluir etapa (ver SeparacaoRepository.exigeVolume).
+            val formacaoVolumes = configDetalhe?.campos?.get("FORMACAOVOLUMES")?.trim()?.takeIf { it.isNotEmpty() }
 
             // CCO "Comportamento da interface" — gateiam painéis da tela de
             // conferência (front). Só 'N' explícito esconde; ausente/'S'/outro
@@ -271,7 +274,7 @@ object SeparacaoService {
                 if (conferenciaSegmentada) {
                     SeparacaoRepository.semearEtapas(tenantId, sessaoId, itensComPeso.map { it.tipoSeparacao }.toSet())
                 }
-                SeparacaoRepository.marcarPronta(tenantId, sessaoId, fingerprint, buscarCodigoBarraPor, qtdAmaior, obterQtdBalanca, produtosForaPed, conferenciaSegmentada, fatAoConcluir, exibirProd, exibirQtd, exibirProdConf, exibirQtdConf, exibirImgProd)
+                SeparacaoRepository.marcarPronta(tenantId, sessaoId, fingerprint, buscarCodigoBarraPor, qtdAmaior, obterQtdBalanca, produtosForaPed, conferenciaSegmentada, fatAoConcluir, exibirProd, exibirQtd, exibirProdConf, exibirQtdConf, exibirImgProd, formacaoVolumes)
             }
 
             // Resync imediato (não espera o próximo ciclo do worker pool) —
@@ -339,6 +342,13 @@ object SeparacaoService {
         }
         val nuconf = SeparacaoRepository.buscarNuconf(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão sem NUCONF — carregamento não terminou de verdade")
+
+        // CCO.FORMACAOVOLUMES 'S'/'T'/'D' exige volume apontado — mesma checagem
+        // que o frontend faz pra desabilitar o botão, repetida aqui porque quem
+        // decide de verdade é o backend (defesa em camada, não só UX).
+        if (SeparacaoRepository.exigeVolume(tenantId, sessaoId) && SeparacaoRepository.totalQtdVol(tenantId, sessaoId) <= 0) {
+            throw FinalizarSeparacaoException("a Configuração de Conferência exige volume apontado — informe a quantidade de volumes antes de finalizar")
+        }
 
         val grupos = SeparacaoRepository.listarGruposConferidos(tenantId, sessaoId)
         for (grupo in grupos) {

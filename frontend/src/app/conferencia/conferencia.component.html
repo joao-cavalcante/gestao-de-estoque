@@ -164,6 +164,7 @@
     [confirmarLabel]="modoEtapa() ? 'Concluir Etapa ' + rotuloEtapaAtual() : 'Confirmar Conferência'"
     [voltarLabel]="conferredCount() > 0 ? 'Salvar e sair' : 'Voltar'"
     [volume]="volume()"
+    [exigeVolume]="exigeVolume()"
     (voltar)="onVoltar()"
     (confirmar)="onConfirmar()"
     (volumeChange)="onVolumeChange($event)"

@@ -29,6 +29,8 @@ export interface SessaoSeparacao {
   exibirImgProd: string | null;
   /** Quem bipou o crachá pra assumir esta conferência (V33) — null = ninguém ainda, tela bloqueia. */
   operadorId: string | null;
+  /** CCO.FORMACAOVOLUMES cru — 'N'/ausente = não exige volume; 'S'/'T'/'D' = exige quantidade > 0 pra finalizar. */
+  formacaoVolumes: string | null;
 }
 
 /** Resposta de POST /sessoes/{id}/identificar-operador. */
@@ -144,6 +146,11 @@ export interface IdentificarProdutoResultado {
 }
 
 /** Resultado de POST /sessoes/{id}/conferir — passo 2 (final): grava + recalcula. */
+export interface LinhaConferida {
+  sequencia: number;
+  qtdConferidaLocal: string;
+}
+
 export interface ItemConferido {
   sequencia: number;
   codprod: number;
@@ -151,6 +158,12 @@ export interface ItemConferido {
   descricaoProduto: string | null;
   qtdConferidaLocal: string;
   qtdTotalLida: string;
+  /**
+   * TODAS as SEQUENCIA do grupo (mesmo codprod+controle) afetadas — uma nota
+   * pode ter o mesmo produto+controle em mais de uma linha (ex.: entregas
+   * parciais); o backend redistribui a leitura entre todas, não só a última.
+   */
+  linhas: LinhaConferida[];
 }
 
 /** Modo simplificado (sem dimensão) — só a quantidade total de volumes do pedido, nativo do Sankhya (TGFCON2.QTDVOL). */

@@ -205,8 +205,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly conferredCount = computed(() => this.conferred().length);
   readonly divergenceCount = computed(() => this.conferred().filter((i) => i.status === 'critical').length);
   private readonly finalizando = signal(false);
-  /** Botão "Finalizar Conferência" fica sempre disponível — quem decide o que fazer com a divergência é a CCO do Sankhya, não um bloqueio nosso. */
-  readonly canConfirm = computed(() => !this.finalizando());
+  /**
+   * Botão "Finalizar Conferência" fica sempre disponível — quem decide o que
+   * fazer com a divergência é a CCO do Sankhya, não um bloqueio nosso. Única
+   * exceção: CCO.FORMACAOVOLUMES 'S'/'T'/'D' exige volume apontado antes de
+   * liberar (backend também recusa, ver SeparacaoService.finalizar — isto é
+   * só a UX, não a única barreira).
+   */
+  readonly canConfirm = computed(() => !this.finalizando() && (!this.exigeVolume() || this.volume() > 0));
   /** Falta (pendente) ou sobra (crítico) — nos dois casos o Sankhya decide o ajuste via CCO (PROCEDCORTE/GERARPEDCOMPL), mas o operador precisa confirmar ciente disso. */
   readonly temDivergencia = computed(() => this.pendingCount() > 0 || this.divergenceCount() > 0);
   readonly mostrarModalDivergencia = signal(false);
@@ -232,6 +238,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly exibirProdConf = signal(true);
   readonly exibirQtdConf = signal(true);
   readonly exibirImgProd = signal(true);
+
+  /** CCO.FORMACAOVOLUMES 'S'/'T'/'D' — exige volume > 0 pra habilitar Confirmar/Concluir Etapa. */
+  readonly exigeVolume = signal(false);
 
   /** Aba realmente ativa no celular — respeita quais painéis a CCO deixou visíveis. */
   readonly abaAtiva = computed<'pendentes' | 'conferidos'>(() => {
@@ -428,6 +437,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.exibirProdConf.set(sessao.exibirProdConf !== 'N');
           this.exibirQtdConf.set(sessao.exibirQtdConf !== 'N');
           this.exibirImgProd.set(sessao.exibirImgProd !== 'N');
+          this.exigeVolume.set(!!sessao.formacaoVolumes && ['S', 'T', 'D'].includes(sessao.formacaoVolumes.trim().toUpperCase()));
           if (sessao.conferenciaSegmentada) {
             // Resolve a etapa ativa ANTES de listar os itens (o filtro por etapa depende dela).
             this.separacaoService.buscarEtapas(this.tenantAtual, sessaoId).subscribe({
@@ -507,6 +517,15 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * ou atualizar a quantidade parcial se ainda não bateu o total).
    */
   onConferido(resultado: ItemConferido): void {
+    // Mesmo produto+controle pode estar espalhado em mais de uma SEQUENCIA da
+    // nota (ex.: entregas parciais) — o backend redistribui a leitura entre
+    // TODAS as linhas do grupo, não só a última (resultado.sequencia). Sem
+    // isto, as linhas "de trás" ficavam com o valor certo no banco mas a tela
+    // nunca aprendia disso: pendente "debitava" mas nunca virava conferido.
+    (resultado.linhas ?? [])
+      .filter((l) => l.sequencia !== resultado.sequencia)
+      .forEach((l) => this.aplicarLinhaConferida(l.sequencia, l.qtdConferidaLocal));
+
     const controleResultado = resultado.controle.trim();
     let idx = this.items().findIndex((it) => it.seq === resultado.sequencia);
     if (idx === -1) {
@@ -595,6 +614,36 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       this.items.update((arr) => arr.map((i, i2) => (i2 === idx ? atualizado : i)));
     }
     this.lastScan.set(atualizado);
+  }
+
+  /**
+   * Aplica a qtd_conferida_local de UMA linha do grupo (que não a principal
+   * já tratada em onConferido) — mesma transição pendente→conferido, sem
+   * mexer no "último bipe" exibido. Sem correspondência em pendentes (ex.:
+   * já estava conferida, ou não existe) não faz nada — evita duplicar linha.
+   */
+  private aplicarLinhaConferida(seq: number, qtdConferidaLocalStr: string): void {
+    const idx = this.items().findIndex((it) => it.seq === seq);
+    if (idx === -1) return;
+
+    const item = this.items()[idx];
+    const scannedNovo = Number(qtdConferidaLocalStr);
+    const d = this.avaliarDivergencia(item, scannedNovo);
+    const atualizado: ConferenciaItem = {
+      ...item,
+      scanned: scannedNovo,
+      status: d.status,
+      divergenceReason: d.divergenceReason,
+      divergenciaPeso: d.divergenciaPeso,
+      desvioPesoPct: d.desvioPesoPct,
+    };
+
+    if (d.conferido) {
+      this.items.update((arr) => arr.filter((_, i) => i !== idx));
+      this.conferred.update((c) => [atualizado, ...c]);
+    } else {
+      this.items.update((arr) => arr.map((i, i2) => (i2 === idx ? atualizado : i)));
+    }
   }
 
   /** Só mostra o erro no painel de última leitura — não é um item conferido de verdade, não entra na lista de CONFERIDOS. */
