@@ -776,6 +776,12 @@ object SeparacaoService {
             ),
         )
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
+            // PENDENTE='N' = item já resolvido do ponto de vista de quantidade
+            // entregue — não entra na conferência/recontagem. Ausente/em
+            // branco trata como pendente (fail-safe: melhor mostrar a mais um
+            // item do que esconder um que precisa de ação).
+            .filter { it["PENDENTE"]?.trim()?.uppercase() != "N" }
+
         // Itens cuja divergência já foi ACEITA (liberada) numa rodada de corte
         // anterior — TGFITE não reflete essa decisão em campo nenhum
         // (QTDENTREGUE e PENDENTE continuam iguais pro item liberado e pro
@@ -783,16 +789,22 @@ object SeparacaoService {
         // silencioso continuava com PENDENTE='S'/QTDENTREGUE=0). Sem filtrar
         // por isto, um item já resolvido reaparece na recontagem do mesmo
         // jeito que o item que realmente precisa ser reconferido.
+        //
+        // MAS: não temos como distinguir com certeza "recontagem de item
+        // negado" (deve manter o filtro) de "conferência excluída/refeita do
+        // zero" (não deve) — Sankhya manda o mesmo sinal pros dois (nota
+        // 57251, confirmado ao vivo: nota com 1 item só, já liberado antes,
+        // excluída e reaberta — motivo do sync foi "Reaberta (recontagem)",
+        // idêntico ao de item negado de verdade). Rede de segurança: só
+        // aplica o filtro se sobrar pelo menos 1 item — nunca deixa a
+        // conferência/recontagem vir com pendentes vazio por causa disto.
         val codprodsLiberados = withContext(Dispatchers.IO) { SeparacaoRepository.buscarCodprodsLiberados(tenantId, nunota) }
-        return rows.mapNotNull { r ->
-            // PENDENTE='N' = item já resolvido do ponto de vista de quantidade
-            // entregue — não entra na conferência/recontagem. Ausente/em
-            // branco trata como pendente (fail-safe: melhor mostrar a mais um
-            // item do que esconder um que precisa de ação).
-            if (r["PENDENTE"]?.trim()?.uppercase() == "N") return@mapNotNull null
+        val semLiberados = rows.filter { r -> r["CODPROD"]?.toIntOrNull() !in codprodsLiberados }
+        val rowsFinal = if (semLiberados.isNotEmpty()) semLiberados else rows
+
+        return rowsFinal.mapNotNull { r ->
             val sequencia = r["SEQUENCIA"]?.toIntOrNull() ?: return@mapNotNull null
             val codprod = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
-            if (codprod in codprodsLiberados) return@mapNotNull null
             val dadosJson = buildJsonObject {
                 FIELDS_ITEM.forEach { campo -> put(campo, r[campo]) }
             }.toString()

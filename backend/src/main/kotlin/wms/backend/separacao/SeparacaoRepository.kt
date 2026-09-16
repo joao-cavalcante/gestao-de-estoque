@@ -8,6 +8,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.and
@@ -19,6 +20,7 @@ import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.upsert
 import wms.backend.produtos.CodigosBarraCacheTable
 import wms.backend.produtos.ProdutosCacheTable
+import wms.backend.tarefas.TarefasAuditoriaTable
 import wms.backend.tarefas.TarefasTable
 import wms.backend.tenancy.TenantTx
 import java.math.BigDecimal
@@ -82,6 +84,27 @@ object SeparacaoRepository {
             .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) }
             .singleOrNull()
         val statusTarefa = tarefa?.get(TarefasTable.statusOperacional)
+
+        // Nota devolvida pra 'aguardando'/'cancelado' pelo sync — dois motivos
+        // BEM diferentes levam pra cá, e só um deles invalida as decisões de
+        // liberação de corte (separacao_corte_liberacoes, V36):
+        //  1. Recontagem normal (AOLIBERAR=M, item negado) — o ciclo anterior
+        //     continua "válido", só o item negado precisa reconferência. As
+        //     decisões (o que foi liberado) TÊM que persistir, é o propósito
+        //     inteiro da V36.
+        //  2. Conferência EXCLUÍDA/cancelada de verdade no Sankhya — o ciclo
+        //     inteiro foi jogado fora, decisões antigas ficam obsoletas. Bug
+        //     real (nota 57251): sem distinguir isto, um item liberado antes
+        //     da exclusão continuava sendo filtrado como "já resolvido" numa
+        //     conferência recomeçada do zero — pendentes vinha vazio.
+        // Sinal usado pra distinguir: só a exclusão passa pelo status
+        // 'cancelado' de verdade (StatusOperacional.MAPA_STATUS_SANKHYA/
+        // TarefaSyncService) — recontagem vai direto concluido→aguardando.
+        if (statusTarefa == "aguardando" || statusTarefa == "cancelado") {
+            if (houveExclusaoAposUltimaDecisao(tenantId, nunota)) {
+                limparDecisoesLiberacao(tenantId, nunota)
+            }
+        }
 
         val ativa = SeparacaoSessoesTable.selectAll()
             .where {
@@ -1114,6 +1137,43 @@ object SeparacaoRepository {
             }
             .map { it[SeparacaoCorteLiberacoesTable.codprod] }
             .toSet()
+    }
+
+    /**
+     * true = existe uma exclusão/cancelamento de verdade no Sankhya
+     * (app.tarefas_auditoria.status_novo='cancelado' — único caminho que
+     * TarefaSyncService usa pra esse status, ver motivo "Conferência
+     * excluída/cancelada") depois da última decisão de liberação registrada
+     * pra esta nota. Recontagem normal (item negado, AOLIBERAR=M) NUNCA passa
+     * por 'cancelado' — vai direto concluido→aguardando — então não aciona
+     * isto; só exclusão de verdade invalida decisões antigas.
+     */
+    fun houveExclusaoAposUltimaDecisao(tenantId: UUID, nunota: Long): Boolean = TenantTx.run(tenantId) {
+        val ultimaDecisao = SeparacaoCorteLiberacoesTable.selectAll()
+            .where { (SeparacaoCorteLiberacoesTable.tenantId eq tenantId) and (SeparacaoCorteLiberacoesTable.nunota eq nunota.toInt()) }
+            .orderBy(SeparacaoCorteLiberacoesTable.decididoEm to SortOrder.DESC)
+            .limit(1)
+            .firstOrNull()
+            ?.get(SeparacaoCorteLiberacoesTable.decididoEm)
+            ?: return@run false
+
+        TarefasAuditoriaTable.selectAll()
+            .where {
+                (TarefasAuditoriaTable.tenantId eq tenantId) and
+                    (TarefasAuditoriaTable.nunota eq nunota.toInt()) and
+                    (TarefasAuditoriaTable.statusNovo eq "cancelado") and
+                    (TarefasAuditoriaTable.criadoEm greater ultimaDecisao)
+            }
+            .limit(1)
+            .count() > 0
+    }
+
+    /** Apaga todas as decisões de liberação de corte de uma nota — ver houveExclusaoAposUltimaDecisao. */
+    fun limparDecisoesLiberacao(tenantId: UUID, nunota: Long): Unit = TenantTx.run(tenantId) {
+        SeparacaoCorteLiberacoesTable.deleteWhere {
+            (SeparacaoCorteLiberacoesTable.tenantId eq tenantId) and (SeparacaoCorteLiberacoesTable.nunota eq nunota.toInt())
+        }
+        Unit
     }
 
     fun listarItens(tenantId: UUID, sessaoId: UUID): List<ItemSeparacaoDto> = TenantTx.run(tenantId) {
