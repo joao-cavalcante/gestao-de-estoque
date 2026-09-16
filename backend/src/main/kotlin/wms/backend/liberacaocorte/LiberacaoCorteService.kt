@@ -348,7 +348,17 @@ object LiberacaoCorteService {
             ?: if (liberarNorm == "S") "Liberado manualmente pela tela de Liberação de Corte"
             else "Negado manualmente pela tela de Liberação de Corte"
 
-        chamarLiberarNegar(tenantSlug, selecionados, codusu, liberarNorm, obsFinal)
+        try {
+            chamarLiberarNegar(tenantSlug, selecionados, codusu, liberarNorm, obsFinal)
+        } catch (e: Exception) {
+            // Ponto cego identificado ao vivo (nota 57251): sem isto, uma falha
+            // aqui vira "502 Bad Gateway" genérico na rota, sem NENHUM log —
+            // impossível saber depois se foi timeout de rede ou recusa de regra
+            // de negócio do Sankhya (ex.: liberar após negar). Loga a mensagem
+            // real antes de repropagar, mesmo padrão de autoLiberarPesoDentroTolerancia.
+            println("AVISO: falha ao ${if (liberarNorm == "S") "liberar" else "negar"} corte (nuconf $nuconf, sequências $sequencias): ${e.message}")
+            throw e
+        }
 
         val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
 
