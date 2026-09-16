@@ -71,13 +71,18 @@ function round3(n: number): number {
   return Math.round((n + Number.EPSILON) * 1000) / 1000;
 }
 
+/** Pesável: qualquer peso > 0 conclui. Não-pesável: só bate o total no arredondamento de 3 casas (ver round3). */
+function estaConferido(item: { usaConfPeso?: boolean; scanned: number; expected: number }): boolean {
+  return item.usaConfPeso ? item.scanned > 0 : round3(item.scanned) >= round3(item.expected);
+}
+
 /** Mapeia o item real (vindo de app.separacao_itens) pro modelo visual do painel — mesmo shape do mock anterior. */
 function mapearItem(item: ItemSeparacao): ConferenciaItem {
   const expected = Number(item.qtdNeg);
   const scanned = Number(item.qtdConferidaLocal);
   const unidadePadrao = item.unidadePadrao?.trim() || item.codvol?.trim() || undefined;
   const unidadeComercial = item.unidadeComercial?.trim() || unidadePadrao;
-  const conferido = item.usaConfPeso ? scanned > 0 : round3(scanned) >= round3(expected);
+  const conferido = estaConferido({ usaConfPeso: item.usaConfPeso, scanned, expected });
   // Pesável: só diverge acima de ±5% do esperado. Não-pesável: diverge se passou do esperado
   // (comparado no arredondamento de 3 casas — ver round3).
   const divergePeso = item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, expected);
@@ -203,6 +208,17 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly pendingItems = computed(() => this.items());
   readonly pendingCount = computed(() => this.items().length);
   readonly conferredCount = computed(() => this.conferred().length);
+  /**
+   * Item parcial aparece em pendentes E conferidos ao mesmo tempo (mostra o
+   * progresso nos dois painéis) — pendingCount+conferredCount não serve mais
+   * de total pra barra de progresso do rodapé (contaria o parcial 2x). Total
+   * de verdade é a contagem de SEQUENCIA distintas nos dois; "feito" é só
+   * quem já bateu o total (estaConferido), não quem só tem progresso parcial.
+   */
+  readonly totalItensCount = computed(
+    () => new Set([...this.items().map((i) => i.seq), ...this.conferred().map((i) => i.seq)]).size,
+  );
+  readonly itensCompletosCount = computed(() => this.conferred().filter((i) => estaConferido(i)).length);
   readonly divergenceCount = computed(() => this.conferred().filter((i) => i.status === 'critical').length);
   private readonly finalizando = signal(false);
   /**
@@ -402,8 +418,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         // Conferência por etapa (V29): a tela só enxerga os itens do tipo de separação da etapa.
         const etapa = this.etapaAtual();
         if (etapa != null) mapeados = mapeados.filter((i) => (i.tipoSeparacao ?? 1) === etapa);
-        this.items.set(mapeados.filter((i) => i.status === 'pending'));
-        this.conferred.set(mapeados.filter((i) => i.status !== 'pending'));
+        // Pendentes = ainda falta algo (mesmo que já tenha parte bipada — mostra o
+        // restante). Conferidos = qualquer progresso > 0, completo ou parcial. Um
+        // item parcial aparece nos DOIS ao mesmo tempo (pedido de dono do vendedor:
+        // "bipei 5 de 10, quero ver 5 pendente E 5 conferido").
+        this.items.set(mapeados.filter((i) => !estaConferido(i)));
+        this.conferred.set(mapeados.filter((i) => i.scanned > 0));
         aoTerminar?.();
       },
       error: (err) => {
@@ -599,9 +619,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       imagemUrl: this.ultimaImagemIdentificada,
     };
 
+    // Pendentes: sai só quando conclui de verdade; senão fica com o restante atualizado.
     if (concluido) {
       this.items.update((arr) => arr.filter((_, i) => i !== idx));
-      this.conferred.update((c) => [atualizado, ...c]);
       // Última pendência bipada — lista zerou. Som distinto do "ok" comum
       // (já tocado no scan-bar), mesma ideia do projeto base.
       if (this.pendingCount() === 0) {
@@ -613,7 +633,21 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     } else {
       this.items.update((arr) => arr.map((i, i2) => (i2 === idx ? atualizado : i)));
     }
+    // Conferidos: qualquer progresso > 0 aparece/atualiza aqui, completo ou
+    // parcial — item parcial fica visível nos dois painéis ao mesmo tempo.
+    if (scannedNovo > 0) this.upsertConferred(atualizado);
     this.lastScan.set(atualizado);
+  }
+
+  /** Insere ou atualiza (por seq) uma linha na lista de conferidos — sem duplicar. */
+  private upsertConferred(item: ConferenciaItem): void {
+    this.conferred.update((c) => {
+      const idx = c.findIndex((it) => it.seq === item.seq);
+      if (idx === -1) return [item, ...c];
+      const copia = [...c];
+      copia[idx] = item;
+      return copia;
+    });
   }
 
   /**
@@ -640,10 +674,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
     if (d.conferido) {
       this.items.update((arr) => arr.filter((_, i) => i !== idx));
-      this.conferred.update((c) => [atualizado, ...c]);
     } else {
       this.items.update((arr) => arr.map((i, i2) => (i2 === idx ? atualizado : i)));
     }
+    if (scannedNovo > 0) this.upsertConferred(atualizado);
   }
 
   /** Só mostra o erro no painel de última leitura — não é um item conferido de verdade, não entra na lista de CONFERIDOS. */

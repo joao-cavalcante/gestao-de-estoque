@@ -13,6 +13,10 @@ export class OqConferenciaFooterComponent {
   @Input() divergenceCount = 0;
   @Input() pendingCount = 0;
   @Input() conferredCount = 0;
+  /** Itens que já bateram o total (não conta parcial) — numerador da barra PROGRESSO. */
+  @Input() progressoFeito = 0;
+  /** Total de itens distintos (parcial não conta 2x) — denominador da barra PROGRESSO. */
+  @Input() progressoTotal = 0;
   @Input() canConfirm = false;
   /** true = requisição de confirmar/concluir etapa em voo — mostra spinner no botão primário. */
   @Input() confirmando = false;

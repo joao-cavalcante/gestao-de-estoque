@@ -9,14 +9,16 @@
           [class.item-row--excedente]="isDivergenciaQtd(item)"
           [class.item-row--peso-divergente]="isDivergenciaPeso(item)"
           [class.item-row--pesavel]="item.usaConfPeso && !isCritico(item)"
+          [class.item-row--parcial]="isParcial(item)"
         >
           <span
             class="item-glyph"
             [class.item-glyph--alerta]="isDivergenciaQtd(item)"
             [class.item-glyph--peso]="isDivergenciaPeso(item)"
+            [class.item-glyph--parcial]="isParcial(item)"
           >
             <oq-icon
-              [name]="isDivergenciaPeso(item) ? 'scale' : isCritico(item) ? 'circle-alert' : 'check'"
+              [name]="isDivergenciaPeso(item) ? 'scale' : isCritico(item) ? 'circle-alert' : isParcial(item) ? 'clock' : 'check'"
               [size]="14"
             />
           </span>
@@ -43,8 +45,10 @@
                   class="item-qtd-principal"
                   [class.item-qtd-principal--excedente]="isDivergenciaQtd(item)"
                   [class.item-qtd-principal--peso]="isDivergenciaPeso(item)"
+                  [class.item-qtd-principal--parcial]="isParcial(item)"
                 >
                   {{ formatarQtd(qtdPrincipal(item)) }}
+                  @if (isParcial(item)) { <span class="item-qtd-principal__de">de {{ formatarQtd(totalPrincipal(item)) }}</span> }
                   @if (unidadePrincipal(item)) { <span class="item-qtd-principal__un">{{ unidadePrincipal(item) }}</span> }
                 </span>
               }
@@ -68,6 +72,13 @@
               <div class="item-linha">
                 <span class="item-divergencia">
                   Divergente {{ excedentePrincipal(item) > 0 ? '+' : '' }}{{ formatarQtd(excedentePrincipal(item)) }}{{ unidadePrincipal(item) ? ' ' + unidadePrincipal(item) : '' }}
+                </span>
+              </div>
+            } @else if (isParcial(item)) {
+              <div class="item-linha">
+                <span class="item-observacao item-observacao--parcial">
+                  <oq-icon name="clock" [size]="12" />
+                  Parcial — falta {{ formatarQtd(item.expected - item.scanned) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
                 </span>
               </div>
             }

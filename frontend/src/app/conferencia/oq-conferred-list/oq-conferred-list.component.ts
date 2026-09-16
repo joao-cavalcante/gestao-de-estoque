@@ -24,6 +24,11 @@ export class OqConferredListComponent {
     return item.status === 'critical';
   }
 
+  /** Item com progresso, mas que ainda não bateu o total — aparece aqui E em pendentes ao mesmo tempo. */
+  isParcial(item: ConferenciaItem): boolean {
+    return item.status === 'pending' && item.scanned > 0;
+  }
+
   /** Divergência de PESO (item pesável pesando >5% menos que o esperado — a maior nunca diverge) — indicador visual próprio, diferente da divergência de qtd. */
   isDivergenciaPeso(item: ConferenciaItem): boolean {
     return !!item.divergenciaPeso;
@@ -56,6 +61,11 @@ export class OqConferredListComponent {
 
   qtdPrincipal(item: ConferenciaItem): number {
     return this.mostraComercial(item) ? this.paraComercial(item, item.scanned) : item.scanned;
+  }
+
+  /** Total negociado na mesma unidade de qtdPrincipal — pro "X de Y" do item parcial. */
+  totalPrincipal(item: ConferenciaItem): number {
+    return this.mostraComercial(item) ? item.quantidadeComercial! : item.expected;
   }
 
   excedentePrincipal(item: ConferenciaItem): number {

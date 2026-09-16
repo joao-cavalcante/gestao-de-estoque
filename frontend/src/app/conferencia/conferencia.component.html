@@ -160,6 +160,8 @@
     [divergenceCount]="divergenceCount()"
     [pendingCount]="pendingCount()"
     [conferredCount]="conferredCount()"
+    [progressoFeito]="itensCompletosCount()"
+    [progressoTotal]="totalItensCount()"
     [canConfirm]="canConfirm()"
     [confirmarLabel]="modoEtapa() ? 'Concluir Etapa ' + rotuloEtapaAtual() : 'Confirmar Conferência'"
     [voltarLabel]="conferredCount() > 0 ? 'Salvar e sair' : 'Voltar'"

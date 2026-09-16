@@ -46,6 +46,14 @@
     border-left: 3px solid var(--oq-attention);
     padding-left: 9px;
   }
+
+  // Parcial: progresso > 0 mas ainda não bateu o total (aparece também em
+  // pendentes) — neutro de propósito, não é nem sucesso nem alerta.
+  &--parcial {
+    background: var(--oq-surface-2);
+    border-left: 3px solid var(--oq-border);
+    padding-left: 9px;
+  }
 }
 
 /* Item pesável — mesmo destaque da lista de pendentes. */
@@ -89,6 +97,7 @@
 
   &--alerta { color: var(--oq-warning-foreground); }
   &--peso { color: var(--oq-critical-foreground); }
+  &--parcial { color: var(--oq-text-secondary); }
 }
 
 .item-dados {
@@ -144,6 +153,12 @@
     color: var(--oq-text-secondary);
   }
 
+  .item-qtd-principal__de {
+    font-weight: 500;
+    font-size: 10px;
+    color: var(--oq-text-secondary);
+  }
+
   &--excedente {
     color: var(--oq-warning-foreground);
     .item-qtd-principal__un { color: var(--oq-warning-foreground); }
@@ -153,6 +168,8 @@
     color: var(--oq-critical-foreground);
     .item-qtd-principal__un { color: var(--oq-critical-foreground); }
   }
+
+  &--parcial { color: var(--oq-text-primary); }
 }
 
 .item-divergencia {
@@ -181,7 +198,8 @@
   letter-spacing: 0.02em;
   color: var(--oq-text-secondary);
 
-  &--peso {
+  &--peso,
+  &--parcial {
     display: inline-flex;
     align-items: center;
     gap: 4px;
