@@ -470,7 +470,21 @@ object SeparacaoService {
         }
 
         // Última etapa — finaliza a conferência de verdade (push + cortar + finalizarConferencia).
-        val res = finalizar(tenantSlug, tenantId, sessaoId)
+        //
+        // Bug real encontrado (nota 57355): se finalizar() falha (confirmado:
+        // timeout de rede com o Sankhya, 24s até um 502), a etapa já tinha
+        // sido marcada 'C' alguns segundos antes — ficava "presa" concluída
+        // localmente pra sempre, sem o corte ter acontecido de verdade no
+        // Sankhya. Como concluirEtapa() só marca 'P'→'C' (idempotência por
+        // WHERE status='P'), não tinha como tentar de novo pela tela normal —
+        // precisou de UPDATE manual no banco pra destravar. Reverte a etapa
+        // pra 'P' se finalizar() falhar, pra um retry pela UI funcionar sozinho.
+        val res = try {
+            finalizar(tenantSlug, tenantId, sessaoId)
+        } catch (e: Exception) {
+            withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
+            throw e
+        }
         return ConcluirEtapaResultadoDto(
             etapaConcluida = true,
             conferenciaFinalizada = true,

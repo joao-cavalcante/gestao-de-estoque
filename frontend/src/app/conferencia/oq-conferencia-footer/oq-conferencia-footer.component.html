@@ -18,7 +18,13 @@
     </div>
 
     <div class="oq-cf-footer__progress-group">
-      <div class="oq-cf-footer__volume" [class.oq-cf-footer__volume--exige]="faltaVolume" [title]="faltaVolume ? 'Esta Configuração de Conferência exige volume apontado' : ''">
+      <div class="oq-cf-footer__volume" [class.oq-cf-footer__volume--exige]="faltaVolume">
+        @if (faltaVolume) {
+          <span class="oq-cf-footer__volume-tooltip">
+            <oq-icon name="circle-alert" [size]="11" />
+            Informe os volumes pra confirmar
+          </span>
+        }
         <span class="oq-label-caps">VOLUMES{{ faltaVolume ? ' *' : '' }}</span>
         <button type="button" class="oq-cf-footer__volume-btn" (click)="onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
         <span class="oq-cf-footer__volume-valor">{{ volume }}</span>
@@ -31,11 +37,16 @@
       <button
         type="button"
         class="oq-cf-footer__btn oq-cf-footer__btn--primary"
-        [disabled]="!canConfirm"
-        [title]="tituloBotaoPrimario"
+        [disabled]="!canConfirm || confirmando"
+        [title]="confirmando ? 'Enviando pro Sankhya — pode levar alguns segundos' : tituloBotaoPrimario"
         (click)="confirmar.emit()"
       >
-        {{ confirmarLabel }}
+        @if (confirmando) {
+          <oq-spinner [size]="13" />
+          Enviando…
+        } @else {
+          {{ confirmarLabel }}
+        }
       </button>
     </div>
   </div>

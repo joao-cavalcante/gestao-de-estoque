@@ -1350,6 +1350,25 @@ object SeparacaoRepository {
         n > 0
     }
 
+    /**
+     * Reverte a etapa de volta pra 'P' — usado quando concluirEtapa() marca
+     * 'C' mas o finalizar() (Sankhya) que vem em seguida falha, pra não deixar
+     * a etapa presa "concluída" sem o corte ter acontecido de verdade (ver V29
+     * SeparacaoService.concluirEtapa e o caso real da nota 57355).
+     */
+    fun reabrirEtapa(tenantId: UUID, sessaoId: UUID, tipoSeparacao: Short): Unit = TenantTx.run(tenantId) {
+        SeparacaoEtapasTable.update({
+            (SeparacaoEtapasTable.tenantId eq tenantId) and
+                (SeparacaoEtapasTable.sessaoId eq sessaoId) and
+                (SeparacaoEtapasTable.tipoSeparacao eq tipoSeparacao)
+        }) {
+            it[status] = SeparacaoEtapaStatus.PENDENTE
+            it[concluidaPor] = null
+            it[concluidaEm] = null
+        }
+        Unit
+    }
+
     /** true = a sessão tem etapas e TODAS estão 'C'. false = não tem etapas, ou alguma pendente. */
     fun todasEtapasConcluidas(tenantId: UUID, sessaoId: UUID): Boolean = TenantTx.run(tenantId) {
         val etapas = SeparacaoEtapasTable.selectAll()

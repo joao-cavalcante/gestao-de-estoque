@@ -76,6 +76,7 @@
 }
 
 .oq-cf-footer__volume {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -86,6 +87,50 @@
     .oq-label-caps { color: var(--oq-critical-foreground); font-weight: 600; }
     .oq-cf-footer__volume-valor { color: var(--oq-critical-foreground); }
   }
+}
+
+/**
+ * Balão SEMPRE visível (não é hover) apontando pro contador — o rodapé é
+ * usado em tablet/touch, onde `title` nativo nunca aparece. Fica acima do
+ * contador com uma setinha, chamando atenção enquanto FORMACAOVOLUMES exigir
+ * e o contador estiver zerado.
+ */
+.oq-cf-footer__volume-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  padding: 5px 9px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-critical);
+  color: #fff;
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  animation: oq-cf-volume-tooltip-pop 0.25s ease-out;
+  z-index: 5;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--oq-critical);
+  }
+}
+
+@keyframes oq-cf-volume-tooltip-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .oq-cf-footer__volume-btn {

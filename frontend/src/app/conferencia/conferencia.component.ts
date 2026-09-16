@@ -220,7 +220,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   );
   readonly itensCompletosCount = computed(() => this.conferred().filter((i) => estaConferido(i)).length);
   readonly divergenceCount = computed(() => this.conferred().filter((i) => i.status === 'critical').length);
-  private readonly finalizando = signal(false);
+  /** Requisição de confirmar/concluir etapa em voo — cobre os dois fluxos (executarFinalizacao/concluirEtapaAgora). Público: o footer usa pra mostrar o spinner. */
+  readonly finalizando = signal(false);
   /**
    * Botão "Finalizar Conferência" fica sempre disponível — quem decide o que
    * fazer com a divergência é a CCO do Sankhya, não um bloqueio nosso. Única
