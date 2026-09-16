@@ -40,8 +40,20 @@ export class OqPendingListComponent {
     return !item.usaConfPeso && this.temComercial(item) && item.quantidadeComercial != null;
   }
 
+  /** Quanto falta bipar (pedido - já conferido), nunca negativo — mesma unidade base do item. */
+  private restanteBase(item: ConferenciaItem): number {
+    return Math.max(0, item.expected - item.scanned);
+  }
+
+  /** true = já tem algo bipado neste item, mas ainda não bateu o total (item-row--parcial). */
+  ehParcial(item: ConferenciaItem): boolean {
+    return item.scanned > 0 && item.scanned < item.expected;
+  }
+
   qtdPrincipal(item: ConferenciaItem): number {
-    return this.mostraComercial(item) ? item.quantidadeComercial! : item.expected;
+    if (!this.mostraComercial(item)) return this.restanteBase(item);
+    // Comercial: restante proporcional (mesma conversão de padraoParaComercial, ver oq-conferred-list).
+    return item.expected > 0 ? (this.restanteBase(item) * item.quantidadeComercial!) / item.expected : 0;
   }
 
   unidadePrincipal(item: ConferenciaItem): string {

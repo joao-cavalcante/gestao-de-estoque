@@ -152,4 +152,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  &--parcial {
+    color: var(--oq-warning-foreground, var(--oq-text-primary));
+    font-weight: 600;
+  }
 }

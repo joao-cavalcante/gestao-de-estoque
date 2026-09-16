@@ -6,7 +6,7 @@
       @for (item of items; track item.code; let idx = $index) {
         <li
           class="item-row item-row--clicavel"
-          [class.item-row--parcial]="!!item.preAlert"
+          [class.item-row--parcial]="ehParcial(item)"
           [class.item-row--pesavel]="item.usaConfPeso"
           (click)="selecionar.emit(item)"
           title="Clique para identificar este item sem bipar o código de barras"
@@ -31,6 +31,13 @@
                 </span>
               }
             </div>
+            @if (exibirQtd && ehParcial(item)) {
+              <div class="item-linha">
+                <span class="item-info-sec item-info-sec--parcial">
+                  Já conferido: {{ formatarQtd(item.scanned) }} de {{ formatarQtd(item.expected) }} {{ item.unidadePadrao }}
+                </span>
+              </div>
+            }
             @if (exibirQtd && temComercial(item)) {
               <div class="item-linha">
                 <span class="item-info-sec">

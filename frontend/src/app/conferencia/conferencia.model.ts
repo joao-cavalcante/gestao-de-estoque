@@ -9,7 +9,6 @@ export interface ConferenciaItem {
   scanned: number;
   status: ItemStatus;
   divergenceReason?: string;
-  preAlert?: string;
   imagemUrl?: string | null;
   /** TGFVOL.UTILICONFPESO — produto pesável (rotina de peso do projeto base). */
   usaConfPeso?: boolean;
