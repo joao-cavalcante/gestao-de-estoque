@@ -163,17 +163,17 @@ object SeparacaoService {
 
             // Item já LIBERADO numa rodada de corte anterior: o Sankhya devolve
             // ele na recontagem com o QTDNEG original (15), não com o que foi
-            // aceito (5) — sem ajustar isso aqui, ele fica "parcial" (5 de 15)
-            // e aparece em Pendentes igual a um item que o operador só bipou
-            // até a metade. Sobrescreve QTDNEG pela quantidade aceita ANTES de
-            // salvar, pra ficar 100% completo (5 de 5) e nunca aparecer em
-            // Pendentes — só em Conferidos, silenciosamente. O item negado (o
-            // que precisa de ação de verdade) não é afetado por isto.
+            // aceito (5). Sobrescreve QTDNEG pela quantidade aceita e marca
+            // silencioso=true — esse item nunca aparece pro operador (nem
+            // Pendentes, nem Conferidos, ver SeparacaoRepository.listarItens),
+            // só entra no finalizar() por trás (leitura já gravada abaixo) pra
+            // subir a quantidade aceita pro Sankhya. O item negado (o que
+            // precisa de ação de verdade) não é afetado por isto.
             val decisoesLiberadas = withContext(Dispatchers.IO) { SeparacaoRepository.buscarDecisoesLiberadasComQtd(tenantId, nunota) }
             val qtdLiberadaPorChave = decisoesLiberadas.associate { (it.codprod to it.controle) to it.qtdLiberada }
             val itens = itensBrutos.map { item ->
                 val qtdLiberada = qtdLiberadaPorChave[item.codprod to item.controle]
-                if (qtdLiberada != null) item.copy(qtdNeg = qtdLiberada) else item
+                if (qtdLiberada != null) item.copy(qtdNeg = qtdLiberada, silencioso = true) else item
             }
             val nucco = withContext(Dispatchers.IO) { TarefasRepository.buscarNuccoLocal(tenantId, nunota) }
             val codprods = itens.map { it.codprod }.distinct()

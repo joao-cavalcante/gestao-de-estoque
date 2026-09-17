@@ -45,6 +45,8 @@ data class ItemParaSalvar(
     val fatorConversao: BigDecimal? = null,
     /** TGFPRO.AD_TIPOSEPARACAO — 1 Secos | 2 Resfriados | 3 Congelados (default 1). Conferência por etapa (V29). */
     val tipoSeparacao: Short = 1,
+    /** V39 — item já liberado numa rodada de corte anterior, nunca aparece pro operador. */
+    val silencioso: Boolean = false,
 )
 
 data class UmaParaSalvar(
@@ -370,6 +372,7 @@ object SeparacaoRepository {
             this[SeparacaoItensTable.fatorConversao] = item.fatorConversao
             this[SeparacaoItensTable.tipoSeparacao] = item.tipoSeparacao
             this[SeparacaoItensTable.dados] = item.dadosJson
+            this[SeparacaoItensTable.silencioso] = item.silencioso
         }
         Unit
     }
@@ -1221,8 +1224,16 @@ object SeparacaoRepository {
     }
 
     fun listarItens(tenantId: UUID, sessaoId: UUID): List<ItemSeparacaoDto> = TenantTx.run(tenantId) {
+        // silencioso=true = item já liberado numa rodada de corte anterior,
+        // auto-conferido (ver SeparacaoService.carregarEmBackground) — nunca
+        // aparece pro operador (nem Pendentes, nem Conferidos), só entra no
+        // finalizar() via a leitura já gravada por trás.
         SeparacaoItensTable.selectAll()
-            .where { (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) }
+            .where {
+                (SeparacaoItensTable.tenantId eq tenantId) and
+                    (SeparacaoItensTable.sessaoId eq sessaoId) and
+                    (SeparacaoItensTable.silencioso eq false)
+            }
             .orderBy(SeparacaoItensTable.sequencia to SortOrder.ASC)
             .map { row ->
                 val dados = runCatching { Json.parseToJsonElement(row[SeparacaoItensTable.dados]) as JsonObject }.getOrNull()

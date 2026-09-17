@@ -68,6 +68,12 @@ object SeparacaoItensTable : Table("app.separacao_itens") {
     // 1 Secos | 2 Resfriados | 3 Congelados. Ausência/inválido = 1 (default no banco).
     val tipoSeparacao = short("tipo_separacao")
     val dados = jsonb("dados")
+    // V39 — item já liberado numa rodada de corte anterior, auto-conferido em
+    // silêncio (ver SeparacaoService.carregarEmBackground): nunca aparece pro
+    // operador em Pendentes nem em Conferidos, mas entra normalmente no
+    // finalizar() (via leitura já gravada) pra subir a quantidade aceita pro
+    // Sankhya.
+    val silencioso = bool("silencioso")
 
     override val primaryKey = PrimaryKey(id)
 }
