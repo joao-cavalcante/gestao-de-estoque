@@ -159,7 +159,22 @@ object SeparacaoService {
             // pra checar o cache local em lote, então não dá mais pra rodar em
             // paralelo com buscarItens como antes. NUCCO é leitura local, roda
             // no meio sem bloquear nada.
-            val itens = buscarItens(tenantSlug, tenantId, nunota, nuconf)
+            val itensBrutos = buscarItens(tenantSlug, tenantId, nunota, nuconf)
+
+            // Item já LIBERADO numa rodada de corte anterior: o Sankhya devolve
+            // ele na recontagem com o QTDNEG original (15), não com o que foi
+            // aceito (5) — sem ajustar isso aqui, ele fica "parcial" (5 de 15)
+            // e aparece em Pendentes igual a um item que o operador só bipou
+            // até a metade. Sobrescreve QTDNEG pela quantidade aceita ANTES de
+            // salvar, pra ficar 100% completo (5 de 5) e nunca aparecer em
+            // Pendentes — só em Conferidos, silenciosamente. O item negado (o
+            // que precisa de ação de verdade) não é afetado por isto.
+            val decisoesLiberadas = withContext(Dispatchers.IO) { SeparacaoRepository.buscarDecisoesLiberadasComQtd(tenantId, nunota) }
+            val qtdLiberadaPorChave = decisoesLiberadas.associate { (it.codprod to it.controle) to it.qtdLiberada }
+            val itens = itensBrutos.map { item ->
+                val qtdLiberada = qtdLiberadaPorChave[item.codprod to item.controle]
+                if (qtdLiberada != null) item.copy(qtdNeg = qtdLiberada) else item
+            }
             val nucco = withContext(Dispatchers.IO) { TarefasRepository.buscarNuccoLocal(tenantId, nunota) }
             val codprods = itens.map { it.codprod }.distinct()
             val voaJob = escopo.async { buscarVoa(tenantSlug, tenantId, codprods) }
@@ -292,15 +307,13 @@ object SeparacaoService {
                 SeparacaoRepository.marcarPronta(tenantId, sessaoId, fingerprint, buscarCodigoBarraPor, qtdAmaior, obterQtdBalanca, produtosForaPed, conferenciaSegmentada, fatAoConcluir, exibirProd, exibirQtd, exibirProdConf, exibirQtdConf, exibirImgProd, formacaoVolumes)
 
                 // Auto-conferência silenciosa de item já LIBERADO numa rodada de
-                // corte anterior (ver LiberacaoCorteService.liberarOuNegar):
-                // confirmado ao vivo (nota 57500) que o item liberado volta pra
-                // recontagem pedindo a mesma quantidade original (QTDNEG), não a
-                // já aceita — o Sankhya não reduz isso sozinho. Sem isto, o
-                // operador teria que rebipar algo que já foi aceito na liberação.
-                // Usa a quantidade guardada no momento da decisão (V38); pula
-                // item que não está mais nesta sessão (troca de código/produto).
+                // corte anterior (ver LiberacaoCorteService.liberarOuNegar) — o
+                // QTDNEG dele já foi sobrescrito acima pela quantidade aceita,
+                // então confirmar essa mesma quantidade aqui deixa o item 100%
+                // completo (nunca aparece em Pendentes). Pula item que não está
+                // mais nesta sessão (troca de código/produto).
                 val codprodsDaSessao = itensComPeso.map { it.codprod }.toSet()
-                SeparacaoRepository.buscarDecisoesLiberadasComQtd(tenantId, nunota)
+                decisoesLiberadas
                     .filter { it.codprod in codprodsDaSessao }
                     .forEach { decisao ->
                         runCatching {
