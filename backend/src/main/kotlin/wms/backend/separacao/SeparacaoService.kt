@@ -56,15 +56,15 @@ object SeparacaoService {
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val FIELDS_ITEM = listOf(
-        "SEQUENCIA", "CODPROD", "CODVOL", "CONTROLE", "QTDNEG", "QTDENTREGUE",
-        // PENDENTE = mesmo campo que a Fila de Conferência nativa usa (ver
-        // TarefaSyncService.CRITERIO_BASE: "ITE.PENDENTE = 'S'") pra saber se o
-        // item ainda precisa de conferência. QTDENTREGUE NÃO reflete liberação/
-        // negação de corte (fica 0 mesmo depois de liberado) — só PENDENTE
-        // captura isso; sem filtrar por ele, um item já liberado na Liberação
-        // de Limites volta pra tela de recontagem do mesmo jeito que um item
-        // negado (bug real, confirmado nota 57355: liberação individual não
-        // sendo respeitada na recontagem).
+        "SEQUENCIA", "CODPROD", "CODVOL", "CONTROLE", "QTDNEG", "QTDENTREGUE", "QTDCONFERIDA",
+        // PENDENTE sozinho NÃO é o critério real de "precisa conferência" — numa
+        // nota de venda ele some atrás do próprio OR do critério nativo
+        // (this.PENDENTE = 'S' OR EXISTS(...TIPMOV IN ('V','C','D','E','T','Q','L')...)),
+        // que é quase sempre verdadeiro. O filtro de verdade, capturado ao vivo
+        // da tela nativa (DatasetSP.loadRecords, ItensPedidoConferenciaCrudListener,
+        // nota 57500): (QTDNEG - QTDENTREGUE - QTDCONFERIDA) > 0 — é isso que
+        // distingue item já resolvido (liberado/conferido) de item que ainda
+        // precisa de recontagem de verdade. Mantido como dado auxiliar.
         "PENDENTE",
         "Produto.DESCRPROD", "Produto.COMPLDESC", "Produto.MARCA", "Produto.REFERENCIA",
         // TIPCONTEST='L' = lote (digitação livre); LISCONTEST = lista de
@@ -73,6 +73,9 @@ object SeparacaoService {
         "Produto.TIPCONTEST", "Produto.LISCONTEST",
         // Conferência por etapa (V29) — 1 Secos | 2 Resfriados | 3 Congelados.
         "Produto.AD_TIPOSEPARACAO",
+        // Mesmo filtro do critério nativo: produto marcado EXCLUIRCONF='S' nunca
+        // entra na conferência.
+        "Produto.EXCLUIRCONF",
     )
 
     /** AD_TIPOSEPARACAO cru ("2" / "2.0" / vazio) → 1..3, default 1 (Secos). */
@@ -795,18 +798,19 @@ object SeparacaoService {
             ),
         )
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
-            // PENDENTE='N' = item já resolvido do ponto de vista de quantidade
-            // entregue — não entra na conferência/recontagem. Ausente/em
-            // branco trata como pendente (fail-safe: melhor mostrar a mais um
-            // item do que esconder um que precisa de ação).
-            .filter { it["PENDENTE"]?.trim()?.uppercase() != "N" }
-
-        // Removido o filtro próprio por app.separacao_corte_liberacoes (V36):
-        // comportamento nativo confirmado ao vivo (item liberado A qtd 5/15,
-        // item negado B qtd 5/15 — ambos voltam pra recontagem, mas o
-        // QTDNEG do Sankhya já vem diferenciado por item: o liberado pede só
-        // o que já foi aceito, o negado pede o total original). Não é pra
-        // aplicar tratamento nosso em cima — só ler o que o Sankhya manda.
+            // Critério real de "precisa conferência", capturado ao vivo da tela
+            // nativa (ItensPedidoConferenciaCrudListener, nota 57500): PENDENTE
+            // sozinho não filtra quase nada numa nota de venda — o que decide é
+            // (QTDNEG - QTDENTREGUE - QTDCONFERIDA) > 0. Item já resolvido
+            // (liberado/conferido/negado-mas-já-recontado) some sozinho por essa
+            // conta, sem precisar de tratamento nosso em cima.
+            .filter { r ->
+                val qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO
+                val qtdEntregue = r["QTDENTREGUE"].parseBigDecimalBr() ?: BigDecimal.ZERO
+                val qtdConferida = r["QTDCONFERIDA"].parseBigDecimalBr() ?: BigDecimal.ZERO
+                qtdNeg.subtract(qtdEntregue).subtract(qtdConferida) > BigDecimal.ZERO
+            }
+            .filter { it["Produto.EXCLUIRCONF"]?.trim()?.uppercase() != "S" }
 
         return rows.mapNotNull { r ->
             val sequencia = r["SEQUENCIA"]?.toIntOrNull() ?: return@mapNotNull null
