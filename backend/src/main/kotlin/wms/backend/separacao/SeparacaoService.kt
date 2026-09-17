@@ -863,7 +863,6 @@ object SeparacaoService {
                 .onFailure { e -> println("AVISO: falha ao buscar DetalhesConferencia (nuconf $it): ${e.message}") }
                 .getOrDefault(emptyMap())
         } ?: emptyMap()
-        println("DIAG: nunota=$nunota nuconf=$nuconf qtdConferidaPorProduto=$qtdConferidaPorProduto")
 
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
             // Critério real de "precisa reconferência", capturado ao vivo da
