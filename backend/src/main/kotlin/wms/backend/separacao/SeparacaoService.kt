@@ -801,27 +801,14 @@ object SeparacaoService {
             // item do que esconder um que precisa de ação).
             .filter { it["PENDENTE"]?.trim()?.uppercase() != "N" }
 
-        // Itens cuja divergência já foi ACEITA (liberada) numa rodada de corte
-        // anterior — TGFITE não reflete essa decisão em campo nenhum
-        // (QTDENTREGUE e PENDENTE continuam iguais pro item liberado e pro
-        // negado, confirmado ao vivo: nota 57394, item liberado no corte
-        // silencioso continuava com PENDENTE='S'/QTDENTREGUE=0). Sem filtrar
-        // por isto, um item já resolvido reaparece na recontagem do mesmo
-        // jeito que o item que realmente precisa ser reconferido.
-        //
-        // MAS: não temos como distinguir com certeza "recontagem de item
-        // negado" (deve manter o filtro) de "conferência excluída/refeita do
-        // zero" (não deve) — Sankhya manda o mesmo sinal pros dois (nota
-        // 57251, confirmado ao vivo: nota com 1 item só, já liberado antes,
-        // excluída e reaberta — motivo do sync foi "Reaberta (recontagem)",
-        // idêntico ao de item negado de verdade). Rede de segurança: só
-        // aplica o filtro se sobrar pelo menos 1 item — nunca deixa a
-        // conferência/recontagem vir com pendentes vazio por causa disto.
-        val codprodsLiberados = withContext(Dispatchers.IO) { SeparacaoRepository.buscarCodprodsLiberados(tenantId, nunota) }
-        val semLiberados = rows.filter { r -> r["CODPROD"]?.toIntOrNull() !in codprodsLiberados }
-        val rowsFinal = if (semLiberados.isNotEmpty()) semLiberados else rows
+        // Removido o filtro próprio por app.separacao_corte_liberacoes (V36):
+        // comportamento nativo confirmado ao vivo (item liberado A qtd 5/15,
+        // item negado B qtd 5/15 — ambos voltam pra recontagem, mas o
+        // QTDNEG do Sankhya já vem diferenciado por item: o liberado pede só
+        // o que já foi aceito, o negado pede o total original). Não é pra
+        // aplicar tratamento nosso em cima — só ler o que o Sankhya manda.
 
-        return rowsFinal.mapNotNull { r ->
+        return rows.mapNotNull { r ->
             val sequencia = r["SEQUENCIA"]?.toIntOrNull() ?: return@mapNotNull null
             val codprod = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
             val dadosJson = buildJsonObject {
