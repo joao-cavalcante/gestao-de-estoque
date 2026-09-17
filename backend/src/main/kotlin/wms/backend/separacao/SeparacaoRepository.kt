@@ -1168,6 +1168,27 @@ object SeparacaoRepository {
             .count() > 0
     }
 
+    /**
+     * true = já existe pelo menos uma sessão CONCLUIDA anterior pra esta nota —
+     * ou seja, a sessão sendo aberta agora é uma RECONTAGEM (nota reaberta
+     * depois de negar corte), não a primeira conferência. Usado pra decidir o
+     * parâmetro `iniciarRecontagem` de ConferenciaSP.salvarCabecalhoConferencia
+     * (ver SeparacaoService.carregarEmBackground) — sem isso, o Sankhya trata
+     * a reabertura como conferência do zero e não aplica os ajustes de
+     * QTDCONFERIDA/QTDNEG vindos do corte, trazendo TODOS os itens da nota
+     * como pendentes de novo em vez de só o que precisa reconferência.
+     */
+    fun houveSessaoAnteriorConcluida(tenantId: UUID, nunota: Long): Boolean = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.selectAll()
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and
+                    (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
+                    (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA)
+            }
+            .limit(1)
+            .count() > 0
+    }
+
     /** Apaga todas as decisões de liberação de corte de uma nota — ver houveExclusaoAposUltimaDecisao. */
     fun limparDecisoesLiberacao(tenantId: UUID, nunota: Long): Unit = TenantTx.run(tenantId) {
         SeparacaoCorteLiberacoesTable.deleteWhere {

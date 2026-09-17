@@ -122,12 +122,21 @@ object SeparacaoService {
             // contrato lido do código-fonte real, não adivinhado). Sem isto, o
             // Sankhya nunca sai de STATUSCONFERENCIA vazio/AC, e o job de sync
             // (TarefaSyncService) mantém a tarefa em 'aguardando' pra sempre.
+            // iniciarRecontagem=true quando já existe uma sessão CONCLUIDA
+            // anterior pra essa nota — sinaliza pro Sankhya que isto é uma
+            // recontagem (item negado voltando), não a primeira conferência.
+            // Confirmado ao vivo (nota 57500): mandando sempre `false`, o
+            // Sankhya tratava a reabertura como conferência do zero e não
+            // aplicava os ajustes de QTDCONFERIDA/QTDNEG do corte — a
+            // recontagem vinha com TODOS os itens da nota como pendentes,
+            // não só o que precisava ser reconferido.
+            val ehRecontagem = withContext(Dispatchers.IO) { SeparacaoRepository.houveSessaoAnteriorConcluida(tenantId, nunota) }
             SankhyaSpClient.chamar(
                 tenantSlug,
                 "ConferenciaSP.salvarCabecalhoConferencia",
                 mapOf(
                     "nuNota" to JsonPrimitive(nunota),
-                    "iniciarRecontagem" to JsonPrimitive(false),
+                    "iniciarRecontagem" to JsonPrimitive(ehRecontagem),
                 ),
             )
 
