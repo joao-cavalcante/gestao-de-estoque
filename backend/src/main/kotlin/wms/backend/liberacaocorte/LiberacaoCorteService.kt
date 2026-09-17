@@ -408,39 +408,41 @@ object LiberacaoCorteService {
         // nunca é aplicado na nota de verdade).
         val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(selecionados)
         if (restantes.isEmpty()) {
-            // AOLIBERAR decide COMO fechar — e aqui mora um bug real que a gente
-            // tinha (confirmado ao vivo, notas 57251 e 57500, NUCCO com
-            // AOLIBERAR='M'): a documentação oficial diz que só 'R' (Reprocessar
-            // conferência) descreve uma finalização explícita; 'M' (Marcar para
-            // recontagem) diz que "o sistema marcará a conferência para uma
-            // recontagem" SOZINHO, sem mencionar finalização nenhuma — o próprio
-            // LiberacaoLimitesSP.liberarNegarLimites já faz essa marcação. Chamar
-            // ConferenciaSP.finalizarConferencia de qualquer jeito ATROPELAVA essa
-            // marcação e forçava a conferência a fechar como "Finalizado
-            // Divergente" em vez de abrir a recontagem do item negado.
-            val aoLiberar = withContext(Dispatchers.IO) {
-                val nucco = nunota?.let { wms.backend.tarefas.TarefasRepository.buscarNuccoLocal(tenantId, it) }
-                nucco?.let { wms.backend.configconferencia.ConfigConferenciaRepository.buscarPorNucco(tenantId, it) }
-                    ?.campos?.get("AOLIBERAR")?.trim()?.uppercase()
-            }
+            // NUNCA chama ConferenciaSP.finalizarConferencia depois de um NEGAR
+            // (confirmado ao vivo, nota 57500): o LiberacaoLimitesSP.liberarNegarLimites
+            // já resolve a recontagem sozinho no Sankhya — chamar finalizarConferencia
+            // em cima disso, mesmo condicionado por AOLIBERAR, fecha a conferência
+            // como "Finalizado Divergente" em vez de abrir a recontagem do item
+            // negado. Só faz sentido finalizar explicitamente quando a ação foi
+            // um LIBERAR que fechou tudo sem nenhum negado pendente.
+            if (liberarNorm == "S") {
+                // AOLIBERAR decide se ainda assim precisa finalizar: doc oficial diz
+                // que só 'R' (Reprocessar conferência) descreve finalização explícita;
+                // 'M' (Marcar para recontagem) já cobre isso sozinho.
+                val aoLiberar = withContext(Dispatchers.IO) {
+                    val nucco = nunota?.let { wms.backend.tarefas.TarefasRepository.buscarNuccoLocal(tenantId, it) }
+                    nucco?.let { wms.backend.configconferencia.ConfigConferenciaRepository.buscarPorNucco(tenantId, it) }
+                        ?.campos?.get("AOLIBERAR")?.trim()?.uppercase()
+                }
 
-            if (aoLiberar != "M") {
-                runCatching {
-                    SankhyaSpClient.chamarRaw(
-                        tenantSlug,
-                        "ConferenciaSP.finalizarConferencia",
-                        "mgecom",
-                        buildJsonObject {
-                            putJsonObject("params") {
-                                put("nuConf", nuconf.toString())
-                                put("peso", 0)
-                                put("qtdVol", 0)
-                            }
-                            CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
-                        },
-                    )
-                }.onFailure {
-                    println("AVISO: liberação/negação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+                if (aoLiberar != "M") {
+                    runCatching {
+                        SankhyaSpClient.chamarRaw(
+                            tenantSlug,
+                            "ConferenciaSP.finalizarConferencia",
+                            "mgecom",
+                            buildJsonObject {
+                                putJsonObject("params") {
+                                    put("nuConf", nuconf.toString())
+                                    put("peso", 0)
+                                    put("qtdVol", 0)
+                                }
+                                CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                            },
+                        )
+                    }.onFailure {
+                        println("AVISO: liberação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+                    }
                 }
             }
 
