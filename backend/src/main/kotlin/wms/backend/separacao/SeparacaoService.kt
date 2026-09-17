@@ -9,7 +9,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -147,7 +149,8 @@ object SeparacaoService {
             // sessão: CabecalhoConferencia.NUNOTAORIG é a forma de resolvê-lo
             // (mesma técnica que TarefaSyncService já usa, mas persistindo em
             // vez de descartar).
-            buscarNuconf(tenantSlug, nunota)?.let { nuconf ->
+            val nuconf = buscarNuconf(tenantSlug, nunota)
+            if (nuconf != null) {
                 withContext(Dispatchers.IO) { SeparacaoRepository.salvarNuconf(tenantId, sessaoId, nuconf) }
             }
 
@@ -156,7 +159,7 @@ object SeparacaoService {
             // pra checar o cache local em lote, então não dá mais pra rodar em
             // paralelo com buscarItens como antes. NUCCO é leitura local, roda
             // no meio sem bloquear nada.
-            val itens = buscarItens(tenantSlug, tenantId, nunota)
+            val itens = buscarItens(tenantSlug, tenantId, nunota, nuconf)
             val nucco = withContext(Dispatchers.IO) { TarefasRepository.buscarNuccoLocal(tenantId, nunota) }
             val codprods = itens.map { it.codprod }.distinct()
             val voaJob = escopo.async { buscarVoa(tenantSlug, tenantId, codprods) }
@@ -796,7 +799,56 @@ object SeparacaoService {
         return SankhyaLoadRecordsClient.parseRows(raw, fields).firstOrNull()?.get("NUCONF")?.toIntOrNull()
     }
 
-    private suspend fun buscarItens(tenantSlug: String, tenantId: UUID, nunota: Long): List<ItemParaSalvar> {
+    private val FIELDS_DETALHE_CONF = listOf(
+        "NUCONF", "SEQCONF", "CODPROD", "QTDCONF",
+    )
+
+    /**
+     * Quanto já foi conferido/aceito de verdade por produto, na conferência
+     * ATUAL (NUCONF) — fonte de verdade real, capturada ao vivo da tela
+     * nativa (dataSetID 042, DetalhesConferenciaCRUDListener, nota 57500).
+     * ItemNota.QTDCONFERIDA NUNCA é preenchido pelo Sankhya pra esse fluxo
+     * (fica 0 sempre) — é este dataset que carrega o valor certo. É aqui
+     * também que mora o evento "conferencia.lista.produtos.divergentes",
+     * mas usar o QTDCONF por linha é equivalente e não depende de parsear
+     * clientEvents.
+     */
+    private suspend fun buscarQtdConferidaPorProduto(tenantSlug: String, nuconf: Int): Map<Int, BigDecimal> {
+        val resp = SankhyaSpClient.chamarRaw(
+            tenantSlug,
+            "DatasetSP.loadRecords",
+            "mge",
+            buildJsonObject {
+                put("dataSetID", "042")
+                put("entityName", "DetalhesConferencia")
+                put("standAlone", false)
+                putJsonArray("fields") { FIELDS_DETALHE_CONF.forEach { add(it) } }
+                put("tryJoinedFields", true)
+                put("parallelLoader", true)
+                put("crudListener", "br.com.sankhya.modelcore.crudlisteners.DetalhesConferenciaCRUDListener")
+                putJsonObject("criteria") {
+                    put("expression", "(this.NUCONF = ? )")
+                    putJsonArray("parameters") {
+                        addJsonObject { put("type", "N"); put("value", nuconf.toString()) }
+                    }
+                }
+                put("ignoreListenerMethods", "")
+                put("useDefaultRowsLimit", true)
+            },
+        )
+        val rows = (resp["result"] as? JsonArray) ?: return emptyMap()
+        return rows.mapNotNull { row ->
+            val arr = row as? JsonArray ?: return@mapNotNull null
+            val valores = FIELDS_DETALHE_CONF.mapIndexed { i, campo ->
+                campo to (arr.getOrNull(i) as? JsonPrimitive)?.contentOrNull
+            }.toMap()
+            val codprod = valores["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
+            val qtdConf = valores["QTDCONF"].parseBigDecimalBr() ?: BigDecimal.ZERO
+            codprod to qtdConf
+        }.toMap()
+    }
+
+    private suspend fun buscarItens(tenantSlug: String, tenantId: UUID, nunota: Long, nuconf: Int?): List<ItemParaSalvar> {
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,
             LoadRecordsRequest(
@@ -806,18 +858,22 @@ object SeparacaoService {
                 orderByExpression = "SEQUENCIA ASC",
             ),
         )
+        val qtdConferidaPorProduto = nuconf?.let {
+            runCatching { buscarQtdConferidaPorProduto(tenantSlug, it) }.getOrDefault(emptyMap())
+        } ?: emptyMap()
+
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
-            // Critério real de "precisa conferência", capturado ao vivo da tela
-            // nativa (ItensPedidoConferenciaCrudListener, nota 57500): PENDENTE
-            // sozinho não filtra quase nada numa nota de venda — o que decide é
-            // (QTDNEG - QTDENTREGUE - QTDCONFERIDA) > 0. Item já resolvido
-            // (liberado/conferido/negado-mas-já-recontado) some sozinho por essa
-            // conta, sem precisar de tratamento nosso em cima.
+            // Critério real de "precisa reconferência", capturado ao vivo da
+            // tela nativa (nota 57500): compara QTDNEG (ItemNota) com QTDCONF
+            // (DetalhesConferencia, NUCONF atual) — ItemNota.QTDCONFERIDA fica
+            // sempre 0, não serve pra nada aqui. Item com QTDCONF == QTDNEG já
+            // bateu 100% (sem divergência ou já resolvido); só quem ainda tem
+            // saldo (QTDNEG > QTDCONF) precisa aparecer.
             .filter { r ->
                 val qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO
-                val qtdEntregue = r["QTDENTREGUE"].parseBigDecimalBr() ?: BigDecimal.ZERO
-                val qtdConferida = r["QTDCONFERIDA"].parseBigDecimalBr() ?: BigDecimal.ZERO
-                qtdNeg.subtract(qtdEntregue).subtract(qtdConferida) > BigDecimal.ZERO
+                val codprod = r["CODPROD"]?.toIntOrNull()
+                val qtdConf = codprod?.let { qtdConferidaPorProduto[it] } ?: BigDecimal.ZERO
+                qtdNeg > qtdConf
             }
             .filter { it["Produto.EXCLUIRCONF"]?.trim()?.uppercase() != "S" }
 
