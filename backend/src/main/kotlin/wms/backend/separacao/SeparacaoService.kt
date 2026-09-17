@@ -290,6 +290,28 @@ object SeparacaoService {
                     SeparacaoRepository.semearEtapas(tenantId, sessaoId, itensComPeso.map { it.tipoSeparacao }.toSet())
                 }
                 SeparacaoRepository.marcarPronta(tenantId, sessaoId, fingerprint, buscarCodigoBarraPor, qtdAmaior, obterQtdBalanca, produtosForaPed, conferenciaSegmentada, fatAoConcluir, exibirProd, exibirQtd, exibirProdConf, exibirQtdConf, exibirImgProd, formacaoVolumes)
+
+                // Auto-conferência silenciosa de item já LIBERADO numa rodada de
+                // corte anterior (ver LiberacaoCorteService.liberarOuNegar):
+                // confirmado ao vivo (nota 57500) que o item liberado volta pra
+                // recontagem pedindo a mesma quantidade original (QTDNEG), não a
+                // já aceita — o Sankhya não reduz isso sozinho. Sem isto, o
+                // operador teria que rebipar algo que já foi aceito na liberação.
+                // Usa a quantidade guardada no momento da decisão (V38); pula
+                // item que não está mais nesta sessão (troca de código/produto).
+                val codprodsDaSessao = itensComPeso.map { it.codprod }.toSet()
+                SeparacaoRepository.buscarDecisoesLiberadasComQtd(tenantId, nunota)
+                    .filter { it.codprod in codprodsDaSessao }
+                    .forEach { decisao ->
+                        runCatching {
+                            SeparacaoRepository.conferirItem(
+                                tenantId, sessaoId, decisao.codprod, decisao.controle, decisao.qtdLiberada,
+                                permitirQtdMaior = true,
+                            )
+                        }.onFailure {
+                            println("AVISO: falha ao auto-conferir item liberado (nunota $nunota, codprod ${decisao.codprod}): ${it.message}")
+                        }
+                    }
             }
 
             // Resync imediato (não espera o próximo ciclo do worker pool) —

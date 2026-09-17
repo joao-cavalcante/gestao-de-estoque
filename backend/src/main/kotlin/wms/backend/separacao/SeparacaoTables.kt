@@ -164,6 +164,14 @@ object SeparacaoCorteLiberacoesTable : Table("app.separacao_corte_liberacoes") {
     val liberado = bool("liberado")
     val nuconf = integer("nuconf")
     val decididoEm = timestamp("decidido_em")
+    // V38 — controle do item liberado (pra achar a linha certa na recontagem,
+    // produto com controle de lote pode ter mais de uma) e a quantidade que
+    // foi de fato aceita (a que apareceu como "Qtd. total conf." na
+    // liberação) — usados pra auto-conferir esse item em silêncio quando ele
+    // reaparece na recontagem, sem o operador precisar bipar de novo o que
+    // já foi aceito.
+    val controle = text("controle").nullable()
+    val qtdLiberada = decimal("qtd_liberada", 15, 5).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

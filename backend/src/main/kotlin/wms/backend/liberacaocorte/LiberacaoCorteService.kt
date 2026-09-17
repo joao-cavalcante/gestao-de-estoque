@@ -213,9 +213,13 @@ object LiberacaoCorteService {
             if (nunota != null) {
                 withContext(Dispatchers.IO) {
                     liberaveis.forEach { linha ->
-                        val prod = parseObservacaoLiberacao(linha["OBSERVACAO"]).produto?.trim()?.uppercase() ?: return@forEach
-                        val codprod = pesaveisPorDescricao[prod]?.codprod ?: return@forEach
-                        wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(tenantId, nunota, codprod, liberado = true, nuconf = nuconf)
+                        val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
+                        val prod = obs.produto?.trim()?.uppercase() ?: return@forEach
+                        val item = pesaveisPorDescricao[prod] ?: return@forEach
+                        wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(
+                            tenantId, nunota, item.codprod, liberado = true, nuconf = nuconf,
+                            controle = item.controle, qtdLiberada = obs.qtdConferida?.toBigDecimal(),
+                        )
                     }
                 }
             }
@@ -391,13 +395,18 @@ object LiberacaoCorteService {
             withContext(Dispatchers.IO) {
                 val itensPorDescricao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota)
                     ?.let { sessao -> wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id)) }
-                    ?.mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item.codprod } }
+                    ?.mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
                     ?.toMap()
                     ?: emptyMap()
                 selecionados.forEach { linha ->
-                    val prod = parseObservacaoLiberacao(linha["OBSERVACAO"]).produto?.trim()?.uppercase() ?: return@forEach
-                    val codprod = itensPorDescricao[prod] ?: return@forEach
-                    wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(tenantId, nunota, codprod, liberado = liberarNorm == "S", nuconf = nuconf)
+                    val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
+                    val prod = obs.produto?.trim()?.uppercase() ?: return@forEach
+                    val item = itensPorDescricao[prod] ?: return@forEach
+                    wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(
+                        tenantId, nunota, item.codprod, liberado = liberarNorm == "S", nuconf = nuconf,
+                        controle = item.controle,
+                        qtdLiberada = if (liberarNorm == "S") obs.qtdConferida?.toBigDecimal() else null,
+                    )
                 }
             }
         }

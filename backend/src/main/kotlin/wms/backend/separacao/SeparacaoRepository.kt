@@ -1114,7 +1114,15 @@ object SeparacaoRepository {
      * então sem persistir aqui não tem como saber depois, ao montar uma nova
      * sessão de recontagem, que um item já foi resolvido.
      */
-    fun registrarDecisaoLiberacao(tenantId: UUID, nunota: Long, codprod: Int, liberado: Boolean, nuconf: Int): Unit = TenantTx.run(tenantId) {
+    fun registrarDecisaoLiberacao(
+        tenantId: UUID,
+        nunota: Long,
+        codprod: Int,
+        liberado: Boolean,
+        nuconf: Int,
+        controle: String? = null,
+        qtdLiberada: BigDecimal? = null,
+    ): Unit = TenantTx.run(tenantId) {
         SeparacaoCorteLiberacoesTable.upsert(SeparacaoCorteLiberacoesTable.tenantId, SeparacaoCorteLiberacoesTable.nunota, SeparacaoCorteLiberacoesTable.codprod) {
             it[id] = UUID.randomUUID()
             it[SeparacaoCorteLiberacoesTable.tenantId] = tenantId
@@ -1122,21 +1130,36 @@ object SeparacaoRepository {
             it[SeparacaoCorteLiberacoesTable.codprod] = codprod
             it[SeparacaoCorteLiberacoesTable.liberado] = liberado
             it[SeparacaoCorteLiberacoesTable.nuconf] = nuconf
+            it[SeparacaoCorteLiberacoesTable.controle] = controle
+            it[SeparacaoCorteLiberacoesTable.qtdLiberada] = qtdLiberada
             it[decididoEm] = Instant.now()
         }
         Unit
     }
 
-    /** CODPRODs já liberados (aceitos, não precisam voltar pra conferência/recontagem) pra esta nota. */
-    fun buscarCodprodsLiberados(tenantId: UUID, nunota: Long): Set<Int> = TenantTx.run(tenantId) {
+    data class DecisaoLiberadaDto(val codprod: Int, val controle: String, val qtdLiberada: BigDecimal)
+
+    /**
+     * Itens liberados (aceitos) com a quantidade que foi de fato aceita —
+     * usado pra auto-conferir esse item em silêncio quando ele reaparece na
+     * recontagem (ver SeparacaoService.carregarEmBackground), sem o operador
+     * precisar bipar de novo o que já foi aceito na liberação de corte.
+     */
+    fun buscarDecisoesLiberadasComQtd(tenantId: UUID, nunota: Long): List<DecisaoLiberadaDto> = TenantTx.run(tenantId) {
         SeparacaoCorteLiberacoesTable.selectAll()
             .where {
                 (SeparacaoCorteLiberacoesTable.tenantId eq tenantId) and
                     (SeparacaoCorteLiberacoesTable.nunota eq nunota.toInt()) and
-                    (SeparacaoCorteLiberacoesTable.liberado eq true)
+                    (SeparacaoCorteLiberacoesTable.liberado eq true) and
+                    (SeparacaoCorteLiberacoesTable.qtdLiberada.isNotNull())
             }
-            .map { it[SeparacaoCorteLiberacoesTable.codprod] }
-            .toSet()
+            .map {
+                DecisaoLiberadaDto(
+                    codprod = it[SeparacaoCorteLiberacoesTable.codprod],
+                    controle = it[SeparacaoCorteLiberacoesTable.controle]?.takeIf { c -> c.isNotBlank() } ?: " ",
+                    qtdLiberada = it[SeparacaoCorteLiberacoesTable.qtdLiberada]!!,
+                )
+            }
     }
 
     /**
