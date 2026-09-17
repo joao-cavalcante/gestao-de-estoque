@@ -70,7 +70,7 @@
         @if (erroAcao()) { <div class="lc-erro">{{ erroAcao() }}</div> }
         @if (selecionadas().size > 0 && !podeNegar) {
           <div class="lc-hint lc-hint--aviso">
-            "Negar" só fica disponível quando a seleção cobre <strong>todos</strong> os itens ainda pendentes — libere primeiro os que você não vai negar (o Sankhya trava novas liberações assim que um item é negado).
+            A opção "Negar" é habilitada somente quando <strong>todos</strong> os itens pendentes estão selecionados. Libere primeiro os itens que devem ser aceitos — após uma negativa, o Sankhya não permite novas liberações nesta conferência.
           </div>
         }
       </div>
@@ -81,7 +81,7 @@
           type="button"
           class="lc-btn lc-btn--danger"
           [disabled]="processando() || !podeNegar"
-          [title]="!podeNegar && selecionadas().size > 0 ? 'Libere os demais itens pendentes antes de negar' : ''"
+          [title]="!podeNegar && selecionadas().size > 0 ? 'Disponível somente após liberar todos os demais itens pendentes' : ''"
           (click)="liberarOuNegar('N')"
         >
           Negar

@@ -226,17 +226,27 @@ object LiberacaoCorteService {
                 return false
             }
 
-            // Nada mais pendente → finaliza a conferência aqui mesmo.
-            runCatching {
-                SankhyaSpClient.chamarRaw(
-                    tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
-                    buildJsonObject {
-                        putJsonObject("params") { put("nuConf", nuconf.toString()); put("peso", 0); put("qtdVol", 0) }
-                        CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
-                    },
-                )
-            }.onFailure {
-                println("AVISO: auto-liberação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+            // Nada mais pendente → AOLIBERAR='M' já marca a recontagem sozinho
+            // (mesmo raciocínio de liberarOuNegar, ver comentário lá) — só 'R'
+            // precisa da finalização explícita daqui.
+            val aoLiberar = withContext(Dispatchers.IO) {
+                val nunotaAtual = wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf)
+                val nucco = nunotaAtual?.let { wms.backend.tarefas.TarefasRepository.buscarNuccoLocal(tenantId, it) }
+                nucco?.let { wms.backend.configconferencia.ConfigConferenciaRepository.buscarPorNucco(tenantId, it) }
+                    ?.campos?.get("AOLIBERAR")?.trim()?.uppercase()
+            }
+            if (aoLiberar != "M") {
+                runCatching {
+                    SankhyaSpClient.chamarRaw(
+                        tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
+                        buildJsonObject {
+                            putJsonObject("params") { put("nuConf", nuconf.toString()); put("peso", 0); put("qtdVol", 0) }
+                            CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                        },
+                    )
+                }.onFailure {
+                    println("AVISO: auto-liberação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+                }
             }
             true
         } catch (e: Exception) {
@@ -352,7 +362,7 @@ object LiberacaoCorteService {
         // UI, isto cobre chamada direta à API.
         if (liberarNorm == "N" && selecionados.size < pendentes.size) {
             throw LiberacaoCorteException(
-                "Libere os demais itens pendentes antes de negar — o Sankhya não permite liberar mais nada depois que um item é negado.",
+                "Selecione e libere todos os itens pendentes antes de negar algum deles. Após uma negativa, o Sankhya não aceita novas liberações nesta conferência.",
             )
         }
 
@@ -393,30 +403,45 @@ object LiberacaoCorteService {
         }
 
         // Verifica se sobrou algo pendente INDEPENDENTE da ação ter sido liberar
-        // ou negar — negar o ÚLTIMO item pendente também precisa fechar o corte
-        // (é o que de fato manda o Sankhya aplicar o corte e, pelo AOLIBERAR=M,
-        // reabrir a nota pra recontagem dos itens negados). Bug real encontrado
-        // aqui: antes só verificava quando liberarNorm=="S" — negar o último
-        // item nunca finalizava a conferência, e o corte silencioso de outro
-        // item (já decidido antes) nunca era aplicado na nota de verdade.
+        // ou negar — negar o ÚLTIMO item pendente também precisa "fechar" o
+        // corte (senão o corte de um item já decidido antes, ex. o silencioso,
+        // nunca é aplicado na nota de verdade).
         val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(selecionados)
         if (restantes.isEmpty()) {
-            runCatching {
-                SankhyaSpClient.chamarRaw(
-                    tenantSlug,
-                    "ConferenciaSP.finalizarConferencia",
-                    "mgecom",
-                    buildJsonObject {
-                        putJsonObject("params") {
-                            put("nuConf", nuconf.toString())
-                            put("peso", 0)
-                            put("qtdVol", 0)
-                        }
-                        CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
-                    },
-                )
-            }.onFailure {
-                println("AVISO: liberação/negação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+            // AOLIBERAR decide COMO fechar — e aqui mora um bug real que a gente
+            // tinha (confirmado ao vivo, notas 57251 e 57500, NUCCO com
+            // AOLIBERAR='M'): a documentação oficial diz que só 'R' (Reprocessar
+            // conferência) descreve uma finalização explícita; 'M' (Marcar para
+            // recontagem) diz que "o sistema marcará a conferência para uma
+            // recontagem" SOZINHO, sem mencionar finalização nenhuma — o próprio
+            // LiberacaoLimitesSP.liberarNegarLimites já faz essa marcação. Chamar
+            // ConferenciaSP.finalizarConferencia de qualquer jeito ATROPELAVA essa
+            // marcação e forçava a conferência a fechar como "Finalizado
+            // Divergente" em vez de abrir a recontagem do item negado.
+            val aoLiberar = withContext(Dispatchers.IO) {
+                val nucco = nunota?.let { wms.backend.tarefas.TarefasRepository.buscarNuccoLocal(tenantId, it) }
+                nucco?.let { wms.backend.configconferencia.ConfigConferenciaRepository.buscarPorNucco(tenantId, it) }
+                    ?.campos?.get("AOLIBERAR")?.trim()?.uppercase()
+            }
+
+            if (aoLiberar != "M") {
+                runCatching {
+                    SankhyaSpClient.chamarRaw(
+                        tenantSlug,
+                        "ConferenciaSP.finalizarConferencia",
+                        "mgecom",
+                        buildJsonObject {
+                            putJsonObject("params") {
+                                put("nuConf", nuconf.toString())
+                                put("peso", 0)
+                                put("qtdVol", 0)
+                            }
+                            CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                        },
+                    )
+                }.onFailure {
+                    println("AVISO: liberação/negação de corte OK mas ConferenciaSP.finalizarConferencia falhou (nuconf $nuconf): ${it.message}")
+                }
             }
 
             // Corte 100% decidido + conferência fechada no Sankhya → fecha a

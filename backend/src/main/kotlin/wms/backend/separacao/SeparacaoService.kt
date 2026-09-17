@@ -393,14 +393,24 @@ object SeparacaoService {
         // a nota tenha outras divergências (item normal, ou pesável fora dos 5%) —
         // essas seguem pra liberação manual. Só zera `aguardandoCorte` se, depois
         // disso, não sobrou nada pendente e a conferência foi finalizada.
+        var resolvidoViaAutoLiberacao = false
         if (aguardandoCorte) {
             val liberouTudo = runCatching {
                 LiberacaoCorteService.autoLiberarPesoDentroTolerancia(tenantSlug, tenantId, nuconf, sessaoId)
             }.getOrDefault(false)
-            if (liberouTudo) aguardandoCorte = false
+            if (liberouTudo) {
+                aguardandoCorte = false
+                resolvidoViaAutoLiberacao = true
+            }
         }
 
-        if (!aguardandoCorte) {
+        // autoLiberarPesoDentroTolerancia já decide sozinha se chama
+        // ConferenciaSP.finalizarConferencia (depende de AOLIBERAR — 'M' marca
+        // recontagem sozinho, não deve ser finalizado; ver comentário lá).
+        // Chamar de novo aqui atropelaria essa decisão — bug real confirmado
+        // (notas 57251/57500): conferência fechava "Finalizado Divergente" em
+        // vez de abrir a recontagem do item negado.
+        if (!aguardandoCorte && !resolvidoViaAutoLiberacao) {
             try {
                 SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.finalizarConferencia", mapOf("nuConf" to JsonPrimitive(nuconf)))
             } catch (e: Exception) {
