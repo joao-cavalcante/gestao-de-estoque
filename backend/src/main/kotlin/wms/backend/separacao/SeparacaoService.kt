@@ -367,19 +367,14 @@ object SeparacaoService {
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
         }
 
-        // Paridade com a ordem NATIVA do Sankhya (confirmada com payloads reais
-        // do usuário, nota 57500): lá o botão "Finalizar Conferência" é chamado
-        // ANTES de "Cortar itens divergentes" — essa primeira tentativa é quem
-        // detecta a divergência e deixa a conferência pronta pra ser cortada.
-        // A gente pulava direto pro `cortar`; sem essa chamada antes, algum
-        // estado interno do Sankhya podia ficar diferente do fluxo nativo. Não
-        // é fatal: com pendência de divergência ela deve retornar erro/no-op
-        // mesmo, o `cortar` logo depois é quem efetivamente resolve.
-        try {
-            SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.finalizarConferencia", mapOf("nuConf" to JsonPrimitive(nuconf)))
-        } catch (e: Exception) {
-            // Esperado quando há divergência pendente — o cortar() abaixo é quem resolve de fato.
-        }
+        // REVERTIDO (nota 57500, 2º teste): chamar ConferenciaSP.finalizarConferencia
+        // ANTES do cortar() — pra imitar a ordem nativa — na prática fechou a
+        // conferência de vez (TGFCON2.STATUS='F'/'D', some da fila) em vez de
+        // reabrir pra recontagem depois do liberar+negar, revertendo o ganho do
+        // fix anterior (que dependia de NÃO reforçar finalizarConferencia fora
+        // de hora). A ordem nativa dos payloads não é segura de replicar 1:1
+        // aqui porque o nosso fluxo já é estruturalmente diferente (dispara
+        // corte e liberação em momentos separados, não na mesma sessão de UI).
 
         // Volumes (modo simplificado): total CONSOLIDADO (soma das etapas na
         // conferência segmentada, ou o contador da sessão) vai junto no `cortar`,
