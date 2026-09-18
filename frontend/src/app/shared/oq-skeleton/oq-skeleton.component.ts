@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 
-export type OqSkeletonVariant = 'line' | 'admin-row' | 'task-card' | 'detail-block' | 'table-row';
+export type OqSkeletonVariant = 'line' | 'admin-row' | 'task-card' | 'detail-block' | 'table-row' | 'item-row';
 
 /**
  * Skeleton de carregamento — reaproveita a classe global `.oq-skeleton`

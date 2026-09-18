@@ -22,7 +22,7 @@ import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Tarefa } from './tarefa
 export class FilaTarefasComponent implements OnInit, OnDestroy {
   private readonly conferenciasService = inject(ConferenciasService);
   private readonly router = inject(Router);
-  private readonly syncTick = inject(SyncTickService);
+  readonly syncTick = inject(SyncTickService);
   private readonly authService = inject(AuthService);
   private syncSub?: Subscription;
 

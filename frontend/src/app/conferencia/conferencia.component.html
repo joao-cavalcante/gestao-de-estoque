@@ -157,6 +157,18 @@
         }
       </div>
     }
+
+    @if (finalizando()) {
+      <div class="oq-cf-page__body-overlay" aria-busy="true">
+        <span class="oq-cf-page__body-overlay-status">
+          <oq-spinner [size]="12" />
+          Enviando pro Sankhya…
+        </span>
+        <ul class="oq-cf-page__body-overlay-lista">
+          <oq-skeleton variant="item-row" [count]="6" />
+        </ul>
+      </div>
+    }
   </main>
 
   <oq-conferencia-footer

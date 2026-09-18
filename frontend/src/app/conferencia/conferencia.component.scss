@@ -9,6 +9,7 @@
 }
 
 .oq-cf-page__body {
+  position: relative;
   display: grid;
   /* 2 colunas lado a lado em telas largas; abaixo de 900px comprimir mais
      não ajuda (lista de pendentes/conferidos fica ilegível) — empilha em
@@ -35,6 +36,46 @@
 .oq-cf-page__body--uma-coluna {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
+}
+
+/* Overlay durante finalizar/concluir etapa — cobre os painéis com o
+   skeleton, deixando claro que a tela está processando (não travada),
+   enquanto a chamada ao Sankhya (corte/financeiro) está em voo. */
+.oq-cf-page__body-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--oq-bg-page);
+}
+
+.oq-cf-page__body-overlay-status {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 0 2px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-cf-page__body-overlay-lista {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
 }
 
 /* Conferência por etapa (V29) — faixa indicando qual etapa está sendo conferida. */

@@ -24,6 +24,7 @@ import { Tarefa, rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
 import { AuthService } from '../auth/auth.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { SomFeedbackService } from '../shared/som-feedback.service';
 
 /**
@@ -130,6 +131,7 @@ function mapearItem(item: ItemSeparacao): ConferenciaItem {
     OqIconComponent,
     OqLiberacaoCorteModalComponent,
     OqSpinnerComponent,
+    OqSkeletonComponent,
     FormsModule,
   ],
   templateUrl: './conferencia.component.html',

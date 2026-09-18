@@ -35,6 +35,18 @@
       </tr>
     }
   }
+  @case ('item-row') {
+    @for (i of items; track i) {
+      <li class="oq-skel-item-row">
+        <span class="oq-skeleton oq-skel-item-row__seq"></span>
+        <div class="oq-skel-item-row__dados">
+          <span class="oq-skeleton oq-skel-item-row__desc"></span>
+          <span class="oq-skeleton oq-skel-item-row__sub"></span>
+        </div>
+        <span class="oq-skeleton oq-skel-item-row__qtd"></span>
+      </li>
+    }
+  }
   @case ('detail-block') {
     @for (i of items; track i) {
       <div class="oq-skel-detail">
