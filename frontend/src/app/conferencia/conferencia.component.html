@@ -244,9 +244,23 @@
           </span>
         </div>
         <div class="oq-modal__footer">
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="onCancelarDivergencia()">Cancelar</button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="onConfirmarDivergente()">Cortar</button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="onConfirmarDivergente()">Finalizar divergente</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onCancelarDivergencia()">Cancelar</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente()">
+            @if (finalizando()) {
+              <oq-spinner [size]="12" />
+              Enviando…
+            } @else {
+              Cortar
+            }
+          </button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente()">
+            @if (finalizando()) {
+              <oq-spinner [size]="12" />
+              Enviando…
+            } @else {
+              Finalizar divergente
+            }
+          </button>
         </div>
       </div>
     </div>

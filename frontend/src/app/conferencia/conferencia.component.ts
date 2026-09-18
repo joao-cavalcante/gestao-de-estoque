@@ -801,9 +801,13 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.executarFinalizacao();
   }
 
-  /** "Cortar" e "Finalizar divergente" chamam a mesma ação — quem decide o ajuste é a CCO do Sankhya (PROCEDCORTE/GERARPEDCOMPL), não o botão escolhido aqui. */
+  /**
+   * "Cortar" e "Finalizar divergente" chamam a mesma ação — quem decide o ajuste é a CCO do Sankhya
+   * (PROCEDCORTE/GERARPEDCOMPL), não o botão escolhido aqui. Modal fica aberto (com spinner nos botões,
+   * ver finalizando()) até a chamada terminar — fechar na hora do clique deixava o "enviando pro Sankhya"
+   * visível só no rodapé, fora do que o usuário estava olhando.
+   */
   onConfirmarDivergente(): void {
-    this.mostrarModalDivergencia.set(false);
     if (this.modoEtapa()) {
       this.concluirEtapaAgora(true);
       return;
@@ -828,6 +832,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         next: (res: ConcluirEtapaResultado) => {
           this.concluindoEtapa = false;
           this.finalizando.set(false);
+          this.mostrarModalDivergencia.set(false);
           if (res.conferenciaFinalizada) {
             this.aposFinalizacao({ ok: true, aguardandoCorte: res.aguardandoCorte, nuconf: res.nuconf });
           } else {
@@ -841,12 +846,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
             this.mostrarModalDivergencia.set(true);
             return;
           }
+          this.mostrarModalDivergencia.set(false);
           this.erro.set(err?.error?.erro ?? 'Falha ao concluir a etapa.');
         },
       });
   }
 
   onCancelarDivergencia(): void {
+    if (this.finalizando()) return;
     this.mostrarModalDivergencia.set(false);
   }
 
@@ -856,10 +863,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
       next: (res) => {
         this.finalizando.set(false);
+        this.mostrarModalDivergencia.set(false);
         this.aposFinalizacao(res);
       },
       error: (err) => {
         this.finalizando.set(false);
+        this.mostrarModalDivergencia.set(false);
         this.erro.set(err?.error?.erro ?? 'Falha ao finalizar a conferência.');
       },
     });
