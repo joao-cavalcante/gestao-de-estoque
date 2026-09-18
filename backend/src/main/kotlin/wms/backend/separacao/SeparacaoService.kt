@@ -159,7 +159,8 @@ object SeparacaoService {
             // pra checar o cache local em lote, então não dá mais pra rodar em
             // paralelo com buscarItens como antes. NUCCO é leitura local, roda
             // no meio sem bloquear nada.
-            val itensBrutos = buscarItens(tenantSlug, tenantId, nunota, nuconf)
+            val codprodsNegados = withContext(Dispatchers.IO) { SeparacaoRepository.buscarCodprodsNegados(tenantId, nunota) }
+            val itensBrutos = buscarItens(tenantSlug, tenantId, nunota, nuconf, codprodsNegados)
 
             // Item já LIBERADO numa rodada de corte anterior: o Sankhya devolve
             // ele na recontagem com o QTDNEG original (15), não com o que foi
@@ -1000,7 +1001,13 @@ object SeparacaoService {
         }.toMap()
     }
 
-    private suspend fun buscarItens(tenantSlug: String, tenantId: UUID, nunota: Long, nuconf: Int?): List<ItemParaSalvar> {
+    private suspend fun buscarItens(
+        tenantSlug: String,
+        tenantId: UUID,
+        nunota: Long,
+        nuconf: Int?,
+        codprodsNegados: Set<Pair<Int, String>> = emptySet(),
+    ): List<ItemParaSalvar> {
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,
             LoadRecordsRequest(
@@ -1023,9 +1030,17 @@ object SeparacaoService {
             // sempre 0, não serve pra nada aqui. Item com QTDCONF == QTDNEG já
             // bateu 100% (sem divergência ou já resolvido); só quem ainda tem
             // saldo (QTDNEG > QTDCONF) precisa aparecer.
+            //
+            // EXCEÇÃO: item NEGADO (codprodsNegados) sempre reaparece, mesmo
+            // que QTDCONF >= QTDNEG no NUCONF novo — bug real confirmado (nota
+            // 57501, codprod 94): negar é uma decisão explícita do operador
+            // que exige nova ação; não pode sumir sozinho só porque o Sankhya
+            // já espelhou um QTDCONF que parece "resolvido" pro novo ciclo.
             .filter { r ->
-                val qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO
                 val codprod = r["CODPROD"]?.toIntOrNull()
+                val controle = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " "
+                if (codprod != null && (codprod to controle) in codprodsNegados) return@filter true
+                val qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO
                 val qtdConf = codprod?.let { qtdConferidaPorProduto[it] } ?: BigDecimal.ZERO
                 qtdNeg > qtdConf
             }

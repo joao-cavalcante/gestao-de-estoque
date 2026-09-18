@@ -1160,6 +1160,31 @@ object SeparacaoRepository {
     }
 
     /**
+     * (codprod, controle) dos itens NEGADOS na última rodada de liberação de
+     * corte — usado pra forçar esses itens a reaparecerem na recontagem (ver
+     * SeparacaoService.buscarItens), mesmo quando o DetalhesConferencia do
+     * NUCONF novo já mostra QTDCONF >= QTDNEG pra eles (bug real confirmado,
+     * nota 57501: item negado — codprod 94 — sumia da recontagem porque o
+     * filtro "já bateu 100%" via QTDCONF/QTDNEG não sabe distinguir "já
+     * resolvido de verdade" de "negado, mas o Sankhya já espelhou um QTDCONF
+     * que parece resolvido"). Negado é sempre uma decisão que exige ação do
+     * operador — nunca deveria sumir sozinho.
+     */
+    fun buscarCodprodsNegados(tenantId: UUID, nunota: Long): Set<Pair<Int, String>> = TenantTx.run(tenantId) {
+        SeparacaoCorteLiberacoesTable.selectAll()
+            .where {
+                (SeparacaoCorteLiberacoesTable.tenantId eq tenantId) and
+                    (SeparacaoCorteLiberacoesTable.nunota eq nunota.toInt()) and
+                    (SeparacaoCorteLiberacoesTable.liberado eq false)
+            }
+            .map {
+                it[SeparacaoCorteLiberacoesTable.codprod] to
+                    (it[SeparacaoCorteLiberacoesTable.controle]?.takeIf { c -> c.isNotBlank() } ?: " ")
+            }
+            .toSet()
+    }
+
+    /**
      * true = já existe pelo menos uma sessão CONCLUIDA anterior pra esta nota —
      * ou seja, a sessão sendo aberta agora é uma RECONTAGEM (nota reaberta
      * depois de negar corte), não a primeira conferência. Usado pra decidir o
