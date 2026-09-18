@@ -1369,11 +1369,24 @@ object SeparacaoRepository {
         // real só é detectável quando o sync JÁ viu um NUCONFATUAL não-nulo
         // diferente do da sessão (ver TarefasRepository.kt, que inclusive
         // zera nuconfAtual da tarefa no ciclo em que detecta a exclusão).
+        //
+        // MESMA corrida, variante não-null: RECONTAGEM (item negado ou
+        // reaberta manualmente no Sankhya pra teste) pode trocar de NUCONF —
+        // a tarefa local ainda aponta pro NUCONF ANTIGO até o sync rodar de
+        // novo, enquanto esta sessão já capturou o NUCONF NOVO segundos
+        // depois de salvarCabecalhoConferencia. Sem essa checagem de frescor,
+        // toda recontagem que trocasse de NUCONF invalidava na hora com
+        // "cancelada/excluída", mesmo tendo acabado de abrir com sucesso no
+        // Sankhya (bug real relatado ao vivo). Só confia na divergência
+        // quando o sync JÁ rodou de novo DEPOIS desta sessão ter sido criada
+        // — aí sim teve chance de ver o NUCONF novo e discordar de propósito.
         val sessaoNuconf = sessao[SeparacaoSessoesTable.nuconf]
         val tarefaNuconf = tarefa?.get(TarefasTable.nuconfAtual)
+        val syncRodouDepoisDaSessao = tarefa != null &&
+            tarefa[TarefasTable.sankhyaAtualizadoEm] > sessao[SeparacaoSessoesTable.criadoEm]
         val motivoInvalidacao = when {
             tarefa == null -> "Tarefa não encontrada mais na fila local — provável exclusão da conferência no Sankhya"
-            sessaoNuconf != null && tarefaNuconf != null && tarefaNuconf != sessaoNuconf ->
+            sessaoNuconf != null && tarefaNuconf != null && tarefaNuconf != sessaoNuconf && syncRodouDepoisDaSessao ->
                 "Conferência cancelada/excluída no Sankhya (detectado pelo sync)"
             else -> null
         }
