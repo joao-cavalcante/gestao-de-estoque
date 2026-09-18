@@ -617,6 +617,45 @@ body {
   color: var(--oq-critical-foreground);
 }
 
+.oq-modal-tabela-divergencia {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: block;
+
+  thead,
+  tbody {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  th {
+    color: var(--oq-text-secondary);
+    font-weight: 600;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--oq-border);
+  }
+
+  td {
+    color: var(--oq-text-primary);
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--oq-border);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  th:first-child,
+  td:first-child {
+    width: 46%;
+  }
+}
+
 /* Teste de comunicação (balança) */
 .oq-test-status {
   display: flex;

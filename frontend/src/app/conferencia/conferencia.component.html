@@ -162,7 +162,7 @@
       <div class="oq-cf-page__body-overlay" aria-busy="true">
         <span class="oq-cf-page__body-overlay-status">
           <oq-spinner [size]="12" />
-          Enviando pro Sankhya…
+          Enviando para o Sankhya…
         </span>
         <ul class="oq-cf-page__body-overlay-lista">
           <oq-skeleton variant="item-row" [count]="6" />
@@ -234,6 +234,36 @@
     </div>
   }
 
+  @if (mostrarModalAvisoEtapa()) {
+    <div class="oq-modal-backdrop" (click)="onCancelarAvisoEtapa()">
+      <div class="oq-modal oq-modal--delete" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Divergência nesta etapa</span>
+          <button type="button" class="oq-modal__fechar" (click)="onCancelarAvisoEtapa()">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body">
+          <oq-icon name="circle-alert" [size]="36" class="oq-modal-warn-icon" />
+          <span class="oq-form-hint">
+            Há itens divergentes nesta etapa, mas ainda faltam outras etapas de conferência — a nota só é enviada ao Sankhya na última. Deseja continuar para as próximas etapas mesmo assim?
+          </span>
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onCancelarAvisoEtapa()">Revisar itens</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onContinuarAvisoEtapa()">
+            @if (finalizando()) {
+              <oq-spinner [size]="12" />
+              Enviando…
+            } @else {
+              Continuar
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
   @if (mostrarModalDivergencia()) {
     <div class="oq-modal-backdrop" (click)="onCancelarDivergencia()">
       <div class="oq-modal oq-modal--delete" (click)="$event.stopPropagation()">
@@ -247,17 +277,38 @@
           <oq-icon name="circle-alert" [size]="36" class="oq-modal-warn-icon" />
           <span class="oq-form-hint">
             @if (pendingCount() > 0 && divergenceCount() > 0) {
-              Há itens com quantidade a menor e a maior do que a negociada. O Sankhya vai aplicar o ajuste configurado (corte, pedido complementar ou nota de devolução, conforme a configuração de conferência).
+              Há itens com quantidade a menor e a maior do que a negociada.
             } @else if (pendingCount() > 0) {
-              Há itens com quantidade menor do que a negociada. O Sankhya vai ajustar conforme a configuração de conferência ao finalizar.
+              Há itens com quantidade menor do que a negociada.
             } @else {
-              Há itens com quantidade maior do que a negociada. O Sankhya vai ajustar conforme a configuração de conferência ao finalizar.
+              Há itens com quantidade maior do que a negociada.
             }
+            "Cortar" libera explicitamente a divergência destes itens. "Finalizar divergente" mantém a divergência — o Sankhya aplica o ajuste da configuração de conferência.
           </span>
+          <table class="oq-modal-tabela-divergencia">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Pedido</th>
+                <th>Conferido</th>
+                <th>Diverg.</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of itensDivergentes(); track item.code + item.control) {
+                <tr>
+                  <td>{{ item.name }}</td>
+                  <td>{{ item.expected }}</td>
+                  <td>{{ item.scanned }}</td>
+                  <td>{{ item.divergenceReason ?? (item.scanned < item.expected ? 'A MENOR' : 'A MAIOR') }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
         <div class="oq-modal__footer">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onCancelarDivergencia()">Cancelar</button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente()">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente(true)">
             @if (finalizando()) {
               <oq-spinner [size]="12" />
               Enviando…
@@ -265,7 +316,7 @@
               Cortar
             }
           </button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente()">
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente(false)">
             @if (finalizando()) {
               <oq-spinner [size]="12" />
               Enviando…

@@ -87,7 +87,7 @@ export class SeparacaoService {
   concluirEtapa(
     tenant: string,
     sessaoId: string,
-    body: { tipoSeparacao: number; manterPendente: boolean },
+    body: { tipoSeparacao: number; manterPendente: boolean; liberarDivergencia?: boolean },
   ): Observable<ConcluirEtapaResultado> {
     return this.http.post<ConcluirEtapaResultado>(
       `${this.baseUrl}/sessoes/${sessaoId}/concluir-etapa`,
@@ -144,8 +144,12 @@ export class SeparacaoService {
   }
 
   /** Fecha a conferência DE VERDADE no Sankhya (corte de estoque + financeiro). */
-  finalizar(tenant: string, sessaoId: string): Observable<FinalizarResultado> {
-    return this.http.post<FinalizarResultado>(`${this.baseUrl}/sessoes/${sessaoId}/finalizar`, {}, { params: { tenant } });
+  finalizar(tenant: string, sessaoId: string, liberarDivergencia = false): Observable<FinalizarResultado> {
+    return this.http.post<FinalizarResultado>(
+      `${this.baseUrl}/sessoes/${sessaoId}/finalizar`,
+      { liberarDivergencia },
+      { params: { tenant } },
+    );
   }
 
   /** TOPs de destino pro faturamento (só quando a CCO tem FATAOCONCLUIR='S'). */

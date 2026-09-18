@@ -236,7 +236,20 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly canConfirm = computed(() => !this.finalizando() && (!this.exigeVolume() || this.volume() > 0));
   /** Falta (pendente) ou sobra (crítico) — nos dois casos o Sankhya decide o ajuste via CCO (PROCEDCORTE/GERARPEDCOMPL), mas o operador precisa confirmar ciente disso. */
   readonly temDivergencia = computed(() => this.pendingCount() > 0 || this.divergenceCount() > 0);
+  /**
+   * Itens a mostrar na tabela do pop-up de finalização divergente — sobra
+   * (critical, já conferido acima do negociado) e falta (ainda pending,
+   * abaixo do negociado). Dá pro operador a visão do pedido inteiro antes de
+   * decidir Cortar/Finalizar divergente, não só a existência da divergência.
+   */
+  readonly itensDivergentes = computed(() => {
+    const sobra = this.conferred().filter((i) => i.status === 'critical');
+    const falta = this.items(); // pending = ainda abaixo do negociado
+    return [...sobra, ...falta].sort((a, b) => a.name.localeCompare(b.name));
+  });
   readonly mostrarModalDivergencia = signal(false);
+  /** Aviso simples (regra 5): divergência de não pesável numa etapa que NÃO é a última — só informa, não corta nem finaliza nada. */
+  readonly mostrarModalAvisoEtapa = signal(false);
   readonly mostrarModalCancelar = signal(false);
   readonly mostrarAtalhos = signal(false);
   private cancelando = false;
@@ -288,6 +301,16 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const t = this.etapaAtual();
     return t == null ? '' : rotuloTipoSeparacao(t);
   });
+  /**
+   * true = a etapa atual é a ÚLTIMA pendente (ou a sessão nem é segmentada —
+   * aí só existe "a última"). Não assume ordem fixa: olha só quantas etapas
+   * ainda estão 'P' na sessão. É esse sinal, não o tipo da etapa, que decide
+   * se a divergência gera só um aviso (regra 5) ou a finalização divergente
+   * de verdade com "Cortar"/"Finalizar divergente" (regra 6).
+   */
+  readonly ehUltimaEtapaPendente = computed(
+    () => !this.modoEtapa() || this.etapasSessao().filter((e) => e.status === 'P').length <= 1,
+  );
   /** true = sessão segmentada, mais de uma etapa pendente e nenhuma escolhida — mostra o seletor. */
   readonly precisaEscolherEtapa = computed(() => this.etapaAtual() == null && this.etapasSessao().length > 0);
   /** Etapas pra oferecer no seletor (pendentes primeiro). */
@@ -793,48 +816,74 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!this.sessaoIdAtual || this.finalizando()) return;
     // Conferência por etapa: o botão conclui a etapa (a última fecha a nota no Sankhya).
     if (this.modoEtapa()) {
-      this.concluirEtapaAgora(false);
+      if (this.temDivergencia()) {
+        // Regra 5 vs 6: só a ÚLTIMA etapa pendente oferece corte/finalização
+        // divergente de verdade — etapa intermediária é só um aviso.
+        if (this.ehUltimaEtapaPendente()) {
+          this.mostrarModalDivergencia.set(true);
+        } else {
+          this.mostrarModalAvisoEtapa.set(true);
+        }
+        return;
+      }
+      this.concluirEtapaAgora(false, false);
       return;
     }
     if (this.temDivergencia()) {
       this.mostrarModalDivergencia.set(true);
       return;
     }
-    this.executarFinalizacao();
+    this.executarFinalizacao(false);
+  }
+
+  /** Aviso de etapa intermediária (regra 5): só segue pras próximas etapas, sem cortar nem finalizar nada. */
+  onContinuarAvisoEtapa(): void {
+    this.mostrarModalAvisoEtapa.set(false);
+    this.concluirEtapaAgora(true, false);
+  }
+
+  onCancelarAvisoEtapa(): void {
+    this.mostrarModalAvisoEtapa.set(false);
   }
 
   /**
-   * "Cortar" e "Finalizar divergente" chamam a mesma ação — quem decide o ajuste é a CCO do Sankhya
-   * (PROCEDCORTE/GERARPEDCOMPL), não o botão escolhido aqui. Modal fica aberto (com spinner nos botões,
-   * ver finalizando()) até a chamada terminar — fechar na hora do clique deixava o "enviando pro Sankhya"
-   * visível só no rodapé, fora do que o usuário estava olhando.
+   * Última etapa pendente com divergência (regra 6): "Cortar" autoriza
+   * explicitamente a liberação da divergência (inclusive item não pesável,
+   * que nunca é liberado sozinho — ver LiberacaoCorteService); "Finalizar
+   * divergente" mantém a divergência, decisão fica com a Configuração de
+   * Conferência do Sankhya. Modal fica aberto (spinner nos botões, ver
+   * finalizando()) até a chamada terminar — fechar na hora do clique deixava
+   * o "Enviando para o Sankhya" visível só no rodapé, fora do que o usuário
+   * estava olhando.
    */
-  onConfirmarDivergente(): void {
+  onConfirmarDivergente(liberarDivergencia: boolean): void {
     if (this.modoEtapa()) {
-      this.concluirEtapaAgora(true);
+      this.concluirEtapaAgora(true, liberarDivergencia);
       return;
     }
-    this.executarFinalizacao();
+    this.executarFinalizacao(liberarDivergencia);
   }
 
   /**
-   * Conclui a etapa atual. `409` com pendentes → abre o modal de divergência
-   * ("Concluir mesmo assim?"). Última etapa → o backend finaliza a nota no
-   * Sankhya e devolve a cadeia de corte/faturamento (aposFinalizacao).
+   * Conclui a etapa atual. `409` com pendentes → abre o pop-up adequado
+   * (aviso na intermediária, divergência na última). Última etapa → o
+   * backend finaliza a nota no Sankhya e devolve a cadeia de corte/faturamento
+   * (aposFinalizacao).
    */
-  private concluirEtapaAgora(manterPendente: boolean): void {
+  private concluirEtapaAgora(manterPendente: boolean, liberarDivergencia: boolean): void {
     const tipo = this.etapaAtual();
     if (!this.sessaoIdAtual || tipo == null || this.concluindoEtapa || this.finalizando()) return;
     this.concluindoEtapa = true;
     this.finalizando.set(true);
     // Quem conclui vem do JWT no backend (call.exigirAuth()), não daqui.
     this.separacaoService
-      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente })
+      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente, liberarDivergencia })
       .subscribe({
         next: (res: ConcluirEtapaResultado) => {
           this.concluindoEtapa = false;
           this.finalizando.set(false);
           this.mostrarModalDivergencia.set(false);
+          this.mostrarModalAvisoEtapa.set(false);
           if (res.conferenciaFinalizada) {
             this.aposFinalizacao({ ok: true, aguardandoCorte: res.aguardandoCorte, nuconf: res.nuconf });
           } else {
@@ -845,10 +894,15 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.concluindoEtapa = false;
           this.finalizando.set(false);
           if (err?.status === 409 && typeof err?.error?.pendentes === 'number') {
-            this.mostrarModalDivergencia.set(true);
+            if (this.ehUltimaEtapaPendente()) {
+              this.mostrarModalDivergencia.set(true);
+            } else {
+              this.mostrarModalAvisoEtapa.set(true);
+            }
             return;
           }
           this.mostrarModalDivergencia.set(false);
+          this.mostrarModalAvisoEtapa.set(false);
           this.erro.set(err?.error?.erro ?? 'Falha ao concluir a etapa.');
         },
       });
@@ -859,10 +913,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.mostrarModalDivergencia.set(false);
   }
 
-  private executarFinalizacao(): void {
+  private executarFinalizacao(liberarDivergencia: boolean): void {
     if (!this.sessaoIdAtual || this.finalizando()) return;
     this.finalizando.set(true);
-    this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
+    this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual, liberarDivergencia).subscribe({
       next: (res) => {
         this.finalizando.set(false);
         this.mostrarModalDivergencia.set(false);

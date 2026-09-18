@@ -350,6 +350,32 @@ object SeparacaoService {
     class FinalizarSeparacaoException(message: String) : Exception(message)
 
     /**
+     * Eventos de confirmação que a TELA NATIVA do Sankhya manda junto de
+     * ConferenciaSP.finalizarConferencia quando fecha uma conferência com
+     * divergência (confirmado com o usuário — payload real capturado da UI
+     * nativa) — cada `$` é um popup que o Sankhya mostraria e a tela nativa
+     * confirma sozinha. O `chamar()` de uso geral só manda "clientconfirm";
+     * pra ESTE finalizarConferencia especificamente, sem estes eventos o
+     * Sankhya fica sem confirmação pra decisões que só ele resolve
+     * (PROCEDCORTE/GERARPEDCOMPL etc.), o que é a suspeita mais forte pro
+     * "corte maior automático" relatado em conferência de secos divergente.
+     */
+    private val CLIENT_EVENT_FINALIZAR_DIVERGENTE = buildJsonObject {
+        putJsonObject("clientEventList") {
+            putJsonArray("clientEvent") {
+                add(buildJsonObject { put("$", "conferencia.lista.produtos.divergentes") })
+                add(buildJsonObject { put("$", "client.event.escolha.etiqueta.peso") })
+                add(buildJsonObject { put("$", "fila.conferencia.client.event.produtos.divergentes") })
+                add(buildJsonObject { put("$", "client.event.produtos.escolha.unidade.mov.armazenamento") })
+                add(buildJsonObject { put("$", "client.event.escolha.empresa.local.destino") })
+                add(buildJsonObject { put("$", "client.event.produtos.excluidos.conferencia") })
+                add(buildJsonObject { put("$", "client.event.volumes.produto.recontado") })
+                add(buildJsonObject { put("$", "br.com.sankhya.mgecom.busca.identificador.produto") })
+            }
+        }
+    }
+
+    /**
      * Fecha a conferência DE VERDADE no Sankhya — contrato confirmado ao vivo
      * nesta sessão (tenant Negri, pedido 56510):
      *
@@ -376,7 +402,12 @@ object SeparacaoService {
      * decisão de permitir ou não já está na configuração do Sankhya, não é
      * escolha nossa aqui.
      */
-    suspend fun finalizar(tenantSlug: String, tenantId: UUID, sessaoId: UUID): FinalizarResultadoDto {
+    suspend fun finalizar(
+        tenantSlug: String,
+        tenantId: UUID,
+        sessaoId: UUID,
+        liberarDivergencia: Boolean = false,
+    ): FinalizarResultadoDto {
         val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão não encontrada")
         if (sessao.status != SeparacaoStatus.PRONTA) {
@@ -452,10 +483,17 @@ object SeparacaoService {
         // a nota tenha outras divergências (item normal, ou pesável fora dos 5%) —
         // essas seguem pra liberação manual. Só zera `aguardandoCorte` se, depois
         // disso, não sobrou nada pendente e a conferência foi finalizada.
+        //
+        // `liberarDivergencia` (botão "Cortar" do pop-up de finalização divergente,
+        // ver ConcluirEtapaRequest): decisão EXPLÍCITA do operador, não silenciosa —
+        // estende a liberação também aos itens NÃO pesáveis pendentes desta nota,
+        // que a auto-liberação nunca cobre sozinha (ver LiberacaoCorteService).
         var resolvidoViaAutoLiberacao = false
         if (aguardandoCorte) {
             val liberouTudo = runCatching {
-                LiberacaoCorteService.autoLiberarPesoDentroTolerancia(tenantSlug, tenantId, nuconf, sessaoId)
+                LiberacaoCorteService.autoLiberarPesoDentroTolerancia(
+                    tenantSlug, tenantId, nuconf, sessaoId, liberarTodosPendentes = liberarDivergencia,
+                )
             }.getOrDefault(false)
             if (liberouTudo) {
                 aguardandoCorte = false
@@ -469,9 +507,25 @@ object SeparacaoService {
         // Chamar de novo aqui atropelaria essa decisão — bug real confirmado
         // (notas 57251/57500): conferência fechava "Finalizado Divergente" em
         // vez de abrir a recontagem do item negado.
+        //
+        // Usa chamarRaw com CLIENT_EVENT_FINALIZAR_DIVERGENTE (payload real da
+        // tela nativa) em vez do `chamar()` simples — sem esses eventos de
+        // confirmação o Sankhya fica sem resposta pras decisões que só ele
+        // resolve (PROCEDCORTE/GERARPEDCOMPL), suspeita mais forte do "corte
+        // maior automático" relatado em secos divergente.
         if (!aguardandoCorte && !resolvidoViaAutoLiberacao) {
             try {
-                SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.finalizarConferencia", mapOf("nuConf" to JsonPrimitive(nuconf)))
+                SankhyaSpClient.chamarRaw(
+                    tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
+                    buildJsonObject {
+                        putJsonObject("params") {
+                            put("nuConf", nuconf.toString())
+                            put("peso", 0)
+                            put("qtdVol", qtdVol)
+                        }
+                        CLIENT_EVENT_FINALIZAR_DIVERGENTE.forEach { (k, v) -> put(k, v) }
+                    },
+                )
             } catch (e: Exception) {
                 // Non-fatal — o corte (obrigatório) já aconteceu; o lado financeiro pode ser retomado depois.
             }
@@ -511,6 +565,7 @@ object SeparacaoService {
         tipoSeparacao: Int,
         manterPendente: Boolean,
         operador: String,
+        liberarDivergencia: Boolean = false,
     ): ConcluirEtapaResultadoDto {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw ConcluirEtapaException("sessão não encontrada")
@@ -549,7 +604,7 @@ object SeparacaoService {
         // precisou de UPDATE manual no banco pra destravar. Reverte a etapa
         // pra 'P' se finalizar() falhar, pra um retry pela UI funcionar sozinho.
         val res = try {
-            finalizar(tenantSlug, tenantId, sessaoId)
+            finalizar(tenantSlug, tenantId, sessaoId, liberarDivergencia)
         } catch (e: Exception) {
             withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
             throw e

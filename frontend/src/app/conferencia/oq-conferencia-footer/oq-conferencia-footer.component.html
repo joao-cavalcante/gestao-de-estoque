@@ -38,7 +38,7 @@
         type="button"
         class="oq-cf-footer__btn oq-cf-footer__btn--primary"
         [disabled]="!canConfirm || confirmando"
-        [title]="confirmando ? 'Enviando pro Sankhya — pode levar alguns segundos' : tituloBotaoPrimario"
+        [title]="confirmando ? 'Enviando para o Sankhya — pode levar alguns segundos' : tituloBotaoPrimario"
         (click)="confirmar.emit()"
       >
         @if (confirmando) {
