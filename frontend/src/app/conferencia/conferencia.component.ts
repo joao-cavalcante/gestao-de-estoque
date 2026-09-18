@@ -254,12 +254,42 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * etapa já concluída (ex.: Secos) continua valendo até a nota fechar de
    * vez — `temDivergencia`/`itensDivergentes` (escopo só da etapa atual,
    * abaixo) não enxergam mais isso depois que o operador passa de etapa.
+   *
+   * AGRUPA por produto+controle antes de avaliar a divergência: o mesmo
+   * produto+controle pode estar espalhado em mais de uma SEQUENCIA da nota
+   * (entregas parciais — ver conferirItem no backend, V37). `/itens` devolve
+   * uma linha por SEQUENCIA; sem agrupar aqui, um produto já conferido
+   * corretamente (ex.: pesável dentro da tolerância) aparecia TAMBÉM como
+   * divergente "A MENOR" por causa de uma segunda linha do mesmo grupo ainda
+   * com scanned=0 — bug real confirmado (Queijo Mussarela: 25,790 KG
+   * conferido, +2,1% do pedido, dentro da tolerância, mas uma linha irmã da
+   * mesma nota aparecia com "25.26 / 0 / A MENOR").
    */
-  readonly itensDivergentesSessao = computed(() =>
-    this.todosItensMapeados()
-      .filter((i) => i.status !== 'ok')
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  );
+  readonly itensDivergentesSessao = computed(() => {
+    const porGrupo = new Map<string, ConferenciaItem[]>();
+    for (const item of this.todosItensMapeados()) {
+      const chave = `${item.code}|${item.control}`;
+      (porGrupo.get(chave) ?? porGrupo.set(chave, []).get(chave)!).push(item);
+    }
+    const agregados: ConferenciaItem[] = [];
+    for (const linhas of porGrupo.values()) {
+      const base = linhas[0];
+      const expected = linhas.reduce((acc, l) => acc + l.expected, 0);
+      const scanned = linhas.reduce((acc, l) => acc + l.scanned, 0);
+      const d = this.avaliarDivergencia({ usaConfPeso: base.usaConfPeso, expected }, scanned);
+      if (d.status === 'ok') continue;
+      agregados.push({
+        ...base,
+        expected,
+        scanned,
+        status: d.status,
+        divergenceReason: base.foraPedido ? 'FORA DO PEDIDO' : d.divergenceReason,
+        divergenciaPeso: d.divergenciaPeso,
+        desvioPesoPct: d.desvioPesoPct,
+      });
+    }
+    return agregados.sort((a, b) => a.name.localeCompare(b.name));
+  });
   readonly temDivergenciaSessao = computed(() => this.itensDivergentesSessao().length > 0);
   readonly mostrarModalDivergencia = signal(false);
   /** Aviso simples (regra 5): divergência de não pesável numa etapa que NÃO é a última — só informa, não corta nem finaliza nada. */
