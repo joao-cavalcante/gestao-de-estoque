@@ -257,18 +257,34 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    *
    * AGRUPA por produto+controle antes de avaliar a divergência: o mesmo
    * produto+controle pode estar espalhado em mais de uma SEQUENCIA da nota
-   * (entregas parciais — ver conferirItem no backend, V37). `/itens` devolve
-   * uma linha por SEQUENCIA; sem agrupar aqui, um produto já conferido
-   * corretamente (ex.: pesável dentro da tolerância) aparecia TAMBÉM como
-   * divergente "A MENOR" por causa de uma segunda linha do mesmo grupo ainda
-   * com scanned=0 — bug real confirmado (Queijo Mussarela: 25,790 KG
-   * conferido, +2,1% do pedido, dentro da tolerância, mas uma linha irmã da
-   * mesma nota aparecia com "25.26 / 0 / A MENOR").
+   * (entregas parciais — ver conferirItem no backend, V37).
+   *
+   * `todosItensMapeados` só é atualizado por um fetch completo
+   * (`recarregarItens`), NUNCA pelas bipagens/pesagens locais (`onConferido`
+   * patcheia `items`/`conferred` direto, sem re-fetch) — pra etapa ATUAL isso
+   * fica desatualizado a cada scan (bug real confirmado: Queijo Mussarela
+   * pesado a 25,38kg, dentro da tolerância, aparecia TAMBÉM como "25.2 / 0 /
+   * A MENOR" porque a tabela ainda via o snapshot de ANTES da pesagem). Pra
+   * etapa ATUAL usa `items`/`conferred` (sempre em dia); pra OUTRAS etapas
+   * (já concluídas, congeladas — não recebem novas bipagens) usa o snapshot
+   * de `todosItensMapeados`, que é reafirmado a cada troca de etapa (nova
+   * navegação = novo fetch).
    */
   readonly itensDivergentesSessao = computed(() => {
+    const etapaAtualVal = this.etapaAtual();
+    const chaveDe = (i: ConferenciaItem) => `${i.code}|${i.control}`;
+    const itensEtapaAtual = [...this.items(), ...this.conferred()];
+    const chavesEtapaAtual = new Set(itensEtapaAtual.map(chaveDe));
+    const vistos = new Set<number>();
+    const itensEtapaAtualUnicos = itensEtapaAtual.filter((i) => (vistos.has(i.seq) ? false : (vistos.add(i.seq), true)));
+    const itensOutrasEtapas = this.todosItensMapeados().filter(
+      (i) => etapaAtualVal == null || !chavesEtapaAtual.has(chaveDe(i)),
+    );
+    const todos = [...itensOutrasEtapas, ...itensEtapaAtualUnicos];
+
     const porGrupo = new Map<string, ConferenciaItem[]>();
-    for (const item of this.todosItensMapeados()) {
-      const chave = `${item.code}|${item.control}`;
+    for (const item of todos) {
+      const chave = chaveDe(item);
       (porGrupo.get(chave) ?? porGrupo.set(chave, []).get(chave)!).push(item);
     }
     const agregados: ConferenciaItem[] = [];
