@@ -476,6 +476,7 @@ object SeparacaoService {
                 put("exigeIdentificadores", JsonPrimitive("N"))
                 put("codUMA", JsonPrimitive(""))
             }
+            println("ConferenciaSP.salvarItemConferido tenant=$tenantSlug nunota=${sessao.nunota} params=$params")
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
         }
 
