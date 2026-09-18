@@ -144,6 +144,25 @@ object LiberacaoCorteService {
     private const val TOLERANCIA_PESO = 0.05
 
     /**
+     * Chave de match contra `obs.produto` (ViewLiberacaoLimite.OBSERVACAO) —
+     * quando o produto tem complemento (TGFPRO.COMPLDESC, ex.: "GRANDE"), o
+     * Sankhya escreve ele junto na OBSERVACAO ("Prod.: QUEIJO ..., Complem.:
+     * GRANDE, Qtd. total conf.: ..."), e o REGEX_OBS engole essa parte no
+     * grupo `produto` (não para no primeiro "," — só para quando acha
+     * "Qtd. total conf." de verdade). Sem reproduzir esse formato aqui, TODO
+     * item pesável com complemento nunca batia no Map (comparava só a
+     * descrição pura contra "DESCRIÇÃO, Complem.: X") e caía sempre pra
+     * liberação manual, mesmo com divergência ínfima dentro da tolerância —
+     * bug real confirmado (Queijo Mussarela Búfala Levitare, Complem.:
+     * Grande, divergência de 0,001 PC).
+     */
+    private fun chaveDescricao(descricao: String?, complemento: String?): String? {
+        val desc = descricao?.trim()?.takeIf(String::isNotEmpty) ?: return null
+        val compl = complemento?.trim()?.takeIf(String::isNotEmpty)
+        return (if (compl != null) "$desc, Complem.: $compl" else desc).uppercase()
+    }
+
+    /**
      * Auto-liberação de corte por peso, ITEM A ITEM (fila-conferencia
      * autoLiberarCortePesavel, agora seletivo): toda linha de item PESÁVEL é
      * liberada em silêncio pela aplicação quando o corte é A MAIOR (conferido
@@ -194,7 +213,7 @@ object LiberacaoCorteService {
                 wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId)
             }
                 .filter { it.usaConfPeso }
-                .mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
+                .mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
                 .toMap()
 
             val liberaveis = pendentes.filter { linha ->
@@ -309,7 +328,7 @@ object LiberacaoCorteService {
             val sessao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota) ?: return@withContext emptyMap()
             wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id))
                 .filter { it.usaConfPeso }
-                .mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
+                .mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
                 .toMap()
         }
 
@@ -408,7 +427,7 @@ object LiberacaoCorteService {
             withContext(Dispatchers.IO) {
                 val itensPorDescricao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota)
                     ?.let { sessao -> wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id)) }
-                    ?.mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
+                    ?.mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
                     ?.toMap()
                     ?: emptyMap()
                 selecionados.forEach { linha ->
