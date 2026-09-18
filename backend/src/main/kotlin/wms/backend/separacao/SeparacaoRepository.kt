@@ -1345,25 +1345,37 @@ object SeparacaoRepository {
                     // precisão exibida na tela: operador viu "2,083" e digitou 2,083,
                     // mas o negociado real é 2,08333), envia o negociado EXATO — senão
                     // o Sankhya corta a fração e aciona liberação de corte à toa.
-                    val enviar = if (
+                    val enviarPadrao = if (
                         negociado > BigDecimal.ZERO &&
                         total.setScale(3, RoundingMode.HALF_UP) == negociado.setScale(3, RoundingMode.HALF_UP)
                     ) negociado else total
-                    val (cv, cb) = escaneadoPara(chave.first, chave.second)
-                    // ABANDONADO (nota 57516, 3 tentativas — 722d48f, 7d7aace, 400f98c,
-                    // todas revertidas): tentar acertar codVol/conversão de unidade nesse
-                    // item fracionário (1/12) causou mais dano que o problema original —
-                    // uma das tentativas chegou a reportar 12x a quantidade real pro
-                    // Sankhya. Comparando as 4 tentativas ao vivo, codVol enviado NUNCA
-                    // mudou o resultado (só a magnitude importou), e converter pra
-                    // comercial quebrou item pesável que nunca tinha problema (Queijo
-                    // Mussarela). Volta pro comportamento mais simples e comprovadamente
-                    // inofensivo pros outros itens: sempre unidade padrão, codVol como
-                    // veio da leitura (sem forçar nada). Esse item específico (frações
-                    // tipo 1/12, 1/3) pode ficar aguardando liberação manual — divergência
-                    // de centésimos é inofensiva e revisável em 1 clique, diferente de
-                    // reportar quantidade errada pro Sankhya.
-                    GrupoConferido(chave.first, chave.second, enviar, codvol = cv, codigoBarra = cb)
+                    val (_, cb) = escaneadoPara(chave.first, chave.second)
+                    // Contrato real confirmado AO VIVO (nota 57516 — payload capturado
+                    // da tela nativa conferindo o mesmo item): NÃO existe parâmetro
+                    // "codVol" em ConferenciaSP.salvarItemConferido (3 tentativas
+                    // anteriores — 722d48f/7d7aace/400f98c, revertidas — inventavam um).
+                    // qtdConf vai SEMPRE na unidade COMERCIAL: "Pedido: 1 LT" virou
+                    // qtdConf="1.000000000" no payload nativo, não 0.08333 (padrão).
+                    // PESÁVEL fica de fora dessa conversão — peso é sempre padrão puro,
+                    // "nunca combina com fator/divideMultiplica" (mesma regra do
+                    // frontend, oq-scan-bar.component.ts calcularQtdPorPeso; bug real
+                    // confirmado: converter pesável fez o Queijo Mussarela divergir à toa).
+                    val referencia = linhas.first()
+                    val unidadePadrao = referencia[SeparacaoItensTable.unidadePadrao]
+                    val unidadeComercial = referencia[SeparacaoItensTable.unidadeComercial]
+                    val enviar = if (
+                        !referencia[SeparacaoItensTable.usaConfPeso] &&
+                        unidadeComercial != null && unidadeComercial != unidadePadrao
+                    ) {
+                        padraoParaComercial(
+                            enviarPadrao,
+                            referencia[SeparacaoItensTable.divideMultiplica],
+                            referencia[SeparacaoItensTable.fatorConversao],
+                        ).setScale(3, RoundingMode.HALF_UP)
+                    } else {
+                        enviarPadrao
+                    }
+                    GrupoConferido(chave.first, chave.second, enviar, codigoBarra = cb)
                 }
             }
     }

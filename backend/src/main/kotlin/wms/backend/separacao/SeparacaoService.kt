@@ -453,17 +453,28 @@ object SeparacaoService {
 
         val grupos = SeparacaoRepository.listarGruposConferidos(tenantId, sessaoId)
         for (grupo in grupos) {
-            // Paridade com o legado: CODBARRA = código escanado (fallback codprod),
-            // CODVOL = unidade escanada (VOA). A magnitude continua na unidade PADRÃO
-            // (o Sankhya converte pela própria TGFVOA). Se o salvarItemConferido do
-            // ambiente não aceitar codVol/codBarra reais, remover as 2 linhas marcadas.
+            // Contrato real confirmado AO VIVO (nota 57516 — payload capturado da
+            // tela nativa do Sankhya conferindo o mesmo item): NÃO existe parâmetro
+            // "codVol" nessa chamada — os 3 tentativas anteriores que inventavam um
+            // (722d48f/7d7aace/400f98c, todas revertidas) estavam mandando um campo
+            // que a SP nem espera. qtdConf vai na unidade COMERCIAL (o que o
+            // operador vê como "Pedido: 1 LT" virou qtdConf="1.000000000", não
+            // 0.08333 da unidade padrão) — SeparacaoRepository.listarGruposConferidos
+            // já faz essa conversão (exceto pesável, que fica em padrão puro — peso
+            // nunca combina com fator/divideMultiplica). Os demais campos
+            // (substituirProduto/volume/exigeIdentificadores/codUMA) são os defaults
+            // vistos no payload nativo — mantidos fixos até termos evidência de que
+            // algum caso real precisa de outro valor.
             val params = buildMap<String, kotlinx.serialization.json.JsonElement> {
                 put("nuNota", JsonPrimitive(sessao.nunota))
                 put("numConf", JsonPrimitive(nuconf))
                 put("codBarra", JsonPrimitive(grupo.codigoBarra?.takeIf { it.isNotBlank() } ?: grupo.codprod.toString()))
                 put("controle", JsonPrimitive(grupo.controle.trim()))
                 put("qtdConf", JsonPrimitive(grupo.qtdTotal))
-                grupo.codvol?.takeIf { it.isNotBlank() }?.let { put("codVol", JsonPrimitive(it)) } // ← paridade legado
+                put("substituirProduto", JsonPrimitive(false))
+                put("volume", JsonPrimitive(""))
+                put("exigeIdentificadores", JsonPrimitive("N"))
+                put("codUMA", JsonPrimitive(""))
             }
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
         }
