@@ -23,7 +23,18 @@ interface FilaEtapasResposta {
 export interface TarefaApiDto {
   nunota: number;
   tipo: string;
-  statusOperacional: 'aguardando' | 'andamento' | 'aguardando_corte' | 'concluido' | 'cancelado';
+  statusOperacional:
+    | 'aguardando_liberacao'
+    | 'aguardando'
+    | 'andamento'
+    | 'aguardando_corte'
+    | 'aguardando_finalizacao'
+    | 'concluido'
+    | 'concluido_divergente'
+    | 'aguardando_recontagem'
+    | 'recontagem_andamento'
+    | 'recontagem_concluida'
+    | 'recontagem_concluida_divergente';
   statusSankhya: string;
   numeroNota: number | null;
   codigoParceiro: string | null;
@@ -72,14 +83,22 @@ export class ConferenciasService {
   }
 }
 
+// Agrupa os 11 códigos reais do Sankhya (mais granulares) nos 4 buckets que a
+// fila já usa pra filtro/KPI/ícone — a tela é operacional, não precisa de 11
+// pills. O código granular original continua disponível em statusSankhya, se
+// algum card quiser mostrar o rótulo fino (ex. "Recontagem em andamento").
 const STATUS_MAP: Record<TarefaApiDto['statusOperacional'], Tarefa['status']> = {
+  aguardando_liberacao: 'aguardando',
   aguardando: 'aguardando',
+  aguardando_recontagem: 'aguardando',
   andamento: 'andamento',
+  recontagem_andamento: 'andamento',
+  aguardando_finalizacao: 'andamento',
   aguardando_corte: 'aguardando_corte',
   concluido: 'concluido',
-  // O card ainda não tem um visual dedicado pra "cancelado" — cai em
-  // "concluído" (fora da fila ativa) até essa distinção ser desenhada.
-  cancelado: 'concluido',
+  concluido_divergente: 'concluido',
+  recontagem_concluida: 'concluido',
+  recontagem_concluida_divergente: 'concluido',
 };
 
 function mapearParaTarefa(p: TarefaApiDto): Tarefa {

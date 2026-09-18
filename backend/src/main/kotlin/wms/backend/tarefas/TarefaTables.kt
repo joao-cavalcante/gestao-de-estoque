@@ -43,6 +43,11 @@ object TarefasTable : Table("app.tarefas") {
     val tipo = text("tipo")
     val statusSankhya = text("status_sankhya")
     val statusOperacional = text("status_operacional")
+    /** TGFCAB.NUCONFATUAL — ponteiro pra conferência atual no Sankhya. Fica preenchido
+     * permanentemente uma vez setado (mesmo após finalização); só zera numa exclusão física
+     * da conferência (ver TarefaSyncService/StatusOperacional). Usado pra ancorar o status
+     * com precisão (NUCONF exato) em vez de inferir "a mais recente por NUNOTAORIG". */
+    val nuconfAtual = integer("nuconf_atual").nullable()
     val dados = jsonb("dados")
     val operadorExecucao = text("operador_execucao").nullable()
     val iniciadoEm = timestamp("iniciado_em").nullable()

@@ -8,7 +8,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.and
@@ -20,7 +19,7 @@ import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.upsert
 import wms.backend.produtos.CodigosBarraCacheTable
 import wms.backend.produtos.ProdutosCacheTable
-import wms.backend.tarefas.TarefasAuditoriaTable
+import wms.backend.tarefas.StatusOperacional
 import wms.backend.tarefas.TarefasTable
 import wms.backend.tenancy.TenantTx
 import java.math.BigDecimal
@@ -87,26 +86,21 @@ object SeparacaoRepository {
             .singleOrNull()
         val statusTarefa = tarefa?.get(TarefasTable.statusOperacional)
 
-        // Nota devolvida pra 'aguardando'/'cancelado' pelo sync — dois motivos
-        // BEM diferentes levam pra cá, e só um deles invalida as decisões de
-        // liberação de corte (separacao_corte_liberacoes, V36):
-        //  1. Recontagem normal (AOLIBERAR=M, item negado) — o ciclo anterior
-        //     continua "válido", só o item negado precisa reconferência. As
-        //     decisões (o que foi liberado) TÊM que persistir, é o propósito
-        //     inteiro da V36.
-        //  2. Conferência EXCLUÍDA/cancelada de verdade no Sankhya — o ciclo
-        //     inteiro foi jogado fora, decisões antigas ficam obsoletas. Bug
-        //     real (nota 57251): sem distinguir isto, um item liberado antes
-        //     da exclusão continuava sendo filtrado como "já resolvido" numa
-        //     conferência recomeçada do zero — pendentes vinha vazio.
-        // Sinal usado pra distinguir: só a exclusão passa pelo status
-        // 'cancelado' de verdade (StatusOperacional.MAPA_STATUS_SANKHYA/
-        // TarefaSyncService) — recontagem vai direto concluido→aguardando.
-        if (statusTarefa == "aguardando" || statusTarefa == "cancelado") {
-            if (houveExclusaoAposUltimaDecisao(tenantId, nunota)) {
-                limparDecisoesLiberacao(tenantId, nunota)
-            }
-        }
+        // Nota devolvida pra família "aguardando" pelo sync — pode ser
+        // recontagem normal (AOLIBERAR=M, item negado; NUCONFATUAL segue o
+        // mesmo, decisões de liberação de corte devem persistir, é o
+        // propósito inteiro da V36) ou conferência EXCLUÍDA de verdade no
+        // Sankhya (NUCONFATUAL voltou a null; decisões ficam obsoletas). A
+        // limpeza pra este segundo caso agora acontece diretamente no sync
+        // (TarefasRepository.reconciliarLoteTx), no exato ciclo em que a
+        // exclusão é detectada via NUCONFATUAL — não precisa mais ser
+        // re-derivada aqui via histórico de auditoria.
+        val familiaAguardando = setOf(
+            StatusOperacional.AGUARDANDO.codigo,
+            StatusOperacional.AGUARDANDO_LIBERACAO.codigo,
+            StatusOperacional.AGUARDANDO_RECONTAGEM.codigo,
+        )
+        val precisaReconferirDoZero = statusTarefa in familiaAguardando
 
         val ativa = SeparacaoSessoesTable.selectAll()
             .where {
@@ -116,11 +110,11 @@ object SeparacaoRepository {
             }
             .singleOrNull()
         if (ativa != null) {
-            // Sessão local ativa numa nota que o sync já devolveu pra
-            // 'aguardando'/'cancelado' (conferência excluída ou reaberta no
+            // Sessão local ativa numa nota que o sync já devolveu pra família
+            // "aguardando" (conferência excluída ou reaberta pra recontagem no
             // Sankhya) está OBSOLETA — as etapas/itens são da conferência
             // anterior. Cancela e segue pra criar uma limpa, em vez de reusar.
-            if (statusTarefa == "aguardando" || statusTarefa == "cancelado") {
+            if (precisaReconferirDoZero) {
                 SeparacaoSessoesTable.update({
                     (SeparacaoSessoesTable.tenantId eq tenantId) and
                         (SeparacaoSessoesTable.id eq ativa[SeparacaoSessoesTable.id])
@@ -1166,35 +1160,6 @@ object SeparacaoRepository {
     }
 
     /**
-     * true = existe uma exclusão/cancelamento de verdade no Sankhya
-     * (app.tarefas_auditoria.status_novo='cancelado' — único caminho que
-     * TarefaSyncService usa pra esse status, ver motivo "Conferência
-     * excluída/cancelada") depois da última decisão de liberação registrada
-     * pra esta nota. Recontagem normal (item negado, AOLIBERAR=M) NUNCA passa
-     * por 'cancelado' — vai direto concluido→aguardando — então não aciona
-     * isto; só exclusão de verdade invalida decisões antigas.
-     */
-    fun houveExclusaoAposUltimaDecisao(tenantId: UUID, nunota: Long): Boolean = TenantTx.run(tenantId) {
-        val ultimaDecisao = SeparacaoCorteLiberacoesTable.selectAll()
-            .where { (SeparacaoCorteLiberacoesTable.tenantId eq tenantId) and (SeparacaoCorteLiberacoesTable.nunota eq nunota.toInt()) }
-            .orderBy(SeparacaoCorteLiberacoesTable.decididoEm to SortOrder.DESC)
-            .limit(1)
-            .firstOrNull()
-            ?.get(SeparacaoCorteLiberacoesTable.decididoEm)
-            ?: return@run false
-
-        TarefasAuditoriaTable.selectAll()
-            .where {
-                (TarefasAuditoriaTable.tenantId eq tenantId) and
-                    (TarefasAuditoriaTable.nunota eq nunota.toInt()) and
-                    (TarefasAuditoriaTable.statusNovo eq "cancelado") and
-                    (TarefasAuditoriaTable.criadoEm greater ultimaDecisao)
-            }
-            .limit(1)
-            .count() > 0
-    }
-
-    /**
      * true = já existe pelo menos uma sessão CONCLUIDA anterior pra esta nota —
      * ou seja, a sessão sendo aberta agora é uma RECONTAGEM (nota reaberta
      * depois de negar corte), não a primeira conferência. Usado pra decidir o
@@ -1215,7 +1180,13 @@ object SeparacaoRepository {
             .count() > 0
     }
 
-    /** Apaga todas as decisões de liberação de corte de uma nota — ver houveExclusaoAposUltimaDecisao. */
+    /**
+     * Apaga todas as decisões de liberação de corte de uma nota — chamada
+     * diretamente por TarefasRepository.reconciliarLoteTx no ciclo de sync em
+     * que uma exclusão real de conferência é detectada (NUCONFATUAL preenchido
+     * -> null). Recontagem normal NUNCA passa por essa detecção (NUCONFATUAL
+     * fica estável), então não aciona isto — as decisões continuam válidas.
+     */
     fun limparDecisoesLiberacao(tenantId: UUID, nunota: Long): Unit = TenantTx.run(tenantId) {
         SeparacaoCorteLiberacoesTable.deleteWhere {
             (SeparacaoCorteLiberacoesTable.tenantId eq tenantId) and (SeparacaoCorteLiberacoesTable.nunota eq nunota.toInt())
@@ -1342,12 +1313,12 @@ object SeparacaoRepository {
     /**
      * Revalida a sessão contra o que o job de sync (TarefaSyncService) já
      * sabe sobre a tarefa — SEM chamar o Sankhya de novo. Se a tarefa não
-     * existe mais (saiu do critério da fila) OU seu status_operacional virou
-     * 'cancelado' (ConferenciaSP marcou STATUS='D' — ver StatusOperacional.kt
-     * mapearStatusSankhya), a conferência foi excluída no Sankhya enquanto
-     * esta sessão local ainda estava aberta: invalida na hora, preservando o
-     * motivo, em vez de deixar o operador continuar separando itens que já
-     * não existem mais lá.
+     * existe mais (saiu do critério da fila) OU o NUCONFATUAL atual da tarefa
+     * já não bate mais com o NUCONF que esta sessão pertence (ver
+     * SeparacaoSessoesTable.nuconf / salvarNuconf), a conferência foi excluída
+     * no Sankhya enquanto esta sessão local ainda estava aberta: invalida na
+     * hora, preservando o motivo, em vez de deixar o operador continuar
+     * separando itens que já não existem mais lá.
      */
     fun revalidar(tenantId: UUID, sessaoId: UUID): SessaoSeparacaoDto? = TenantTx.run(tenantId) {
         val sessao = SeparacaoSessoesTable.selectAll()
@@ -1363,9 +1334,16 @@ object SeparacaoRepository {
             TarefasTable.selectAll().where { TarefasTable.id eq tarefaId }.singleOrNull()
         }
 
+        // Compara o NUCONF que ESTA sessão pertence (capturado em salvarNuconf,
+        // logo após salvarCabecalhoConferencia) contra o NUCONFATUAL atual da
+        // tarefa — mais preciso que comparar status: recontagem legítima
+        // mantém o mesmo NUCONF (não invalida), exclusão real zera o
+        // NUCONFATUAL da tarefa (diferente do da sessão, invalida).
+        val sessaoNuconf = sessao[SeparacaoSessoesTable.nuconf]
         val motivoInvalidacao = when {
             tarefa == null -> "Tarefa não encontrada mais na fila local — provável exclusão da conferência no Sankhya"
-            tarefa[TarefasTable.statusOperacional] == "cancelado" -> "Conferência cancelada/excluída no Sankhya (detectado pelo sync)"
+            sessaoNuconf != null && tarefa[TarefasTable.nuconfAtual] != sessaoNuconf ->
+                "Conferência cancelada/excluída no Sankhya (detectado pelo sync)"
             else -> null
         }
 

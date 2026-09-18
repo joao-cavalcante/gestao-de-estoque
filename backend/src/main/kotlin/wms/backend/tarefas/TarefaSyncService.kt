@@ -43,15 +43,20 @@ object TarefaSyncService {
         // TGFCAB.ORDEMCARGA — número da ordem/onda de carga; base do filtro
         // "Ordem de Carga" da fila (igual ao fila-de-conferencia legado).
         "ORDEMCARGA",
+        // Ponteiro pra conferência atual (NULL = nunca teve ou foi excluída —
+        // fica preenchido permanentemente uma vez setado, mesmo após
+        // finalização) + liberação do vendedor. Já eram usados dentro do
+        // CRITERIO_BASE abaixo, mas nunca eram lidos pro resultado — agora
+        // ancoram a resolução de status em StatusOperacional/reconciliarLoteTx
+        // em vez de inferir "a conferência mais recente da nota".
+        "NUCONFATUAL", "LIBCONF",
     )
 
-    // Status real da conferência: NÃO vem de um campo calculado em
-    // CabecalhoNota (STATUSCONFERENCIA, que depende de NUCONFATUAL estar
-    // vinculado — coisa que a SP de abertura não faz sozinha e nada mais no
-    // fluxo garante) — vem direto de TGFCON2.STATUS, a fonte de verdade real
-    // confirmada com o usuário. Mesma entidade/campo que buscarNumeroConferenciaAtiva
-    // usa no projeto base.
-    private val FIELDS_CONF = listOf("NUNOTAORIG", "NUCONF", "STATUS")
+    // Status por NUCONF exato (ver StatusOperacional/reconciliarLoteTx) — só
+    // consultado pras notas com NUCONFATUAL preenchido; TGFCON2.STATUS é a
+    // fonte de verdade real confirmada com o usuário (não o campo calculado
+    // STATUSCONFERENCIA de CabecalhoNota).
+    private val FIELDS_CONF = listOf("NUCONF", "STATUS")
 
     // Critério real da tela nativa "Fila de Conferência" (via
     // FilaConferenciaCrudListener), capturado do app oficial — verbatim,
@@ -72,16 +77,18 @@ object TarefaSyncService {
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS)
         val agora = Instant.now()
 
-        val nunotas = rows.mapNotNull { it["NUNOTA"]?.toLongOrNull() }
-        val statusPorNunota = buscarStatusConferenciaAtiva(tenantSlug, nunotas)
+        val nuconfsAtuais = rows.mapNotNull { it["NUCONFATUAL"]?.toIntOrNull() }.distinct()
+        val statusPorNuconf = buscarStatusPorNuconf(tenantSlug, nuconfsAtuais)
 
         val linhas = rows.mapNotNull { r ->
             val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
-            val statusRaw = statusPorNunota[nunota] ?: ""
+            val nuconfAtual = r["NUCONFATUAL"]?.toIntOrNull()
+            val libconf = r["LIBCONF"]
+            val statusTgfcon2Raw = nuconfAtual?.let { statusPorNuconf[it] }
             val dadosJson = buildJsonObject {
                 FIELDS.forEach { campo -> put(campo, r[campo]) }
             }.toString()
-            LinhaSankhya(nunota, statusRaw, dadosJson)
+            LinhaSankhya(nunota, nuconfAtual, libconf, statusTgfcon2Raw, dadosJson)
         }
 
         val notasResetadas = withContext(Dispatchers.IO) {
@@ -93,9 +100,10 @@ object TarefaSyncService {
             }
         }
 
-        // Nota que voltou pra 'aguardando'/'cancelado' (conferência excluída ou
-        // reaberta no Sankhya): a sessão de separação local ficou obsoleta (etapas
-        // concluídas, itens conferidos) — cancela pra o próximo `iniciar` criar uma limpa.
+        // Nota que voltou pra aguardando (conferência excluída ou reaberta pra
+        // recontagem no Sankhya): a sessão de separação local ficou obsoleta
+        // (etapas concluídas, itens conferidos) — cancela pra o próximo
+        // `iniciar` criar uma limpa.
         if (notasResetadas.isNotEmpty()) {
             withContext(Dispatchers.IO) {
                 wms.backend.separacao.SeparacaoRepository.cancelarSessoesAtivasPorNotas(tenantId, notasResetadas)
@@ -104,31 +112,32 @@ object TarefaSyncService {
     }
 
     /**
-     * TGFCON2.STATUS por NUNOTAORIG — quando existem várias conferências pra
-     * mesma nota ao longo do tempo (recontagem), pega a de maior NUCONF (a
-     * mais recente) como a que manda. Nota sem nenhuma linha em TGFCON2 fica
-     * de fora do mapa — quem chama trata isso como "" (aguardando).
+     * TGFCON2.STATUS por NUCONF exato — não mais "a mais recente por
+     * NUNOTAORIG": cada nota já sabe seu NUCONF ativo via TGFCAB.NUCONFATUAL
+     * (lido em FIELDS), então a busca é uma correspondência direta, sem
+     * ambiguidade entre a conferência atual e uma anterior da mesma nota.
+     * NUCONF sem linha correspondente fica de fora do mapa (não deveria
+     * acontecer com NUCONFATUAL preenchido — anomalia defensiva, tratada
+     * como "" por quem chama).
      */
-    private suspend fun buscarStatusConferenciaAtiva(tenantSlug: String, nunotas: List<Long>): Map<Long, String> {
-        if (nunotas.isEmpty()) return emptyMap()
+    private suspend fun buscarStatusPorNuconf(tenantSlug: String, nuconfs: List<Int>): Map<Int, String> {
+        if (nuconfs.isEmpty()) return emptyMap()
 
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,
             LoadRecordsRequest(
                 entityName = "CabecalhoConferencia",
                 fields = FIELDS_CONF,
-                criteriaExpression = "NUNOTAORIG IN (${nunotas.joinToString(",")})",
+                criteriaExpression = "NUCONF IN (${nuconfs.joinToString(",")})",
             ),
         )
         val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_CONF)
 
         return rows
             .mapNotNull { r ->
-                val nunotaOrig = r["NUNOTAORIG"]?.toLongOrNull() ?: return@mapNotNull null
                 val nuconf = r["NUCONF"]?.toIntOrNull() ?: return@mapNotNull null
-                Triple(nunotaOrig, nuconf, r["STATUS"] ?: "")
+                nuconf to (r["STATUS"] ?: "")
             }
-            .groupBy { it.first }
-            .mapValues { (_, linhas) -> linhas.maxBy { it.second }.third }
+            .toMap()
     }
 }

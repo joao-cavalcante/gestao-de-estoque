@@ -11,15 +11,32 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
+import wms.backend.separacao.SeparacaoRepository
 import wms.backend.tenancy.TenantTx
 import java.time.Instant
 import java.util.UUID
 
-/** Uma linha crua vinda do loadRecords, pronta pra reconciliar. */
-data class LinhaSankhya(val nunota: Long, val statusSankhyaRaw: String, val dadosJson: String)
+/**
+ * Uma linha crua vinda do loadRecords, pronta pra reconciliar.
+ *
+ * `nuconfAtual`/`libconf` vêm de TGFCAB (NUCONFATUAL/LIBCONF); `statusTgfcon2Raw`
+ * é o STATUS de TGFCON2 pro NUCONF acima (só buscado quando `nuconfAtual` não é
+ * nulo — null aqui não significa "vazio", significa "não se aplica"). A
+ * resolução do status_operacional final (e a detecção de exclusão) acontece
+ * dentro de `reconciliarLoteTx`, que é quem tem o valor anterior de `nuconfAtual`
+ * pra comparar (ver StatusOperacional.kt).
+ */
+data class LinhaSankhya(
+    val nunota: Long,
+    val nuconfAtual: Int?,
+    val libconf: String?,
+    val statusTgfcon2Raw: String?,
+    val dadosJson: String,
+)
 
 private data class InsercaoPendente(
     val nunotaInt: Int,
+    val nuconfAtual: Int?,
     val statusSankhyaRaw: String,
     val statusOperacionalNovo: String,
     val dadosJson: String,
@@ -27,6 +44,7 @@ private data class InsercaoPendente(
 
 private data class AtualizacaoPendente(
     val nunotaInt: Int,
+    val nuconfAtual: Int?,
     val statusSankhyaRaw: String,
     val statusOperacionalNovo: String,
     val dadosJson: String,
@@ -64,8 +82,35 @@ object TarefasRepository {
      * em memória em vez de round-trip por linha.
      */
     /**
-     * Retorna as NUNOTAs deste ciclo cujo status operacional FINAL é
-     * 'aguardando' ou 'cancelado' — quem chama usa pra invalidar a sessão de
+     * Resolve o status_operacional (e o raw pra guardar em status_sankhya) de
+     * uma linha, dado o `nuconfAtual` que a tarefa tinha ANTES deste ciclo
+     * (null se é uma tarefa nova ou nunca teve conferência). Ver
+     * StatusOperacional.kt pro raciocínio completo.
+     */
+    private fun resolverStatus(linha: LinhaSankhya, nuconfAtualAnterior: Int?): Pair<StatusOperacional, String> {
+        val nuconf = linha.nuconfAtual
+        if (nuconf != null) {
+            val raw = linha.statusTgfcon2Raw ?: ""
+            return mapearStatusTgfcon2(raw) to raw
+        }
+        if (nuconfAtualAnterior != null) {
+            // Já teve NUCONFATUAL preenchido antes, agora não tem mais — exclusão
+            // física da conferência. Sempre AGUARDANDO/AC, independente do LIBCONF
+            // atual (que pode estar 'N' por causa da própria finalização anterior,
+            // não por falta de liberação).
+            return StatusOperacional.AGUARDANDO to "AC"
+        }
+        // Nunca teve conferência — LIBCONF decide se falta liberação do vendedor.
+        return if (linha.libconf?.trim()?.uppercase() == "S") {
+            StatusOperacional.AGUARDANDO to "AC"
+        } else {
+            StatusOperacional.AGUARDANDO_LIBERACAO to "AL"
+        }
+    }
+
+    /**
+     * Retorna as NUNOTAs deste ciclo cujo status operacional FINAL pertence à
+     * família "aguardando" — quem chama usa pra invalidar a sessão de
      * separação local (uma nota nesses estados não deve ter conferência viva;
      * cobre conferência excluída/reaberta no Sankhya, com ou sem transição).
      */
@@ -81,37 +126,31 @@ object TarefasRepository {
         val paraInserir = mutableListOf<InsercaoPendente>()
         val paraAtualizar = mutableListOf<AtualizacaoPendente>()
         val paraAuditar = mutableListOf<AuditoriaPendente>()
+        val exclusoesDetectadas = mutableListOf<Long>()
 
         for (linha in linhas) {
             val nunotaInt = linha.nunota.toInt()
             val existente = existentesPorNunota[nunotaInt]
 
             if (existente == null) {
-                val novoStatus = mapearStatusSankhya(linha.statusSankhyaRaw)
-                paraInserir += InsercaoPendente(nunotaInt, linha.statusSankhyaRaw, novoStatus.codigo, linha.dadosJson)
+                val (novoStatus, statusRaw) = resolverStatus(linha, nuconfAtualAnterior = null)
+                paraInserir += InsercaoPendente(nunotaInt, linha.nuconfAtual, statusRaw, novoStatus.codigo, linha.dadosJson)
                 continue
             }
 
-            // Nenhuma linha ativa encontrada em TGFCON2 (raw vazio) para uma
-            // tarefa que JÁ estava com conferência em andamento/concluída
-            // localmente NÃO significa "nunca teve conferência" — significa
-            // que ela foi excluída FISICAMENTE do TGFCON2, sem deixar
-            // STATUS='D' pra trás (diferente de um cancelamento suave, que
-            // preserva a linha com STATUS='D'). Trata como o mesmo 'D' que o
-            // Sankhya usa pro cancelamento suave, pra cair no mesmo caminho
-            // semântico de CANCELADO — não regredir pra AGUARDANDO como se a
-            // conferência nunca tivesse existido, e manter a auditoria
-            // (motivoCancelamento) honesta sobre o que de fato aconteceu.
-            val statusOperacionalAnterior = existente[TarefasTable.statusOperacional]
-            val statusSankhyaEfetivo = if (
-                linha.statusSankhyaRaw.isBlank() &&
-                statusOperacionalAnterior in setOf(StatusOperacional.ANDAMENTO.codigo, StatusOperacional.CONCLUIDO.codigo)
-            ) {
-                "D"
-            } else {
-                linha.statusSankhyaRaw
+            val nuconfAnterior = existente[TarefasTable.nuconfAtual]
+            // Sinal inequívoco de exclusão física da conferência: tinha NUCONF,
+            // agora não tem — NUCONFATUAL nunca zera numa finalização normal
+            // (F/D/RF/RD ficam com ele preenchido permanentemente), então essa
+            // transição só acontece quando a conferência foi excluída no
+            // Sankhya. Dispara a limpeza de decisões de liberação de corte
+            // obsoletas na hora — não é mais algo re-derivado depois via
+            // histórico de auditoria quando uma sessão nova é criada.
+            if (nuconfAnterior != null && linha.nuconfAtual == null) {
+                exclusoesDetectadas += linha.nunota
             }
-            val novoStatus = mapearStatusSankhya(statusSankhyaEfetivo)
+
+            val (novoStatus, statusSankhyaEfetivo) = resolverStatus(linha, nuconfAnterior)
 
             val statusSankhyaAnterior = existente[TarefasTable.statusSankhya]
             val dadosAnteriores = existente[TarefasTable.dados]
@@ -120,6 +159,7 @@ object TarefasRepository {
             // Map, ignora ordem de chave) — jsonb do Postgres não garante
             // preservar ordem de chave ao reler.
             val dadosSankhyaMudaram = statusSankhyaAnterior != statusSankhyaEfetivo ||
+                nuconfAnterior != linha.nuconfAtual ||
                 runCatching {
                     Json.parseToJsonElement(dadosAnteriores) != Json.parseToJsonElement(linha.dadosJson)
                 }.getOrDefault(true)
@@ -131,6 +171,7 @@ object TarefasRepository {
                 if (dadosSankhyaMudaram) {
                     paraAtualizar += AtualizacaoPendente(
                         nunotaInt = nunotaInt,
+                        nuconfAtual = linha.nuconfAtual,
                         statusSankhyaRaw = statusSankhyaEfetivo,
                         statusOperacionalNovo = existente[TarefasTable.statusOperacional],
                         dadosJson = linha.dadosJson,
@@ -153,6 +194,7 @@ object TarefasRepository {
 
             paraAtualizar += AtualizacaoPendente(
                 nunotaInt = nunotaInt,
+                nuconfAtual = linha.nuconfAtual,
                 statusSankhyaRaw = statusSankhyaEfetivo,
                 statusOperacionalNovo = transicao.resultado.codigo,
                 dadosJson = linha.dadosJson,
@@ -175,6 +217,7 @@ object TarefasRepository {
                 this[TarefasTable.tenantId] = tenantId
                 this[TarefasTable.nunota] = item.nunotaInt
                 this[TarefasTable.tipo] = "conferencia"
+                this[TarefasTable.nuconfAtual] = item.nuconfAtual
                 this[TarefasTable.statusSankhya] = item.statusSankhyaRaw
                 this[TarefasTable.statusOperacional] = item.statusOperacionalNovo
                 this[TarefasTable.dados] = item.dadosJson
@@ -189,6 +232,7 @@ object TarefasRepository {
         // linhas que REALMENTE mudaram, não mais as N inteiras por ciclo.
         paraAtualizar.forEach { item ->
             TarefasTable.update({ (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq item.nunotaInt) }) {
+                it[nuconfAtual] = item.nuconfAtual
                 it[statusSankhya] = item.statusSankhyaRaw
                 it[statusOperacional] = item.statusOperacionalNovo
                 it[dados] = item.dadosJson
@@ -199,6 +243,14 @@ object TarefasRepository {
                     it[concluidoEm] = null
                 }
             }
+        }
+
+        // Efeito colateral da exclusão detectada no loop acima — limpa
+        // decisões de liberação de corte obsoletas na hora, em vez de
+        // re-derivar depois via histórico de auditoria quando uma sessão de
+        // separação nova é criada (ver SeparacaoRepository.criarSessao).
+        exclusoesDetectadas.forEach { nunota ->
+            SeparacaoRepository.limparDecisoesLiberacao(tenantId, nunota)
         }
 
         if (paraAuditar.isNotEmpty()) {
@@ -217,12 +269,17 @@ object TarefasRepository {
         // Estado FINAL desta transação (inserts + updates + as que não mudaram) —
         // re-lê pra pegar também as notas que já estavam 'aguardando' de ciclos
         // anteriores (sessão obsoleta que nunca foi limpa).
+        val familiaAguardando = listOf(
+            StatusOperacional.AGUARDANDO.codigo,
+            StatusOperacional.AGUARDANDO_LIBERACAO.codigo,
+            StatusOperacional.AGUARDANDO_RECONTAGEM.codigo,
+        )
         return TarefasTable
             .selectAll()
             .where {
                 (TarefasTable.tenantId eq tenantId) and
                     (TarefasTable.nunota inList nunotasInt) and
-                    (TarefasTable.statusOperacional inList listOf("aguardando", "cancelado"))
+                    (TarefasTable.statusOperacional inList familiaAguardando)
             }
             .map { it[TarefasTable.nunota].toLong() }
     }
