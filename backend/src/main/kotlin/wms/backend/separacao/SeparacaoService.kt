@@ -667,9 +667,16 @@ object SeparacaoService {
         val progresso = withContext(Dispatchers.IO) {
             SeparacaoRepository.progressoEtapasPorNunota(tenantId, nunotas)
         }
+        // RECONTAGEM é sempre etapa única (ver carregarEmBackground/ehRecontagem)
+        // — nota com sessão CONCLUIDA anterior não entra no breakdown, senão o
+        // card oferece "Conferir por etapa" pra uma conferência que vai abrir
+        // sem etapa nenhuma.
+        val emRecontagem = withContext(Dispatchers.IO) {
+            SeparacaoRepository.nunotasComSessaoConcluida(tenantId, nunotas)
+        }
         return nunotas.associateWith { nunota ->
             FilaEtapasDto(
-                tipos = tiposPorNunota[nunota] ?: emptyList(),
+                tipos = if (nunota in emRecontagem) emptyList() else tiposPorNunota[nunota] ?: emptyList(),
                 concluidos = concluidos[nunota] ?: emptyList(),
                 progresso = (progresso[nunota] ?: emptyMap()).mapValues { (_, p) -> EtapaProgressoDto(p.total, p.conferidos) },
             )

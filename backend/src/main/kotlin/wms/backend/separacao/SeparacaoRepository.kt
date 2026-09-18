@@ -1181,6 +1181,26 @@ object SeparacaoRepository {
     }
 
     /**
+     * Versão em lote de [houveSessaoAnteriorConcluida] — pro breakdown de
+     * etapas da Fila de Tarefas (SeparacaoService.etapasFila), que precisa
+     * saber ANTES de qualquer sessão existir se cada nota é uma recontagem,
+     * pra não oferecer o seletor de etapas Frios/Refrigerados/Secos (a
+     * recontagem é sempre etapa única — ver carregarEmBackground).
+     */
+    fun nunotasComSessaoConcluida(tenantId: UUID, nunotas: List<Long>): Set<Long> = TenantTx.run(tenantId) {
+        if (nunotas.isEmpty()) return@run emptySet()
+        val nunotasInt = nunotas.map { it.toInt() }
+        SeparacaoSessoesTable.selectAll()
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and
+                    (SeparacaoSessoesTable.nunota inList nunotasInt) and
+                    (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA)
+            }
+            .map { it[SeparacaoSessoesTable.nunota].toLong() }
+            .toSet()
+    }
+
+    /**
      * Apaga todas as decisões de liberação de corte de uma nota — chamada
      * diretamente por TarefasRepository.reconciliarLoteTx no ciclo de sync em
      * que uma exclusão real de conferência é detectada (NUCONFATUAL preenchido
