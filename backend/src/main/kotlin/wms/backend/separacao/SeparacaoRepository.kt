@@ -1345,28 +1345,35 @@ object SeparacaoRepository {
                     // precisão exibida na tela: operador viu "2,083" e digitou 2,083,
                     // mas o negociado real é 2,08333), envia o negociado EXATO — senão
                     // o Sankhya corta a fração e aciona liberação de corte à toa.
-                    val enviar = if (
+                    val enviarPadrao = if (
                         negociado > BigDecimal.ZERO &&
                         total.setScale(3, RoundingMode.HALF_UP) == negociado.setScale(3, RoundingMode.HALF_UP)
                     ) negociado else total
-                    val (cv, cb) = escaneadoPara(chave.first, chave.second)
-                    // `enviar` está SEMPRE em unidade PADRÃO (separacao_itens.qtd_* —
-                    // pra item conferido em unidade comercial diferente, o frontend já
-                    // converte pra padrão antes de mandar o /conferir, ver
-                    // oq-scan-bar.component.ts qtdParaBase). Mandar um `codVol`
-                    // diferente da padrão junto dessa magnitude faz o Sankhya
-                    // interpretar o valor como se já estivesse naquela unidade
-                    // (bug real confirmado, nota 57516: codVol=LT + qtdConf=0,08333
-                    // padrão virou "0,08333 LT" pro Sankhya, não "1 LT"). Mesmo
-                    // tratamento que item PESÁVEL já recebe (nunca manda codVol
-                    // fora da padrão — peso é sempre padrão, sem essa troca) —
-                    // só repassa o codVol quando ele bate com a própria unidade
-                    // padrão do produto; fora isso, omite e deixa o Sankhya usar o
-                    // padrão dele por default.
-                    val unidadePadrao = linhas.first()[SeparacaoItensTable.unidadePadrao]
-                        ?: linhas.first()[SeparacaoItensTable.codvol]
-                    val codVolParaEnviar = cv?.takeIf { it == unidadePadrao }
-                    GrupoConferido(chave.first, chave.second, enviar, codvol = codVolParaEnviar, codigoBarra = cb)
+                    val (_, cb) = escaneadoPara(chave.first, chave.second)
+                    // Contrato real confirmado AO VIVO (nota 57516, conferência NATIVA
+                    // do Sankhya — capturado o INSERT INTO TGFCOI2 que a tela nativa
+                    // gera): CODVOL vai SEMPRE como a unidade de CADASTRO do produto
+                    // (padrão — "CX" no exemplo capturado), NUNCA a unidade
+                    // negociada/comercial da linha ("LT"), e QTDCONF vai SEMPRE em
+                    // unidade COMERCIAL (o que o operador vê como "Pedido: 1 LT" virou
+                    // QTDCONF=1.000000000, não 0.08333). As duas tentativas anteriores
+                    // (converter mas manter codVol=comercial; ou não converter e omitir
+                    // codVol) erraram justamente essa combinação — confirmado o
+                    // contrato certo agora, direto do banco Sankhya, não mais por
+                    // inferência.
+                    val referencia = linhas.first()
+                    val unidadePadrao = referencia[SeparacaoItensTable.unidadePadrao] ?: referencia[SeparacaoItensTable.codvol]
+                    val unidadeComercial = referencia[SeparacaoItensTable.unidadeComercial]
+                    val enviar = if (unidadeComercial != null && unidadeComercial != unidadePadrao) {
+                        padraoParaComercial(
+                            enviarPadrao,
+                            referencia[SeparacaoItensTable.divideMultiplica],
+                            referencia[SeparacaoItensTable.fatorConversao],
+                        )
+                    } else {
+                        enviarPadrao
+                    }
+                    GrupoConferido(chave.first, chave.second, enviar, codvol = unidadePadrao, codigoBarra = cb)
                 }
             }
     }
