@@ -52,7 +52,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.carregarFila();
-    this.syncSub = this.syncTick.onTick.subscribe(() => this.recarregarSilencioso());
+    this.syncSub = this.syncTick.onTick.subscribe(() => this.carregarFila());
   }
 
   ngOnDestroy(): void {
@@ -70,21 +70,6 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.erro.set(err?.error?.erro ?? 'Falha ao buscar a fila no Sankhya.');
         this.carregando.set(false);
-      },
-    });
-  }
-
-  /**
-   * Chamado a cada ciclo do SyncTickService (sincronizado com o intervalo
-   * real do job de sync do backend) — recarrega sem passar por
-   * `carregando`, pra não piscar a tela inteira a cada 60s.
-   */
-  recarregarSilencioso(): void {
-    this.conferenciasService.listarFila(this.tenantAtual).subscribe({
-      next: (tarefas) => this.tarefas.set(tarefas),
-      error: () => {
-        // Falha num refresh silencioso não deve derrubar a tela — a próxima
-        // tentativa (próximo ciclo) resolve sozinha.
       },
     });
   }
