@@ -210,7 +210,7 @@ object LiberacaoCorteService {
             // que a ViewLiberacaoLimite expõe na OBSERVACAO) — Map, não Set, porque
             // precisamos do CODPROD depois pra persistir a decisão (ver V36).
             val pesaveisPorDescricao = withContext(Dispatchers.IO) {
-                wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId)
+                wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true)
             }
                 .filter { it.usaConfPeso }
                 .mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
@@ -326,7 +326,7 @@ object LiberacaoCorteService {
         val itensPesaveisPorDescricao = withContext(Dispatchers.IO) {
             val nunota = wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) ?: return@withContext emptyMap()
             val sessao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota) ?: return@withContext emptyMap()
-            wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id))
+            wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id), incluirSilenciosos = true)
                 .filter { it.usaConfPeso }
                 .mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
                 .toMap()
@@ -426,7 +426,7 @@ object LiberacaoCorteService {
         if (nunota != null) {
             withContext(Dispatchers.IO) {
                 val itensPorDescricao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota)
-                    ?.let { sessao -> wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id)) }
+                    ?.let { sessao -> wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id), incluirSilenciosos = true) }
                     ?.mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
                     ?.toMap()
                     ?: emptyMap()

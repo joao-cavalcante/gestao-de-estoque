@@ -6,6 +6,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
@@ -1239,16 +1240,27 @@ object SeparacaoRepository {
         Unit
     }
 
-    fun listarItens(tenantId: UUID, sessaoId: UUID): List<ItemSeparacaoDto> = TenantTx.run(tenantId) {
+    fun listarItens(tenantId: UUID, sessaoId: UUID, incluirSilenciosos: Boolean = false): List<ItemSeparacaoDto> = TenantTx.run(tenantId) {
         // silencioso=true = item já liberado numa rodada de corte anterior,
         // auto-conferido (ver SeparacaoService.carregarEmBackground) — nunca
         // aparece pro operador (nem Pendentes, nem Conferidos), só entra no
         // finalizar() via a leitura já gravada por trás.
+        //
+        // incluirSilenciosos=true é pra quem precisa MATCHEAR item pesável por
+        // descrição contra o que o Sankhya devolve em ViewLiberacaoLimite
+        // (LiberacaoCorteService.autoLiberarPesoDentroTolerancia/listarPendentes/
+        // liberarOuNegar) — um item já silencioso (liberado numa rodada
+        // anterior) ainda pode voltar como pendente de corte NA MESMA
+        // recontagem (o Sankhya reavalia a divergência contra o QTDNEG
+        // original de novo a cada `cortar()`, não guarda que já foi liberado
+        // antes). Excluir esse item do mapa de match fazia ele cair sempre
+        // pra liberação manual na recontagem, mesmo sendo pesável dentro da
+        // tolerância — bug real, não limitação do Sankhya.
         SeparacaoItensTable.selectAll()
             .where {
                 (SeparacaoItensTable.tenantId eq tenantId) and
                     (SeparacaoItensTable.sessaoId eq sessaoId) and
-                    (SeparacaoItensTable.silencioso eq false)
+                    (if (incluirSilenciosos) Op.TRUE else SeparacaoItensTable.silencioso eq false)
             }
             .orderBy(SeparacaoItensTable.sequencia to SortOrder.ASC)
             .map { row ->
