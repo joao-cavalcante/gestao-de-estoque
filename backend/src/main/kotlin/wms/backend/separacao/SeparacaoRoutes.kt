@@ -21,6 +21,7 @@ fun Route.separacaoRoutes() {
     route("/api/separacao") {
 
         post("/iniciar") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             if (slug.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "query param 'tenant' é obrigatório"))
@@ -31,6 +32,10 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
                 return@post
             }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+                return@post
+            }
 
             val body = call.receive<IniciarSeparacaoRequest>()
             val resultado = SeparacaoService.iniciar(slug, tenantId, body.nunota)
@@ -38,6 +43,7 @@ fun Route.separacaoRoutes() {
         }
 
         get("/sessoes/{id}") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -47,6 +53,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@get
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
 
@@ -61,6 +71,7 @@ fun Route.separacaoRoutes() {
         }
 
         get("/sessoes/{id}/itens") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -70,6 +81,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@get
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
 
@@ -87,6 +102,7 @@ fun Route.separacaoRoutes() {
         }
 
         get("/sessoes/{id}/codigos-barra") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -96,6 +112,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@get
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
 
@@ -113,6 +133,7 @@ fun Route.separacaoRoutes() {
         }
 
         post("/sessoes/{id}/resolver-codigo-barras") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -122,6 +143,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 
@@ -141,6 +166,7 @@ fun Route.separacaoRoutes() {
          * ver SeparacaoRepository.identificarProduto.
          */
         post("/sessoes/{id}/identificar") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -150,6 +176,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 
@@ -173,6 +203,7 @@ fun Route.separacaoRoutes() {
 
         /** Imagem do produto — cache-first, busca lazy no Sankhya. Chamada à parte pra não travar a bipagem. */
         get("/produtos/{codprod}/imagem") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val codprod = call.parameters["codprod"]?.toIntOrNull()
             if (slug.isNullOrBlank() || codprod == null) {
@@ -181,6 +212,9 @@ fun Route.separacaoRoutes() {
             }
             val tenantId = resolverTenantId(slug)
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+            if (tenantId != claims.tenantId) {
+                return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+            }
             val imagem = try {
                 ProdutoImagemService.buscarOuSincronizar(slug, tenantId, codprod)
             } catch (e: Exception) {
@@ -196,6 +230,7 @@ fun Route.separacaoRoutes() {
          * latência entre um item e o próximo).
          */
         post("/sessoes/{id}/conferir") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -205,6 +240,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 
@@ -240,6 +279,7 @@ fun Route.separacaoRoutes() {
          * finalizarConferencia).
          */
         post("/sessoes/{id}/finalizar") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -249,6 +289,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 
@@ -266,6 +310,7 @@ fun Route.separacaoRoutes() {
 
         /** Etapas da conferência segmentada (uma por tipo de separação com item). Vazio = não segmentada. */
         get("/sessoes/{id}/etapas") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -274,6 +319,9 @@ fun Route.separacaoRoutes() {
             }
             val tenantId = resolverTenantId(slug)
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+            if (tenantId != claims.tenantId) {
+                return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+            }
             call.respond(SeparacaoRepository.listarEtapas(tenantId, sessaoId))
         }
 
@@ -364,6 +412,7 @@ fun Route.separacaoRoutes() {
 
         /** Breakdown de tipos de separação por nunota — pro card da Fila. `{}` quando o tenant não é segmentado. */
         post("/etapas-fila") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             if (slug.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "query param 'tenant' é obrigatório"))
@@ -371,6 +420,9 @@ fun Route.separacaoRoutes() {
             }
             val tenantId = resolverTenantId(slug)
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+            if (tenantId != claims.tenantId) {
+                return@post call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+            }
             val body = call.receive<FilaEtapasRequest>()
             try {
                 call.respond(SeparacaoService.etapasFila(slug, tenantId, body.nunotas).mapKeys { it.key.toString() })
@@ -385,6 +437,7 @@ fun Route.separacaoRoutes() {
          * ConferenciaSP.excluirConferencia no Sankhya (ver SeparacaoService.cancelar).
          */
         post("/sessoes/{id}/cancelar") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -394,6 +447,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 
@@ -409,6 +466,7 @@ fun Route.separacaoRoutes() {
 
         /** Recontagem — reabre a sessão pra bipar tudo de novo do zero (mesmos itens/config, só zera o que foi conferido). */
         post("/sessoes/{id}/recontar") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -418,6 +476,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 
@@ -433,6 +495,7 @@ fun Route.separacaoRoutes() {
 
         /** UMAs (Unidade de Movimentação/Armazenagem) dos produtos pesáveis da sessão — rotina de peso portada do projeto base. */
         get("/sessoes/{id}/uma") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -442,6 +505,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@get
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
             call.respond(SeparacaoRepository.listarUma(tenantId, sessaoId))
@@ -449,6 +516,7 @@ fun Route.separacaoRoutes() {
 
         /** Modo simplificado (sem dimensão) — só o total de volumes do pedido, gravado nativamente no Sankhya (TGFCON2.QTDVOL). */
         get("/sessoes/{id}/volume") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -458,6 +526,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@get
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
 
@@ -472,6 +544,7 @@ fun Route.separacaoRoutes() {
         }
 
         put("/sessoes/{id}/volume") {
+            val claims = call.exigirAuth() ?: return@put
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -481,6 +554,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@put
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@put
             }
 
@@ -504,6 +581,7 @@ fun Route.separacaoRoutes() {
 
         /** Desfaz tudo que foi conferido pra esse produto+controle — volta a pendente do zero (corrige bipe errado). */
         post("/sessoes/{id}/devolver-item") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             if (slug.isNullOrBlank() || sessaoId == null) {
@@ -513,6 +591,10 @@ fun Route.separacaoRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 
@@ -568,6 +650,7 @@ fun Route.separacaoRoutes() {
 
         /** Conferências finalizadas pelo WMS — pra tela de reimpressão de etiquetas. Local, sem Sankhya. */
         get("/conferencias-finalizadas") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             if (slug.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "query param 'tenant' é obrigatório"))
@@ -575,6 +658,9 @@ fun Route.separacaoRoutes() {
             }
             val tenantId = resolverTenantId(slug)
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+            if (tenantId != claims.tenantId) {
+                return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+            }
             val nunota = call.request.queryParameters["nunota"]?.toLongOrNull()
             val numnota = call.request.queryParameters["numnota"]?.toLongOrNull()
             val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0
@@ -584,6 +670,7 @@ fun Route.separacaoRoutes() {
 
         /** Reimpressão por número da nota (fora da tela de conferência). */
         get("/etiquetas") {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             val nunota = call.request.queryParameters["nunota"]?.toLongOrNull()
             if (slug.isNullOrBlank() || nunota == null) {
@@ -592,6 +679,9 @@ fun Route.separacaoRoutes() {
             }
             val tenantId = resolverTenantId(slug)
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+            if (tenantId != claims.tenantId) {
+                return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+            }
             try {
                 call.respond(SeparacaoService.dadosEtiquetaPorNota(slug, tenantId, nunota))
             } catch (e: Exception) {
@@ -601,8 +691,13 @@ fun Route.separacaoRoutes() {
     }
 }
 
-/** Preâmbulo comum das rotas de sessão: valida ?tenant=slug + {id} e resolve o tenantId. Responde 400/404 e devolve null se algo faltar. */
+/**
+ * Preâmbulo comum das rotas de sessão: exige token válido, valida ?tenant=slug
+ * + {id}, resolve o tenantId e confere que o token pertence a este tenant.
+ * Responde 400/401/403/404 e devolve null se algo faltar.
+ */
 private suspend fun resolverSessao(call: io.ktor.server.application.ApplicationCall): Triple<String, UUID, UUID>? {
+    val claims = call.exigirAuth() ?: return null
     val slug = call.request.queryParameters["tenant"]
     val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
     if (slug.isNullOrBlank() || sessaoId == null) {
@@ -612,6 +707,10 @@ private suspend fun resolverSessao(call: io.ktor.server.application.ApplicationC
     val tenantId = resolverTenantId(slug)
     if (tenantId == null) {
         call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+        return null
+    }
+    if (tenantId != claims.tenantId) {
+        call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
         return null
     }
     return Triple(slug, sessaoId, tenantId)

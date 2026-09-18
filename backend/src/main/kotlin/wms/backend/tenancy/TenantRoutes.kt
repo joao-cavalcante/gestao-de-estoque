@@ -4,6 +4,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import wms.backend.auth.exigirAdmin
 import wms.backend.erp.SankhyaAuthException
 import wms.backend.erp.SankhyaAuthService
 
@@ -17,10 +18,12 @@ fun Route.tenantRoutes() {
     route("/api/tenants") {
 
         get {
+            call.exigirAdmin() ?: return@get
             call.respond(TenantRepository.listar())
         }
 
         get("/{slug}") {
+            call.exigirAdmin() ?: return@get
             val slug = call.parameters["slug"]!!
             val tenant = TenantRepository.buscarPorSlug(slug)
             if (tenant == null) {
@@ -31,6 +34,7 @@ fun Route.tenantRoutes() {
         }
 
         post {
+            call.exigirAdmin() ?: return@post
             val req = call.receive<CriarTenantRequest>()
             if (req.tier == "dedicated" && req.dedicatedDbUrl.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "tier 'dedicated' exige dedicatedDbUrl"))
@@ -46,6 +50,7 @@ fun Route.tenantRoutes() {
         }
 
         patch("/{slug}") {
+            call.exigirAdmin() ?: return@patch
             val slug = call.parameters["slug"]!!
             val req = call.receive<AtualizarTenantRequest>()
             val atualizado = TenantRepository.atualizar(slug, req)
@@ -57,6 +62,7 @@ fun Route.tenantRoutes() {
         }
 
         post("/{slug}/erp-connections") {
+            call.exigirAdmin() ?: return@post
             val slug = call.parameters["slug"]!!
             val conn = call.receive<ErpConnectionInput>()
             val atualizado = TenantRepository.adicionarErpConnection(slug, conn)
@@ -73,6 +79,7 @@ fun Route.tenantRoutes() {
          * ERP). Não devolve o token — só confirma que autenticou.
          */
         post("/{slug}/erp-connections/{erpType}/testar-autenticacao") {
+            call.exigirAdmin() ?: return@post
             val slug = call.parameters["slug"]!!
             val erpType = call.parameters["erpType"]!!
             if (erpType != "sankhya") {
@@ -88,6 +95,7 @@ fun Route.tenantRoutes() {
         }
 
         delete("/{slug}") {
+            call.exigirAdmin() ?: return@delete
             val slug = call.parameters["slug"]!!
             val removido = TenantRepository.remover(slug)
             if (removido) {

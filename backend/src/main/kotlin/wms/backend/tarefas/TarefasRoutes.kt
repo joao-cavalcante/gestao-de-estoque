@@ -4,6 +4,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import wms.backend.auth.exigirAuth
 import wms.backend.tenancy.TenantRepository
 import java.util.UUID
 
@@ -16,6 +17,7 @@ fun Route.tarefasRoutes() {
     route("/api/tarefas") {
 
         get {
+            val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]
             if (slug.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "query param 'tenant' é obrigatório"))
@@ -24,6 +26,10 @@ fun Route.tarefasRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@get
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
 
@@ -34,6 +40,7 @@ fun Route.tarefasRoutes() {
         // background na hora e devolve a fila já atualizada. Útil quando o operador
         // mexeu na conferência direto no Sankhya e não quer esperar o ciclo de ~60s.
         post("/sincronizar") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             if (slug.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "query param 'tenant' é obrigatório"))
@@ -42,6 +49,10 @@ fun Route.tarefasRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
             try {
@@ -56,6 +67,7 @@ fun Route.tarefasRoutes() {
         }
 
         post("/{nunota}/concluir") {
+            val claims = call.exigirAuth() ?: return@post
             val slug = call.request.queryParameters["tenant"]
             val nunota = call.parameters["nunota"]?.toLongOrNull()
             if (slug.isNullOrBlank() || nunota == null) {
@@ -65,6 +77,10 @@ fun Route.tarefasRoutes() {
             val tenantId = resolverTenantId(slug)
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+                return@post
+            }
+            if (tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
 

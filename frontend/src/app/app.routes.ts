@@ -38,7 +38,7 @@ export const routes: Routes = [
   { path: 'usuarios', component: UsuarioListComponent, canActivate: [authGuard] },
   { path: 'balancas', component: BalancaListComponent, canActivate: [authGuard] },
   { path: 'downloads', component: DownloadsComponent },
-  { path: 'tenants', component: TenantListComponent },
-  { path: 'tenants/novo', component: TenantFormComponent },
-  { path: 'tenants/:slug', component: TenantFormComponent },
+  { path: 'tenants', component: TenantListComponent, canActivate: [authGuard] },
+  { path: 'tenants/novo', component: TenantFormComponent, canActivate: [authGuard] },
+  { path: 'tenants/:slug', component: TenantFormComponent, canActivate: [authGuard] },
 ];
