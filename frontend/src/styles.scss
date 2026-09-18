@@ -645,14 +645,14 @@ body {
     color: var(--oq-text-primary);
     padding: 4px 6px;
     border-bottom: 1px solid var(--oq-border);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   th:first-child,
   td:first-child {
     width: 46%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.3;
   }
 }
 
