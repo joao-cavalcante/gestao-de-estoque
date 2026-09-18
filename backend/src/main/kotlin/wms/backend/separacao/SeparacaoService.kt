@@ -209,7 +209,18 @@ object SeparacaoService {
             val fatAoConcluir = configDetalhe?.campos?.get("FATAOCONCLUIR")?.trim()?.takeIf { it.isNotEmpty() }
             // 'N'/ausente = não usa formação de volumes; 'S'/'T'/'D' = exige volume > 0
             // pra finalizar/concluir etapa (ver SeparacaoRepository.exigeVolume).
-            val formacaoVolumes = configDetalhe?.campos?.get("FORMACAOVOLUMES")?.trim()?.takeIf { it.isNotEmpty() }
+            //
+            // RECONTAGEM (ehRecontagem, calculado acima) NUNCA exige formação de
+            // volumes — regra de negócio própria da recontagem, independente do
+            // que a CCO pede pra conferência normal: o volume já foi formado (ou
+            // não) na conferência original, recontar não deve travar nisso de
+            // novo. Congela `null` aqui, não só esconde na UI — exigeVolume()
+            // lê este campo direto do banco.
+            val formacaoVolumes = if (ehRecontagem) {
+                null
+            } else {
+                configDetalhe?.campos?.get("FORMACAOVOLUMES")?.trim()?.takeIf { it.isNotEmpty() }
+            }
 
             // CCO "Comportamento da interface" — gateiam painéis da tela de
             // conferência (front). Só 'N' explícito esconde; ausente/'S'/outro
@@ -226,9 +237,22 @@ object SeparacaoService {
             // (tenancy.erp_connections.modulos), ligado só pela plataforma pro
             // único cliente que usa. Resolvido aqui e congelado na sessão pra
             // ligar/desligar o módulo não mudar a regra de uma conferência já aberta.
-            val conferenciaSegmentada = withContext(Dispatchers.IO) {
-                wms.backend.tenancy.TenantRepository.modulosHabilitados(tenantId)
-                    .contains(wms.backend.tenancy.Modulos.CONFERENCIA_SEGMENTADA)
+            //
+            // RECONTAGEM é sempre etapa única, mesmo em tenant com o módulo
+            // ligado: não tem Frios/Refrigerados/Secos como etapas independentes,
+            // não tem ordem, não tem "última etapa" — é tratada como uma
+            // conferência normal de etapa só. Força false aqui (não faz sentido
+            // seguir a lógica de progressão de etapas da conferência normal pra
+            // recontagem), o que também impede semearEtapas() de criar etapas
+            // pra ela mais abaixo, e o guard de "há etapas pendentes" em
+            // finalizar() nem entra em jogo (conferenciaSegmentada=false).
+            val conferenciaSegmentada = if (ehRecontagem) {
+                false
+            } else {
+                withContext(Dispatchers.IO) {
+                    wms.backend.tenancy.TenantRepository.modulosHabilitados(tenantId)
+                        .contains(wms.backend.tenancy.Modulos.CONFERENCIA_SEGMENTADA)
+                }
             }
 
             // Peso (UTILICONFPESO por CODVOL + UMA por produto pesável) — mesma
