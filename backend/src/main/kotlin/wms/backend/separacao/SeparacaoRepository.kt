@@ -1345,11 +1345,33 @@ object SeparacaoRepository {
                     // precisão exibida na tela: operador viu "2,083" e digitou 2,083,
                     // mas o negociado real é 2,08333), envia o negociado EXATO — senão
                     // o Sankhya corta a fração e aciona liberação de corte à toa.
-                    val enviar = if (
+                    val enviarPadrao = if (
                         negociado > BigDecimal.ZERO &&
                         total.setScale(3, RoundingMode.HALF_UP) == negociado.setScale(3, RoundingMode.HALF_UP)
                     ) negociado else total
                     val (cv, cb) = escaneadoPara(chave.first, chave.second)
+                    // A magnitude fica gravada sempre em unidade PADRÃO
+                    // (separacao_itens.qtd_*), mas quando `cv` (CODVOL
+                    // escaneado) é a unidade COMERCIAL da linha — diferente da
+                    // padrão — precisa converter ANTES de enviar: mandar
+                    // codVol=LT com a magnitude ainda em CX faz o Sankhya ler
+                    // "0,08333 LT" (quase zero) em vez de "1 LT" (bug real
+                    // confirmado, nota 57516 — item ficava preso aguardando
+                    // corte mesmo 100% conferido, porque o Sankhya arredondava
+                    // a fração pra 0 LT entregue). Mesma conversão que
+                    // listarItens já faz só pra display (padraoParaComercial).
+                    val referencia = linhas.first()
+                    val unidadePadrao = referencia[SeparacaoItensTable.unidadePadrao] ?: referencia[SeparacaoItensTable.codvol]
+                    val unidadeComercial = referencia[SeparacaoItensTable.unidadeComercial]
+                    val enviar = if (cv != null && cv == unidadeComercial && cv != unidadePadrao) {
+                        padraoParaComercial(
+                            enviarPadrao,
+                            referencia[SeparacaoItensTable.divideMultiplica],
+                            referencia[SeparacaoItensTable.fatorConversao],
+                        )
+                    } else {
+                        enviarPadrao
+                    }
                     GrupoConferido(chave.first, chave.second, enviar, codvol = cv, codigoBarra = cb)
                 }
             }
