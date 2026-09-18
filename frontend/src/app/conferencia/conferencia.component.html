@@ -276,14 +276,7 @@
         <div class="oq-modal__body">
           <oq-icon name="circle-alert" [size]="36" class="oq-modal-warn-icon" />
           <span class="oq-form-hint">
-            @if (pendingCount() > 0 && divergenceCount() > 0) {
-              Há itens com quantidade a menor e a maior do que a negociada.
-            } @else if (pendingCount() > 0) {
-              Há itens com quantidade menor do que a negociada.
-            } @else {
-              Há itens com quantidade maior do que a negociada.
-            }
-            "Cortar" libera explicitamente a divergência destes itens. "Finalizar divergente" mantém a divergência — o Sankhya aplica o ajuste da configuração de conferência.
+            Há {{ itensDivergentesSessao().length }} item(ns) com quantidade divergente do negociado (de qualquer etapa da conferência, veja abaixo). "Cortar" libera explicitamente a divergência destes itens. "Finalizar divergente" mantém a divergência — o Sankhya aplica o ajuste da configuração de conferência.
           </span>
           <table class="oq-modal-tabela-divergencia">
             <thead>
@@ -295,7 +288,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of itensDivergentes(); track item.code + item.control) {
+              @for (item of itensDivergentesSessao(); track item.code + item.control) {
                 <tr>
                   <td>{{ item.name }}</td>
                   <td>{{ item.expected }}</td>

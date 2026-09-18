@@ -177,6 +177,17 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   private readonly items = signal<ConferenciaItem[]>([]);
   private readonly conferred = signal<ConferenciaItem[]>([]);
+  /**
+   * Todos os itens da SESSÃO (sem o filtro por etapa que `items`/`conferred`
+   * aplicam) — necessário pra decisão de divergência na última etapa e pra
+   * tabela do pop-up de finalização divergente: um item divergente ficou
+   * numa etapa JÁ CONCLUÍDA (ex.: Secos) não aparece mais em `items`/
+   * `conferred` depois que o operador passa pra etapa seguinte, mas a
+   * divergência continua pendente na nota inteira (bug real: nota 57525,
+   * divergência de Secos só apareceu como "aguardando corte" ao finalizar em
+   * Refrigerados, sem nunca passar pelo pop-up de Cortar/Finalizar Divergente).
+   */
+  private readonly todosItensMapeados = signal<ConferenciaItem[]>([]);
   readonly lastScan = signal<ConferenciaItem | null>(null);
 
   /** Sessão atual — usado pelo scan-bar (identificar/conferir) e pelo devolver-item. */
@@ -237,16 +248,19 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   /** Falta (pendente) ou sobra (crítico) — nos dois casos o Sankhya decide o ajuste via CCO (PROCEDCORTE/GERARPEDCOMPL), mas o operador precisa confirmar ciente disso. */
   readonly temDivergencia = computed(() => this.pendingCount() > 0 || this.divergenceCount() > 0);
   /**
-   * Itens a mostrar na tabela do pop-up de finalização divergente — sobra
-   * (critical, já conferido acima do negociado) e falta (ainda pending,
-   * abaixo do negociado). Dá pro operador a visão do pedido inteiro antes de
-   * decidir Cortar/Finalizar divergente, não só a existência da divergência.
+   * Itens divergentes da SESSÃO INTEIRA (todas as etapas, não só a atual) —
+   * usado pra decidir se a ÚLTIMA etapa deve abrir o pop-up de finalização
+   * divergente, e pra popular a tabela dele. Uma divergência criada numa
+   * etapa já concluída (ex.: Secos) continua valendo até a nota fechar de
+   * vez — `temDivergencia`/`itensDivergentes` (escopo só da etapa atual,
+   * abaixo) não enxergam mais isso depois que o operador passa de etapa.
    */
-  readonly itensDivergentes = computed(() => {
-    const sobra = this.conferred().filter((i) => i.status === 'critical');
-    const falta = this.items(); // pending = ainda abaixo do negociado
-    return [...sobra, ...falta].sort((a, b) => a.name.localeCompare(b.name));
-  });
+  readonly itensDivergentesSessao = computed(() =>
+    this.todosItensMapeados()
+      .filter((i) => i.status !== 'ok')
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  );
+  readonly temDivergenciaSessao = computed(() => this.itensDivergentesSessao().length > 0);
   readonly mostrarModalDivergencia = signal(false);
   /** Aviso simples (regra 5): divergência de não pesável numa etapa que NÃO é a última — só informa, não corta nem finaliza nada. */
   readonly mostrarModalAvisoEtapa = signal(false);
@@ -443,6 +457,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         // Fora do pedido sem nada bipado não aparece em lugar nenhum (foi só
         // identificado e não conferido) — a lista de pendentes é o pedido.
         let mapeados = itens.map(mapearItem).filter((i) => !(i.foraPedido && i.scanned === 0));
+        this.todosItensMapeados.set(mapeados);
         // Conferência por etapa (V29): a tela só enxerga os itens do tipo de separação da etapa.
         const etapa = this.etapaAtual();
         if (etapa != null) mapeados = mapeados.filter((i) => (i.tipoSeparacao ?? 1) === etapa);
@@ -816,10 +831,16 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!this.sessaoIdAtual || this.finalizando()) return;
     // Conferência por etapa: o botão conclui a etapa (a última fecha a nota no Sankhya).
     if (this.modoEtapa()) {
-      if (this.temDivergencia()) {
+      const ultima = this.ehUltimaEtapaPendente();
+      // Na ÚLTIMA etapa a checagem é da SESSÃO INTEIRA (todas as etapas, não só a
+      // atual) — uma divergência de uma etapa já concluída (ex.: Secos) continua
+      // valendo até a nota fechar de vez (ver itensDivergentesSessao). Numa etapa
+      // intermediária, o aviso é só sobre o que essa etapa em si tem pendente.
+      const divergente = ultima ? this.temDivergenciaSessao() : this.temDivergencia();
+      if (divergente) {
         // Regra 5 vs 6: só a ÚLTIMA etapa pendente oferece corte/finalização
         // divergente de verdade — etapa intermediária é só um aviso.
-        if (this.ehUltimaEtapaPendente()) {
+        if (ultima) {
           this.mostrarModalDivergencia.set(true);
         } else {
           this.mostrarModalAvisoEtapa.set(true);
@@ -829,7 +850,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       this.concluirEtapaAgora(false, false);
       return;
     }
-    if (this.temDivergencia()) {
+    if (this.temDivergenciaSessao()) {
       this.mostrarModalDivergencia.set(true);
       return;
     }
