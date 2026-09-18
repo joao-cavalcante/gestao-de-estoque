@@ -277,9 +277,16 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const chavesEtapaAtual = new Set(itensEtapaAtual.map(chaveDe));
     const vistos = new Set<number>();
     const itensEtapaAtualUnicos = itensEtapaAtual.filter((i) => (vistos.has(i.seq) ? false : (vistos.add(i.seq), true)));
-    const itensOutrasEtapas = this.todosItensMapeados().filter(
-      (i) => etapaAtualVal == null || !chavesEtapaAtual.has(chaveDe(i)),
-    );
+    // Sessão sem conceito de etapa (não segmentada, ou recontagem — que agora
+    // é sempre etapa única): não existe "outra etapa" nenhuma pra buscar no
+    // snapshot antigo — items()/conferred() JÁ são a sessão inteira, sempre
+    // em dia. Bug real confirmado (nota 57516, recontagem): usar o snapshot
+    // aqui SOMAVA o mesmo item duas vezes (uma via items()/conferred(), outra
+    // via todosItensMapeados() inteiro) — "Conferido" aparecia exatamente
+    // metade do "Pedido" pra todo item, mesmo sem nenhuma divergência real.
+    const itensOutrasEtapas = etapaAtualVal == null
+      ? []
+      : this.todosItensMapeados().filter((i) => !chavesEtapaAtual.has(chaveDe(i)));
     const todos = [...itensOutrasEtapas, ...itensEtapaAtualUnicos];
 
     const porGrupo = new Map<string, ConferenciaItem[]>();
