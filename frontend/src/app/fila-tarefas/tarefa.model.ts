@@ -6,6 +6,15 @@ export interface Tarefa {
   cliente: string;
   codigoCliente: string | null;
   status: StatusTarefa;
+  /**
+   * Status granular original do backend (TarefaApiDto.statusOperacional,
+   * ver ConferenciasService) — `status` acima agrupa em 4 buckets pra
+   * filtro/KPI/ícone, mas o card usa este campo quando precisa de um rótulo
+   * mais fino (ex.: "aguardando_recontagem" vs "aguardando" comum, que caem
+   * no mesmo bucket 'aguardando' mas significam coisas bem diferentes pro
+   * operador).
+   */
+  statusOperacional?: string;
   alerta: SeveridadeAlerta;
   motivoAlerta?: string;
 

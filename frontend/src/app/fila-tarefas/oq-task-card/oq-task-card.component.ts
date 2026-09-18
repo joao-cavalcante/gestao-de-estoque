@@ -71,7 +71,15 @@ export class OqTaskCardComponent {
   }
 
   get statusVisual(): StatusVisual {
-    return STATUS_VISUAL[this.tarefa.status];
+    const visual = STATUS_VISUAL[this.tarefa.status];
+    // "aguardando_recontagem" cai no mesmo bucket 'aguardando' de uma nota
+    // nunca conferida (ver STATUS_MAP em conferencias.service.ts), mas pro
+    // operador são situações bem diferentes — uma já foi conferida antes e
+    // voltou por divergência/item negado, a outra nunca foi aberta.
+    if (this.tarefa.statusOperacional === 'aguardando_recontagem') {
+      return { ...visual, label: 'AGUARDANDO RECONTAGEM' };
+    }
+    return visual;
   }
 
   get classeCard(): Record<string, boolean> {

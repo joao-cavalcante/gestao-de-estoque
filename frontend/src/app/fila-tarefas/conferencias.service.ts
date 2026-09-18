@@ -108,6 +108,7 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     cliente: p.nomeParceiro ?? '—',
     codigoCliente: p.codigoParceiro,
     status: STATUS_MAP[p.statusOperacional],
+    statusOperacional: p.statusOperacional,
     alerta: null, // sem rastreamento de divergência/SLA local ainda
     pedido: nf,
     numeroUnico: String(p.nunota),
