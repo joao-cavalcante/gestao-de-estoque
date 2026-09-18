@@ -204,10 +204,6 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.dropdownFiltrosAberto.set(false);
   }
 
-  onVerDetalhes(tarefa: Tarefa): void {
-    console.log('Ver detalhes:', tarefa.id);
-  }
-
   onConferir(evento: Tarefa | { tarefa: Tarefa; etapa?: number }): void {
     const tarefa = 'tarefa' in evento ? evento.tarefa : evento;
     const etapa = 'tarefa' in evento ? evento.etapa : undefined;

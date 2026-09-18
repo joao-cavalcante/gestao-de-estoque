@@ -700,6 +700,45 @@ object SeparacaoService {
         }
     }
 
+    /**
+     * Quantidade de itens (linhas de TGFITE) por nunota — pro card da Fila de
+     * Tarefas ("Itens: N"). Batelada via `ItemNota`, sem gate de módulo (ao
+     * contrário de [etapasFila] — vale pra qualquer tenant, segmentado ou não).
+     */
+    suspend fun itensFila(tenantSlug: String, tenantId: UUID, nunotas: List<Long>): Map<Long, Int> {
+        if (nunotas.isEmpty()) return emptyMap()
+        return itensFilaCache.get(tenantId, nunotas) {
+            val raw = SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(
+                    entityName = "ItemNota",
+                    fields = listOf("NUNOTA"),
+                    criteriaExpression = "NUNOTA IN (${nunotas.joinToString(",")})",
+                ),
+            )
+            SankhyaLoadRecordsClient.parseRows(raw, listOf("NUNOTA"))
+                .mapNotNull { it["NUNOTA"]?.toLongOrNull() }
+                .groupingBy { it }
+                .eachCount()
+        }
+    }
+
+    private val itensFilaCache = ItensFilaCache(ttlMillis = 30_000)
+
+    private class ItensFilaCache(private val ttlMillis: Long) {
+        private data class Entrada(val valor: Map<Long, Int>, val expiraEm: Long)
+        private val mapa = java.util.concurrent.ConcurrentHashMap<String, Entrada>()
+
+        suspend fun get(tenantId: UUID, nunotas: List<Long>, carregar: suspend () -> Map<Long, Int>): Map<Long, Int> {
+            val chave = "$tenantId:${nunotas.sorted().joinToString(",")}"
+            val agora = System.currentTimeMillis()
+            mapa[chave]?.takeIf { it.expiraEm > agora }?.let { return it.valor }
+            val valor = carregar()
+            mapa[chave] = Entrada(valor, agora + ttlMillis)
+            return valor
+        }
+    }
+
     /** TGFCON2.STATUS da conferência (via CabecalhoConferencia) — 'F' concluída, 'C' aguardando liberação de corte, 'D' cancelada. */
     private suspend fun statusConferencia(tenantSlug: String, nuconf: Int): String? {
         val fields = listOf("NUCONF", "STATUS")

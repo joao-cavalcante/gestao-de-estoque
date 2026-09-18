@@ -35,7 +35,6 @@ const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
 export class OqTaskCardComponent {
   @Input({ required: true }) tarefa!: Tarefa;
 
-  @Output() verDetalhes = new EventEmitter<Tarefa>();
   @Output() conferir = new EventEmitter<Tarefa | { tarefa: Tarefa; etapa: number }>();
 
   /** Etapas da conferência por etapa (V29) — com rótulo/ícone/progresso resolvidos. Vazio = nota não segmentada. */
@@ -87,9 +86,5 @@ export class OqTaskCardComponent {
       'oq-card--critical': this.tarefa.alerta === 'critico',
       'oq-card--attention': this.tarefa.alerta === 'atencao',
     };
-  }
-
-  formatarValor(valor: number): string {
-    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 }

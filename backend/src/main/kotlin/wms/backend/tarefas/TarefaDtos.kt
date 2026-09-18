@@ -19,6 +19,8 @@ data class TarefaApiDto(
     val descricaoTipoOperacao: String?,
     /** TGFCAB.ORDEMCARGA — número da ordem/onda de carga (null quando a nota não está numa carga). */
     val ordemCarga: Long? = null,
+    /** TGFCAB.AD_TURNOENTREGA — período pra entrega: "1" Diurno | "2" Noturno | "9" Qualquer. */
+    val turnoEntrega: String? = null,
     /** Base pro indicador de sincronização já existente na UI ("dados de Xs atrás"). */
     val segundosDesdeSync: Long,
     val pendenteWriteBack: Boolean,

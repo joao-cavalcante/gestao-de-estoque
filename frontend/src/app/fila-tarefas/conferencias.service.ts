@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { Tarefa, TarefaEtapa } from './tarefa.model';
 
@@ -12,6 +12,14 @@ interface FilaEtapasResposta {
     progresso?: { [tipo: string]: { total: number; conferidos: number } };
   };
 }
+
+/** Resposta de POST /api/separacao/itens-fila — `{ [nunota]: quantidadeDeItens }`. */
+interface ItensFilaResposta {
+  [nunota: string]: number;
+}
+
+/** TGFCAB.AD_TURNOENTREGA — período pra entrega. */
+const ROTULO_TURNO_ENTREGA: Record<string, string> = { '1': 'Diurno', '2': 'Noturno', '9': 'Qualquer' };
 
 /**
  * DTO cru devolvido por GET /api/tarefas (TarefasRoutes.kt) — lido
@@ -46,6 +54,8 @@ export interface TarefaApiDto {
   descricaoTipoOperacao: string | null;
   /** TGFCAB.ORDEMCARGA — número da ordem/onda de carga. */
   ordemCarga: number | null;
+  /** TGFCAB.AD_TURNOENTREGA — "1" Diurno | "2" Noturno | "9" Qualquer. */
+  turnoEntrega: string | null;
   /** Base pro indicador de sincronização da UI ("dados de Xs atrás"). */
   segundosDesdeSync: number;
   pendenteWriteBack: boolean;
@@ -60,16 +70,21 @@ export class ConferenciasService {
     return this.http.get<TarefaApiDto[]>(this.baseUrl, { params: { tenant } }).pipe(
       map((tarefas) => tarefas.map(mapearParaTarefa)),
       switchMap((tarefas) => {
-        // Conferência por etapa (V29): pergunta ao backend o breakdown de tipos
-        // de separação. Tenant sem o módulo devolve `{}` → nada muda.
         const nunotas = tarefas.map((t) => Number(t.numeroUnico)).filter((n) => Number.isFinite(n));
         if (nunotas.length === 0) return of(tarefas);
-        return this.http
-          .post<FilaEtapasResposta>('/api/separacao/etapas-fila', { nunotas }, { params: { tenant } })
-          .pipe(
-            map((etapasPorNota) => mergeEtapas(tarefas, etapasPorNota)),
-            catchError(() => of(tarefas)),
-          );
+        // Duas bateladas em paralelo — nenhuma bloqueia a fila se falhar:
+        // etapas (V29, tenant sem o módulo devolve `{}`) e contagem de itens
+        // (card "Itens: N").
+        return forkJoin({
+          etapas: this.http
+            .post<FilaEtapasResposta>('/api/separacao/etapas-fila', { nunotas }, { params: { tenant } })
+            .pipe(catchError(() => of<FilaEtapasResposta>({}))),
+          itens: this.http
+            .post<ItensFilaResposta>('/api/separacao/itens-fila', { nunotas }, { params: { tenant } })
+            .pipe(catchError(() => of<ItensFilaResposta>({}))),
+        }).pipe(
+          map(({ etapas, itens }) => mergeItens(mergeEtapas(tarefas, etapas), itens)),
+        );
       }),
     );
   }
@@ -120,9 +135,15 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     tipoOperacao: p.descricaoTipoOperacao ?? '—',
     codigoTipoOperacao: p.codigoTipoOperacao,
     ordemCarga: p.ordemCarga,
-    itens: 0, // exige query extra (TGFITE) — não incluída nesta integração
+    itens: 0, // preenchido depois por mergeItens (POST /api/separacao/itens-fila)
     valor: 0, // não faz parte do fieldset base da fila
+    periodoEntrega: (p.turnoEntrega && ROTULO_TURNO_ENTREGA[p.turnoEntrega]) || '—',
   };
+}
+
+/** Preenche `itens` com a contagem real (POST /api/separacao/itens-fila) — falha/ausência vira 0. */
+function mergeItens(tarefas: Tarefa[], itensPorNota: ItensFilaResposta): Tarefa[] {
+  return tarefas.map((t) => ({ ...t, itens: itensPorNota[t.numeroUnico] ?? 0 }));
 }
 
 /** Anexa `etapas` às tarefas segmentadas (tipos presentes na nota + quais já concluídos). */

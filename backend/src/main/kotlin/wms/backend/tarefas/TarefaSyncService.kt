@@ -43,6 +43,8 @@ object TarefaSyncService {
         // TGFCAB.ORDEMCARGA — número da ordem/onda de carga; base do filtro
         // "Ordem de Carga" da fila (igual ao fila-de-conferencia legado).
         "ORDEMCARGA",
+        // TGFCAB.AD_TURNOENTREGA — período pro card da fila: 1 Diurno | 2 Noturno | 9 Qualquer.
+        "AD_TURNOENTREGA",
         // Ponteiro pra conferência atual (NULL = nunca teve ou foi excluída —
         // fica preenchido permanentemente uma vez setado, mesmo após
         // finalização) + liberação do vendedor. Já eram usados dentro do

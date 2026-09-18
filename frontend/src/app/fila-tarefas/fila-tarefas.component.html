@@ -47,7 +47,7 @@
     } @else {
       <div class="oq-page__grid">
         @for (tarefa of tarefasPaginadas(); track tarefa.id) {
-          <oq-task-card [tarefa]="tarefa" (verDetalhes)="onVerDetalhes($event)" (conferir)="onConferir($event)" />
+          <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" />
         }
       </div>
 

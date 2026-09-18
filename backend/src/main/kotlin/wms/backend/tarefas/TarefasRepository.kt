@@ -309,6 +309,10 @@ object TarefasRepository {
                         ?.trim()?.takeIf { it.isNotEmpty() }
                         // vem como "1234" ou "1234.0" do loadRecords — normaliza pra Long
                         ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
+                    turnoEntrega = dados?.get("AD_TURNOENTREGA")?.jsonPrimitive?.contentOrNull
+                        ?.trim()?.takeIf { it.isNotEmpty() }
+                        // normaliza "1"/"1.0" -> "1" (mesma razão do ordemCarga acima)
+                        ?.let { (it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong())?.toString() },
                     segundosDesdeSync = Instant.now().epochSecond - sankhyaAtualizadoEm.epochSecond,
                     pendenteWriteBack = row[TarefasTable.pendenteWriteBack],
                 )

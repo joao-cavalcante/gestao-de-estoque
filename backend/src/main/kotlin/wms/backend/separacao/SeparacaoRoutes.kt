@@ -432,6 +432,27 @@ fun Route.separacaoRoutes() {
             }
         }
 
+        /** Quantidade de itens por nunota — pro card da Fila ("Itens: N"). `{}` em caso de falha (degrada, não quebra a fila). */
+        post("/itens-fila") {
+            val claims = call.exigirAuth() ?: return@post
+            val slug = call.request.queryParameters["tenant"]
+            if (slug.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "query param 'tenant' é obrigatório"))
+                return@post
+            }
+            val tenantId = resolverTenantId(slug)
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
+            if (tenantId != claims.tenantId) {
+                return@post call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+            }
+            val body = call.receive<FilaEtapasRequest>()
+            try {
+                call.respond(SeparacaoService.itensFila(slug, tenantId, body.nunotas).mapKeys { it.key.toString() })
+            } catch (e: Exception) {
+                call.respond(emptyMap<String, Int>())
+            }
+        }
+
         /**
          * Cancela a sessão inteira (desiste do pedido) — chama
          * ConferenciaSP.excluirConferencia no Sankhya (ver SeparacaoService.cancelar).

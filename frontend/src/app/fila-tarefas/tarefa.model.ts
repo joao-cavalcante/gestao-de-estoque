@@ -30,6 +30,8 @@ export interface Tarefa {
   ordemCarga: number | null;
   itens: number;
   valor: number;
+  /** TGFCAB.AD_TURNOENTREGA já traduzido — "Diurno" | "Noturno" | "Qualquer" | "—". */
+  periodoEntrega: string;
   /**
    * Conferência por etapa (V29) — presente só quando o tenant tem o módulo
    * `conferencia_segmentada`. Uma entrada por tipo de separação com item na nota.
