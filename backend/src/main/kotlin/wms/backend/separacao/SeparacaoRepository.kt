@@ -1345,21 +1345,28 @@ object SeparacaoRepository {
                     // precisão exibida na tela: operador viu "2,083" e digitou 2,083,
                     // mas o negociado real é 2,08333), envia o negociado EXATO — senão
                     // o Sankhya corta a fração e aciona liberação de corte à toa.
-                    // REVERTIDO (nota 57516, 2ª tentativa): a conversão padrão->comercial
-                    // antes de enviar piorou o problema — molho de pimenta passou a
-                    // reportar "12 LT entregues" pro Sankhya quando só 1 LT foi de fato
-                    // separado (conversão aplicada em cima de um valor que já não estava
-                    // consistentemente em unidade padrão pra este item/fluxo — a hipótese
-                    // de conversão simples estava errada). Reportar quantidade MAIOR que a
-                    // real é pior que o bug original (ficar preso aguardando corte) —
-                    // volta a mandar sempre em unidade padrão até entender a causa raiz de
-                    // verdade, com dados ao vivo, antes de mexer aqui de novo.
                     val enviar = if (
                         negociado > BigDecimal.ZERO &&
                         total.setScale(3, RoundingMode.HALF_UP) == negociado.setScale(3, RoundingMode.HALF_UP)
                     ) negociado else total
                     val (cv, cb) = escaneadoPara(chave.first, chave.second)
-                    GrupoConferido(chave.first, chave.second, enviar, codvol = cv, codigoBarra = cb)
+                    // `enviar` está SEMPRE em unidade PADRÃO (separacao_itens.qtd_* —
+                    // pra item conferido em unidade comercial diferente, o frontend já
+                    // converte pra padrão antes de mandar o /conferir, ver
+                    // oq-scan-bar.component.ts qtdParaBase). Mandar um `codVol`
+                    // diferente da padrão junto dessa magnitude faz o Sankhya
+                    // interpretar o valor como se já estivesse naquela unidade
+                    // (bug real confirmado, nota 57516: codVol=LT + qtdConf=0,08333
+                    // padrão virou "0,08333 LT" pro Sankhya, não "1 LT"). Mesmo
+                    // tratamento que item PESÁVEL já recebe (nunca manda codVol
+                    // fora da padrão — peso é sempre padrão, sem essa troca) —
+                    // só repassa o codVol quando ele bate com a própria unidade
+                    // padrão do produto; fora isso, omite e deixa o Sankhya usar o
+                    // padrão dele por default.
+                    val unidadePadrao = linhas.first()[SeparacaoItensTable.unidadePadrao]
+                        ?: linhas.first()[SeparacaoItensTable.codvol]
+                    val codVolParaEnviar = cv?.takeIf { it == unidadePadrao }
+                    GrupoConferido(chave.first, chave.second, enviar, codvol = codVolParaEnviar, codigoBarra = cb)
                 }
             }
     }
