@@ -1345,35 +1345,25 @@ object SeparacaoRepository {
                     // precisão exibida na tela: operador viu "2,083" e digitou 2,083,
                     // mas o negociado real é 2,08333), envia o negociado EXATO — senão
                     // o Sankhya corta a fração e aciona liberação de corte à toa.
-                    val enviarPadrao = if (
+                    val enviar = if (
                         negociado > BigDecimal.ZERO &&
                         total.setScale(3, RoundingMode.HALF_UP) == negociado.setScale(3, RoundingMode.HALF_UP)
                     ) negociado else total
-                    val (_, cb) = escaneadoPara(chave.first, chave.second)
-                    // Contrato real confirmado AO VIVO (nota 57516, conferência NATIVA
-                    // do Sankhya — capturado o INSERT INTO TGFCOI2 que a tela nativa
-                    // gera): CODVOL vai SEMPRE como a unidade de CADASTRO do produto
-                    // (padrão — "CX" no exemplo capturado), NUNCA a unidade
-                    // negociada/comercial da linha ("LT"), e QTDCONF vai SEMPRE em
-                    // unidade COMERCIAL (o que o operador vê como "Pedido: 1 LT" virou
-                    // QTDCONF=1.000000000, não 0.08333). As duas tentativas anteriores
-                    // (converter mas manter codVol=comercial; ou não converter e omitir
-                    // codVol) erraram justamente essa combinação — confirmado o
-                    // contrato certo agora, direto do banco Sankhya, não mais por
-                    // inferência.
-                    val referencia = linhas.first()
-                    val unidadePadrao = referencia[SeparacaoItensTable.unidadePadrao] ?: referencia[SeparacaoItensTable.codvol]
-                    val unidadeComercial = referencia[SeparacaoItensTable.unidadeComercial]
-                    val enviar = if (unidadeComercial != null && unidadeComercial != unidadePadrao) {
-                        padraoParaComercial(
-                            enviarPadrao,
-                            referencia[SeparacaoItensTable.divideMultiplica],
-                            referencia[SeparacaoItensTable.fatorConversao],
-                        )
-                    } else {
-                        enviarPadrao
-                    }
-                    GrupoConferido(chave.first, chave.second, enviar, codvol = unidadePadrao, codigoBarra = cb)
+                    val (cv, cb) = escaneadoPara(chave.first, chave.second)
+                    // ABANDONADO (nota 57516, 3 tentativas — 722d48f, 7d7aace, 400f98c,
+                    // todas revertidas): tentar acertar codVol/conversão de unidade nesse
+                    // item fracionário (1/12) causou mais dano que o problema original —
+                    // uma das tentativas chegou a reportar 12x a quantidade real pro
+                    // Sankhya. Comparando as 4 tentativas ao vivo, codVol enviado NUNCA
+                    // mudou o resultado (só a magnitude importou), e converter pra
+                    // comercial quebrou item pesável que nunca tinha problema (Queijo
+                    // Mussarela). Volta pro comportamento mais simples e comprovadamente
+                    // inofensivo pros outros itens: sempre unidade padrão, codVol como
+                    // veio da leitura (sem forçar nada). Esse item específico (frações
+                    // tipo 1/12, 1/3) pode ficar aguardando liberação manual — divergência
+                    // de centésimos é inofensiva e revisável em 1 clique, diferente de
+                    // reportar quantidade errada pro Sankhya.
+                    GrupoConferido(chave.first, chave.second, enviar, codvol = cv, codigoBarra = cb)
                 }
             }
     }
