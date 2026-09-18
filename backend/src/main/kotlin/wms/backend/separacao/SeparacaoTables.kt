@@ -54,16 +54,20 @@ object SeparacaoItensTable : Table("app.separacao_itens") {
     val codprod = integer("codprod")
     val controle = text("controle")
     val codvol = text("codvol").nullable()
-    val qtdNeg = decimal("qtd_neg", 15, 5)
-    val qtdEntregue = decimal("qtd_entregue", 15, 5)
-    val qtdConferidaLocal = decimal("qtd_conferida_local", 15, 5)
+    // V41: 20,15 (não 15,5) — QTDNEG do Sankhya pode vir com dízima periódica
+    // (ex.: fator 1/12 = 0,083333333...) e precisa ser ecoada de volta pra
+    // ConferenciaSP.salvarItemConferido sem perder casa decimal no meio do
+    // caminho. Ver conferencia-conversao-dizima-periodica na memória.
+    val qtdNeg = decimal("qtd_neg", 20, 15)
+    val qtdEntregue = decimal("qtd_entregue", 20, 15)
+    val qtdConferidaLocal = decimal("qtd_conferida_local", 20, 15)
     val usaConfPeso = bool("usa_conf_peso")
     val foraPedido = bool("fora_pedido")
     // Unidades alternativas (V27) — snapshot na abertura, só p/ display "Pedido: X CX".
     val unidadeComercial = text("unidade_comercial").nullable()
     val unidadePadrao = text("unidade_padrao").nullable()
     val divideMultiplica = text("divide_multiplica").nullable()
-    val fatorConversao = decimal("fator_conversao", 15, 5).nullable()
+    val fatorConversao = decimal("fator_conversao", 20, 15).nullable()
     // Conferência por etapa (V29) — tipo de separação do produto (TGFPRO.AD_TIPOSEPARACAO):
     // 1 Secos | 2 Resfriados | 3 Congelados. Ausência/inválido = 1 (default no banco).
     val tipoSeparacao = short("tipo_separacao")
