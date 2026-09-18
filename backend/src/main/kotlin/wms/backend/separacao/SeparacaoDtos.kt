@@ -67,12 +67,6 @@ data class IdentificarOperadorRequest(val crachaoCodigo: String)
 data class OperadorIdentificadoDto(val nome: String)
 
 @Serializable
-data class FinalizarRequest(
-    /** Mesmo significado de ConcluirEtapaRequest.liberarDivergencia — sessão não segmentada (sem etapas). */
-    val liberarDivergencia: Boolean = false,
-)
-
-@Serializable
 data class FinalizarResultadoDto(
     val ok: Boolean = true,
     /** true = ConferenciaSP.cortar deixou a conferência em TGFCON2.STATUS='C' (aguardando liberação de corte). */
@@ -97,15 +91,6 @@ data class ConcluirEtapaRequest(
     val tipoSeparacao: Int,
     /** true = concluir a etapa mesmo com item pendente nela (operador confirmou no modal). */
     val manterPendente: Boolean = false,
-    /**
-     * true = botão "Cortar" do pop-up de finalização divergente (só se aplica
-     * quando esta é a ÚLTIMA etapa pendente) — decisão EXPLÍCITA do operador de
-     * autorizar/liberar a divergência dos itens NÃO pesáveis pendentes desta
-     * nota, além da liberação automática que já cobre pesável dentro da
-     * tolerância. false = "Finalizar divergente" (mantém a divergência,
-     * decisão fica com a Configuração de Conferência do Sankhya).
-     */
-    val liberarDivergencia: Boolean = false,
     // Sem campo `operador` aqui de propósito — quem concluiu vem do JWT
     // (call.exigirAuth() na rota), nunca do corpo da requisição, senão
     // dava pra forjar a autoria.

@@ -296,10 +296,8 @@ fun Route.separacaoRoutes() {
                 return@post
             }
 
-            // Body opcional — sessões antigas do front mandam `{}` (default liberarDivergencia=false).
-            val liberarDivergencia = runCatching { call.receive<FinalizarRequest>() }.getOrDefault(FinalizarRequest()).liberarDivergencia
             try {
-                val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId, liberarDivergencia)
+                val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId)
                 call.respond(resultado)
             } catch (e: SeparacaoService.FinalizarSeparacaoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível finalizar")))
@@ -399,7 +397,6 @@ fun Route.separacaoRoutes() {
             try {
                 val resultado = SeparacaoService.concluirEtapa(
                     slug, tenantId, sessaoId, body.tipoSeparacao, body.manterPendente, operador.nome,
-                    body.liberarDivergencia,
                 )
                 call.respond(resultado)
             } catch (e: SeparacaoService.EtapaComPendentesException) {

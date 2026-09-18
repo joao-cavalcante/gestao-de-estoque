@@ -877,20 +877,20 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         }
         return;
       }
-      this.concluirEtapaAgora(false, false);
+      this.concluirEtapaAgora(false);
       return;
     }
     if (this.temDivergenciaSessao()) {
       this.mostrarModalDivergencia.set(true);
       return;
     }
-    this.executarFinalizacao(false);
+    this.executarFinalizacao();
   }
 
   /** Aviso de etapa intermediária (regra 5): só segue pras próximas etapas, sem cortar nem finalizar nada. */
   onContinuarAvisoEtapa(): void {
     this.mostrarModalAvisoEtapa.set(false);
-    this.concluirEtapaAgora(true, false);
+    this.concluirEtapaAgora(true);
   }
 
   onCancelarAvisoEtapa(): void {
@@ -898,21 +898,26 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Última etapa pendente com divergência (regra 6): "Cortar" autoriza
-   * explicitamente a liberação da divergência (inclusive item não pesável,
-   * que nunca é liberado sozinho — ver LiberacaoCorteService); "Finalizar
-   * divergente" mantém a divergência, decisão fica com a Configuração de
-   * Conferência do Sankhya. Modal fica aberto (spinner nos botões, ver
-   * finalizando()) até a chamada terminar — fechar na hora do clique deixava
-   * o "Enviando para o Sankhya" visível só no rodapé, fora do que o usuário
-   * estava olhando.
+   * Última etapa pendente com divergência (regra 6) — "Cortar" e "Finalizar
+   * divergente" chamam a MESMA ação: quem decide o ajuste é a CCO do Sankhya
+   * (PROCEDCORTE/GERARPEDCOMPL), não o botão escolhido aqui. "Liberar sozinho"
+   * (sem um liberador humano logando) só existe pra item PESÁVEL dentro da
+   * tolerância de 5% (ver LiberacaoCorteService.autoLiberarPesoDentroTolerancia)
+   * — item não pesável divergente SEMPRE precisa da tela de liberação manual
+   * (login do liberador), mesmo quando o operador clica em "Cortar" aqui; uma
+   * versão anterior fazia "Cortar" liberar não pesável sozinho com a
+   * credencial de serviço — revertida (caso real: 2 itens de secos genuinamente
+   * divergentes foram liberados sem nenhum liberador humano revisar). Modal
+   * fica aberto (spinner nos botões, ver finalizando()) até a chamada terminar
+   * — fechar na hora do clique deixava o "Enviando para o Sankhya" visível só
+   * no rodapé, fora do que o usuário estava olhando.
    */
-  onConfirmarDivergente(liberarDivergencia: boolean): void {
+  onConfirmarDivergente(): void {
     if (this.modoEtapa()) {
-      this.concluirEtapaAgora(true, liberarDivergencia);
+      this.concluirEtapaAgora(true);
       return;
     }
-    this.executarFinalizacao(liberarDivergencia);
+    this.executarFinalizacao();
   }
 
   /**
@@ -921,14 +926,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * backend finaliza a nota no Sankhya e devolve a cadeia de corte/faturamento
    * (aposFinalizacao).
    */
-  private concluirEtapaAgora(manterPendente: boolean, liberarDivergencia: boolean): void {
+  private concluirEtapaAgora(manterPendente: boolean): void {
     const tipo = this.etapaAtual();
     if (!this.sessaoIdAtual || tipo == null || this.concluindoEtapa || this.finalizando()) return;
     this.concluindoEtapa = true;
     this.finalizando.set(true);
     // Quem conclui vem do JWT no backend (call.exigirAuth()), não daqui.
     this.separacaoService
-      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente, liberarDivergencia })
+      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente })
       .subscribe({
         next: (res: ConcluirEtapaResultado) => {
           this.concluindoEtapa = false;
@@ -964,10 +969,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.mostrarModalDivergencia.set(false);
   }
 
-  private executarFinalizacao(liberarDivergencia: boolean): void {
+  private executarFinalizacao(): void {
     if (!this.sessaoIdAtual || this.finalizando()) return;
     this.finalizando.set(true);
-    this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual, liberarDivergencia).subscribe({
+    this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
       next: (res) => {
         this.finalizando.set(false);
         this.mostrarModalDivergencia.set(false);

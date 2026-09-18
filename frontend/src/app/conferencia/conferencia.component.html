@@ -276,7 +276,7 @@
         <div class="oq-modal__body">
           <oq-icon name="circle-alert" [size]="36" class="oq-modal-warn-icon" />
           <span class="oq-form-hint">
-            Há {{ itensDivergentesSessao().length }} item(ns) com quantidade divergente do negociado (de qualquer etapa da conferência, veja abaixo). "Cortar" libera explicitamente a divergência destes itens. "Finalizar divergente" mantém a divergência — o Sankhya aplica o ajuste da configuração de conferência.
+            Há {{ itensDivergentesSessao().length }} item(ns) com quantidade divergente do negociado (de qualquer etapa da conferência, veja abaixo). O Sankhya vai aplicar o ajuste configurado (corte, pedido complementar ou nota de devolução, conforme a configuração de conferência) — item não pesável divergente segue pra liberação manual (login do liberador).
           </span>
           <table class="oq-modal-tabela-divergencia">
             <thead>
@@ -301,7 +301,7 @@
         </div>
         <div class="oq-modal__footer">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onCancelarDivergencia()">Cancelar</button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente(true)">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente()">
             @if (finalizando()) {
               <oq-spinner [size]="12" />
               Enviando…
@@ -309,7 +309,7 @@
               Cortar
             }
           </button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente(false)">
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente()">
             @if (finalizando()) {
               <oq-spinner [size]="12" />
               Enviando…

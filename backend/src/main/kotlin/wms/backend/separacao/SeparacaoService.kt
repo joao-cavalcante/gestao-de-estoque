@@ -402,12 +402,7 @@ object SeparacaoService {
      * decisão de permitir ou não já está na configuração do Sankhya, não é
      * escolha nossa aqui.
      */
-    suspend fun finalizar(
-        tenantSlug: String,
-        tenantId: UUID,
-        sessaoId: UUID,
-        liberarDivergencia: Boolean = false,
-    ): FinalizarResultadoDto {
+    suspend fun finalizar(tenantSlug: String, tenantId: UUID, sessaoId: UUID): FinalizarResultadoDto {
         val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão não encontrada")
         if (sessao.status != SeparacaoStatus.PRONTA) {
@@ -484,16 +479,14 @@ object SeparacaoService {
         // essas seguem pra liberação manual. Só zera `aguardandoCorte` se, depois
         // disso, não sobrou nada pendente e a conferência foi finalizada.
         //
-        // `liberarDivergencia` (botão "Cortar" do pop-up de finalização divergente,
-        // ver ConcluirEtapaRequest): decisão EXPLÍCITA do operador, não silenciosa —
-        // estende a liberação também aos itens NÃO pesáveis pendentes desta nota,
-        // que a auto-liberação nunca cobre sozinha (ver LiberacaoCorteService).
+        // "Liberar sozinho" (sem liberador humano) só vale pra pesável dentro da
+        // tolerância — não pesável SEMPRE segue pra liberação manual, mesmo
+        // quando o operador escolhe "Cortar" no pop-up de finalização divergente
+        // (esse clique não é autorização de liberação — ver LiberacaoCorteService).
         var resolvidoViaAutoLiberacao = false
         if (aguardandoCorte) {
             val liberouTudo = runCatching {
-                LiberacaoCorteService.autoLiberarPesoDentroTolerancia(
-                    tenantSlug, tenantId, nuconf, sessaoId, liberarTodosPendentes = liberarDivergencia,
-                )
+                LiberacaoCorteService.autoLiberarPesoDentroTolerancia(tenantSlug, tenantId, nuconf, sessaoId)
             }.getOrDefault(false)
             if (liberouTudo) {
                 aguardandoCorte = false
@@ -565,7 +558,6 @@ object SeparacaoService {
         tipoSeparacao: Int,
         manterPendente: Boolean,
         operador: String,
-        liberarDivergencia: Boolean = false,
     ): ConcluirEtapaResultadoDto {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw ConcluirEtapaException("sessão não encontrada")
@@ -604,7 +596,7 @@ object SeparacaoService {
         // precisou de UPDATE manual no banco pra destravar. Reverte a etapa
         // pra 'P' se finalizar() falhar, pra um retry pela UI funcionar sozinho.
         val res = try {
-            finalizar(tenantSlug, tenantId, sessaoId, liberarDivergencia)
+            finalizar(tenantSlug, tenantId, sessaoId)
         } catch (e: Exception) {
             withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
             throw e

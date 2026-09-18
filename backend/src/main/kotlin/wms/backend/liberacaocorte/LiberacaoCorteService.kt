@@ -155,13 +155,20 @@ object LiberacaoCorteService {
      * Credenciais do liberador via env LIBERADOR_USUARIO / LIBERADOR_SENHA — sem
      * elas nada é liberado.
      *
-     * `liberarTodosPendentes` (botão "Cortar" do pop-up de finalização
-     * divergente, decisão EXPLÍCITA do operador — nunca automática): estende a
-     * liberação também aos itens NÃO PESÁVEIS pendentes desta nota, que a
-     * regra de tolerância acima nunca cobre (produto não pesável não tem
-     * "corte silencioso" — só entra aqui quando o próprio operador autoriza).
+     * IMPORTANTE — regra de negócio confirmada: "liberar sozinho" (sem um
+     * liberador humano logando com a própria credencial) só vale pra produto
+     * PESÁVEL dentro desta tolerância. Não pesável NUNCA passa por aqui,
+     * mesmo quando o operador clica em "Cortar" no pop-up de finalização
+     * divergente — esse clique não é autorização de liberação, só decide
+     * seguir com a divergência; a liberação de verdade de item não pesável
+     * exige a tela manual (LiberacaoCorteRoutes/OqLiberacaoCorteModalComponent),
+     * com login do liberador. Já existiu uma versão que estendia esta função
+     * pra liberar não pesável também no clique de "Cortar" — revertida (nota
+     * real onde 2 itens de secos genuinamente divergentes foram liberados
+     * sozinhos pela credencial de serviço, sem nenhum liberador humano
+     * revisar) por ferir esse controle.
      *
-     * Retorna `true` só quando, depois das liberações, NÃO sobra nada
+     * Retorna `true` só quando, depois das liberações automáticas, NÃO sobra nada
      * pendente e a conferência foi finalizada aqui (nota deixa de aguardar corte).
      */
     suspend fun autoLiberarPesoDentroTolerancia(
@@ -169,7 +176,6 @@ object LiberacaoCorteService {
         tenantId: UUID,
         nuconf: Int,
         sessaoId: UUID,
-        liberarTodosPendentes: Boolean = false,
     ): Boolean {
         val usuario = System.getenv("LIBERADOR_USUARIO")
         val senha = System.getenv("LIBERADOR_SENHA")
@@ -181,16 +187,12 @@ object LiberacaoCorteService {
             val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
             if (pendentes.isEmpty()) return false
 
-            // Todos os itens da sessão, por descrição (match por descrição — é o
+            // Produtos pesáveis da sessão, por descrição (match por descrição — é o
             // que a ViewLiberacaoLimite expõe na OBSERVACAO) — Map, não Set, porque
             // precisamos do CODPROD depois pra persistir a decisão (ver V36).
-            val itensDaSessao = withContext(Dispatchers.IO) {
+            val pesaveisPorDescricao = withContext(Dispatchers.IO) {
                 wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId)
             }
-            val todosPorDescricao = itensDaSessao
-                .mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
-                .toMap()
-            val pesaveisPorDescricao = itensDaSessao
                 .filter { it.usaConfPeso }
                 .mapNotNull { item -> item.descricaoProduto?.trim()?.uppercase()?.takeIf(String::isNotEmpty)?.let { it to item } }
                 .toMap()
@@ -200,29 +202,23 @@ object LiberacaoCorteService {
                 val prod = obs.produto?.trim()?.uppercase() ?: return@filter false
                 val conf = obs.qtdConferida ?: return@filter false
                 val ped = obs.qtdPedido ?: return@filter false
-                if (prod in pesaveisPorDescricao) {
-                    // A MAIOR (pesou mais que o pedido) nunca precisa de liberação — sempre libera.
-                    if (conf > ped) return@filter true
-                    // A MENOR: só libera sozinho dentro da tolerância de 5%.
-                    val base = if (ped != 0.0) ped else conf
-                    return@filter base != 0.0 && (ped - conf) / base <= TOLERANCIA_PESO
-                }
-                // Não pesável: NUNCA libera sozinho — só quando o operador
-                // autorizou explicitamente (botão "Cortar").
-                liberarTodosPendentes && prod in todosPorDescricao
+                if (prod !in pesaveisPorDescricao) return@filter false
+                // A MAIOR (pesou mais que o pedido) nunca precisa de liberação — sempre libera.
+                if (conf > ped) return@filter true
+                // A MENOR: só libera sozinho dentro da tolerância de 5%.
+                val base = if (ped != 0.0) ped else conf
+                base != 0.0 && (ped - conf) / base <= TOLERANCIA_PESO
             }
             if (liberaveis.isEmpty()) {
-                println("INFO: corte $nuconf sem item liberável (pesável dentro da tolerância, ou autorização explícita) — tudo pra liberação manual.")
+                println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar — tudo pra liberação manual.")
                 return false
             }
 
             val codusu = validarLiberador(tenantSlug, usuario, senha)
-            val motivo = if (liberarTodosPendentes) {
-                "Liberação de corte autorizada explicitamente pelo operador (botão Cortar, finalização divergente)"
-            } else {
-                "Liberação automática — peso a maior, ou a menor dentro da tolerância (${(TOLERANCIA_PESO * 100).toInt()}%)"
-            }
-            chamarLiberarNegar(tenantSlug, liberaveis, codusu, "S", motivo)
+            chamarLiberarNegar(
+                tenantSlug, liberaveis, codusu, "S",
+                "Liberação automática — peso a maior, ou a menor dentro da tolerância (${(TOLERANCIA_PESO * 100).toInt()}%)",
+            )
 
             // Registra a decisão localmente (TGFITE não guarda isso — ver V36),
             // senão o item liberado reaparece na recontagem igual ao negado.
@@ -232,7 +228,7 @@ object LiberacaoCorteService {
                     liberaveis.forEach { linha ->
                         val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
                         val prod = obs.produto?.trim()?.uppercase() ?: return@forEach
-                        val item = todosPorDescricao[prod] ?: return@forEach
+                        val item = pesaveisPorDescricao[prod] ?: return@forEach
                         wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(
                             tenantId, nunota, item.codprod, liberado = true, nuconf = nuconf,
                             controle = item.controle, qtdLiberada = obs.qtdConferida?.toBigDecimal(),
