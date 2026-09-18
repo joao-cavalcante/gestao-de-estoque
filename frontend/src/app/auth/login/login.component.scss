@@ -108,6 +108,10 @@
 }
 
 .oq-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   border: none;
   border-radius: var(--oq-radius-input);
   background: var(--oq-brand);

@@ -96,6 +96,10 @@
 }
 
 .oq-local-step__scan-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   font-family: var(--oq-font-mono);
   font-size: 10.5px;
   color: var(--oq-text-secondary);

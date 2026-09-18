@@ -5,6 +5,8 @@ import { Usuario } from '../usuario.model';
 import { OqPanelSectionComponent } from '../../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqStatusChipComponent } from '../../conferencia/oq-status-chip/oq-status-chip.component';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
+import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 
 interface FormUsuario {
   nome: string;
@@ -21,7 +23,7 @@ function formVazio(): FormUsuario {
 @Component({
   selector: 'app-usuario-list',
   standalone: true,
-  imports: [FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent],
+  imports: [FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent, OqSkeletonComponent, OqSpinnerComponent],
   templateUrl: './usuario-list.component.html',
 })
 export class UsuarioListComponent implements OnInit {

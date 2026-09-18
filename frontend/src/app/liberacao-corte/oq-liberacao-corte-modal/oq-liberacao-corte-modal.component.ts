@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { LiberacaoCorteService } from '../liberacao-corte.service';
 import { LiberacaoPendente } from '../liberacao-corte.model';
 
@@ -11,7 +12,7 @@ import { LiberacaoPendente } from '../liberacao-corte.model';
 @Component({
   selector: 'oq-liberacao-corte-modal',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, OqSpinnerComponent],
   templateUrl: './oq-liberacao-corte-modal.component.html',
   styleUrl: './oq-liberacao-corte-modal.component.scss',
 })

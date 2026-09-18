@@ -4,6 +4,7 @@ import { ConferenciaItem } from '../conferencia.model';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { SeparacaoService } from '../../separacao/separacao.service';
 import { ItemConferido, Uma } from '../../separacao/separacao.model';
 import { BalancaService } from '../../balancas/balanca.service';
@@ -31,7 +32,7 @@ export interface ProdutoIdentificadoEvento {
 @Component({
   selector: 'oq-scan-bar',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, DecimalPipe],
+  imports: [FormsModule, OqIconComponent, DecimalPipe, OqSpinnerComponent],
   templateUrl: './oq-scan-bar.component.html',
   styleUrl: './oq-scan-bar.component.scss',
 })

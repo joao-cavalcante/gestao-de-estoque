@@ -1,7 +1,9 @@
 <div class="oq-admin-page">
   <oq-panel-section icon="download" title="DOWNLOADS" [count]="itens().length">
     @if (carregando()) {
-      <div class="oq-empty-row">Carregando…</div>
+      <ul class="oq-admin-lista" aria-busy="true">
+        <oq-skeleton variant="admin-row" [count]="4" />
+      </ul>
     } @else if (itens().length === 0) {
       <div class="oq-empty-row">Nenhum item disponível</div>
     } @else {

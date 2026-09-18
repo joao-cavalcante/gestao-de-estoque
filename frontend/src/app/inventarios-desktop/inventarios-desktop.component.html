@@ -41,7 +41,22 @@
     }
 
     @if (carregando()) {
-      <div class="oq-empty-row">Carregando…</div>
+      <div class="oq-inv-desk__tabela-wrap" aria-busy="true">
+        <table class="oq-inv-desk__tabela">
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Progresso</th>
+              <th>Status</th>
+              <th>Responsável</th>
+              <th>Abertura</th>
+            </tr>
+          </thead>
+          <tbody>
+            <oq-skeleton variant="table-row" [count]="6" />
+          </tbody>
+        </table>
+      </div>
     } @else if (lista().length === 0) {
       <div class="oq-empty-row">Nenhum inventário encontrado</div>
     } @else {
@@ -121,7 +136,12 @@
       <div class="oq-modal__footer">
         <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
         <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="criando()" (click)="criarInventario()">
-          {{ criando() ? 'Abrindo…' : 'Abrir Inventário' }}
+          @if (criando()) {
+            <oq-spinner [size]="12" />
+            Abrindo…
+          } @else {
+            Abrir Inventário
+          }
         </button>
       </div>
     </div>

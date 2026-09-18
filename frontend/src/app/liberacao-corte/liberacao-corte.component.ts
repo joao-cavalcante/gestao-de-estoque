@@ -2,11 +2,12 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { LiberacaoCorteService } from './liberacao-corte.service';
 import { ConferenciaAguardandoCorte } from './liberacao-corte.model';
 import { OqLiberacaoCorteModalComponent } from './oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 
 @Component({
   selector: 'app-liberacao-corte',
   standalone: true,
-  imports: [OqLiberacaoCorteModalComponent],
+  imports: [OqLiberacaoCorteModalComponent, OqSkeletonComponent],
   templateUrl: './liberacao-corte.component.html',
   styleUrl: './liberacao-corte.component.scss',
 })

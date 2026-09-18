@@ -9,7 +9,14 @@
         <oq-icon name="barcode" [size]="22" />
       </div>
       <div class="oq-bipar-local__scan-label">Bipe o local</div>
-      <div class="oq-bipar-local__scan-hint">identifica a posição e inicia a contagem dos produtos</div>
+      <div class="oq-bipar-local__scan-hint">
+        @if (carregando) {
+          <oq-spinner [size]="11" />
+          validando local…
+        } @else {
+          identifica a posição e inicia a contagem dos produtos
+        }
+      </div>
       <input
         #input
         class="oq-bipar-local__input"

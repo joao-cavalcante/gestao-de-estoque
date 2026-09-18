@@ -8,6 +8,8 @@ import { LocalScaleService, StatusBalanca } from '../local-scale.service';
 import { OqPanelSectionComponent } from '../../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqStatusChipComponent } from '../../conferencia/oq-status-chip/oq-status-chip.component';
 import { OqIconComponent, OqIconName } from '../../shared/icons/oq-icon.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
+import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.component';
 
 /** Form usado tanto pra criar quanto editar — mesmos campos do sistema atual (balanca.dto.ts). */
 interface FormBalanca {
@@ -41,7 +43,7 @@ function formVazio(): FormBalanca {
 @Component({
   selector: 'app-balanca-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent],
+  imports: [CommonModule, FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent],
   templateUrl: './balanca-list.component.html',
 })
 export class BalancaListComponent implements OnInit, OnDestroy {

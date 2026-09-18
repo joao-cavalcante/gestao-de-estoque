@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
 import { EtiquetaDados } from '../separacao/separacao.model';
+import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 
 /**
  * Página de impressão de etiquetas de volume (15x10 cm, uma por volume).
@@ -12,7 +13,7 @@ import { EtiquetaDados } from '../separacao/separacao.model';
 @Component({
   selector: 'app-etiquetas',
   standalone: true,
-  imports: [],
+  imports: [OqSpinnerComponent],
   templateUrl: './etiquetas.component.html',
   styleUrl: './etiquetas.component.scss',
 })

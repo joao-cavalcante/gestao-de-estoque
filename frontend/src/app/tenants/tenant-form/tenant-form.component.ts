@@ -4,11 +4,13 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TenantService } from '../tenant.service';
 import { MODULOS_DISPONIVEIS } from '../tenant.model';
+import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 
 @Component({
   selector: 'app-tenant-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, OqSkeletonComponent, OqSpinnerComponent],
   templateUrl: './tenant-form.component.html',
   styleUrl: './tenant-form.component.scss',
 })
@@ -24,6 +26,8 @@ export class TenantFormComponent {
   /** null = tela de cadastro (novo tenant); slug = edição de tenant existente. */
   slugOriginal = signal<string | null>(null);
   salvando = signal(false);
+  /** Só na edição: enquanto busca o tenant pra preencher o formulário. */
+  carregando = signal(false);
   erro = signal<string | null>(null);
   /** Só informativo — a API nunca devolve o segredo em si, só se há algo salvo. */
   credenciaisJaConfiguradas = signal(false);
@@ -88,8 +92,10 @@ export class TenantFormComponent {
   }
 
   private carregarParaEdicao(slug: string): void {
+    this.carregando.set(true);
     this.tenantService.buscarPorSlug(slug).subscribe({
       next: (tenant) => {
+        this.carregando.set(false);
         const conn = tenant.erpConnections[0];
         const configurada = conn?.credenciaisConfiguradas ?? false;
         this.credenciaisJaConfiguradas.set(configurada);
@@ -112,7 +118,10 @@ export class TenantFormComponent {
           xToken: mascara,
         });
       },
-      error: (err) => this.erro.set('Falha ao carregar tenant: ' + (err?.message ?? 'erro desconhecido')),
+      error: (err) => {
+        this.carregando.set(false);
+        this.erro.set('Falha ao carregar tenant: ' + (err?.message ?? 'erro desconhecido'));
+      },
     });
   }
 

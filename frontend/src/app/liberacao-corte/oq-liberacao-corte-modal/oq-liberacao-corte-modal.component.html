@@ -27,13 +27,21 @@
       <footer class="lc-modal__foot">
         <button type="button" class="lc-btn" (click)="fechar()">Cancelar</button>
         <button type="button" class="lc-btn lc-btn--primary" [disabled]="!podeAvancar" (click)="avancar()">
-          {{ autenticando() ? 'Validando…' : 'Avançar' }}
+          @if (autenticando()) {
+            <oq-spinner [size]="12" />
+            Validando…
+          } @else {
+            Avançar
+          }
         </button>
       </footer>
     } @else {
       <div class="lc-modal__body">
         @if (carregandoPendentes()) {
-          <p class="lc-hint">Carregando itens pendentes…</p>
+          <p class="lc-hint">
+            <oq-spinner [size]="12" />
+            Carregando itens pendentes…
+          </p>
         } @else if (pendentes().length === 0) {
           <p class="lc-hint">Nenhum item pendente de liberação.</p>
         } @else {
@@ -86,7 +94,14 @@
         >
           Negar
         </button>
-        <button type="button" class="lc-btn lc-btn--primary" [disabled]="processando() || selecionadas().size === 0" (click)="liberarOuNegar('S')">Liberar corte</button>
+        <button type="button" class="lc-btn lc-btn--primary" [disabled]="processando() || selecionadas().size === 0" (click)="liberarOuNegar('S')">
+          @if (processando()) {
+            <oq-spinner [size]="12" />
+            Enviando…
+          } @else {
+            Liberar corte
+          }
+        </button>
       </footer>
     }
   </div>

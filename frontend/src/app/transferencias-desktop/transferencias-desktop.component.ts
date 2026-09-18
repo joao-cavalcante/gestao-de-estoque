@@ -9,6 +9,7 @@ import { OqStatusChipComponent } from '../conferencia/oq-status-chip/oq-status-c
 import { ChipTone } from '../conferencia/conferencia.model';
 import { OqItemScanBarComponent } from '../transferencia/oq-item-scan-bar/oq-item-scan-bar.component';
 import { OqItemListComponent } from '../transferencia/oq-item-list/oq-item-list.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { TransferenciaService } from '../transferencia/transferencia.service';
 import { CanalOrigem, ItemTransferencia, StatusTransferencia, TransferenciaListItem } from '../transferencia/transferencia.model';
 
@@ -32,6 +33,7 @@ interface AvisoAlterarLocal {
     OqStatusChipComponent,
     OqItemScanBarComponent,
     OqItemListComponent,
+    OqSkeletonComponent,
   ],
   templateUrl: './transferencias-desktop.component.html',
   styleUrl: './transferencias-desktop.component.scss',

@@ -46,7 +46,24 @@
     }
 
     @if (carregando()) {
-      <div class="oq-empty-row">Carregando…</div>
+      <div class="oq-transf-desk__tabela-wrap" aria-busy="true">
+        <table class="oq-transf-desk__tabela">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Origem → Destino</th>
+              <th>Itens</th>
+              <th>Unidades</th>
+              <th>Canal</th>
+              <th>Status</th>
+              <th>Operador</th>
+            </tr>
+          </thead>
+          <tbody>
+            <oq-skeleton variant="table-row" [count]="6" />
+          </tbody>
+        </table>
+      </div>
     } @else if (lista().length === 0) {
       <div class="oq-empty-row">Nenhuma transferência encontrada</div>
     } @else {

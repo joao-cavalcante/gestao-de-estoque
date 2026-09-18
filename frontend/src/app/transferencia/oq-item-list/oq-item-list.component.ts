@@ -1,18 +1,21 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { ItemTransferencia } from '../transferencia.model';
 
 @Component({
   selector: 'oq-item-list',
   standalone: true,
   host: { style: 'display: flex; flex-direction: column; min-height: 0; flex: 1;' },
-  imports: [FormsModule, OqIconComponent],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent],
   templateUrl: './oq-item-list.component.html',
   styleUrl: './oq-item-list.component.scss',
 })
 export class OqItemListComponent {
   @Input({ required: true }) items: ItemTransferencia[] = [];
+  /** Id do item cuja alteração/remoção está indo pro servidor — a linha fica em processamento. */
+  @Input() itemEmOperacao: string | null = null;
   @Output() alterarQtd = new EventEmitter<{ id: string; qtd: number }>();
   @Output() remover = new EventEmitter<string>();
 

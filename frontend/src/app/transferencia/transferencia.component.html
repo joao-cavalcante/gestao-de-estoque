@@ -1,7 +1,10 @@
 <div class="oq-transf-page">
   @switch (etapa()) {
     @case ('carregando') {
-      <div class="oq-transf-page__status">Carregando…</div>
+      <div class="oq-transf-page__status">
+        <oq-spinner [size]="14" />
+        Carregando…
+      </div>
     }
     @case ('bloqueado') {
       <div class="oq-transf-page__status">
@@ -26,7 +29,12 @@
 
       <oq-item-scan-bar [transferenciaId]="transferenciaId!" (itemAdicionado)="onItemAdicionado($event)" />
 
-      <oq-item-list [items]="itemsList()" (alterarQtd)="onAlterarQtd($event)" (remover)="onRemover($event)" />
+      <oq-item-list
+        [items]="itemsList()"
+        [itemEmOperacao]="itemEmOperacao()"
+        (alterarQtd)="onAlterarQtd($event)"
+        (remover)="onRemover($event)"
+      />
 
       <oq-transferencia-footer
         [totalItens]="totalItens()"

@@ -8,13 +8,14 @@ import { OqKpiBarComponent } from './oq-kpi-bar/oq-kpi-bar.component';
 import { OqToolbarComponent } from './oq-toolbar/oq-toolbar.component';
 import { OqTaskCardComponent } from './oq-task-card/oq-task-card.component';
 import { OqEmptyStateComponent } from './oq-empty-state/oq-empty-state.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConferenciasService } from './conferencias.service';
 import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Tarefa } from './tarefa.model';
 
 @Component({
   selector: 'app-fila-tarefas',
   standalone: true,
-  imports: [FormsModule, OqKpiBarComponent, OqToolbarComponent, OqTaskCardComponent, OqEmptyStateComponent],
+  imports: [FormsModule, OqKpiBarComponent, OqToolbarComponent, OqTaskCardComponent, OqEmptyStateComponent, OqSkeletonComponent],
   templateUrl: './fila-tarefas.component.html',
   styleUrl: './fila-tarefas.component.scss',
 })

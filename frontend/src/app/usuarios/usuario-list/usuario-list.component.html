@@ -8,7 +8,9 @@
     </div>
 
     @if (carregando()) {
-      <div class="oq-empty-row">Carregando…</div>
+      <ul class="oq-admin-lista">
+        <oq-skeleton variant="admin-row" [count]="6" />
+      </ul>
     } @else if (usuarios().length === 0) {
       <div class="oq-empty-row">Nenhum usuário cadastrado</div>
     } @else {
@@ -81,7 +83,12 @@
         <div class="oq-modal__footer">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
           <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="modalForm.invalid || modalCarregando()">
-            {{ modalCarregando() ? 'Salvando…' : 'Salvar' }}
+            @if (modalCarregando()) {
+              <oq-spinner [size]="12" />
+              Salvando…
+            } @else {
+              Salvar
+            }
           </button>
         </div>
       </form>
@@ -105,7 +112,12 @@
       <div class="oq-modal__footer">
         <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="cancelarExclusao()">Cancelar</button>
         <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="removendoCarregando()" (click)="confirmarExclusao()">
-          {{ removendoCarregando() ? 'Excluindo…' : 'Excluir' }}
+          @if (removendoCarregando()) {
+            <oq-spinner [size]="12" />
+            Excluindo…
+          } @else {
+            Excluir
+          }
         </button>
       </div>
     </div>

@@ -55,7 +55,7 @@
   color: var(--oq-text-secondary);
 }
 
-.lc-hint { color: var(--oq-text-secondary); font-size: 13px; margin: 0 0 12px; }
+.lc-hint { display: flex; align-items: center; gap: 7px; color: var(--oq-text-secondary); font-size: 13px; margin: 0 0 12px; }
 
 .lc-hint--aviso {
   background: var(--oq-warning-soft, var(--oq-surface-2));
@@ -165,6 +165,10 @@
 }
 
 .lc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid var(--oq-border);
   background: var(--oq-surface);
   color: var(--oq-text-primary);

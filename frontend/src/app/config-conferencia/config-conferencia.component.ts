@@ -6,6 +6,7 @@ import { OqPanelSectionComponent } from '../conferencia/oq-panel-section/oq-pane
 import { OqAbaGeralComponent } from './oq-aba-geral/oq-aba-geral.component';
 import { OqAbaCorteDivergenciaComponent } from './oq-aba-corte-divergencia/oq-aba-corte-divergencia.component';
 import { OqAbaFormacaoVolumesComponent } from './oq-aba-formacao-volumes/oq-aba-formacao-volumes.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConfigConferenciaService } from './config-conferencia.service';
 import { Aba, ConfigConferenciaDetalhe, ConfigConferenciaListItem } from './config-conferencia.model';
 import { ABAS } from './config-conferencia.catalogo';
@@ -21,6 +22,7 @@ import { ABAS } from './config-conferencia.catalogo';
     OqAbaGeralComponent,
     OqAbaCorteDivergenciaComponent,
     OqAbaFormacaoVolumesComponent,
+    OqSkeletonComponent,
   ],
   templateUrl: './config-conferencia.component.html',
   styleUrl: './config-conferencia.component.scss',

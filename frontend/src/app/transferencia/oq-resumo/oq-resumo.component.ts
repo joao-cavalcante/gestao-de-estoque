@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output, inject, signal } from '@angular
 import { HttpErrorResponse } from '@angular/common/http';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqInlineAlertComponent } from '../../shared/oq-inline-alert/oq-inline-alert.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { TransferenciaService } from '../transferencia.service';
 import { ItemTransferencia } from '../transferencia.model';
 
@@ -9,7 +10,7 @@ import { ItemTransferencia } from '../transferencia.model';
   selector: 'oq-resumo',
   standalone: true,
   host: { style: 'display: flex; flex-direction: column; min-height: 0; flex: 1;' },
-  imports: [OqIconComponent, OqInlineAlertComponent],
+  imports: [OqIconComponent, OqInlineAlertComponent, OqSpinnerComponent],
   templateUrl: './oq-resumo.component.html',
   styleUrl: './oq-resumo.component.scss',
 })

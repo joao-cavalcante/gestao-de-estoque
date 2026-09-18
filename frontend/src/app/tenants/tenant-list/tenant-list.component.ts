@@ -3,11 +3,12 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Tenant } from '../tenant.model';
 import { TenantService } from '../tenant.service';
+import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.component';
 
 @Component({
   selector: 'app-tenant-list',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, OqSkeletonComponent],
   templateUrl: './tenant-list.component.html',
   styleUrl: './tenant-list.component.scss',
 })

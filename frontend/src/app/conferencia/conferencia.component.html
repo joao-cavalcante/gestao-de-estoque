@@ -29,7 +29,10 @@
     </div>
   } @else if (carregando()) {
     <div class="oq-cf-page__status">
-      <span class="oq-cf-page__status-titulo">Carregando itens do pedido…</span>
+      <span class="oq-cf-page__status-titulo">
+        <oq-spinner [size]="14" />
+        Carregando itens do pedido…
+      </span>
       <span class="oq-cf-page__status-sub">Consultando Sankhya — normalmente leva poucos segundos.</span>
       <button type="button" class="oq-cf-page__status-btn" (click)="onVoltar()">Voltar à fila</button>
     </div>
@@ -288,7 +291,12 @@
               [disabled]="codTipOperFaturamento === null || faturando()"
               (click)="confirmarFaturamento()"
             >
-              {{ faturando() ? 'Faturando…' : 'Faturar' }}
+              @if (faturando()) {
+                <oq-spinner [size]="12" />
+                Faturando…
+              } @else {
+                Faturar
+              }
             </button>
           }
         </div>

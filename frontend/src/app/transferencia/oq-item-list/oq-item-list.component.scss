@@ -171,3 +171,23 @@
     border-color: var(--oq-text-secondary);
   }
 }
+
+.oq-item-list__processando {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  padding: 8px 10px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-item-list__processando-txt {
+  margin-left: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

@@ -2,7 +2,7 @@
   <oq-panel-section icon="badge" title="TIPOS DE OPERAÇÃO" [count]="tops().length">
     <div class="oq-admin-toolbar">
       <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="sincronizando()" (click)="sincronizarAgora()">
-        <oq-icon name="sync" [size]="13" />
+        <oq-icon name="sync" [size]="13" [class.oq-spin]="sincronizando()" />
         {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar agora' }}
       </button>
     </div>
@@ -12,7 +12,9 @@
     }
 
     @if (carregando()) {
-      <div class="oq-empty-row">Carregando…</div>
+      <ul class="oq-admin-lista" aria-busy="true">
+        <oq-skeleton variant="admin-row" [count]="5" />
+      </ul>
     } @else if (tops().length === 0) {
       <div class="oq-empty-row">Nenhum Tipo de Operação sincronizado ainda — clique em "Sincronizar agora"</div>
     } @else {

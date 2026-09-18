@@ -5,7 +5,13 @@
     <div class="alert alert-erro">{{ erro() }}</div>
   }
 
-  <form [formGroup]="form" (ngSubmit)="salvar()">
+  @if (carregando()) {
+    <div class="tenant-form-skeleton" aria-busy="true">
+      <oq-skeleton variant="detail-block" [count]="8" />
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="salvar()" [hidden]="carregando()">
     <fieldset>
       <legend>Dados do tenant</legend>
 
@@ -125,7 +131,12 @@
 
     <div class="acoes-form">
       <button type="submit" class="btn btn-primary" [disabled]="salvando()">
-        {{ salvando() ? 'Salvando...' : 'Salvar' }}
+        @if (salvando()) {
+          <oq-spinner [size]="12" />
+          Salvando...
+        } @else {
+          Salvar
+        }
       </button>
       <a routerLink="/tenants" class="btn">Cancelar</a>
     </div>

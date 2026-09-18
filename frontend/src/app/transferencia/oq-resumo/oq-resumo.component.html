@@ -34,7 +34,12 @@
       <span><b>{{ totalUnidades }}</b> unidades totais</span>
     </div>
     <button type="button" class="oq-resumo__btn oq-resumo__btn--primary" [disabled]="confirmando()" (click)="confirmar()">
-      Confirmar transferência
+      @if (confirmando()) {
+        <oq-spinner [size]="14" />
+        Gravando…
+      } @else {
+        Confirmar transferência
+      }
     </button>
     <button type="button" class="oq-resumo__btn oq-resumo__btn--outline" [disabled]="confirmando()" (click)="voltar.emit()">
       Voltar

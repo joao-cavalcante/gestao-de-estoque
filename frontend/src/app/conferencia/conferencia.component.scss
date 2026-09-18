@@ -118,6 +118,9 @@
 }
 
 .oq-cf-page__status-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--oq-font-display);
   font-size: 16px;
   font-weight: 700;

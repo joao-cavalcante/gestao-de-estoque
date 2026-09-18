@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
 import { ConferenciaFinalizada } from '../separacao/separacao.model';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 
 /**
  * Lista as conferências finalizadas pelo WMS pra reimpressão de etiquetas —
@@ -11,7 +12,7 @@ import { ConferenciaFinalizada } from '../separacao/separacao.model';
 @Component({
   selector: 'app-impressao-etiquetas',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, OqSkeletonComponent],
   templateUrl: './impressao-etiquetas.component.html',
   styleUrl: './impressao-etiquetas.component.scss',
 })

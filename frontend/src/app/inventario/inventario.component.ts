@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { OqBiparLocalComponent } from './oq-bipar-local/oq-bipar-local.component';
 import { OqContagemScanBarComponent } from './oq-contagem-scan-bar/oq-contagem-scan-bar.component';
 import { OqContagemListaComponent } from './oq-contagem-lista/oq-contagem-lista.component';
+import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { InventarioService } from './inventario.service';
 import { InventarioListItem, ItemInventario } from './inventario.model';
 
@@ -10,7 +11,7 @@ type Etapa = 'carregando' | 'sem-inventario' | 'selecionar' | 'local' | 'contage
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [OqBiparLocalComponent, OqContagemScanBarComponent, OqContagemListaComponent],
+  imports: [OqBiparLocalComponent, OqContagemScanBarComponent, OqContagemListaComponent, OqSpinnerComponent],
   templateUrl: './inventario.component.html',
   styleUrl: './inventario.component.scss',
 })

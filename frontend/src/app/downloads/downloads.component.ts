@@ -3,11 +3,12 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { DownloadItem } from './downloads.model';
 import { OqPanelSectionComponent } from '../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 
 @Component({
   selector: 'app-downloads',
   standalone: true,
-  imports: [OqPanelSectionComponent, OqIconComponent],
+  imports: [OqPanelSectionComponent, OqIconComponent, OqSkeletonComponent],
   templateUrl: './downloads.component.html',
 })
 export class DownloadsComponent implements OnInit {

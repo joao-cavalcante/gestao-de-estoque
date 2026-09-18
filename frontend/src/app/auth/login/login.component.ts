@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, ViewChild, inject, signal } from 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth.service';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 
 const CHAVE_TENANT = 'wms_tenant_slug';
 /** Este deploy só serve o tenant negri — sem seletor de tenant nem dependência do cache do navegador pro login por crachá. */
@@ -12,7 +13,7 @@ type AbaLogin = 'senha' | 'cracha';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, OqSpinnerComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })

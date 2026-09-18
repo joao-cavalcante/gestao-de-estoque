@@ -1,5 +1,8 @@
 @if (carregando()) {
-  <p class="et-msg">Carregando etiquetas…</p>
+  <p class="et-msg">
+    <oq-spinner [size]="13" />
+    Carregando etiquetas…
+  </p>
 } @else if (erro()) {
   <p class="et-msg et-msg--erro">{{ erro() }}</p>
 } @else if (!dados() || dados()!.totalVolumes === 0) {

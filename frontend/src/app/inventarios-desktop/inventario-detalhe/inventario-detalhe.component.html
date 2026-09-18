@@ -27,8 +27,17 @@
 
     <div class="oq-inv-det__acoes">
       @if (inv.status === 'aberto' || inv.status === 'em_contagem') {
-        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="cancelarInventario()">Cancelar Inventário</button>
-        <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="finalizarContagem()">Finalizar Contagem</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="mudandoStatus()" (click)="cancelarInventario()">
+          Cancelar Inventário
+        </button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="mudandoStatus()" (click)="finalizarContagem()">
+          @if (mudandoStatus()) {
+            <oq-spinner [size]="12" />
+            Processando…
+          } @else {
+            Finalizar Contagem
+          }
+        </button>
       }
       @if (inv.status === 'finalizado') {
         <button
@@ -97,12 +106,38 @@
         <div class="oq-modal__footer">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModalAprovar()">Cancelar</button>
           <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="aprovando()" (click)="confirmarAprovacao()">
-            {{ aprovando() ? 'Aprovando…' : 'Confirmar Aprovação' }}
+            @if (aprovando()) {
+              <oq-spinner [size]="12" />
+              Aprovando…
+            } @else {
+              Confirmar Aprovação
+            }
           </button>
         </div>
       </div>
     </div>
   }
+} @else if (carregando()) {
+  <div class="oq-admin-page" aria-busy="true">
+    <div class="oq-inv-det__tabela-wrap">
+      <table class="oq-inv-det__tabela">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Controle</th>
+            <th>Local</th>
+            <th>Qtd. sistema</th>
+            <th>Qtd. contada</th>
+            <th>Divergência</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <oq-skeleton variant="table-row" [count]="8" />
+        </tbody>
+      </table>
+    </div>
+  </div>
 } @else {
-  <div class="oq-admin-page"><div class="oq-empty-row">{{ carregando() ? 'Carregando…' : 'Inventário não encontrado' }}</div></div>
+  <div class="oq-admin-page"><div class="oq-empty-row">Inventário não encontrado</div></div>
 }

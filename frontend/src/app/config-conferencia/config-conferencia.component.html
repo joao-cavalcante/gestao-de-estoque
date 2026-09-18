@@ -35,7 +35,9 @@
     }
 
     @if (carregando()) {
-      <div class="oq-empty-row">Carregando…</div>
+      <div class="oq-cc__conteudo" aria-busy="true">
+        <oq-skeleton variant="detail-block" [count]="8" />
+      </div>
     } @else if (lista().length === 0) {
       <div class="oq-empty-row">Nenhuma Configuração de Conferência sincronizada ainda — clique em "Sincronizar agora"</div>
     } @else if (detalhe()) {
@@ -66,7 +68,9 @@
         }
       </div>
     } @else {
-      <div class="oq-empty-row">Carregando detalhe…</div>
+      <div class="oq-cc__conteudo" aria-busy="true">
+        <oq-skeleton variant="detail-block" [count]="8" />
+      </div>
     }
   </oq-panel-section>
 </div>

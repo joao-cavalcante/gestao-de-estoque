@@ -31,7 +31,12 @@
         }
 
         <button type="submit" class="oq-login-btn" [disabled]="carregando()">
-          {{ carregando() ? 'ENTRANDO…' : 'ENTRAR' }}
+          @if (carregando()) {
+            <oq-spinner [size]="13" />
+            ENTRANDO…
+          } @else {
+            ENTRAR
+          }
         </button>
       </form>
     } @else {
@@ -56,7 +61,12 @@
         }
 
         <button type="submit" class="oq-login-btn" [disabled]="carregando() || !crachaoCodigo.trim()">
-          {{ carregando() ? 'ENTRANDO…' : 'ENTRAR' }}
+          @if (carregando()) {
+            <oq-spinner [size]="13" />
+            ENTRANDO…
+          } @else {
+            ENTRAR
+          }
         </button>
       </form>
     }

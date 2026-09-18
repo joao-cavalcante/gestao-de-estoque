@@ -1,7 +1,10 @@
 <div class="oq-inv-page">
   @switch (etapa()) {
     @case ('carregando') {
-      <div class="oq-inv-page__status">Carregando…</div>
+      <div class="oq-inv-page__status">
+        <oq-spinner [size]="14" />
+        Carregando…
+      </div>
     }
     @case ('sem-inventario') {
       <div class="oq-inv-page__status">Nenhum inventário em andamento no momento.</div>

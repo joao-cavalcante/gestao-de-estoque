@@ -14,7 +14,9 @@
   }
 
   @if (carregando()) {
-    <p class="lc-page__vazio">Carregando…</p>
+    <div class="lc-grid" aria-busy="true">
+      <oq-skeleton variant="task-card" [count]="4" />
+    </div>
   } @else if (lista().length === 0) {
     <p class="lc-page__vazio">Nenhuma conferência aguardando liberação.</p>
   } @else {

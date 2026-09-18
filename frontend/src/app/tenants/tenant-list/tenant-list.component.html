@@ -9,7 +9,22 @@
   }
 
   @if (carregando()) {
-    <p>Carregando...</p>
+    <table class="tenants-table" aria-busy="true">
+      <thead>
+        <tr>
+          <th>Slug</th>
+          <th>Nome</th>
+          <th>Tier</th>
+          <th>Status</th>
+          <th>ERP</th>
+          <th>Dialeto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <oq-skeleton variant="table-row" [count]="5" />
+      </tbody>
+    </table>
   } @else if (tenants().length === 0) {
     <p class="vazio">Nenhum tenant cadastrado ainda.</p>
   } @else {

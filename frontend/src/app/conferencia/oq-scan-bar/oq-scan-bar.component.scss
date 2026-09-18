@@ -495,3 +495,11 @@
     cursor: not-allowed;
   }
 }
+
+.oq-scan-bar__buscando {
+  font-family: var(--oq-font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--oq-text-secondary);
+}

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqInlineAlertComponent } from '../../shared/oq-inline-alert/oq-inline-alert.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { InventarioService } from '../inventario.service';
 import { TransferenciaService } from '../../transferencia/transferencia.service';
 import { ItemInventario } from '../inventario.model';
@@ -17,7 +18,7 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'oq-contagem-scan-bar',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent],
+  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent, OqSpinnerComponent],
   templateUrl: './oq-contagem-scan-bar.component.html',
   styleUrl: './oq-contagem-scan-bar.component.scss',
 })

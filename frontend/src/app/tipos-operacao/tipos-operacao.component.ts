@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqPanelSectionComponent } from '../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqInlineAlertComponent } from '../shared/oq-inline-alert/oq-inline-alert.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { TiposOperacaoService } from './tipos-operacao.service';
 import { TipoOperacao } from './tipos-operacao.model';
 
@@ -14,7 +15,7 @@ import { TipoOperacao } from './tipos-operacao.model';
 @Component({
   selector: 'app-tipos-operacao',
   standalone: true,
-  imports: [OqIconComponent, OqPanelSectionComponent, OqInlineAlertComponent],
+  imports: [OqIconComponent, OqPanelSectionComponent, OqInlineAlertComponent, OqSkeletonComponent],
   templateUrl: './tipos-operacao.component.html',
 })
 export class TiposOperacaoComponent implements OnInit {

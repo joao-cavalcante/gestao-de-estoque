@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqInlineAlertComponent } from '../../shared/oq-inline-alert/oq-inline-alert.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { TransferenciaService } from '../transferencia.service';
 import { ItemTransferencia, ProdutoEstoque } from '../transferencia.model';
 import { environment } from '../../../environments/environment';
@@ -11,7 +12,7 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'oq-item-scan-bar',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent],
+  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent, OqSpinnerComponent],
   templateUrl: './oq-item-scan-bar.component.html',
   styleUrl: './oq-item-scan-bar.component.scss',
 })

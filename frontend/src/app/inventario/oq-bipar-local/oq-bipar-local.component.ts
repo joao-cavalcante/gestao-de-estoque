@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, EventEmitter, Output, ViewChild, 
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqInlineAlertComponent } from '../../shared/oq-inline-alert/oq-inline-alert.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { TransferenciaService } from '../../transferencia/transferencia.service';
 import { environment } from '../../../environments/environment';
 
@@ -9,7 +10,7 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'oq-bipar-local',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent],
+  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent, OqSpinnerComponent],
   templateUrl: './oq-bipar-local.component.html',
   styleUrl: './oq-bipar-local.component.scss',
 })

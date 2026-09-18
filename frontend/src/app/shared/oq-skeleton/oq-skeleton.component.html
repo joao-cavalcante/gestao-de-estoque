@@ -1,0 +1,51 @@
+@switch (variant) {
+  @case ('admin-row') {
+    @for (i of items; track i) {
+      <li class="oq-skel-row">
+        <span class="oq-skeleton oq-skel-row__avatar"></span>
+        <div class="oq-skel-row__main">
+          <span class="oq-skeleton oq-skel-row__title"></span>
+          <span class="oq-skeleton oq-skel-row__sub"></span>
+        </div>
+        <span class="oq-skeleton oq-skel-row__chip"></span>
+        <span class="oq-skeleton oq-skel-row__btn"></span>
+      </li>
+    }
+  }
+  @case ('task-card') {
+    @for (i of items; track i) {
+      <article class="oq-skel-card">
+        <span class="oq-skeleton oq-skel-card__title"></span>
+        <div class="oq-skel-card__grid">
+          @for (f of [0, 1, 2, 3, 4, 5, 6, 7]; track f) {
+            <span class="oq-skeleton oq-skel-card__field"></span>
+          }
+        </div>
+        <div class="oq-skel-card__footer">
+          <span class="oq-skeleton oq-skel-card__btn"></span>
+          <span class="oq-skeleton oq-skel-card__btn"></span>
+        </div>
+      </article>
+    }
+  }
+  @case ('table-row') {
+    @for (i of items; track i) {
+      <tr class="oq-skel-table-row">
+        <td colspan="99"><span class="oq-skeleton oq-skel-table-row__line"></span></td>
+      </tr>
+    }
+  }
+  @case ('detail-block') {
+    @for (i of items; track i) {
+      <div class="oq-skel-detail">
+        <span class="oq-skeleton oq-skel-detail__label"></span>
+        <span class="oq-skeleton oq-skel-detail__value"></span>
+      </div>
+    }
+  }
+  @default {
+    @for (i of items; track i) {
+      <span class="oq-skeleton oq-skel-line" [style.width]="width" [style.height]="height"></span>
+    }
+  }
+}

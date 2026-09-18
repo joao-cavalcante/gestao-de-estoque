@@ -23,6 +23,7 @@ import { FormsModule } from '@angular/forms';
 import { Tarefa, rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
 import { AuthService } from '../auth/auth.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
+import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { SomFeedbackService } from '../shared/som-feedback.service';
 
 /**
@@ -128,6 +129,7 @@ function mapearItem(item: ItemSeparacao): ConferenciaItem {
     OqConferenciaFooterComponent,
     OqIconComponent,
     OqLiberacaoCorteModalComponent,
+    OqSpinnerComponent,
     FormsModule,
   ],
   templateUrl: './conferencia.component.html',

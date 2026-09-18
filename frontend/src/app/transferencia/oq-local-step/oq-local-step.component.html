@@ -17,7 +17,14 @@
         <oq-icon name="barcode" [size]="22" />
       </div>
       <div class="oq-local-step__scan-label">{{ titulo }}</div>
-      <div class="oq-local-step__scan-hint">{{ dica }}</div>
+      <div class="oq-local-step__scan-hint">
+        @if (carregando) {
+          <oq-spinner [size]="11" />
+          validando local…
+        } @else {
+          {{ dica }}
+        }
+      </div>
       <input
         #input
         class="oq-local-step__input"

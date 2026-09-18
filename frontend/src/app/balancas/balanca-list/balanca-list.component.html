@@ -8,7 +8,9 @@
     </div>
 
     @if (carregando()) {
-      <div class="oq-empty-row">Carregando…</div>
+      <ul class="oq-admin-lista" aria-busy="true">
+        <oq-skeleton variant="admin-row" [count]="5" />
+      </ul>
     } @else if (balancas().length === 0) {
       <div class="oq-empty-row">Nenhuma balança cadastrada</div>
     } @else {
@@ -86,7 +88,7 @@
                       }
                     </select>
                     <button type="button" class="oq-modal__fechar" [disabled]="buscandoPortas()" (click)="buscarPortas()" title="Atualizar portas">
-                      <oq-icon name="sync" [size]="12" />
+                      <oq-icon name="sync" [size]="12" [class.oq-spin]="buscandoPortas()" />
                     </button>
                   </div>
                 </div>
@@ -218,7 +220,12 @@
         <div class="oq-modal__footer" style="grid-column: 1 / -1;">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
           <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="modalForm.invalid || modalCarregando()">
-            {{ modalCarregando() ? 'Salvando…' : 'Salvar' }}
+            @if (modalCarregando()) {
+              <oq-spinner [size]="12" />
+              Salvando…
+            } @else {
+              Salvar
+            }
           </button>
         </div>
       </form>
@@ -242,7 +249,12 @@
       <div class="oq-modal__footer">
         <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="cancelarExclusao()">Cancelar</button>
         <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="removendoCarregando()" (click)="confirmarExclusao()">
-          {{ removendoCarregando() ? 'Excluindo…' : 'Excluir' }}
+          @if (removendoCarregando()) {
+            <oq-spinner [size]="12" />
+            Excluindo…
+          } @else {
+            Excluir
+          }
         </button>
       </div>
     </div>

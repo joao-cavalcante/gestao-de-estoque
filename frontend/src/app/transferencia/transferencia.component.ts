@@ -6,6 +6,7 @@ import { OqItemListComponent } from './oq-item-list/oq-item-list.component';
 import { OqTransferenciaFooterComponent } from './oq-transferencia-footer/oq-transferencia-footer.component';
 import { OqResumoComponent } from './oq-resumo/oq-resumo.component';
 import { OqInlineAlertComponent } from '../shared/oq-inline-alert/oq-inline-alert.component';
+import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { TransferenciaService } from './transferencia.service';
 import { ItemTransferencia } from './transferencia.model';
 
@@ -21,6 +22,7 @@ type Etapa = 'carregando' | 'bloqueado' | 'local' | 'itens' | 'resumo';
     OqTransferenciaFooterComponent,
     OqResumoComponent,
     OqInlineAlertComponent,
+    OqSpinnerComponent,
   ],
   templateUrl: './transferencia.component.html',
   styleUrl: './transferencia.component.scss',
@@ -36,6 +38,8 @@ export class TransferenciaComponent implements OnInit {
 
   private readonly items = signal<ItemTransferencia[]>([]);
   readonly itemsList = this.items.asReadonly();
+  /** Item cuja alteração/remoção ainda está em voo — a linha correspondente fica em processamento. */
+  readonly itemEmOperacao = signal<string | null>(null);
 
   readonly totalItens = computed(() => this.items().length);
   readonly totalUnidades = computed(() => this.items().reduce((soma, item) => soma + Number(item.quantidade), 0));
@@ -70,18 +74,31 @@ export class TransferenciaComponent implements OnInit {
     const item = this.items().find((i) => i.id === evento.id);
     if (!item) return;
 
-    this.service.removerItem(this.transferenciaId, item.id).subscribe(() => {
-      this.items.update((arr) => arr.filter((i) => i.id !== item.id));
-      this.service.adicionarItem(this.transferenciaId!, item.codigoProduto, evento.qtd).subscribe((novo) => {
-        this.items.update((arr) => [novo, ...arr]);
-      });
+    this.itemEmOperacao.set(item.id);
+    this.service.removerItem(this.transferenciaId, item.id).subscribe({
+      next: () => {
+        this.items.update((arr) => arr.filter((i) => i.id !== item.id));
+        this.service.adicionarItem(this.transferenciaId!, item.codigoProduto, evento.qtd).subscribe({
+          next: (novo) => {
+            this.itemEmOperacao.set(null);
+            this.items.update((arr) => [novo, ...arr]);
+          },
+          error: () => this.itemEmOperacao.set(null),
+        });
+      },
+      error: () => this.itemEmOperacao.set(null),
     });
   }
 
   onRemover(itemId: string): void {
     if (!this.transferenciaId) return;
-    this.service.removerItem(this.transferenciaId, itemId).subscribe(() => {
-      this.items.update((arr) => arr.filter((i) => i.id !== itemId));
+    this.itemEmOperacao.set(itemId);
+    this.service.removerItem(this.transferenciaId, itemId).subscribe({
+      next: () => {
+        this.itemEmOperacao.set(null);
+        this.items.update((arr) => arr.filter((i) => i.id !== itemId));
+      },
+      error: () => this.itemEmOperacao.set(null),
     });
   }
 

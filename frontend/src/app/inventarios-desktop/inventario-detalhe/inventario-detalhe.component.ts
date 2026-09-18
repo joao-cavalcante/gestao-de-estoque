@@ -5,6 +5,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqInlineAlertComponent } from '../../shared/oq-inline-alert/oq-inline-alert.component';
 import { OqStatusChipComponent } from '../../conferencia/oq-status-chip/oq-status-chip.component';
+import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { ChipTone } from '../../conferencia/conferencia.model';
 import { InventarioService } from '../../inventario/inventario.service';
 import { InventarioDetalhe, ItemInventario } from '../../inventario/inventario.model';
@@ -17,7 +19,7 @@ type SeveridadeDivergencia = 'neutro' | 'atencao' | 'critico';
 @Component({
   selector: 'app-inventario-detalhe',
   standalone: true,
-  imports: [CommonModule, OqIconComponent, OqInlineAlertComponent, OqStatusChipComponent],
+  imports: [CommonModule, OqIconComponent, OqInlineAlertComponent, OqStatusChipComponent, OqSkeletonComponent, OqSpinnerComponent],
   templateUrl: './inventario-detalhe.component.html',
   styleUrl: './inventario-detalhe.component.scss',
 })
@@ -34,6 +36,8 @@ export class InventarioDetalheComponent implements OnInit, OnDestroy {
 
   modalAprovarAberto = signal(false);
   aprovando = signal(false);
+  /** Finalizar contagem / cancelar inventário — ambos recarregam a tela ao voltar. */
+  mudandoStatus = signal(false);
   erroAprovar = signal<string | null>(null);
   avisoRecontagem = signal<string | null>(null);
 
@@ -82,11 +86,27 @@ export class InventarioDetalheComponent implements OnInit, OnDestroy {
   }
 
   finalizarContagem(): void {
-    this.service.mudarStatus(this.id, 'finalizado').subscribe(() => this.carregar());
+    if (this.mudandoStatus()) return;
+    this.mudandoStatus.set(true);
+    this.service.mudarStatus(this.id, 'finalizado').subscribe({
+      next: () => {
+        this.mudandoStatus.set(false);
+        this.carregar();
+      },
+      error: () => this.mudandoStatus.set(false),
+    });
   }
 
   cancelarInventario(): void {
-    this.service.cancelar(this.id).subscribe(() => this.carregar());
+    if (this.mudandoStatus()) return;
+    this.mudandoStatus.set(true);
+    this.service.cancelar(this.id).subscribe({
+      next: () => {
+        this.mudandoStatus.set(false);
+        this.carregar();
+      },
+      error: () => this.mudandoStatus.set(false),
+    });
   }
 
   abrirModalAprovar(): void {

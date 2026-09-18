@@ -38,7 +38,14 @@
   <div class="oq-contagem-scan-bar__zone">
     <div class="oq-contagem-scan-bar__icon"><oq-icon name="barcode" [size]="20" /></div>
     <div class="oq-contagem-scan-bar__label">Bipe o produto / etiqueta</div>
-    <div class="oq-contagem-scan-bar__hint">etiqueta com qtd. soma automático · peça avulsa soma +1</div>
+    <div class="oq-contagem-scan-bar__hint">
+      @if (carregando) {
+        <oq-spinner [size]="11" />
+        consultando produto…
+      } @else {
+        etiqueta com qtd. soma automático · peça avulsa soma +1
+      }
+    </div>
     <input
       #inputCodigo
       class="oq-contagem-scan-bar__input"

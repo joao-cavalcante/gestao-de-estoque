@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, EventEmitter, Output, ViewChild, 
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqInlineAlertComponent } from '../../shared/oq-inline-alert/oq-inline-alert.component';
+import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { TransferenciaService } from '../transferencia.service';
 import { environment } from '../../../environments/environment';
 
@@ -16,7 +17,7 @@ type Passo = 'origem' | 'destino';
 @Component({
   selector: 'oq-local-step',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent],
+  imports: [FormsModule, OqIconComponent, OqInlineAlertComponent, OqSpinnerComponent],
   templateUrl: './oq-local-step.component.html',
   styleUrl: './oq-local-step.component.scss',
 })

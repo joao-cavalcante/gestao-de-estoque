@@ -4,6 +4,10 @@
       <label class="oq-label-caps oq-scan-bar__label">
         <oq-icon name="barcode" [size]="12" />
         CÓDIGO DE BARRAS / ID DO PRODUTO
+        @if (carregando) {
+          <oq-spinner [size]="11" />
+          <span class="oq-scan-bar__buscando">buscando…</span>
+        }
       </label>
       <input
         #inputIdentificador

@@ -7,6 +7,8 @@ import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqInlineAlertComponent } from '../shared/oq-inline-alert/oq-inline-alert.component';
 import { OqPanelSectionComponent } from '../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqStatusChipComponent } from '../conferencia/oq-status-chip/oq-status-chip.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
+import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { ChipTone } from '../conferencia/conferencia.model';
 import { InventarioService } from '../inventario/inventario.service';
 import { EscopoTipo, InventarioListItem, StatusInventario } from '../inventario/inventario.model';
@@ -17,7 +19,7 @@ type FiltroStatus = 'todos' | StatusInventario;
 @Component({
   selector: 'app-inventarios-desktop',
   standalone: true,
-  imports: [CommonModule, FormsModule, OqIconComponent, OqInlineAlertComponent, OqPanelSectionComponent, OqStatusChipComponent],
+  imports: [CommonModule, FormsModule, OqIconComponent, OqInlineAlertComponent, OqPanelSectionComponent, OqStatusChipComponent, OqSkeletonComponent, OqSpinnerComponent],
   templateUrl: './inventarios-desktop.component.html',
   styleUrl: './inventarios-desktop.component.scss',
 })

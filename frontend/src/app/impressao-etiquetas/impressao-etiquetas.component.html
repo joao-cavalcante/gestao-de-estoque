@@ -24,7 +24,9 @@
   }
 
   @if (carregando()) {
-    <p class="ie-page__vazio">Carregando…</p>
+    <div class="ie-grid" aria-busy="true">
+      <oq-skeleton variant="task-card" [count]="6" />
+    </div>
   } @else if (itens().length === 0) {
     <p class="ie-page__vazio">Nenhuma conferência finalizada.</p>
   } @else {
