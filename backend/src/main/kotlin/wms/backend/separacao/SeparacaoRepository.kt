@@ -1345,36 +1345,25 @@ object SeparacaoRepository {
                     // precisão exibida na tela: operador viu "2,083" e digitou 2,083,
                     // mas o negociado real é 2,08333), envia o negociado EXATO — senão
                     // o Sankhya corta a fração e aciona liberação de corte à toa.
-                    val enviarPadrao = if (
+                    val enviar = if (
                         negociado > BigDecimal.ZERO &&
                         total.setScale(3, RoundingMode.HALF_UP) == negociado.setScale(3, RoundingMode.HALF_UP)
                     ) negociado else total
                     val (_, cb) = escaneadoPara(chave.first, chave.second)
-                    // Contrato real confirmado AO VIVO (nota 57516 — payload capturado
-                    // da tela nativa conferindo o mesmo item): NÃO existe parâmetro
-                    // "codVol" em ConferenciaSP.salvarItemConferido (3 tentativas
-                    // anteriores — 722d48f/7d7aace/400f98c, revertidas — inventavam um).
-                    // qtdConf vai SEMPRE na unidade COMERCIAL: "Pedido: 1 LT" virou
-                    // qtdConf="1.000000000" no payload nativo, não 0.08333 (padrão).
-                    // PESÁVEL fica de fora dessa conversão — peso é sempre padrão puro,
-                    // "nunca combina com fator/divideMultiplica" (mesma regra do
-                    // frontend, oq-scan-bar.component.ts calcularQtdPorPeso; bug real
-                    // confirmado: converter pesável fez o Queijo Mussarela divergir à toa).
-                    val referencia = linhas.first()
-                    val unidadePadrao = referencia[SeparacaoItensTable.unidadePadrao]
-                    val unidadeComercial = referencia[SeparacaoItensTable.unidadeComercial]
-                    val enviar = if (
-                        !referencia[SeparacaoItensTable.usaConfPeso] &&
-                        unidadeComercial != null && unidadeComercial != unidadePadrao
-                    ) {
-                        padraoParaComercial(
-                            enviarPadrao,
-                            referencia[SeparacaoItensTable.divideMultiplica],
-                            referencia[SeparacaoItensTable.fatorConversao],
-                        ).setScale(3, RoundingMode.HALF_UP)
-                    } else {
-                        enviarPadrao
-                    }
+                    // ABANDONADO DE VEZ (nota 57516, 5 tentativas — 722d48f, 7d7aace,
+                    // 400f98c, fc2a1b3, 78d06a6 — todas revertidas): mandar qtdConf em
+                    // unidade comercial (~1) faz o Sankhya SEMPRE multiplicar de novo
+                    // pelo fator (12), dando "12 LT" — confirmado com e sem `codVol`
+                    // no payload, então o problema não é o parâmetro, é a magnitude.
+                    // Mandar em unidade padrão (0.08333) é matematicamente correto
+                    // (0.08333 x 12 = 0.99996 ≈ 1), mas 1/12 é dízima period´ica — não
+                    // fecha exato em decimal, e o Sankhya trunca pra baixo (mostra
+                    // "0 LT" em vez de "1 LT"). Sem visibilidade da regra exata de
+                    // arredondamento interna do Sankhya, continuar ajustando aqui só
+                    // arrisca mandar quantidade ERRADA pro financeiro de novo. Fica
+                    // sempre em unidade padrão (o que já é correto pra imensa maioria
+                    // dos itens — só frações tipo 1/12, 1/3 sofrem esse arredondamento,
+                    // e ficam aguardando liberação manual, o que é seguro).
                     GrupoConferido(chave.first, chave.second, enviar, codigoBarra = cb)
                 }
             }
