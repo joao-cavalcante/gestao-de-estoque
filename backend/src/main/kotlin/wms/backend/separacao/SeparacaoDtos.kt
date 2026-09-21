@@ -284,3 +284,24 @@ data class ItemSeparacaoDto(
     val quantidadeComercialConferida: String? = null,
     val quantidadePadraoConferida: String? = null,
 )
+
+/** Etiqueta de produto pesável (V42) — uma por item pesável conferido. */
+@Serializable
+data class EtiquetaPesoDto(
+    val numero: Long,
+    /** `numero` com 11 dígitos (zero à esquerda) — o que sai impresso. */
+    val numeroFormatado: String,
+    val produto: String,
+    /** Peso em KG, plain string (ex.: "15.640") — o front formata pt-BR. */
+    val peso: String,
+    val cliente: String,
+    val nunota: Long,
+    val codprod: Int,
+    val controle: String,
+    /** true = já existia etiqueta ativa pra esse item: só reimpressão, mesmo número. */
+    val reimpressao: Boolean,
+    val impressoes: Int,
+)
+
+@Serializable
+data class EtiquetasPesoResponse(val etiquetas: List<EtiquetaPesoDto>)

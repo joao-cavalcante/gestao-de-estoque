@@ -1,0 +1,55 @@
+@if (carregando()) {
+  <p class="ep-msg">
+    <oq-spinner [size]="13" />
+    Gerando etiqueta de peso…
+  </p>
+} @else if (erro()) {
+  <p class="ep-msg ep-msg--erro">{{ erro() }}</p>
+} @else if (etiquetas().length === 0) {
+  <p class="ep-msg">Nenhum item pesável conferido nesta sessão — nada a imprimir.</p>
+} @else {
+  <div class="ep-toolbar">
+    <button type="button" class="ep-toolbar__print" (click)="imprimir()">Imprimir</button>
+    <span>
+      {{ etiquetas().length }} etiqueta(s)
+      @if (reimpressao()) { — reimpressão, mesmo número de antes }
+    </span>
+    @for (e of etiquetas(); track e.numero) {
+      <button type="button" class="ep-toolbar__nova" (click)="gerarNova(e)">
+        Novo nº · {{ e.numeroFormatado }}
+      </button>
+    }
+  </div>
+
+  @for (e of etiquetas(); track e.numero) {
+    <div class="ep-page">
+      <div class="ep-topo">
+        <span class="ep-selo">PESÁVEL</span>
+        @if (logoSrc()) {
+          <img class="ep-logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
+        }
+      </div>
+
+      <div class="ep-produto">
+        <span class="ep-rotulo">PRODUTO</span>
+        <span class="ep-produto__nome">{{ e.produto }}</span>
+      </div>
+
+      <div class="ep-peso">
+        <span class="ep-rotulo">PESO</span>
+        <span class="ep-peso__valor">{{ formatarPeso(e.peso) }}<small>KG</small></span>
+      </div>
+
+      <div class="ep-rodape">
+        <div class="ep-cliente">
+          <span class="ep-rotulo">CLIENTE</span>
+          <span class="ep-cliente__nome">{{ e.cliente || '—' }}</span>
+        </div>
+        <div class="ep-numero">
+          <span class="ep-rotulo">ETIQUETA Nº</span>
+          <span class="ep-numero__valor">{{ e.numeroFormatado }}</span>
+        </div>
+      </div>
+    </div>
+  }
+}

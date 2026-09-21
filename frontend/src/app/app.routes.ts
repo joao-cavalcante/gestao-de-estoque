@@ -17,6 +17,7 @@ import { BalancaListComponent } from './balancas/balanca-list/balanca-list.compo
 import { DownloadsComponent } from './downloads/downloads.component';
 import { LiberacaoCorteComponent } from './liberacao-corte/liberacao-corte.component';
 import { EtiquetasComponent } from './etiquetas/etiquetas.component';
+import { EtiquetaPesoComponent } from './etiqueta-peso/etiqueta-peso.component';
 import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
 
 export const routes: Routes = [
@@ -34,6 +35,7 @@ export const routes: Routes = [
   { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas/:sessaoId', component: EtiquetasComponent, canActivate: [authGuard] },
+  { path: 'etiquetas-peso/:sessaoId', component: EtiquetaPesoComponent, canActivate: [authGuard] },
   { path: 'tipos-operacao', component: TiposOperacaoComponent, canActivate: [authGuard] },
   { path: 'usuarios', component: UsuarioListComponent, canActivate: [authGuard] },
   { path: 'balancas', component: BalancaListComponent, canActivate: [authGuard] },

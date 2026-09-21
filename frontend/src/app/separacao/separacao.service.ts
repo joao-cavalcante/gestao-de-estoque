@@ -6,6 +6,7 @@ import {
   ConcluirEtapaResultado,
   ConferenciasFinalizadasResposta,
   EtiquetaDados,
+  EtiquetasPesoResposta,
   FinalizarResultado,
   IdentificarProdutoResultado,
   IniciarSeparacaoResposta,
@@ -165,6 +166,22 @@ export class SeparacaoService {
   /** Dados pra etiqueta de volume da sessão. */
   dadosEtiqueta(tenant: string, sessaoId: string): Observable<EtiquetaDados> {
     return this.http.get<EtiquetaDados>(`${this.baseUrl}/sessoes/${sessaoId}/etiquetas`, { params: { tenant } });
+  }
+
+  /**
+   * Etiquetas de peso dos itens pesáveis conferidos. A 1ª chamada cria a etiqueta (nº único),
+   * as seguintes reimprimem o mesmo número; `nova` (com `codprod`) gera um número novo.
+   */
+  etiquetasPeso(
+    tenant: string,
+    sessaoId: string,
+    opts: { codprod?: number; controle?: string; nova?: boolean } = {},
+  ): Observable<EtiquetasPesoResposta> {
+    const params: Record<string, string> = { tenant };
+    if (opts.codprod != null) params['codprod'] = String(opts.codprod);
+    if (opts.controle != null) params['controle'] = opts.controle;
+    if (opts.nova) params['nova'] = 'true';
+    return this.http.post<EtiquetasPesoResposta>(`${this.baseUrl}/sessoes/${sessaoId}/etiquetas-peso`, null, { params });
   }
 
   /** Dados pra etiqueta por número da nota (reimpressão fora da conferência). */

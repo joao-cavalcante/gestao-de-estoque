@@ -856,22 +856,70 @@ object SeparacaoService {
             ?: 0
         val codparc = withContext(Dispatchers.IO) { TarefasRepository.buscarCodParcLocal(tenantId, nunota) }
 
-        var cliente = ""
-        var uf = ""
-        if (codparc != null) {
-            val fields = listOf("RAZAOSOCIAL", "Cidade.UF")
-            val raw = SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(entityName = "Parceiro", fields = fields, criteriaExpression = "CODPARC = $codparc"),
-            )
-            val row = SankhyaLoadRecordsClient.parseRows(raw, fields).firstOrNull()
-            cliente = row?.get("RAZAOSOCIAL")?.trim().orEmpty()
-            val ufRaw = row?.get("Cidade.UF")?.trim().orEmpty()
-            uf = if (ufRaw.toIntOrNull() != null) resolverUf(tenantSlug, ufRaw) else ufRaw
-        }
+        val (cliente, uf) = buscarClienteUf(tenantSlug, codparc)
 
         val numeroNota = nunota.toString().padStart(5, '0').takeLast(5)
         return EtiquetaDadosDto(cliente = cliente, uf = uf, numeroNota = numeroNota, numeroConferencia = nuconf, totalVolumes = totalVolumes)
+    }
+
+    /** Cliente (razão social) e UF do parceiro — compartilhado pela etiqueta de volume e pela de peso. */
+    private suspend fun buscarClienteUf(tenantSlug: String, codparc: Int?): Pair<String, String> {
+        if (codparc == null) return "" to ""
+        val fields = listOf("RAZAOSOCIAL", "Cidade.UF")
+        val raw = SankhyaLoadRecordsClient.loadRecords(
+            tenantSlug,
+            LoadRecordsRequest(entityName = "Parceiro", fields = fields, criteriaExpression = "CODPARC = $codparc"),
+        )
+        val row = SankhyaLoadRecordsClient.parseRows(raw, fields).firstOrNull()
+        val cliente = row?.get("RAZAOSOCIAL")?.trim().orEmpty()
+        val ufRaw = row?.get("Cidade.UF")?.trim().orEmpty()
+        val uf = if (ufRaw.toIntOrNull() != null) resolverUf(tenantSlug, ufRaw) else ufRaw
+        return cliente to uf
+    }
+
+    /**
+     * Etiquetas de peso dos itens PESÁVEIS já conferidos da sessão (peso = qtd_conferida_local,
+     * já em KG — nada é recalculado aqui). `codprod`/`controle` restringem a um item;
+     * `nova` só vale junto com um item (nova etiqueta explícita, número novo).
+     * Sem `nova`, item que já tem etiqueta reimprime o MESMO número.
+     */
+    suspend fun etiquetasPeso(
+        tenantSlug: String,
+        tenantId: UUID,
+        sessaoId: UUID,
+        codprod: Int?,
+        controle: String?,
+        nova: Boolean,
+    ): List<EtiquetaPesoDto> {
+        val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
+            ?: throw FaturamentoException("sessão não encontrada")
+        val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
+        val itens = withContext(Dispatchers.IO) { SeparacaoRepository.listarItens(tenantId, sessaoId) }
+            .filter { it.usaConfPeso && (it.qtdConferidaLocal.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO).signum() > 0 }
+            .filter { codprod == null || (it.codprod == codprod && it.controle == (controle ?: it.controle)) }
+        if (itens.isEmpty()) return emptyList()
+
+        val codparc = withContext(Dispatchers.IO) { TarefasRepository.buscarCodParcLocal(tenantId, sessao.nunota) }
+        val cliente = buscarClienteUf(tenantSlug, codparc).first
+
+        return withContext(Dispatchers.IO) {
+            itens.map { item ->
+                val produto = listOfNotNull(item.descricaoProduto, item.complementoDescricao?.takeIf { it.isNotBlank() })
+                    .joinToString(" ").ifBlank { "Produto ${item.codprod}" }
+                SeparacaoRepository.obterOuCriarEtiquetaPeso(
+                    tenantId = tenantId,
+                    sessaoId = sessaoId,
+                    nunota = sessao.nunota,
+                    nuconf = nuconf,
+                    codprod = item.codprod,
+                    controle = item.controle,
+                    produto = produto,
+                    peso = item.qtdConferidaLocal.toBigDecimal(),
+                    cliente = cliente,
+                    nova = nova && codprod != null,
+                )
+            }
+        }
     }
 
     private suspend fun resolverUf(tenantSlug: String, coduf: String): String {

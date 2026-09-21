@@ -1231,6 +1231,80 @@ object SeparacaoRepository {
     }
 
     /**
+     * Etiqueta de peso do item: reaproveita a ATIVA (só conta a reimpressão, mesmo
+     * número) ou cria uma nova. Nova só nasce se: não existe ativa; o peso do item
+     * mudou desde a última (a antiga é aposentada, fica no histórico); ou o operador
+     * pediu explicitamente (`nova`). Tudo numa transação — o índice parcial
+     * uq_etiquetas_peso_ativa garante no máximo uma ativa por item.
+     */
+    fun obterOuCriarEtiquetaPeso(
+        tenantId: UUID,
+        sessaoId: UUID,
+        nunota: Long,
+        nuconf: Int?,
+        codprod: Int,
+        controle: String,
+        produto: String,
+        peso: BigDecimal,
+        cliente: String,
+        nova: Boolean,
+    ): EtiquetaPesoDto = TenantTx.run(tenantId) {
+        val pesoKg = peso.setScale(3, RoundingMode.HALF_UP)
+        val agora = Instant.now()
+        val chave = (EtiquetasPesoTable.tenantId eq tenantId) and (EtiquetasPesoTable.sessaoId eq sessaoId) and
+            (EtiquetasPesoTable.codprod eq codprod) and (EtiquetasPesoTable.controle eq controle) and
+            (EtiquetasPesoTable.ativa eq true)
+        val existente = EtiquetasPesoTable.selectAll().where { chave }.singleOrNull()
+
+        if (existente != null && !nova && existente[EtiquetasPesoTable.peso].compareTo(pesoKg) == 0) {
+            val impressoes = existente[EtiquetasPesoTable.impressoes] + 1
+            EtiquetasPesoTable.update({ EtiquetasPesoTable.id eq existente[EtiquetasPesoTable.id] }) {
+                it[EtiquetasPesoTable.impressoes] = impressoes
+                it[ultimaImpressaoEm] = agora
+            }
+            return@run etiquetaPesoDto(existente[EtiquetasPesoTable.numero], existente[EtiquetasPesoTable.produto], pesoKg, existente[EtiquetasPesoTable.cliente], nunota, codprod, controle, true, impressoes)
+        }
+
+        if (existente != null) {
+            EtiquetasPesoTable.update({ EtiquetasPesoTable.id eq existente[EtiquetasPesoTable.id] }) { it[ativa] = false }
+        }
+        val novoId = UUID.randomUUID()
+        val stmt = EtiquetasPesoTable.insert {
+            it[id] = novoId
+            it[EtiquetasPesoTable.tenantId] = tenantId
+            it[EtiquetasPesoTable.sessaoId] = sessaoId
+            it[EtiquetasPesoTable.nunota] = nunota.toInt()
+            it[EtiquetasPesoTable.nuconf] = nuconf
+            it[EtiquetasPesoTable.codprod] = codprod
+            it[EtiquetasPesoTable.controle] = controle
+            it[EtiquetasPesoTable.produto] = produto
+            it[EtiquetasPesoTable.peso] = pesoKg
+            it[EtiquetasPesoTable.cliente] = cliente
+            it[ativa] = true
+            it[impressoes] = 1
+            it[criadoEm] = agora
+            it[ultimaImpressaoEm] = agora
+        }
+        etiquetaPesoDto(stmt[EtiquetasPesoTable.numero], produto, pesoKg, cliente, nunota, codprod, controle, false, 1)
+    }
+
+    private fun etiquetaPesoDto(
+        numero: Long, produto: String, peso: BigDecimal, cliente: String, nunota: Long,
+        codprod: Int, controle: String, reimpressao: Boolean, impressoes: Int,
+    ) = EtiquetaPesoDto(
+        numero = numero,
+        numeroFormatado = numero.toString().padStart(11, '0'),
+        produto = produto,
+        peso = peso.toPlainString(),
+        cliente = cliente,
+        nunota = nunota,
+        codprod = codprod,
+        controle = controle,
+        reimpressao = reimpressao,
+        impressoes = impressoes,
+    )
+
+    /**
      * Apaga todas as decisões de liberação de corte de uma nota — chamada
      * diretamente por TarefasRepository.reconciliarLoteTx no ciclo de sync em
      * que uma exclusão real de conferência é detectada (NUCONFATUAL preenchido

@@ -78,6 +78,27 @@ export interface EtiquetaDados {
   totalVolumes: number;
 }
 
+/** Etiqueta de produto pesável (POST /sessoes/:id/etiquetas-peso). */
+export interface EtiquetaPeso {
+  numero: number;
+  /** 11 dígitos, zero à esquerda — o que sai impresso. */
+  numeroFormatado: string;
+  produto: string;
+  /** KG, plain string ("15.640"). */
+  peso: string;
+  cliente: string;
+  nunota: number;
+  codprod: number;
+  controle: string;
+  /** true = já existia etiqueta ativa: só reimpressão, mesmo número. */
+  reimpressao: boolean;
+  impressoes: number;
+}
+
+export interface EtiquetasPesoResposta {
+  etiquetas: EtiquetaPeso[];
+}
+
 /** Conferência finalizada pelo WMS (GET /conferencias-finalizadas). */
 export interface ConferenciaFinalizada {
   sessaoId: string;

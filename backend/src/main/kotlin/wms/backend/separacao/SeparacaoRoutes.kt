@@ -669,6 +669,28 @@ fun Route.separacaoRoutes() {
             }
         }
 
+        /**
+         * Etiquetas de peso (V42) — POST porque a 1ª chamada CRIA a etiqueta (número único).
+         * Repetir a chamada reimprime o mesmo número; `nova=true` (com `codprod`) gera outro.
+         */
+        post("/sessoes/{id}/etiquetas-peso") {
+            val (slug, sessaoId, tenantId) = resolverSessao(call) ?: return@post
+            val qp = call.request.queryParameters
+            try {
+                val etiquetas = SeparacaoService.etiquetasPeso(
+                    slug, tenantId, sessaoId,
+                    codprod = qp["codprod"]?.toIntOrNull(),
+                    controle = qp["controle"],
+                    nova = qp["nova"] == "true",
+                )
+                call.respond(EtiquetasPesoResponse(etiquetas))
+            } catch (e: SeparacaoService.FaturamentoException) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to (e.message ?: "sessão não encontrada")))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao gerar a etiqueta de peso")))
+            }
+        }
+
         /** Conferências finalizadas pelo WMS — pra tela de reimpressão de etiquetas. Local, sem Sankhya. */
         get("/conferencias-finalizadas") {
             val claims = call.exigirAuth() ?: return@get

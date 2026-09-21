@@ -54,6 +54,13 @@
     (atalhos)="mostrarAtalhos.set(!mostrarAtalhos())"
   />
 
+  @if (temPesavelConferido()) {
+    <div class="oq-cf-peso-bar">
+      <span>Há produto pesável conferido nesta sessão.</span>
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirEtiquetaPeso()">Imprimir etiqueta de peso</button>
+    </div>
+  }
+
   @if (modoEtapa()) {
     <div class="oq-cf-etapa-bar">
       <oq-icon [name]="etapaAtual() === 3 ? 'congelado' : etapaAtual() === 2 ? 'refrigerado' : 'seco'" [size]="14" />
@@ -385,6 +392,9 @@
           <span class="oq-form-hint">A conferência foi concluída no Sankhya.</span>
         </div>
         <div class="oq-modal__footer">
+          @if (temPesavelConferido()) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirEtiquetaPeso()">Imprimir etiqueta de peso</button>
+          }
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirEtiquetas()">Imprimir etiquetas</button>
           <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="sairParaFila()">Sair</button>
         </div>

@@ -1,0 +1,172 @@
+/* Etiqueta térmica de peso 10x5 cm — preto no branco, sem cinza (térmica não
+   reproduz meio-tom). NÃO usa os tokens do app: é impressão física. O peso é
+   o elemento dominante; nome do produto em 2 linhas no máximo. */
+
+:host {
+  display: block;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000;
+}
+
+.ep-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  font-size: 14px;
+  &--erro { color: #c0392b; }
+}
+
+.ep-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+
+  button {
+    border: 1px solid #1f6feb;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  &__print { background: #1f6feb; color: #fff; }
+  &__nova { background: #fff; color: #1f6feb; }
+  span { color: #555; font-size: 13px; }
+}
+
+.ep-page {
+  box-sizing: border-box;
+  width: 10cm;
+  height: 5cm;
+  padding: 0.22cm 0.3cm;
+  margin: 6px auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  background: #fff;
+  border: 1px dashed #bbb; /* só na tela — some na impressão */
+  page-break-after: always;
+}
+
+.ep-rotulo {
+  display: block;
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.ep-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 0.8cm;
+}
+
+.ep-selo {
+  background: #000;
+  color: #fff;
+  font-size: 9pt;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding: 0.09cm 0.3cm;
+  border-radius: 0.08cm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.ep-logo {
+  max-height: 0.8cm;
+  max-width: 4.2cm;
+  object-fit: contain;
+}
+
+.ep-produto__nome {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 0.05cm;
+  font-size: 11.5pt;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.ep-peso {
+  display: flex;
+  flex-direction: column;
+  border-top: 0.04cm solid #000;
+  border-bottom: 0.04cm solid #000;
+  padding: 0.08cm 0;
+
+  &__valor {
+    font-size: 36pt;
+    font-weight: 900;
+    line-height: 1;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+
+    small {
+      font-size: 16pt;
+      font-weight: 800;
+      margin-left: 0.15cm;
+    }
+  }
+}
+
+.ep-rodape {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.3cm;
+}
+
+.ep-cliente {
+  min-width: 0;
+  flex: 1;
+
+  &__nome {
+    display: block;
+    margin-top: 0.04cm;
+    font-size: 8.5pt;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.ep-numero {
+  text-align: right;
+  flex: none;
+
+  &__valor {
+    display: block;
+    margin-top: 0.04cm;
+    font-family: 'Courier New', monospace;
+    font-size: 11pt;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+}
+
+@media print {
+  @page {
+    size: 10cm 5cm;
+    margin: 0;
+  }
+
+  .ep-toolbar { display: none; }
+
+  .ep-page {
+    margin: 0;
+    border: 0;
+  }
+}

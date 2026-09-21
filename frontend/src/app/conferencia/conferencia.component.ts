@@ -1069,6 +1069,16 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.mostrarPainelFinalizada.set(true);
   }
 
+  /** Há item pesável já pesado na sessão — habilita "Imprimir etiqueta de peso" (tela e pop-up de finalização). */
+  readonly temPesavelConferido = computed(() =>
+    this.todosItensMapeados().some((i) => i.usaConfPeso && i.scanned > 0),
+  );
+
+  imprimirEtiquetaPeso(): void {
+    if (!this.sessaoIdAtual) return;
+    window.open(`/etiquetas-peso/${this.sessaoIdAtual}`, '_blank');
+  }
+
   imprimirEtiquetas(): void {
     if (!this.sessaoIdAtual) return;
     window.open(`/etiquetas/${this.sessaoIdAtual}`, '_blank');

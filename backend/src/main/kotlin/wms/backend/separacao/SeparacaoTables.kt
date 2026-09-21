@@ -195,3 +195,24 @@ object SeparacaoStatus {
     const val CONCLUIDA = "concluida"
     const val CANCELADA = "cancelada"
 }
+
+/** app.etiquetas_peso (V42) — etiquetas de produto pesável, número único gerado pelo banco. */
+object EtiquetasPesoTable : Table("app.etiquetas_peso") {
+    val id = uuid("id")
+    val tenantId = uuid("tenant_id")
+    val numero = long("numero").autoIncrement()
+    val sessaoId = uuid("sessao_id")
+    val nunota = integer("nunota")
+    val nuconf = integer("nuconf").nullable()
+    val codprod = integer("codprod")
+    val controle = text("controle")
+    val produto = text("produto")
+    val peso = decimal("peso", 20, 3)
+    val cliente = text("cliente")
+    val ativa = bool("ativa")
+    val impressoes = integer("impressoes")
+    val criadoEm = timestamp("criado_em")
+    val ultimaImpressaoEm = timestamp("ultima_impressao_em")
+
+    override val primaryKey = PrimaryKey(id)
+}
