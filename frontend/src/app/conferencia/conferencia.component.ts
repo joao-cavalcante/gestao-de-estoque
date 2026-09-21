@@ -1133,6 +1133,28 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     window.open(`/etiquetas-peso/${this.sessaoIdAtual}?etapa=${e.tipo}`, '_blank');
   }
 
+  // Painel final: 3 botões só (volume, peso, finalizar). Em conferência por etapas os dois
+  // primeiros imprimem a ÚLTIMA etapa (as anteriores já imprimiram no pop-up de fim de etapa);
+  // sem etapas, imprimem a nota inteira.
+  readonly mostrarBotaoVolumeFinal = computed(() => {
+    const e = this.etapaImpressao();
+    return e ? e.volumes > 0 : true;
+  });
+  readonly mostrarBotaoPesoFinal = computed(() => {
+    const e = this.etapaImpressao();
+    return e ? e.pesaveis : this.temPesavelConferido();
+  });
+
+  imprimirVolumesFinal(): void {
+    if (this.etapaImpressao()) this.imprimirVolumesEtapa();
+    else this.imprimirEtiquetas();
+  }
+
+  imprimirPesoFinal(): void {
+    if (this.etapaImpressao()) this.imprimirPesoEtapa();
+    else this.imprimirEtiquetaPeso();
+  }
+
   continuarAposEtapa(): void {
     this.mostrarPainelEtapaConcluida.set(false);
     this.router.navigate(['/fila-tarefas']);

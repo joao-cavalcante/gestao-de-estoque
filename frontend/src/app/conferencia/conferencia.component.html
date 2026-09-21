@@ -418,19 +418,13 @@
           <span class="oq-form-hint">A conferência foi concluída no Sankhya.</span>
         </div>
         <div class="oq-modal__footer">
-          @if (etapaImpressao(); as ei) {
-            @if (ei.volumes > 0) {
-              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirVolumesEtapa()">Volumes da etapa {{ ei.rotulo }}</button>
-            }
-            @if (ei.pesaveis) {
-              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirPesoEtapa()">Peso da etapa {{ ei.rotulo }}</button>
-            }
+          @if (mostrarBotaoVolumeFinal()) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirVolumesFinal()">Etiquetas de volume</button>
           }
-          @if (temPesavelConferido()) {
-            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirEtiquetaPeso()">Imprimir etiqueta de peso</button>
+          @if (mostrarBotaoPesoFinal()) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirPesoFinal()">Etiquetas de peso</button>
           }
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirEtiquetas()">Imprimir etiquetas</button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="sairParaFila()">Sair</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="sairParaFila()">Finalizar</button>
         </div>
       </div>
     </div>
