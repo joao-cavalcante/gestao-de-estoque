@@ -1195,16 +1195,8 @@ object SeparacaoRepository {
      * QTDCONFERIDA/QTDNEG vindos do corte, trazendo TODOS os itens da nota
      * como pendentes de novo em vez de só o que precisa reconferência.
      */
-    fun houveSessaoAnteriorConcluida(tenantId: UUID, nunota: Long): Boolean = TenantTx.run(tenantId) {
-        SeparacaoSessoesTable.selectAll()
-            .where {
-                (SeparacaoSessoesTable.tenantId eq tenantId) and
-                    (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
-                    (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA)
-            }
-            .limit(1)
-            .count() > 0
-    }
+    fun houveSessaoAnteriorConcluida(tenantId: UUID, nunota: Long): Boolean =
+        nunotasComSessaoConcluida(tenantId, listOf(nunota)).isNotEmpty()
 
     /**
      * Versão em lote de [houveSessaoAnteriorConcluida] — pro breakdown de
@@ -1212,15 +1204,27 @@ object SeparacaoRepository {
      * saber ANTES de qualquer sessão existir se cada nota é uma recontagem,
      * pra não oferecer o seletor de etapas Frios/Refrigerados/Secos (a
      * recontagem é sempre etapa única — ver carregarEmBackground).
+     *
+     * Só conta a sessão concluída do MESMO NUCONF que a tarefa aponta hoje
+     * (TGFCAB.NUCONFATUAL): recontagem mantém o NUCONF, já exclusão da
+     * conferência no Sankhya zera nuconf_atual — a nota que sobe de novo é
+     * conferência do zero (com etapas), mesmo com sessão concluída antiga.
      */
     fun nunotasComSessaoConcluida(tenantId: UUID, nunotas: List<Long>): Set<Long> = TenantTx.run(tenantId) {
         if (nunotas.isEmpty()) return@run emptySet()
         val nunotasInt = nunotas.map { it.toInt() }
+        val nuconfAtualPorNunota = TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList nunotasInt) }
+            .associate { it[TarefasTable.nunota] to it[TarefasTable.nuconfAtual] }
         SeparacaoSessoesTable.selectAll()
             .where {
                 (SeparacaoSessoesTable.tenantId eq tenantId) and
                     (SeparacaoSessoesTable.nunota inList nunotasInt) and
                     (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA)
+            }
+            .filter { row ->
+                val atual = nuconfAtualPorNunota[row[SeparacaoSessoesTable.nunota]]
+                atual != null && row[SeparacaoSessoesTable.nuconf] == atual
             }
             .map { it[SeparacaoSessoesTable.nunota].toLong() }
             .toSet()
