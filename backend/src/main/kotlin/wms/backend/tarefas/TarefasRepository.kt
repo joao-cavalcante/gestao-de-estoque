@@ -358,6 +358,21 @@ object TarefasRepository {
         linhas > 0
     }
 
+    /** Sankhya já está em recontagem (R) mas o mirror local ficou em aguardando_corte — alinha sem esperar o sync. */
+    fun marcarAguardandoRecontagemLocal(tenantId: UUID, nunota: Long): Boolean = TenantTx.run(tenantId) {
+        TarefasTable.update({
+            (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) and
+                (TarefasTable.statusOperacional eq StatusOperacional.AGUARDANDO_CORTE.codigo)
+        }) {
+            it[statusOperacional] = StatusOperacional.AGUARDANDO_RECONTAGEM.codigo
+            it[statusSankhya] = "R"
+            it[operadorExecucao] = null
+            it[iniciadoEm] = null
+            it[concluidoEm] = null
+            it[localAtualizadoEm] = Instant.now()
+        } > 0
+    }
+
     fun marcarWriteBackConfirmado(tenantId: UUID, nunota: Long) = TenantTx.run(tenantId) {
         TarefasTable.update({ (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) }) {
             it[pendenteWriteBack] = false
