@@ -260,13 +260,10 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         // Clique na lista não tem código de barras real — não manda um CODPROD como CODBARRA.
         this.codigoBarraEscanado = this.codprodDaLista != null ? null : codigo;
 
-        // Item não pesável negociado noutra unidade (BI vs CX): pré-preenche a qtd
-        // com o restante do pedido NA UNIDADE DO PEDIDO — 1 Enter confere tudo.
-        const pend = this.itensPendentes.find((i) => i.code === String(resultado.codprod));
-        if (!resultado.usaConfPeso && this.confereEmComercialItem(pend ?? null) && pend) {
-          const restanteBase = Math.max(0, pend.expected - pend.scanned);
-          this.qtd = String(Number(((restanteBase * pend.quantidadeComercial!) / pend.expected).toFixed(3)));
-        }
+        // Item não pesável: a quantidade começa SEMPRE em 1. Antes era pré-preenchida com o restante do
+        // pedido (ex.: 5) e induzia o operador a confirmar tudo de uma vez mesmo conferindo aos poucos
+        // (1 + 4). Pesável não entra: a qtd dele é derivada do peso.
+        if (!resultado.usaConfPeso) this.qtd = '1';
 
         // UMAs do produto + default na UMA marcada como padrão (casa por CODPROD, igual ao legado).
         this.umasDoProduto = this.umasDaSessao.filter((u) => u.codprod === resultado.codprod);
