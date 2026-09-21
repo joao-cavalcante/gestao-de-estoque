@@ -955,6 +955,17 @@ object SeparacaoService {
     /** Cliente (razão social) e UF do parceiro — compartilhado pela etiqueta de volume e pela de peso. */
     private suspend fun buscarClienteUf(tenantSlug: String, codparc: Int?): Pair<String, String> {
         if (codparc == null) return "" to ""
+        // Razão social/UF do parceiro quase não mudam: cache de 1h evita uma ida ao Sankhya
+        // (~0,75s, 2 com a UF) a cada abertura de etiqueta de volume/peso.
+        clienteUfCache[tenantSlug to codparc]?.let { (expira, par) -> if (System.currentTimeMillis() < expira) return par }
+        val par = buscarClienteUfNoSankhya(tenantSlug, codparc)
+        if (par.first.isNotEmpty()) clienteUfCache[tenantSlug to codparc] = (System.currentTimeMillis() + 3_600_000L) to par
+        return par
+    }
+
+    private val clienteUfCache = java.util.concurrent.ConcurrentHashMap<Pair<String, Int>, Pair<Long, Pair<String, String>>>()
+
+    private suspend fun buscarClienteUfNoSankhya(tenantSlug: String, codparc: Int): Pair<String, String> {
         val fields = listOf("RAZAOSOCIAL", "Cidade.UF")
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,

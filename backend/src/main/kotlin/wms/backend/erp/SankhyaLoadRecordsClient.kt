@@ -8,6 +8,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 
 class SankhyaApiException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
@@ -41,9 +42,13 @@ data class LoadRecordsRequest(
  * outputType=json é obrigatório na URL — sem isso o Sankhya responde XML.
  */
 object SankhyaLoadRecordsClient {
-    private val http = HttpClient.newHttpClient()
+    private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
+    private val TIMEOUT_REQUISICAO = Duration.ofSeconds(45)
 
-    suspend fun loadRecords(tenantSlug: String, req: LoadRecordsRequest): JsonObject {
+    suspend fun loadRecords(tenantSlug: String, req: LoadRecordsRequest): JsonObject =
+        SankhyaMetricas.medir("loadRecords:${req.entityName}") { loadRecordsUmaVez(tenantSlug, req) }
+
+    private suspend fun loadRecordsUmaVez(tenantSlug: String, req: LoadRecordsRequest): JsonObject {
         val credenciais = withContext(Dispatchers.IO) {
             TenantRepository.obterCredenciaisErp(tenantSlug, "sankhya")
         } ?: throw SankhyaApiException("Tenant '$tenantSlug' não tem conexão Sankhya configurada")
@@ -56,6 +61,7 @@ object SankhyaLoadRecordsClient {
         val body = if (req.usarCrudServiceProvider) buildBodyCrud(req) else buildBody(req)
         val httpReq = HttpRequest.newBuilder()
             .uri(URI.create(url))
+            .timeout(TIMEOUT_REQUISICAO)
             .header("Authorization", "Bearer $token")
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body.toString()))

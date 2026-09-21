@@ -1,6 +1,11 @@
 package wms.backend.liberacaocorte
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -55,20 +60,42 @@ object LiberacaoCorteService {
      */
     suspend fun listarRevalidando(tenantSlug: String, tenantId: UUID): List<ConferenciaAguardandoCorteDto> {
         val locais = withContext(Dispatchers.IO) { LiberacaoCorteRepository.listarAguardandoCorte(tenantId) }
-        val vivos = mutableListOf<ConferenciaAguardandoCorteDto>()
-        for (c in locais) {
-            val nuconf = c.nuconf
-            if (nuconf == null) { vivos += c; continue }
-            val resolvido = runCatching { revalidarUma(tenantSlug, tenantId, nuconf, c.nunota) }.getOrDefault(false)
-            if (!resolvido) vivos += c
+        val agora = System.currentTimeMillis()
+        // Cards revalidados em PARALELO (até 4 por vez): antes eram 2 chamadas ao Sankhya por card, uma
+        // atrás da outra (~0,75s cada) a cada abertura da tela. Card revalidado há menos de
+        // TTL_REVALIDACAO_MS e ainda pendente pula o Sankhya (a tela recarrega a cada poucos segundos).
+        val semaforo = Semaphore(4)
+        return coroutineScope {
+            locais.map { c ->
+                async {
+                    val nuconf = c.nuconf ?: return@async c
+                    val ultima = revalidacaoCache[nuconf]
+                    if (ultima != null && agora - ultima < TTL_REVALIDACAO_MS) return@async c
+                    val resolvido = semaforo.withPermit {
+                        runCatching { revalidarUma(tenantSlug, tenantId, nuconf, c.nunota) }.getOrDefault(false)
+                    }
+                    if (!resolvido) revalidacaoCache[nuconf] = System.currentTimeMillis()
+                    if (resolvido) null else c
+                }
+            }.awaitAll().filterNotNull()
         }
-        return vivos
     }
+
+    /** nuconf -> instante da última revalidação que a manteve pendente (ver listarRevalidando). */
+    private val revalidacaoCache = java.util.concurrent.ConcurrentHashMap<Int, Long>()
+    private const val TTL_REVALIDACAO_MS = 15_000L
 
     /** Revalida uma conferência contra o Sankhya. Retorna true se foi resolvida (tarefa local fechada). */
     suspend fun revalidarUma(tenantSlug: String, tenantId: UUID, nuconf: Int, nunota: Long): Boolean {
+        revalidacaoCache.remove(nuconf)
         val status = statusConferencia(tenantSlug, nuconf)?.trim()
-        val semPendentes = runCatching { buscarPendentesRaw(tenantSlug, nuconf).isEmpty() }.getOrDefault(false)
+        // Só consulta os pendentes quando o status é 'C' — nos demais casos o resultado já está
+        // decidido pelo status (antes a consulta rodava sempre, 1 chamada ao Sankhya jogada fora).
+        val semPendentes = if (status == "C") {
+            runCatching { buscarPendentesRaw(tenantSlug, nuconf).isEmpty() }.getOrDefault(false)
+        } else {
+            false
+        }
 
         val resolver = when {
             status == null -> false
@@ -401,6 +428,7 @@ object LiberacaoCorteService {
         if (sequencias.isEmpty()) throw LiberacaoCorteException("Selecione pelo menos um item para liberar ou negar.")
         val liberarNorm = if (liberar.trim().uppercase() == "S") "S" else "N"
 
+        revalidacaoCache.remove(nuconf) // decisão vai mudar o estado no Sankhya — próxima listagem revalida de verdade
         val codusu = validarLiberador(tenantSlug, usuario, senha)
 
         val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
