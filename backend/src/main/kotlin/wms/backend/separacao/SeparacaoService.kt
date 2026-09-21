@@ -133,6 +133,14 @@ object SeparacaoService {
             // recontagem vinha com TODOS os itens da nota como pendentes,
             // não só o que precisava ser reconferido.
             val ehRecontagem = withContext(Dispatchers.IO) { SeparacaoRepository.houveSessaoAnteriorConcluida(tenantId, nunota) }
+            // Conferência do zero (nota nova, ou excluída e reenviada no Sankhya): decisões
+            // de liberação de corte de uma conferência anterior NÃO valem mais. Sem isto, se o
+            // sync não pegou a exclusão a tempo (limparDecisoesLiberacao só roda lá), os itens
+            // pesáveis liberados em silêncio antes viram "silenciosos" e somem dos pendentes
+            // — caso real, nota 57529 (Brie e Mussarela não apareciam pro operador).
+            if (!ehRecontagem) {
+                withContext(Dispatchers.IO) { SeparacaoRepository.limparDecisoesLiberacao(tenantId, nunota) }
+            }
             SankhyaSpClient.chamar(
                 tenantSlug,
                 "ConferenciaSP.salvarCabecalhoConferencia",
