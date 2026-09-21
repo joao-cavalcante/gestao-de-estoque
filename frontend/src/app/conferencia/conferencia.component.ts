@@ -1070,9 +1070,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   }
 
   /** Há item pesável já pesado na sessão — habilita "Imprimir etiqueta de peso" (tela e pop-up de finalização). */
-  readonly temPesavelConferido = computed(() =>
-    this.todosItensMapeados().some((i) => i.usaConfPeso && i.scanned > 0),
-  );
+  readonly temPesavelConferido = computed(() => {
+    // `todosItensMapeados` só atualiza numa recarga completa dos itens (não a cada bipagem),
+    // então o peso recém-pesado só aparece em `conferred` — olha os dois.
+    const pesado = (i: ConferenciaItem) => !!i.usaConfPeso && i.scanned > 0;
+    return this.conferred().some(pesado) || this.todosItensMapeados().some(pesado);
+  });
 
   imprimirEtiquetaPeso(): void {
     if (!this.sessaoIdAtual) return;
