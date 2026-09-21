@@ -182,6 +182,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<IdentificarProdutoRequest>()
             val resultado = SeparacaoRepository.identificarProduto(
@@ -246,6 +247,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<ConferirItemRequest>()
             val qtd = body.qtd.trim().replace(",", ".").toBigDecimalOrNull()
@@ -295,6 +297,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             try {
                 val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId)
@@ -348,6 +351,11 @@ fun Route.separacaoRoutes() {
             val usuario = UsuariosRepository.buscarParaLoginCracha(claims.tenantId, req.crachaoCodigo.trim())
             if (usuario == null || !usuario.ativo) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "crachá não reconhecido"))
+                return@post
+            }
+            // O crachá identifica a PESSOA que confere — o de uma conta de estação (Stage) não serve.
+            if (usuario.perfil == "ESTACAO") {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "este crachá pertence a uma conta de estação — use o crachá do operador"))
                 return@post
             }
 
@@ -581,6 +589,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@put
             }
+            if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@put
 
             val body = call.receive<DefinirVolumeRequest>()
             if (body.quantidade < 0) {
@@ -618,6 +627,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<DevolverItemRequest>()
             val ok = SeparacaoRepository.devolverItem(tenantId, sessaoId, body.codprod, body.controle)
@@ -645,6 +655,7 @@ fun Route.separacaoRoutes() {
         /** Fatura a nota da sessão na TOP escolhida (SelecaoDocumentoSP.faturar). */
         post("/sessoes/{id}/faturar") {
             val (slug, sessaoId, tenantId) = resolverSessao(call) ?: return@post
+            if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
             val body = call.receive<FaturarRequest>()
             try {
                 SeparacaoService.faturar(slug, tenantId, sessaoId, body.codTipOper, body.serie)
@@ -747,6 +758,23 @@ fun Route.separacaoRoutes() {
  * + {id}, resolve o tenantId e confere que o token pertence a este tenant.
  * Responde 400/401/403/404 e devolve null se algo faltar.
  */
+/**
+ * Login de estação (perfil ESTACAO, ex.: "Stage1") é comunitário — não identifica quem confere. Nessas
+ * contas toda escrita na conferência exige que um operador já tenha bipado o crachá NESTA sessão
+ * (`operador_id`); antes só o front travava a tela e só `concluir-etapa` conferia no backend.
+ * Login pessoal (ADMINISTRADOR/OPERADOR, inclusive por crachá) passa direto.
+ */
+private suspend fun exigirOperadorSeEstacao(call: io.ktor.server.application.ApplicationCall, tenantId: UUID, sessaoId: UUID): Boolean {
+    val claims = call.exigirAuth() ?: return false
+    if (claims.perfil != "ESTACAO") return true
+    val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+    if (sessao?.operadorId == null) {
+        call.respond(HttpStatusCode.Conflict, mapOf("erro" to "nenhum operador bipou o crachá nesta conferência ainda"))
+        return false
+    }
+    return true
+}
+
 private suspend fun resolverSessao(call: io.ktor.server.application.ApplicationCall): Triple<String, UUID, UUID>? {
     val claims = call.exigirAuth() ?: return null
     val slug = call.request.queryParameters["tenant"]

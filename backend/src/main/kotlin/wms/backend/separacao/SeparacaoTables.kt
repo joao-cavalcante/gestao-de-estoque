@@ -224,3 +224,16 @@ object EtiquetasPesoTable : Table("app.etiquetas_peso") {
 
     override val primaryKey = PrimaryKey(id)
 }
+
+/** app.separacao_operador_historico (V45) — cada crachá bipado numa sessão, com o operador anterior. */
+object SeparacaoOperadorHistoricoTable : Table("app.separacao_operador_historico") {
+    val id = uuid("id")
+    val tenantId = uuid("tenant_id")
+    val sessaoId = uuid("sessao_id")
+    val operadorId = uuid("operador_id")
+    val operadorAnteriorId = uuid("operador_anterior_id").nullable()
+    val estacaoId = uuid("estacao_id").nullable()
+    val identificadoEm = timestamp("identificado_em")
+
+    override val primaryKey = PrimaryKey(id)
+}

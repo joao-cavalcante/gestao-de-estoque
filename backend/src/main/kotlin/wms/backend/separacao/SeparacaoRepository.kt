@@ -1020,10 +1020,24 @@ object SeparacaoRepository {
      * pra filtrar depois "quem bipou em qual estação".
      */
     fun definirOperador(tenantId: UUID, sessaoId: UUID, usuarioId: UUID, estacaoUsuarioId: UUID): Boolean = TenantTx.run(tenantId) {
+        val atual = SeparacaoSessoesTable.selectAll()
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
+            .singleOrNull() ?: return@run false
         SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
             it[operadorId] = usuarioId
             it[estacaoId] = estacaoUsuarioId
-        } > 0
+        }
+        // V45: a troca de operador não perde o vínculo anterior — fica registrada.
+        SeparacaoOperadorHistoricoTable.insert {
+            it[id] = UUID.randomUUID()
+            it[SeparacaoOperadorHistoricoTable.tenantId] = tenantId
+            it[SeparacaoOperadorHistoricoTable.sessaoId] = sessaoId
+            it[operadorId] = usuarioId
+            it[operadorAnteriorId] = atual[SeparacaoSessoesTable.operadorId]
+            it[SeparacaoOperadorHistoricoTable.estacaoId] = estacaoUsuarioId
+            it[identificadoEm] = Instant.now()
+        }
+        true
     }
 
     /**
