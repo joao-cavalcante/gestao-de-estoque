@@ -432,7 +432,27 @@ object LiberacaoCorteService {
         // cada ação pra achar o que move o status entre uma ação e a outra.
         println("INFO: corte $nuconf — $acao ${selecionados.size} de ${pendentes.size} pendente(s); ${statusParaLog(tenantSlug, nuconf, nunotaLog)} (antes)")
         try {
-            chamarLiberarNegar(tenantSlug, selecionados, codusu, liberarNorm, obsFinal)
+            if (liberarNorm == "N") {
+                // A tela nativa nega UM item por chamada (payload capturado, nota
+                // 57529). Negar vários numa chamada só falha: o 1º negado já marca
+                // a nota como recontagem, o Sankhya recusa o 2º ("já está aguardando
+                // recontagem") e desfaz a chamada inteira, sem negar nada.
+                selecionados.forEachIndexed { idx, linha ->
+                    try {
+                        chamarLiberarNegar(tenantSlug, listOf(linha), codusu, liberarNorm, obsFinal)
+                    } catch (e: Exception) {
+                        if (idx > 0 && e.message?.contains("aguardando recontagem", ignoreCase = true) == true) {
+                            // Já negou ao menos um: a nota está em recontagem, o item que
+                            // sobrou continua sem liberação e volta na recontagem.
+                            println("AVISO: corte $nuconf — item seq ${linha["SEQUENCIA"]} recusado após negativa anterior (nota já em recontagem): ${e.message}")
+                        } else {
+                            throw e
+                        }
+                    }
+                }
+            } else {
+                chamarLiberarNegar(tenantSlug, selecionados, codusu, liberarNorm, obsFinal)
+            }
         } catch (e: Exception) {
             // Ponto cego identificado ao vivo (nota 57251): sem isto, uma falha
             // aqui vira "502 Bad Gateway" genérico na rota, sem NENHUM log —
