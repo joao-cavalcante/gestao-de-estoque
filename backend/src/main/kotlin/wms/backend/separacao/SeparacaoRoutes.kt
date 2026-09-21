@@ -669,6 +669,13 @@ fun Route.separacaoRoutes() {
             }
         }
 
+        /** Etapa atual do `finalizar` em andamento (em memória) — o front dá polling pra mostrar progresso. */
+        get("/sessoes/{id}/finalizacao-progresso") {
+            val (_, sessaoId, _) = resolverSessao(call) ?: return@get
+            val e = FinalizacaoProgresso.obter(sessaoId)
+            call.respond(FinalizacaoProgressoDto(fase = e?.fase, feitos = e?.feitos ?: 0, total = e?.total ?: 0))
+        }
+
         /**
          * Etiquetas de peso (V42) — POST porque a 1ª chamada CRIA a etiqueta (número único).
          * Repetir a chamada reimprime o mesmo número; `nova=true` (com `codprod`) gera outro.

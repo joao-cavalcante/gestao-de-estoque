@@ -1,7 +1,7 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription, interval } from 'rxjs';
-import { filter, first, switchMap, timeout } from 'rxjs/operators';
+import { Subscription, interval, of, timer } from 'rxjs';
+import { catchError, filter, first, switchMap, timeout } from 'rxjs/operators';
 import { OqConferenciaHeaderComponent } from './oq-conferencia-header/oq-conferencia-header.component';
 import { OqScanBarComponent, ProdutoIdentificadoEvento } from './oq-scan-bar/oq-scan-bar.component';
 import { OqPendingListComponent } from './oq-pending-list/oq-pending-list.component';
@@ -12,6 +12,7 @@ import { ConferenciaItem, ItemStatus } from './conferencia.model';
 import { SeparacaoService } from '../separacao/separacao.service';
 import {
   ConcluirEtapaResultado,
+  FinalizacaoProgresso,
   FinalizarResultado,
   ItemConferido,
   ItemSeparacao,
@@ -237,6 +238,33 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly divergenceCount = computed(() => this.conferred().filter((i) => i.status === 'critical').length);
   /** Requisição de confirmar/concluir etapa em voo — cobre os dois fluxos (executarFinalizacao/concluirEtapaAgora). Público: o footer usa pra mostrar o spinner. */
   readonly finalizando = signal(false);
+  /** Etapa do finalizar em andamento no backend (polling de 1s enquanto `finalizando`). */
+  private readonly progressoFinalizacao = signal<FinalizacaoProgresso | null>(null);
+  readonly textoFinalizacao = computed(() => {
+    if (!this.finalizando()) return null;
+    const p = this.progressoFinalizacao();
+    switch (p?.fase) {
+      case 'itens': return `Enviando itens ao Sankhya… ${p.feitos} de ${p.total}`;
+      case 'corte': return 'Fechando a conferência (corte)…';
+      case 'liberacao': return 'Liberando itens pesáveis…';
+      case 'finalizando': return 'Finalizando a conferência…';
+      default: return 'Enviando para o Sankhya…';
+    }
+  });
+  /** 0..1 só na fase de envio dos itens (a única com contagem); null nas demais. */
+  readonly percentualFinalizacao = computed(() => {
+    const p = this.progressoFinalizacao();
+    return this.finalizando() && p?.fase === 'itens' && p.total > 0 ? p.feitos / p.total : null;
+  });
+  private readonly acompanharFinalizacao = effect((onCleanup) => {
+    if (!this.finalizando()) return;
+    const sessaoId = this.sessaoIdAtual;
+    if (!sessaoId) return;
+    const sub = timer(0, 1000)
+      .pipe(switchMap(() => this.separacaoService.progressoFinalizacao(this.tenantAtual, sessaoId).pipe(catchError(() => of(null)))))
+      .subscribe((p) => this.progressoFinalizacao.set(p));
+    onCleanup(() => sub.unsubscribe());
+  });
   /**
    * Botão "Finalizar Conferência" fica sempre disponível — quem decide o que
    * fazer com a divergência é a CCO do Sankhya, não um bloqueio nosso. Única

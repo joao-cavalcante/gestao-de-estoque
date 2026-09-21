@@ -78,6 +78,13 @@ export interface EtiquetaDados {
   totalVolumes: number;
 }
 
+/** Etapa do finalizar em andamento (GET /sessoes/:id/finalizacao-progresso). */
+export interface FinalizacaoProgresso {
+  fase: 'itens' | 'corte' | 'liberacao' | 'finalizando' | null;
+  feitos: number;
+  total: number;
+}
+
 /** Etiqueta de produto pesável (POST /sessoes/:id/etiquetas-peso). */
 export interface EtiquetaPeso {
   numero: number;

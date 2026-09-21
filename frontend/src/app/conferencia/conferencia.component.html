@@ -169,8 +169,11 @@
       <div class="oq-cf-page__body-overlay" aria-busy="true">
         <span class="oq-cf-page__body-overlay-status">
           <oq-spinner [size]="12" />
-          Enviando para o Sankhya…
+          {{ textoFinalizacao() }}
         </span>
+        @if (percentualFinalizacao() !== null) {
+          <progress class="oq-cf-page__body-overlay-barra" max="1" [value]="percentualFinalizacao()"></progress>
+        }
         <ul class="oq-cf-page__body-overlay-lista">
           <oq-skeleton variant="item-row" [count]="6" />
         </ul>

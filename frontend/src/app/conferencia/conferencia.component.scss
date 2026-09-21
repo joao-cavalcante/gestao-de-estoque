@@ -66,6 +66,14 @@
   color: var(--oq-text-secondary);
 }
 
+.oq-cf-page__body-overlay-barra {
+  flex: none;
+  align-self: center;
+  width: min(320px, 80%);
+  height: 6px;
+  accent-color: var(--oq-brand);
+}
+
 .oq-cf-page__body-overlay-lista {
   flex: 1;
   min-height: 0;

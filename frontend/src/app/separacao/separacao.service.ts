@@ -7,6 +7,7 @@ import {
   ConferenciasFinalizadasResposta,
   EtiquetaDados,
   EtiquetasPesoResposta,
+  FinalizacaoProgresso,
   FinalizarResultado,
   IdentificarProdutoResultado,
   IniciarSeparacaoResposta,
@@ -166,6 +167,11 @@ export class SeparacaoService {
   /** Dados pra etiqueta de volume da sessão. */
   dadosEtiqueta(tenant: string, sessaoId: string): Observable<EtiquetaDados> {
     return this.http.get<EtiquetaDados>(`${this.baseUrl}/sessoes/${sessaoId}/etiquetas`, { params: { tenant } });
+  }
+
+  /** Etapa atual do finalizar em andamento (fase null = nada em andamento). */
+  progressoFinalizacao(tenant: string, sessaoId: string): Observable<FinalizacaoProgresso> {
+    return this.http.get<FinalizacaoProgresso>(`${this.baseUrl}/sessoes/${sessaoId}/finalizacao-progresso`, { params: { tenant } });
   }
 
   /**

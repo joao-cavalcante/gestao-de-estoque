@@ -4,6 +4,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
@@ -26,6 +30,7 @@ import wms.backend.tarefas.TarefaSyncService
 import wms.backend.tarefas.TarefasRepository
 import java.math.BigDecimal
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.UUID
 
 data class IniciarSeparacaoResultado(val sessaoId: UUID, val status: String)
@@ -54,6 +59,18 @@ data class IniciarSeparacaoResultado(val sessaoId: UUID, val status: String)
  * resolvido junto — ver [montarCodigosBarra]. UMAs de peso continuam de
  * fora por ora — não fazem parte do que foi pedido.
  */
+/** Etapa atual do `finalizar` por sessão, em memória — lida por GET /sessoes/{id}/finalizacao-progresso. */
+object FinalizacaoProgresso {
+    data class Estado(val fase: String, val feitos: Int, val total: Int)
+    private val estados = java.util.concurrent.ConcurrentHashMap<UUID, Estado>()
+    fun atualizar(sessaoId: UUID, fase: String, feitos: Int = 0, total: Int = 0) { estados[sessaoId] = Estado(fase, feitos, total) }
+    fun limpar(sessaoId: UUID) { estados.remove(sessaoId) }
+    fun obter(sessaoId: UUID): Estado? = estados[sessaoId]
+}
+
+/** Quantos salvarItemConferido em voo ao mesmo tempo no finalizar. */
+private const val CONCORRENCIA_ENVIO_ITENS = 3
+
 object SeparacaoService {
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -460,7 +477,17 @@ object SeparacaoService {
         }
 
         val grupos = SeparacaoRepository.listarGruposConferidos(tenantId, sessaoId)
-        for (grupo in grupos) {
+        try {
+        FinalizacaoProgresso.atualizar(sessaoId, "itens", 0, grupos.size)
+        // Envio dos itens em PARALELO (até CONCORRENCIA_ENVIO_ITENS por vez): cada
+        // salvarItemConferido leva ~0,75s e o total crescia linear com a nota (23 itens
+        // ≈ 17s). Cada item é uma chamada independente e idempotente ("jaExisteProduto"),
+        // então a ordem não importa; a 1ª falha cancela as demais e propaga, como antes.
+        val semaforo = Semaphore(CONCORRENCIA_ENVIO_ITENS)
+        val enviados = AtomicInteger(0)
+        coroutineScope {
+        grupos.map { grupo -> async {
+        semaforo.withPermit {
             // Contrato real confirmado AO VIVO (nota 57516 — payload capturado da
             // tela nativa do Sankhya conferindo o mesmo item): NÃO existe parâmetro
             // "codVol" nessa chamada — os 3 tentativas anteriores que inventavam um
@@ -486,6 +513,9 @@ object SeparacaoService {
             }
             println("ConferenciaSP.salvarItemConferido tenant=$tenantSlug nunota=${sessao.nunota} params=$params")
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
+            FinalizacaoProgresso.atualizar(sessaoId, "itens", enviados.incrementAndGet(), grupos.size)
+        }
+        } }.awaitAll()
         }
 
         // REVERTIDO (nota 57500, 2º teste): chamar ConferenciaSP.finalizarConferencia
@@ -501,6 +531,7 @@ object SeparacaoService {
         // conferência segmentada, ou o contador da sessão) vai junto no `cortar`,
         // igual ao legado (ConferenciaSP.cortar recebe { nuNota, peso, qtdVol }).
         val qtdVol = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
+        FinalizacaoProgresso.atualizar(sessaoId, "corte")
         SankhyaSpClient.chamar(
             tenantSlug,
             "ConferenciaSP.cortar",
@@ -530,6 +561,7 @@ object SeparacaoService {
         // (esse clique não é autorização de liberação — ver LiberacaoCorteService).
         var resolvidoViaAutoLiberacao = false
         if (aguardandoCorte) {
+            FinalizacaoProgresso.atualizar(sessaoId, "liberacao")
             val liberouTudo = runCatching {
                 LiberacaoCorteService.autoLiberarPesoDentroTolerancia(tenantSlug, tenantId, nuconf, sessaoId)
             }.getOrDefault(false)
@@ -552,6 +584,7 @@ object SeparacaoService {
         // resolve (PROCEDCORTE/GERARPEDCOMPL), suspeita mais forte do "corte
         // maior automático" relatado em secos divergente.
         if (!aguardandoCorte && !resolvidoViaAutoLiberacao) {
+            FinalizacaoProgresso.atualizar(sessaoId, "finalizando")
             try {
                 SankhyaSpClient.chamarRaw(
                     tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
@@ -585,6 +618,9 @@ object SeparacaoService {
         }
 
         return FinalizarResultadoDto(ok = true, aguardandoCorte = aguardandoCorte, nuconf = nuconf)
+        } finally {
+            FinalizacaoProgresso.limpar(sessaoId)
+        }
     }
 
     class ConcluirEtapaException(message: String) : Exception(message)

@@ -305,3 +305,6 @@ data class EtiquetaPesoDto(
 
 @Serializable
 data class EtiquetasPesoResponse(val etiquetas: List<EtiquetaPesoDto>)
+
+@Serializable
+data class FinalizacaoProgressoDto(val fase: String?, val feitos: Int, val total: Int)
