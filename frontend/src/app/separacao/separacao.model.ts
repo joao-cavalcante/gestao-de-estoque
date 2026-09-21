@@ -52,6 +52,9 @@ export interface SessaoEtapa {
   status: 'P' | 'C';
   concluidaPor: string | null;
   concluidaEm: string | null;
+  /** V46 — outra aba/tablet está com esta etapa agora, e quem é. */
+  emUso?: boolean;
+  emUsoPor?: string | null;
 }
 
 /** Resposta de POST /sessoes/{id}/concluir-etapa. */

@@ -1465,6 +1465,16 @@ object SeparacaoRepository {
         Unit
     }
 
+    /** Etapa (tipo de separação) do produto na sessão — pro lock por etapa validar a operação. */
+    fun tipoSeparacaoDoItem(tenantId: UUID, sessaoId: UUID, codprod: Int): Int? = TenantTx.run(tenantId) {
+        SeparacaoItensTable.selectAll()
+            .where {
+                (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                    (SeparacaoItensTable.codprod eq codprod)
+            }
+            .firstOrNull()?.get(SeparacaoItensTable.tipoSeparacao)?.toInt()
+    }
+
     /** Marca as linhas do grupo produto+controle como já enviadas ao Sankhya (V43). */
     fun marcarGrupoEnviado(tenantId: UUID, sessaoId: UUID, codprod: Int, controle: String): Unit = TenantTx.run(tenantId) {
         SeparacaoItensTable.update({

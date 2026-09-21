@@ -237,3 +237,18 @@ object SeparacaoOperadorHistoricoTable : Table("app.separacao_operador_historico
 
     override val primaryKey = PrimaryKey(id)
 }
+
+/** app.separacao_locks (V46) — lock exclusivo por etapa da conferência, com expiração por inatividade. */
+object SeparacaoLocksTable : Table("app.separacao_locks") {
+    val tenantId = uuid("tenant_id")
+    val sessaoId = uuid("sessao_id")
+    /** 0 = sessão inteira (não segmentada / recontagem); 1 Secos | 2 Resfriados | 3 Congelados. */
+    val tipoSeparacao = short("tipo_separacao")
+    val token = uuid("token")
+    val userId = uuid("user_id")
+    val operadorId = uuid("operador_id").nullable()
+    val adquiridoEm = timestamp("adquirido_em")
+    val ultimaAtividade = timestamp("ultima_atividade")
+
+    override val primaryKey = PrimaryKey(tenantId, sessaoId, tipoSeparacao)
+}

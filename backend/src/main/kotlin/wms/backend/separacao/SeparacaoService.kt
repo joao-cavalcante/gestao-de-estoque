@@ -638,6 +638,7 @@ object SeparacaoService {
 
         withContext(Dispatchers.IO) {
             SeparacaoRepository.marcarConcluida(tenantId, sessaoId)
+            SeparacaoLockRepository.liberarTodos(tenantId, sessaoId)
             // NÃO é TarefaSyncService.sincronizarTenant() — uma nota com
             // TGFCON2.STATUS='F' sai do critério de busca do sync (mesma regra
             // da fila nativa: conferência finalizada não aparece mais), então
@@ -715,6 +716,8 @@ object SeparacaoService {
                     FinalizacaoProgresso.limpar(sessaoId)
                 }
             }
+            // Etapa concluída: quem quiser abrir outra etapa não é barrado por este lock.
+            withContext(Dispatchers.IO) { SeparacaoLockRepository.liberarEtapa(tenantId, sessaoId, tipo) }
             return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = false)
         }
 
@@ -1069,6 +1072,7 @@ object SeparacaoService {
 
         withContext(Dispatchers.IO) {
             SeparacaoRepository.marcarCancelada(tenantId, sessaoId)
+            SeparacaoLockRepository.liberarTodos(tenantId, sessaoId)
             // Nota excluída sai do critério do sync — fecha a tarefa local
             // (senão a nota reaparece na Fila de Tarefas no próximo ciclo).
             TarefasRepository.concluirLocalSemWriteBack(tenantId, sessao.nunota)

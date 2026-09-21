@@ -87,6 +87,9 @@ data class EtapaSeparacaoDto(
     val status: String,
     val concluidaPor: String? = null,
     val concluidaEm: String? = null,
+    /** V46 — outra aba/tablet está com esta etapa (lock ativo, dentro dos 10 min) e quem é. */
+    val emUso: Boolean = false,
+    val emUsoPor: String? = null,
 )
 
 @Serializable
@@ -320,3 +323,7 @@ data class EtiquetasPesoResponse(val etiquetas: List<EtiquetaPesoDto>)
 
 @Serializable
 data class FinalizacaoProgressoDto(val fase: String?, val feitos: Int, val total: Int)
+
+/** Corpo de POST /sessoes/{id}/lock, /heartbeat e /lock/liberar — `etapa` só vale em sessão segmentada. */
+@Serializable
+data class LockRequest(val etapa: Int? = null)

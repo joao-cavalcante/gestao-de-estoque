@@ -76,12 +76,13 @@
           <button
             type="button"
             class="oq-cf-etapa-escolha__btn"
-            [disabled]="e.concluida"
+            [disabled]="e.concluida || e.emUso"
             (click)="escolherEtapa(e.tipo)"
           >
             <oq-icon [name]="e.tipo === 3 ? 'congelado' : e.tipo === 2 ? 'refrigerado' : 'seco'" [size]="18" />
             {{ e.rotulo }}
             @if (e.concluida) { <span class="oq-cf-etapa-escolha__ok">✓ concluída</span> }
+            @if (e.emUso) { <span class="oq-cf-etapa-escolha__ok">em uso{{ e.emUsoPor ? ' por ' + e.emUsoPor : '' }}</span> }
           </button>
         }
       </div>
@@ -199,6 +200,23 @@
     (cancelar)="onCancelarPedido()"
   />
   }
+  }
+
+  @if (lockMensagem(); as lockMsg) {
+    <div class="oq-modal-backdrop">
+      <div class="oq-modal" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Sessão da etapa</span>
+        </div>
+        <div class="oq-modal__body">
+          <span class="oq-form-hint">{{ lockMsg }}</span>
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="tentarLock()">Tentar novamente</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="onVoltar()">Voltar à fila</button>
+        </div>
+      </div>
+    </div>
   }
 
   @if (mostrarAtalhos()) {

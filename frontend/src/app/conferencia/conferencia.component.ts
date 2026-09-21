@@ -10,6 +10,7 @@ import { OqLastScanPanelComponent } from './oq-last-scan-panel/oq-last-scan-pane
 import { OqConferenciaFooterComponent } from './oq-conferencia-footer/oq-conferencia-footer.component';
 import { ConferenciaItem, ItemStatus } from './conferencia.model';
 import { SeparacaoService } from '../separacao/separacao.service';
+import { LockService } from '../separacao/lock.service';
 import {
   ConcluirEtapaResultado,
   FinalizacaoProgresso,
@@ -142,6 +143,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly separacaoService = inject(SeparacaoService);
+  private readonly lockService = inject(LockService);
   private readonly authService = inject(AuthService);
   private readonly som = inject(SomFeedbackService);
   private sessaoSub?: Subscription;
@@ -415,12 +417,78 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly etapasParaEscolher = computed(() =>
     [...this.etapasSessao()]
       .sort((a, b) => a.tipoSeparacao - b.tipoSeparacao)
-      .map((e) => ({ tipo: e.tipoSeparacao, rotulo: rotuloTipoSeparacao(e.tipoSeparacao), concluida: e.status === 'C' })),
+      .map((e) => ({
+        tipo: e.tipoSeparacao,
+        rotulo: rotuloTipoSeparacao(e.tipoSeparacao),
+        concluida: e.status === 'C',
+        emUso: !!e.emUso,
+        emUsoPor: e.emUsoPor ?? null,
+      })),
   );
   private concluindoEtapa = false;
 
+  // ─── Lock exclusivo por etapa (V46) ─────────────────────────────────────
+  /** Etapa está com outra aba/tablet (ETAPA_EM_USO) ou o lock não pôde ser confirmado. */
+  readonly lockBloqueio = signal<string | null>(null);
+  /** Mensagem do bloqueio OU da sessão expirada (LOCK_INVALIDO vindo de qualquer chamada) — trava a tela. */
+  readonly lockMensagem = computed(() => this.lockBloqueio() ?? this.lockService.invalido());
+  private heartbeatSub?: Subscription;
+  /** Etapa cujo lock esta aba tem (null = sessão inteira). undefined = nenhum lock. */
+  private lockEtapa: number | null | undefined = undefined;
+  private static readonly HEARTBEAT_MS = 60_000;
+
+  /**
+   * Assume o lock da etapa atual (ou da sessão inteira, se não segmentada) e mantém com heartbeat. O backend
+   * expira o lock após 10 min sem heartbeat; enquanto o heartbeat chega ele é renovado indefinidamente.
+   * Chamado ao abrir a conferência, ao escolher etapa e no "Tentar novamente" do bloqueio.
+   */
+  tentarLock(): void {
+    const sessaoId = this.sessaoIdAtual;
+    if (!sessaoId) return;
+    const etapa = this.conferenciaSegmentada ? this.etapaAtual() : null;
+    if (this.conferenciaSegmentada && etapa == null) return; // ainda vai escolher a etapa
+    // Trocou de etapa nesta aba: solta o lock da anterior.
+    if (this.lockEtapa !== undefined && this.lockEtapa !== etapa) this.liberarLock();
+
+    this.lockService.adquirir(this.tenantAtual, sessaoId, etapa).subscribe({
+      next: () => {
+        this.lockBloqueio.set(null);
+        this.lockService.invalido.set(null);
+        this.lockEtapa = etapa;
+        this.iniciarHeartbeat(sessaoId, etapa);
+      },
+      error: (err) => {
+        this.lockBloqueio.set(
+          err?.status === 409
+            ? (err?.error?.erro ?? 'Esta etapa já está em uso por outro operador.')
+            : 'Não foi possível validar a sessão da etapa. Verifique a conexão e tente novamente.',
+        );
+      },
+    });
+  }
+
+  private iniciarHeartbeat(sessaoId: string, etapa: number | null): void {
+    this.heartbeatSub?.unsubscribe();
+    this.heartbeatSub = interval(ConferenciaComponent.HEARTBEAT_MS)
+      .pipe(
+        // Falha de rede não derruba: tenta de novo no próximo ciclo. 409 LOCK_INVALIDO já é tratado pelo interceptor.
+        switchMap(() => this.lockService.heartbeat(this.tenantAtual, sessaoId, etapa).pipe(catchError(() => of(null)))),
+      )
+      .subscribe();
+  }
+
+  private liberarLock(): void {
+    this.heartbeatSub?.unsubscribe();
+    const sessaoId = this.sessaoIdAtual;
+    if (sessaoId && this.lockEtapa !== undefined) {
+      this.lockService.liberar(this.tenantAtual, sessaoId, this.lockEtapa).subscribe({ error: () => {} });
+    }
+    this.lockEtapa = undefined;
+  }
+
   escolherEtapa(tipo: number): void {
     this.etapaAtual.set(tipo);
+    this.tentarLock();
     if (this.sessaoIdAtual) {
       this.recarregarItens(this.sessaoIdAtual);
       this.carregarVolume(this.sessaoIdAtual); // contador de volume é por etapa
@@ -500,6 +568,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.sessaoSub?.unsubscribe();
+    // Saiu da conferência: libera a etapa pra outro operador (senão só expira em 10 min).
+    this.liberarLock();
   }
 
   /**
@@ -597,12 +667,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
                   this.etapaAtual.set(pendentes[0]); // sem ?etapa= e só sobra uma → assume ela
                 }
                 // >1 etapa pendente e sem ?etapa= válido → etapaAtual null → template mostra o seletor.
+                this.tentarLock();
                 this.carregarVolume(sessaoId);
                 this.recarregarItens(sessaoId, () => this.carregando.set(false));
               },
               error: () => this.recarregarItens(sessaoId, () => this.carregando.set(false)),
             });
           } else {
+            this.tentarLock();
             this.carregarVolume(sessaoId);
             this.recarregarItens(sessaoId, () => this.carregando.set(false));
           }

@@ -185,6 +185,7 @@ fun Route.separacaoRoutes() {
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<IdentificarProdutoRequest>()
+            if (!exigirLock(call, tenantId, sessaoId, body.etapa)) return@post
             val resultado = SeparacaoRepository.identificarProduto(
                 tenantId, sessaoId, body.codigoBarra, body.codprod, body.etapa?.toShort(),
             )
@@ -250,6 +251,7 @@ fun Route.separacaoRoutes() {
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<ConferirItemRequest>()
+            if (!exigirLock(call, tenantId, sessaoId, SeparacaoRepository.tipoSeparacaoDoItem(tenantId, sessaoId, body.codprod))) return@post
             val qtd = body.qtd.trim().replace(",", ".").toBigDecimalOrNull()
             if (qtd == null || qtd <= java.math.BigDecimal.ZERO) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'qtd' precisa ser um número maior que zero"))
@@ -298,6 +300,7 @@ fun Route.separacaoRoutes() {
                 return@post
             }
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
+            if (!exigirLock(call, tenantId, sessaoId, null)) return@post
 
             try {
                 val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId)
@@ -325,7 +328,14 @@ fun Route.separacaoRoutes() {
             if (tenantId != claims.tenantId) {
                 return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
             }
-            call.respond(SeparacaoRepository.listarEtapas(tenantId, sessaoId))
+            val meuToken = tokenDoLock(call)
+            val emUso = SeparacaoLockRepository.ativos(tenantId, sessaoId).filter { it.token != meuToken }
+            call.respond(
+                SeparacaoRepository.listarEtapas(tenantId, sessaoId).map { e ->
+                    val lock = emUso.firstOrNull { it.tipo.toInt() == e.tipoSeparacao } ?: return@map e
+                    e.copy(emUso = true, emUsoPor = nomeDoDono(tenantId, sessaoId, lock))
+                },
+            )
         }
 
         /**
@@ -402,6 +412,7 @@ fun Route.separacaoRoutes() {
                 ?: return@post call.respond(HttpStatusCode.Conflict, mapOf("erro" to "operador que bipou o crachá não existe mais"))
 
             val body = call.receive<ConcluirEtapaRequest>()
+            if (!exigirLock(call, tenantId, sessaoId, body.tipoSeparacao)) return@post
             try {
                 val resultado = SeparacaoService.concluirEtapa(
                     slug, tenantId, sessaoId, body.tipoSeparacao, body.manterPendente, operador.nome,
@@ -601,6 +612,7 @@ fun Route.separacaoRoutes() {
             // ao Sankhya. ?etapa=N grava no contador da etapa (cada operador conta
             // o seu, sem corrida); a finalização soma tudo e manda no `cortar`.
             val etapa = call.request.queryParameters["etapa"]?.toShortOrNull()
+            if (!exigirLock(call, tenantId, sessaoId, etapa?.toInt())) return@put
             val gravado = if (etapa != null) {
                 SeparacaoRepository.definirQtdVolEtapa(tenantId, sessaoId, etapa, body.quantidade)
             } else {
@@ -630,6 +642,7 @@ fun Route.separacaoRoutes() {
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<DevolverItemRequest>()
+            if (!exigirLock(call, tenantId, sessaoId, SeparacaoRepository.tipoSeparacaoDoItem(tenantId, sessaoId, body.codprod))) return@post
             val ok = SeparacaoRepository.devolverItem(tenantId, sessaoId, body.codprod, body.controle)
             if (!ok) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "produto não encontrado nos itens desta sessão"))
@@ -656,6 +669,7 @@ fun Route.separacaoRoutes() {
         post("/sessoes/{id}/faturar") {
             val (slug, sessaoId, tenantId) = resolverSessao(call) ?: return@post
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
+            // Sem lock aqui: o faturamento roda DEPOIS do finalizar, que já liberou os locks da sessão concluída.
             val body = call.receive<FaturarRequest>()
             try {
                 SeparacaoService.faturar(slug, tenantId, sessaoId, body.codTipOper, body.serie)
@@ -678,6 +692,58 @@ fun Route.separacaoRoutes() {
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao montar dados da etiqueta")))
             }
+        }
+
+        /**
+         * Assume a etapa (V46). Atômico no banco. 409 ETAPA_EM_USO enquanto outro token tiver atividade
+         * nos últimos 10 min. Em sessão não segmentada (e na recontagem) o escopo é a sessão inteira.
+         */
+        post("/sessoes/{id}/lock") {
+            val (_, sessaoId, tenantId) = resolverSessao(call) ?: return@post
+            val claims = call.exigirAuth() ?: return@post
+            val token = tokenDoLock(call)
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "cabeçalho X-Lock-Token é obrigatório"))
+            val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
+            val body = call.receive<LockRequest>()
+            val tipo: Short = if (sessao.conferenciaSegmentada) {
+                body.etapa?.toShort() ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'etapa' é obrigatória em sessão segmentada"))
+            } else {
+                0
+            }
+            val operadorId = sessao.operadorId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            if (SeparacaoLockRepository.adquirir(tenantId, sessaoId, tipo, token, claims.userId, operadorId)) {
+                call.respond(mapOf("ok" to true))
+            } else {
+                val dono = SeparacaoLockRepository.donoAtivo(tenantId, sessaoId, tipo)
+                val nome = dono?.let { nomeDoDono(tenantId, sessaoId, it) }
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    mapOf(
+                        "codigo" to "ETAPA_EM_USO",
+                        "erro" to "Esta etapa já está em uso${nome?.let { " por $it" } ?: ""}. Ela é liberada quando o operador sair ou após 10 minutos sem atividade.",
+                    ),
+                )
+            }
+        }
+
+        /** Heartbeat: renova a atividade do lock. 409 LOCK_INVALIDO = expirou (ou foi assumido por outro). */
+        post("/sessoes/{id}/heartbeat") {
+            val (_, sessaoId, tenantId) = resolverSessao(call) ?: return@post
+            val body = call.receive<LockRequest>()
+            if (!exigirLock(call, tenantId, sessaoId, body.etapa)) return@post
+            call.respond(mapOf("ok" to true))
+        }
+
+        /** Libera o lock do token ao sair da conferência (best-effort — o que vale mesmo é a expiração). */
+        post("/sessoes/{id}/lock/liberar") {
+            val (_, sessaoId, tenantId) = resolverSessao(call) ?: return@post
+            val token = tokenDoLock(call) ?: return@post call.respond(mapOf("ok" to true))
+            val body = call.receive<LockRequest>()
+            val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+            val tipo: Short? = if (sessao?.conferenciaSegmentada == true) body.etapa?.toShort() else 0
+            SeparacaoLockRepository.liberar(tenantId, sessaoId, tipo, token)
+            call.respond(mapOf("ok" to true))
         }
 
         /** Etapa atual do `finalizar` em andamento (em memória) — o front dá polling pra mostrar progresso. */
@@ -773,6 +839,40 @@ private suspend fun exigirOperadorSeEstacao(call: io.ktor.server.application.App
         return false
     }
     return true
+}
+
+/** Identifica a aba/tablet (gerado no navegador). NÃO é o usuário: em conta Stage vários tablets dividem o login. */
+private fun tokenDoLock(call: io.ktor.server.application.ApplicationCall): UUID? =
+    call.request.headers["X-Lock-Token"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+
+/** Quem está com o lock: o operador da sessão (crachá), senão o operador gravado no lock, senão a conta logada. */
+private suspend fun nomeDoDono(tenantId: UUID, sessaoId: UUID, lock: SeparacaoLockRepository.Lock): String? {
+    val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+    val id = sessao?.operadorId?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: lock.operadorId ?: lock.userId
+    return UsuariosRepository.buscarPorId(tenantId, id)?.nome
+}
+
+/**
+ * Antes de toda escrita na conferência: o token do cabeçalho precisa ter um lock VÁLIDO (dentro dos 10 min)
+ * na etapa. A validação também renova a atividade. Sessão não segmentada/recontagem usa o escopo da sessão
+ * inteira; em segmentada, `etapa = null` aceita qualquer etapa que o token possua.
+ * Rejeita com 409 LOCK_INVALIDO — o front mostra "sua sessão não é mais válida".
+ */
+private suspend fun exigirLock(call: io.ktor.server.application.ApplicationCall, tenantId: UUID, sessaoId: UUID, etapa: Int?): Boolean {
+    val token = tokenDoLock(call)
+    val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+    val tipo: Short? = if (sessao?.conferenciaSegmentada == true) etapa?.toShort() else 0
+    val valido = token != null && SeparacaoLockRepository.validarETocar(tenantId, sessaoId, tipo, token)
+    if (!valido) {
+        call.respond(
+            HttpStatusCode.Conflict,
+            mapOf(
+                "codigo" to "LOCK_INVALIDO",
+                "erro" to "Sua sessão nesta etapa não é mais válida (expirou por inatividade ou outro operador assumiu). Volte à fila e abra a conferência de novo.",
+            ),
+        )
+    }
+    return valido
 }
 
 private suspend fun resolverSessao(call: io.ktor.server.application.ApplicationCall): Triple<String, UUID, UUID>? {
