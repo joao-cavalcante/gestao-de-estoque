@@ -110,6 +110,20 @@ object LiberacaoCorteService {
         return SankhyaLoadRecordsClient.parseRows(raw, fields).firstOrNull()?.get("STATUS")
     }
 
+    /** Diagnóstico: STATUS da conferência + STATUSCONFERENCIA da nota (TGFCAB), que é o que o "já está aguardando recontagem" parece checar. */
+    private suspend fun statusParaLog(tenantSlug: String, nuconf: Int, nunota: Long?): String {
+        val conf = runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()
+        val nota = if (nunota == null) null else runCatching {
+            val fields = listOf("NUNOTA", "STATUSCONFERENCIA")
+            val raw = SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(entityName = "CabecalhoNota", fields = fields, criteriaExpression = "NUNOTA = $nunota"),
+            )
+            SankhyaLoadRecordsClient.parseRows(raw, fields).firstOrNull()?.get("STATUSCONFERENCIA")
+        }.getOrNull()
+        return "conf=$conf nota.STATUSCONFERENCIA=$nota"
+    }
+
     private suspend fun chamarLiberarNegar(
         tenantSlug: String,
         itens: List<Map<String, String?>>,
@@ -411,11 +425,12 @@ object LiberacaoCorteService {
             ?: if (liberarNorm == "S") "Liberado manualmente pela tela de Liberação de Corte"
             else "Negado manualmente pela tela de Liberação de Corte"
 
+        val nunotaLog = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
         val acao = if (liberarNorm == "S") "liberar" else "negar"
         // Diagnóstico (nota 57529): o Sankhya às vezes já está em recontagem
         // quando chega o NEGAR. Loga o STATUS da conferência antes e depois de
         // cada ação pra achar o que move o status entre uma ação e a outra.
-        println("INFO: corte $nuconf — $acao ${selecionados.size} de ${pendentes.size} pendente(s); STATUS antes=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}")
+        println("INFO: corte $nuconf — $acao ${selecionados.size} de ${pendentes.size} pendente(s); ${statusParaLog(tenantSlug, nuconf, nunotaLog)} (antes)")
         try {
             chamarLiberarNegar(tenantSlug, selecionados, codusu, liberarNorm, obsFinal)
         } catch (e: Exception) {
@@ -424,10 +439,10 @@ object LiberacaoCorteService {
             // impossível saber depois se foi timeout de rede ou recusa de regra
             // de negócio do Sankhya (ex.: liberar após negar). Loga a mensagem
             // real antes de repropagar, mesmo padrão de autoLiberarPesoDentroTolerancia.
-            println("AVISO: falha ao $acao corte (nuconf $nuconf, sequências $sequencias): ${e.message}; STATUS agora=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}")
+            println("AVISO: falha ao $acao corte (nuconf $nuconf, sequências $sequencias): ${e.message}; ${statusParaLog(tenantSlug, nuconf, nunotaLog)} (agora)")
             throw e
         }
-        println("INFO: corte $nuconf — $acao OK; STATUS depois=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}; pendentes depois=${runCatching { buscarPendentesRaw(tenantSlug, nuconf).size }.getOrNull()}")
+        println("INFO: corte $nuconf — $acao OK; ${statusParaLog(tenantSlug, nuconf, nunotaLog)} (depois); pendentes depois=${runCatching { buscarPendentesRaw(tenantSlug, nuconf).size }.getOrNull()}")
 
         val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
 
