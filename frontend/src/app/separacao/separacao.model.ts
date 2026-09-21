@@ -76,6 +76,10 @@ export interface EtiquetaDados {
   numeroNota: string;
   numeroConferencia: number | null;
   totalVolumes: number;
+  /** Etiqueta POR ETAPA: faixa acumulada de volumes da etapa (ex.: 3..6) e o tipo da etapa. */
+  volumeInicial?: number | null;
+  volumeFinal?: number | null;
+  etapaTipo?: number | null;
 }
 
 /** Etapa do finalizar em andamento (GET /sessoes/:id/finalizacao-progresso). */

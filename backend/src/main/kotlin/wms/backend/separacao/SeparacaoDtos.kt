@@ -159,6 +159,10 @@ data class EtiquetaDadosDto(
     val numeroNota: String,
     val numeroConferencia: Int?,
     val totalVolumes: Int,
+    /** Etiqueta POR ETAPA: faixa acumulada de volumes desta etapa (ex.: 3..6) e o tipo da etapa. Null = nota inteira. */
+    val volumeInicial: Int? = null,
+    val volumeFinal: Int? = null,
+    val etapaTipo: Int? = null,
 )
 
 @Serializable

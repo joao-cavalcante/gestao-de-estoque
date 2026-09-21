@@ -898,14 +898,18 @@ object SeparacaoService {
     }
 
     /** Dados pra etiqueta de volume (uma por volume) — cliente/UF/número/qtd de volumes. Portado de fila-conferencia arquivo.helper.ts. */
-    suspend fun dadosEtiqueta(tenantSlug: String, tenantId: UUID, sessaoId: UUID): EtiquetaDadosDto {
+    suspend fun dadosEtiqueta(tenantSlug: String, tenantId: UUID, sessaoId: UUID, etapa: Int? = null): EtiquetaDadosDto {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
         val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
         // Durante/logo após a conferência: usa o total LOCAL consolidado (soma
         // das etapas ou contador da sessão). O Sankhya só recebe no `cortar`.
         val qtdVolLocal = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
-        return montarDadosEtiqueta(tenantSlug, tenantId, sessao.nunota, nuconf, qtdVolLocal)
+        val base = montarDadosEtiqueta(tenantSlug, tenantId, sessao.nunota, nuconf, qtdVolLocal)
+        if (etapa == null) return base
+        // Etiqueta POR ETAPA: só os volumes desta etapa, numeração acumulada (ver faixaVolumesEtapa).
+        val (ini, fim) = withContext(Dispatchers.IO) { SeparacaoRepository.faixaVolumesEtapa(tenantId, sessaoId, etapa.toShort()) }
+        return base.copy(totalVolumes = (fim - ini + 1).coerceAtLeast(0), volumeInicial = ini, volumeFinal = fim, etapaTipo = etapa)
     }
 
     suspend fun dadosEtiquetaPorNota(tenantSlug: String, tenantId: UUID, nunota: Long): EtiquetaDadosDto {
@@ -959,6 +963,7 @@ object SeparacaoService {
         codprod: Int?,
         controle: String?,
         nova: Boolean,
+        etapa: Int? = null,
     ): List<EtiquetaPesoDto> {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
@@ -966,6 +971,7 @@ object SeparacaoService {
         val itens = withContext(Dispatchers.IO) { SeparacaoRepository.listarItens(tenantId, sessaoId) }
             .filter { it.usaConfPeso && (it.qtdConferidaLocal.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO).signum() > 0 }
             .filter { codprod == null || (it.codprod == codprod && it.controle == (controle ?: it.controle)) }
+            .filter { etapa == null || it.tipoSeparacao == etapa }
         if (itens.isEmpty()) return emptyList()
 
         val codparc = withContext(Dispatchers.IO) { TarefasRepository.buscarCodParcLocal(tenantId, sessao.nunota) }

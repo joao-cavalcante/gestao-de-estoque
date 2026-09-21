@@ -57,6 +57,7 @@ export class EtiquetaPesoComponent implements OnInit {
     const q = this.route.snapshot.queryParamMap;
     const codprod = q.get('codprod');
     const nova = q.get('nova') === 'true';
+    const etapa = q.get('etapa');
 
     if (this.tenant) this.logoSrc.set(`/assets/logos/${this.tenant}.png`);
 
@@ -65,6 +66,7 @@ export class EtiquetaPesoComponent implements OnInit {
         codprod: codprod ? Number(codprod) : undefined,
         controle: q.get('controle') ?? undefined,
         nova,
+        etapa: etapa ? Number(etapa) : undefined,
       })
       .subscribe({
         next: (r) => {

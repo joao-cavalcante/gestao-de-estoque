@@ -217,6 +217,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly sucessoFaturamento = signal(false);
   /** Painel "Conferência finalizada" (com botão de imprimir etiquetas). */
   readonly mostrarPainelFinalizada = signal(false);
+  /** Etiquetas da ETAPA recém-concluída (volumes acumulados + peso) — pop-up de fim de etapa e painel final. */
+  readonly etapaImpressao = signal<{ tipo: number; rotulo: string; volumes: number; pesaveis: boolean } | null>(null);
+  readonly mostrarPainelEtapaConcluida = signal(false);
 
   /** Modo simplificado (sem dimensão) — só a quantidade de volumes, nativo do Sankhya. */
   readonly volume = signal(0);
@@ -982,6 +985,13 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!this.sessaoIdAtual || tipo == null || this.concluindoEtapa || this.finalizando()) return;
     this.concluindoEtapa = true;
     this.finalizando.set(true);
+    // Foto da etapa ANTES de concluir (volume e itens da tela são os dela): base das etiquetas do pop-up.
+    const infoEtapa = {
+      tipo,
+      rotulo: rotuloTipoSeparacao(tipo),
+      volumes: this.volume(),
+      pesaveis: this.conferred().some((i) => !!i.usaConfPeso && i.scanned > 0),
+    };
     // Quem conclui vem do JWT no backend (call.exigirAuth()), não daqui.
     this.separacaoService
       .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente })
@@ -991,8 +1001,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.finalizando.set(false);
           this.mostrarModalDivergencia.set(false);
           this.mostrarModalAvisoEtapa.set(false);
+          const temEtiqueta = infoEtapa.volumes > 0 || infoEtapa.pesaveis;
+          this.etapaImpressao.set(temEtiqueta ? infoEtapa : null);
           if (res.conferenciaFinalizada) {
             this.aposFinalizacao({ ok: true, aguardandoCorte: res.aguardandoCorte, nuconf: res.nuconf });
+          } else if (temEtiqueta) {
+            this.mostrarPainelEtapaConcluida.set(true);
           } else {
             this.router.navigate(['/fila-tarefas']);
           }
@@ -1104,6 +1118,25 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const pesado = (i: ConferenciaItem) => !!i.usaConfPeso && i.scanned > 0;
     return this.conferred().some(pesado) || this.todosItensMapeados().some(pesado);
   });
+
+  /** Etiquetas de volume DESTA etapa (numeração acumulada, sem total da nota). */
+  imprimirVolumesEtapa(): void {
+    const e = this.etapaImpressao();
+    if (!this.sessaoIdAtual || !e) return;
+    window.open(`/etiquetas/${this.sessaoIdAtual}?etapa=${e.tipo}`, '_blank');
+  }
+
+  /** Etiquetas de peso dos pesáveis DESTA etapa. */
+  imprimirPesoEtapa(): void {
+    const e = this.etapaImpressao();
+    if (!this.sessaoIdAtual || !e) return;
+    window.open(`/etiquetas-peso/${this.sessaoIdAtual}?etapa=${e.tipo}`, '_blank');
+  }
+
+  continuarAposEtapa(): void {
+    this.mostrarPainelEtapaConcluida.set(false);
+    this.router.navigate(['/fila-tarefas']);
+  }
 
   imprimirEtiquetaPeso(): void {
     if (!this.sessaoIdAtual) return;

@@ -1653,6 +1653,25 @@ object SeparacaoRepository {
         Unit
     }
 
+    /**
+     * Faixa ACUMULADA de volumes de uma etapa: continua de onde as etapas concluídas ANTES dela
+     * pararam (ordem de conclusão — a ordem das etapas é livre). Ex.: Secos concluída antes com 2
+     * volumes + Frios com 4 => Frios = 3..6. (inicio, fim) com fim < inicio = etapa sem volume.
+     */
+    fun faixaVolumesEtapa(tenantId: UUID, sessaoId: UUID, tipoSeparacao: Short): Pair<Int, Int> = TenantTx.run(tenantId) {
+        val etapas = SeparacaoEtapasTable.selectAll()
+            .where { (SeparacaoEtapasTable.tenantId eq tenantId) and (SeparacaoEtapasTable.sessaoId eq sessaoId) }
+            .toList()
+        val alvo = etapas.firstOrNull { it[SeparacaoEtapasTable.tipoSeparacao] == tipoSeparacao }
+            ?: return@run (1 to 0)
+        val alvoEm = alvo[SeparacaoEtapasTable.concluidaEm]
+        val antes = etapas
+            .filter { it[SeparacaoEtapasTable.tipoSeparacao] != tipoSeparacao }
+            .filter { e -> e[SeparacaoEtapasTable.concluidaEm]?.let { em -> alvoEm == null || em < alvoEm } == true }
+            .sumOf { it[SeparacaoEtapasTable.qtdVol] }
+        (antes + 1) to (antes + alvo[SeparacaoEtapasTable.qtdVol])
+    }
+
     /** true = a sessão tem etapas e TODAS estão 'C'. false = não tem etapas, ou alguma pendente. */
     fun todasEtapasConcluidas(tenantId: UUID, sessaoId: UUID): Boolean = TenantTx.run(tenantId) {
         val etapas = SeparacaoEtapasTable.selectAll()

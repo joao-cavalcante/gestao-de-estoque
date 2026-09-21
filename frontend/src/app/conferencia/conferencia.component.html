@@ -384,6 +384,29 @@
     </div>
   }
 
+  @if (mostrarPainelEtapaConcluida() && etapaImpressao(); as ei) {
+    <div class="oq-modal-backdrop">
+      <div class="oq-modal" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Etapa {{ ei.rotulo }} concluída</span>
+        </div>
+        <div class="oq-modal__body">
+          <oq-icon name="check" [size]="36" />
+          <span class="oq-form-hint">Imprima as etiquetas desta etapa antes de continuar.</span>
+        </div>
+        <div class="oq-modal__footer">
+          @if (ei.volumes > 0) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirVolumesEtapa()">Etiquetas de volume ({{ ei.volumes }})</button>
+          }
+          @if (ei.pesaveis) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirPesoEtapa()">Etiquetas de peso</button>
+          }
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="continuarAposEtapa()">Continuar</button>
+        </div>
+      </div>
+    </div>
+  }
+
   @if (mostrarPainelFinalizada()) {
     <div class="oq-modal-backdrop">
       <div class="oq-modal" (click)="$event.stopPropagation()">
@@ -395,6 +418,14 @@
           <span class="oq-form-hint">A conferência foi concluída no Sankhya.</span>
         </div>
         <div class="oq-modal__footer">
+          @if (etapaImpressao(); as ei) {
+            @if (ei.volumes > 0) {
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirVolumesEtapa()">Volumes da etapa {{ ei.rotulo }}</button>
+            }
+            @if (ei.pesaveis) {
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirPesoEtapa()">Peso da etapa {{ ei.rotulo }}</button>
+            }
+          }
           @if (temPesavelConferido()) {
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirEtiquetaPeso()">Imprimir etiqueta de peso</button>
           }

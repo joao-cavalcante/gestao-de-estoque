@@ -165,8 +165,10 @@ export class SeparacaoService {
   }
 
   /** Dados pra etiqueta de volume da sessão. */
-  dadosEtiqueta(tenant: string, sessaoId: string): Observable<EtiquetaDados> {
-    return this.http.get<EtiquetaDados>(`${this.baseUrl}/sessoes/${sessaoId}/etiquetas`, { params: { tenant } });
+  dadosEtiqueta(tenant: string, sessaoId: string, etapa?: number): Observable<EtiquetaDados> {
+    const params: Record<string, string> = { tenant };
+    if (etapa != null) params['etapa'] = String(etapa);
+    return this.http.get<EtiquetaDados>(`${this.baseUrl}/sessoes/${sessaoId}/etiquetas`, { params });
   }
 
   /** Etapa atual do finalizar em andamento (fase null = nada em andamento). */
@@ -181,12 +183,13 @@ export class SeparacaoService {
   etiquetasPeso(
     tenant: string,
     sessaoId: string,
-    opts: { codprod?: number; controle?: string; nova?: boolean } = {},
+    opts: { codprod?: number; controle?: string; nova?: boolean; etapa?: number } = {},
   ): Observable<EtiquetasPesoResposta> {
     const params: Record<string, string> = { tenant };
     if (opts.codprod != null) params['codprod'] = String(opts.codprod);
     if (opts.controle != null) params['controle'] = opts.controle;
     if (opts.nova) params['nova'] = 'true';
+    if (opts.etapa != null) params['etapa'] = String(opts.etapa);
     return this.http.post<EtiquetasPesoResposta>(`${this.baseUrl}/sessoes/${sessaoId}/etiquetas-peso`, null, { params });
   }
 

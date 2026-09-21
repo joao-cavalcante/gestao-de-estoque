@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
 import { EtiquetaDados } from '../separacao/separacao.model';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
+import { rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
 
 /**
  * Página de impressão de etiquetas de volume (15x10 cm, uma por volume).
@@ -45,10 +46,22 @@ export class EtiquetasComponent implements OnInit {
     }
   }
 
-  /** Array [1..totalVolumes] pra iterar no template. */
+  /** Etiqueta POR ETAPA (?etapa=): só os volumes da etapa, sem "de N" (o total da nota ainda não é conhecido). */
+  get porEtapa(): boolean {
+    return this.dados()?.volumeInicial != null;
+  }
+
+  get rotuloEtapa(): string {
+    const t = this.dados()?.etapaTipo;
+    return t != null ? rotuloTipoSeparacao(t) : '';
+  }
+
+  /** Volumes a imprimir: faixa acumulada da etapa (ex.: 3..6) ou [1..totalVolumes] da nota inteira. */
   get volumes(): number[] {
-    const total = this.dados()?.totalVolumes ?? 0;
-    return Array.from({ length: total }, (_, i) => i + 1);
+    const d = this.dados();
+    const ini = d?.volumeInicial ?? 1;
+    const total = d?.totalVolumes ?? 0;
+    return Array.from({ length: total }, (_, i) => ini + i);
   }
 
   /** 5 dígitos do número único (NUNOTA), zero à esquerda — igual ao JRXML do legado. */
@@ -69,8 +82,9 @@ export class EtiquetasComponent implements OnInit {
   ngOnInit(): void {
     const sessaoId = this.route.snapshot.paramMap.get('sessaoId');
     const nunotaParam = this.route.snapshot.queryParamMap.get('nunota');
+    const etapaParam = this.route.snapshot.queryParamMap.get('etapa');
     const req = sessaoId
-      ? this.separacao.dadosEtiqueta(this.tenant, sessaoId)
+      ? this.separacao.dadosEtiqueta(this.tenant, sessaoId, etapaParam ? Number(etapaParam) : undefined)
       : this.separacao.dadosEtiquetaPorNota(this.tenant, Number(nunotaParam));
 
     if (this.tenant) this.logoSrc.set(`/assets/logos/${this.tenant}.png`);

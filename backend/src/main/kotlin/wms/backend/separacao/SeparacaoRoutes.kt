@@ -661,7 +661,7 @@ fun Route.separacaoRoutes() {
         get("/sessoes/{id}/etiquetas") {
             val (slug, sessaoId, tenantId) = resolverSessao(call) ?: return@get
             try {
-                call.respond(SeparacaoService.dadosEtiqueta(slug, tenantId, sessaoId))
+                call.respond(SeparacaoService.dadosEtiqueta(slug, tenantId, sessaoId, call.request.queryParameters["etapa"]?.toIntOrNull()))
             } catch (e: SeparacaoService.FaturamentoException) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to (e.message ?: "sessão não encontrada")))
             } catch (e: Exception) {
@@ -689,6 +689,7 @@ fun Route.separacaoRoutes() {
                     codprod = qp["codprod"]?.toIntOrNull(),
                     controle = qp["controle"],
                     nova = qp["nova"] == "true",
+                    etapa = qp["etapa"]?.toIntOrNull(),
                 )
                 call.respond(EtiquetasPesoResponse(etiquetas))
             } catch (e: SeparacaoService.FaturamentoException) {
