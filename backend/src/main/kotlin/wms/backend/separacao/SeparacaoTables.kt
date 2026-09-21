@@ -78,6 +78,8 @@ object SeparacaoItensTable : Table("app.separacao_itens") {
     // finalizar() (via leitura já gravada) pra subir a quantidade aceita pro
     // Sankhya.
     val silencioso = bool("silencioso")
+    // V43 - já enviado ao Sankhya (salvarItemConferido) — ver SeparacaoService.enviarGruposAoSankhya.
+    val enviadoSankhya = bool("enviado_sankhya").default(false)
 
     override val primaryKey = PrimaryKey(id)
 }

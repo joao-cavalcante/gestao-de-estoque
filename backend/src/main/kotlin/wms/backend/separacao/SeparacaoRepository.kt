@@ -1398,6 +1398,15 @@ object SeparacaoRepository {
         val codigoBarra: String? = null,
     )
 
+    /** Marca as linhas do grupo produto+controle como já enviadas ao Sankhya (V43). */
+    fun marcarGrupoEnviado(tenantId: UUID, sessaoId: UUID, codprod: Int, controle: String): Unit = TenantTx.run(tenantId) {
+        SeparacaoItensTable.update({
+            (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                (SeparacaoItensTable.codprod eq codprod) and (SeparacaoItensTable.controle eq controle)
+        }) { it[enviadoSankhya] = true }
+        Unit
+    }
+
     /**
      * Agrupa por produto+controle (mesma regra do legado antes de escrever em
      * TGFCOI2) — uma nota pode ter o mesmo produto em mais de uma SEQUENCIA
@@ -1406,7 +1415,12 @@ object SeparacaoRepository {
      * inclui grupos com quantidade conferida > 0 (nada bipado não entra na
      * conferência nativa).
      */
-    fun listarGruposConferidos(tenantId: UUID, sessaoId: UUID): List<GrupoConferido> = TenantTx.run(tenantId) {
+    fun listarGruposConferidos(
+        tenantId: UUID,
+        sessaoId: UUID,
+        tipoSeparacao: Short? = null,
+        apenasNaoEnviados: Boolean = false,
+    ): List<GrupoConferido> = TenantTx.run(tenantId) {
         // codvol / codigo_barra escanados por (codprod, controle) — pega a leitura
         // mais recente que tenha esses campos preenchidos.
         val leiturasDoGrupo = SeparacaoLeiturasTable.selectAll()
@@ -1423,7 +1437,11 @@ object SeparacaoRepository {
         }
 
         SeparacaoItensTable.selectAll()
-            .where { (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) }
+            .where {
+                (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                    (if (tipoSeparacao != null) SeparacaoItensTable.tipoSeparacao eq tipoSeparacao else Op.TRUE) and
+                    (if (apenasNaoEnviados) SeparacaoItensTable.enviadoSankhya eq false else Op.TRUE)
+            }
             .groupBy { it[SeparacaoItensTable.codprod] to it[SeparacaoItensTable.controle] }
             .mapNotNull { (chave, linhas) ->
                 val total = linhas.fold(BigDecimal.ZERO) { acc, row -> acc + row[SeparacaoItensTable.qtdConferidaLocal] }

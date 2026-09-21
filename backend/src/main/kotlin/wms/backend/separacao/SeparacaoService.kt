@@ -397,6 +397,59 @@ object SeparacaoService {
         }
     }
 
+    /**
+     * Envia os grupos produto+controle ao Sankhya (ConferenciaSP.salvarItemConferido), em PARALELO
+     * (até CONCORRENCIA_ENVIO_ITENS por vez): cada chamada leva ~0,75s e o total crescia linear
+     * com a nota. Cada item é independente e idempotente ("jaExisteProduto"), então a ordem não
+     * importa; a 1ª falha cancela as demais e propaga. Cada grupo é marcado como enviado (V43)
+     * assim que o Sankhya confirma — um retry só reenvia o que faltou.
+     */
+    private suspend fun enviarGruposAoSankhya(
+        tenantSlug: String,
+        tenantId: UUID,
+        sessaoId: UUID,
+        nunota: Long,
+        nuconf: Int,
+        grupos: List<SeparacaoRepository.GrupoConferido>,
+    ) {
+        FinalizacaoProgresso.atualizar(sessaoId, "itens", 0, grupos.size)
+        val semaforo = Semaphore(CONCORRENCIA_ENVIO_ITENS)
+        val enviados = AtomicInteger(0)
+        coroutineScope {
+        grupos.map { grupo -> async {
+        semaforo.withPermit {
+            // Contrato real confirmado AO VIVO (nota 57516 — payload capturado da
+            // tela nativa do Sankhya conferindo o mesmo item): NÃO existe parâmetro
+            // "codVol" nessa chamada — os 3 tentativas anteriores que inventavam um
+            // (722d48f/7d7aace/400f98c, todas revertidas) estavam mandando um campo
+            // que a SP nem espera. qtdConf vai na unidade COMERCIAL (o que o
+            // operador vê como "Pedido: 1 LT" virou qtdConf="1.000000000", não
+            // 0.08333 da unidade padrão) — SeparacaoRepository.listarGruposConferidos
+            // já faz essa conversão (exceto pesável, que fica em padrão puro — peso
+            // nunca combina com fator/divideMultiplica). Os demais campos
+            // (substituirProduto/volume/exigeIdentificadores/codUMA) são os defaults
+            // vistos no payload nativo — mantidos fixos até termos evidência de que
+            // algum caso real precisa de outro valor.
+            val params = buildMap<String, kotlinx.serialization.json.JsonElement> {
+                put("nuNota", JsonPrimitive(nunota))
+                put("numConf", JsonPrimitive(nuconf))
+                put("codBarra", JsonPrimitive(grupo.codigoBarra?.takeIf { it.isNotBlank() } ?: grupo.codprod.toString()))
+                put("controle", JsonPrimitive(grupo.controle.trim()))
+                put("qtdConf", JsonPrimitive(grupo.qtdTotal))
+                put("substituirProduto", JsonPrimitive(false))
+                put("volume", JsonPrimitive(""))
+                put("exigeIdentificadores", JsonPrimitive("N"))
+                put("codUMA", JsonPrimitive(""))
+            }
+            println("ConferenciaSP.salvarItemConferido tenant=$tenantSlug nunota=${nunota} params=$params")
+            SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
+            withContext(Dispatchers.IO) { SeparacaoRepository.marcarGrupoEnviado(tenantId, sessaoId, grupo.codprod, grupo.controle) }
+            FinalizacaoProgresso.atualizar(sessaoId, "itens", enviados.incrementAndGet(), grupos.size)
+        }
+        } }.awaitAll()
+        }
+    }
+
     class FinalizarSeparacaoException(message: String) : Exception(message)
 
     /**
@@ -476,47 +529,9 @@ object SeparacaoService {
             throw FinalizarSeparacaoException("a Configuração de Conferência exige volume apontado — informe a quantidade de volumes antes de finalizar")
         }
 
-        val grupos = SeparacaoRepository.listarGruposConferidos(tenantId, sessaoId)
+        val grupos = SeparacaoRepository.listarGruposConferidos(tenantId, sessaoId, apenasNaoEnviados = true)
         try {
-        FinalizacaoProgresso.atualizar(sessaoId, "itens", 0, grupos.size)
-        // Envio dos itens em PARALELO (até CONCORRENCIA_ENVIO_ITENS por vez): cada
-        // salvarItemConferido leva ~0,75s e o total crescia linear com a nota (23 itens
-        // ≈ 17s). Cada item é uma chamada independente e idempotente ("jaExisteProduto"),
-        // então a ordem não importa; a 1ª falha cancela as demais e propaga, como antes.
-        val semaforo = Semaphore(CONCORRENCIA_ENVIO_ITENS)
-        val enviados = AtomicInteger(0)
-        coroutineScope {
-        grupos.map { grupo -> async {
-        semaforo.withPermit {
-            // Contrato real confirmado AO VIVO (nota 57516 — payload capturado da
-            // tela nativa do Sankhya conferindo o mesmo item): NÃO existe parâmetro
-            // "codVol" nessa chamada — os 3 tentativas anteriores que inventavam um
-            // (722d48f/7d7aace/400f98c, todas revertidas) estavam mandando um campo
-            // que a SP nem espera. qtdConf vai na unidade COMERCIAL (o que o
-            // operador vê como "Pedido: 1 LT" virou qtdConf="1.000000000", não
-            // 0.08333 da unidade padrão) — SeparacaoRepository.listarGruposConferidos
-            // já faz essa conversão (exceto pesável, que fica em padrão puro — peso
-            // nunca combina com fator/divideMultiplica). Os demais campos
-            // (substituirProduto/volume/exigeIdentificadores/codUMA) são os defaults
-            // vistos no payload nativo — mantidos fixos até termos evidência de que
-            // algum caso real precisa de outro valor.
-            val params = buildMap<String, kotlinx.serialization.json.JsonElement> {
-                put("nuNota", JsonPrimitive(sessao.nunota))
-                put("numConf", JsonPrimitive(nuconf))
-                put("codBarra", JsonPrimitive(grupo.codigoBarra?.takeIf { it.isNotBlank() } ?: grupo.codprod.toString()))
-                put("controle", JsonPrimitive(grupo.controle.trim()))
-                put("qtdConf", JsonPrimitive(grupo.qtdTotal))
-                put("substituirProduto", JsonPrimitive(false))
-                put("volume", JsonPrimitive(""))
-                put("exigeIdentificadores", JsonPrimitive("N"))
-                put("codUMA", JsonPrimitive(""))
-            }
-            println("ConferenciaSP.salvarItemConferido tenant=$tenantSlug nunota=${sessao.nunota} params=$params")
-            SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
-            FinalizacaoProgresso.atualizar(sessaoId, "itens", enviados.incrementAndGet(), grupos.size)
-        }
-        } }.awaitAll()
-        }
+        enviarGruposAoSankhya(tenantSlug, tenantId, sessaoId, sessao.nunota, nuconf, grupos)
 
         // REVERTIDO (nota 57500, 2º teste): chamar ConferenciaSP.finalizarConferencia
         // ANTES do cortar() — pra imitar a ordem nativa — na prática fechou a
@@ -663,6 +678,24 @@ object SeparacaoService {
             SeparacaoRepository.todasEtapasConcluidas(tenantId, sessaoId)
         }
         if (!todasConcluidas) {
+            // Conferência por etapas: dá baixa no Sankhya dos itens DESTA etapa já ao concluí-la —
+            // o finalizar da última etapa só envia o que faltou (evita mandar a nota inteira no fim).
+            // Falhou? reabre a etapa pra tentar de novo pela tela (mesmo tratamento da última etapa).
+            if (sessao.conferenciaSegmentada) {
+                try {
+                    val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
+                        ?: throw ConcluirEtapaException("sessão sem NUCONF — carregamento não terminou de verdade")
+                    val grupos = withContext(Dispatchers.IO) {
+                        SeparacaoRepository.listarGruposConferidos(tenantId, sessaoId, tipoSeparacao = tipo, apenasNaoEnviados = true)
+                    }
+                    enviarGruposAoSankhya(tenantSlug, tenantId, sessaoId, sessao.nunota, nuconf, grupos)
+                } catch (e: Exception) {
+                    withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
+                    throw e
+                } finally {
+                    FinalizacaoProgresso.limpar(sessaoId)
+                }
+            }
             return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = false)
         }
 
