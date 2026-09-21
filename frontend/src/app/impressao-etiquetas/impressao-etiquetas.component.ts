@@ -87,6 +87,11 @@ export class ImpressaoEtiquetasComponent implements OnInit {
     }
   }
 
+  /** Etiqueta térmica dos itens pesáveis da conferência (reimprime o mesmo número se já existir). */
+  imprimirPeso(item: ConferenciaFinalizada): void {
+    window.open(`/etiquetas-peso/${item.sessaoId}`, '_blank');
+  }
+
   imprimir(item: ConferenciaFinalizada): void {
     window.open(`/etiquetas/${item.sessaoId}`, '_blank');
   }

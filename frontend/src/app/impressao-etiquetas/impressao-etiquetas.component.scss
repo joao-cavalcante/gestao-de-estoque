@@ -187,4 +187,11 @@
     color: #fff;
     &:hover { background: var(--oq-brand-hover); border-color: var(--oq-brand-hover); }
   }
+
+  &--outline {
+    background: transparent;
+    border: 1px solid var(--oq-brand);
+    color: var(--oq-brand);
+    &:hover { background: var(--oq-brand-soft, var(--oq-surface-2)); }
+  }
 }
