@@ -1429,6 +1429,9 @@ object SeparacaoRepository {
         val codvol: String? = null,
         /** Código de barras escanado da última leitura do grupo (p/ CODBARRA no Sankhya). */
         val codigoBarra: String? = null,
+        /** Diagnóstico: negociado (soma de qtd_neg) e lido (soma de qtd_conferida_local) do grupo, antes do ajuste de arredondamento. */
+        val qtdNegociada: BigDecimal? = null,
+        val qtdLida: BigDecimal? = null,
     )
 
     /**
@@ -1536,7 +1539,7 @@ object SeparacaoRepository {
                     // sempre em unidade padrão (o que já é correto pra imensa maioria
                     // dos itens — só frações tipo 1/12, 1/3 sofrem esse arredondamento,
                     // e ficam aguardando liberação manual, o que é seguro).
-                    GrupoConferido(chave.first, chave.second, enviar, codigoBarra = cb)
+                    GrupoConferido(chave.first, chave.second, enviar, codigoBarra = cb, qtdNegociada = negociado, qtdLida = total)
                 }
             }
     }

@@ -251,6 +251,10 @@ object LiberacaoCorteService {
         return try {
             val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
             if (pendentes.isEmpty()) return false
+            // Diagnóstico (nota 57568): o que o Sankhya considera divergente em cada pendência.
+            pendentes.forEach { p ->
+                println("INFO: pendencia corte $nuconf seq=${p["SEQUENCIA"]} evento=${p["EVENTO"]} vlrAtual=${p["VLRATUAL"]} vlrLimite=${p["VLRLIMITE"]} obs=${p["OBSERVACAO"]}")
+            }
 
             // Produtos pesáveis da sessão, por descrição (match por descrição — é o
             // que a ViewLiberacaoLimite expõe na OBSERVACAO) — Map, não Set, porque

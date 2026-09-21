@@ -421,6 +421,17 @@ object SeparacaoService {
         grupos: List<SeparacaoRepository.GrupoConferido>,
     ) {
         FinalizacaoProgresso.atualizar(sessaoId, "itens", 0, grupos.size)
+        // Diagnóstico (nota 57568, divergência com quantidade certa): dados do item que vão pro Sankhya.
+        val itensPorProduto = withContext(Dispatchers.IO) { SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true) }
+            .groupBy { it.codprod }
+        grupos.forEach { g ->
+            val it0 = itensPorProduto[g.codprod]?.firstOrNull()
+            println(
+                "INFO: envio nunota=$nunota codprod=${g.codprod} negociado=${g.qtdNegociada?.toPlainString()} lido=${g.qtdLida?.toPlainString()} " +
+                    "enviado=${g.qtdTotal.toPlainString()} linhas=${itensPorProduto[g.codprod]?.size} usaPeso=${it0?.usaConfPeso} " +
+                    "comercial=${it0?.unidadeComercial} padrao=${it0?.unidadePadrao} qtdComercial=${it0?.quantidadeComercial}",
+            )
+        }
         val semaforo = Semaphore(CONCORRENCIA_ENVIO_ITENS)
         val enviados = AtomicInteger(0)
         coroutineScope {
