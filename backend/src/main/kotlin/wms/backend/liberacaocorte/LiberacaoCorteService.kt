@@ -411,29 +411,23 @@ object LiberacaoCorteService {
             ?: if (liberarNorm == "S") "Liberado manualmente pela tela de Liberação de Corte"
             else "Negado manualmente pela tela de Liberação de Corte"
 
-        // Sankhya já abriu a recontagem sozinho (ex.: AOLIBERAR='M' depois de
-        // liberar parte dos itens) e recusa o NEGAR com "já está aguardando
-        // recontagem" — confirmado ao vivo, nota 57529. Pra quem nega o
-        // resultado é o mesmo que o operador queria (item volta na
-        // recontagem), então segue como sucesso: grava a decisão local e
-        // alinha a tarefa, em vez de deixar o card preso em aguardando_corte.
-        var recontagemJaAberta = false
+        val acao = if (liberarNorm == "S") "liberar" else "negar"
+        // Diagnóstico (nota 57529): o Sankhya às vezes já está em recontagem
+        // quando chega o NEGAR. Loga o STATUS da conferência antes e depois de
+        // cada ação pra achar o que move o status entre uma ação e a outra.
+        println("INFO: corte $nuconf — $acao ${selecionados.size} de ${pendentes.size} pendente(s); STATUS antes=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}")
         try {
             chamarLiberarNegar(tenantSlug, selecionados, codusu, liberarNorm, obsFinal)
         } catch (e: Exception) {
-            if (liberarNorm == "N" && e.message?.contains("aguardando recontagem", ignoreCase = true) == true) {
-                println("AVISO: negar corte (nuconf $nuconf) recusado porque o Sankhya já está em recontagem — tratando como negado: ${e.message}")
-                recontagemJaAberta = true
-            } else {
             // Ponto cego identificado ao vivo (nota 57251): sem isto, uma falha
             // aqui vira "502 Bad Gateway" genérico na rota, sem NENHUM log —
             // impossível saber depois se foi timeout de rede ou recusa de regra
             // de negócio do Sankhya (ex.: liberar após negar). Loga a mensagem
             // real antes de repropagar, mesmo padrão de autoLiberarPesoDentroTolerancia.
-                println("AVISO: falha ao ${if (liberarNorm == "S") "liberar" else "negar"} corte (nuconf $nuconf, sequências $sequencias): ${e.message}")
-                throw e
-            }
+            println("AVISO: falha ao $acao corte (nuconf $nuconf, sequências $sequencias): ${e.message}; STATUS agora=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}")
+            throw e
         }
+        println("INFO: corte $nuconf — $acao OK; STATUS depois=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}; pendentes depois=${runCatching { buscarPendentesRaw(tenantSlug, nuconf).size }.getOrNull()}")
 
         val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
 
@@ -464,15 +458,6 @@ object LiberacaoCorteService {
         // ou negar — negar o ÚLTIMO item pendente também precisa "fechar" o
         // corte (senão o corte de um item já decidido antes, ex. o silencioso,
         // nunca é aplicado na nota de verdade).
-        if (recontagemJaAberta && nunota != null) {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    wms.backend.tarefas.TarefasRepository.marcarAguardandoRecontagemLocal(tenantId, nunota)
-                }
-            }.onFailure { println("AVISO: falha ao alinhar tarefa local com a recontagem (nuconf $nuconf): ${it.message}") }
-            return selecionados.size
-        }
-
         val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(selecionados)
         if (restantes.isEmpty()) {
             // NUNCA chama ConferenciaSP.finalizarConferencia depois de um NEGAR
