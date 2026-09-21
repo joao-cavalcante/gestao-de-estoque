@@ -80,6 +80,8 @@ export interface EtiquetaDados {
   volumeInicial?: number | null;
   volumeFinal?: number | null;
   etapaTipo?: number | null;
+  /** Recontagem: total acumulado de volumes da nota (etiqueta "08 de 08"). */
+  totalExibicao?: number | null;
 }
 
 /** Etapa do finalizar em andamento (GET /sessoes/:id/finalizacao-progresso). */
@@ -104,6 +106,9 @@ export interface EtiquetaPeso {
   /** true = já existia etiqueta ativa: só reimpressão, mesmo número. */
   reimpressao: boolean;
   impressoes: number;
+  /** Etiqueta de CORREÇÃO (recontagem) e o nº da etiqueta que ela substitui. */
+  correcao?: boolean;
+  substituiFormatado?: string | null;
 }
 
 export interface EtiquetasPesoResposta {

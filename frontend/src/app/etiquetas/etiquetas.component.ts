@@ -48,7 +48,7 @@ export class EtiquetasComponent implements OnInit {
 
   /** Etiqueta POR ETAPA (?etapa=): só os volumes da etapa, sem "de N" (o total da nota ainda não é conhecido). */
   get porEtapa(): boolean {
-    return this.dados()?.volumeInicial != null;
+    return this.dados()?.etapaTipo != null;
   }
 
   get rotuloEtapa(): string {
@@ -76,7 +76,8 @@ export class EtiquetasComponent implements OnInit {
 
   /** 2 dígitos do total de volumes. */
   get digitosTotal(): string[] {
-    return String(this.dados()?.totalVolumes ?? 0).padStart(2, '0').slice(-2).split('');
+    const d = this.dados();
+    return String(d?.totalExibicao ?? d?.totalVolumes ?? 0).padStart(2, '0').slice(-2).split('');
   }
 
   ngOnInit(): void {

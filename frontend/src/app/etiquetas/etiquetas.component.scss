@@ -39,7 +39,7 @@
 }
 
 .page-outer {
-  width: 15cm;
+  width: 10cm;
   height: 10cm;
   overflow: hidden;
   page-break-after: always;
@@ -50,8 +50,8 @@
 .page {
   position: relative;
   width: 425px;
-  height: 283px;
-  transform: scale(1.334);
+  height: 425px;
+  transform: scale(0.8893); /* 425px -> 10cm (377,95px) */
   transform-origin: 0 0;
 }
 
@@ -70,7 +70,7 @@
 
 .et-cliente {
   left: 15px;
-  top: 16px;
+  top: 34px;
   width: 395px;
   height: 30px;
   font-size: 15px;
@@ -80,7 +80,7 @@
 
 .et-uf {
   left: 15px;
-  top: 46px;
+  top: 70px;
   width: 112px;
   height: 30px;
   font-size: 15px;
@@ -88,7 +88,7 @@
 
 .et-num-label {
   left: 15px;
-  top: 90px;
+  top: 125px;
   width: 75px;
   height: 75px;
 }
@@ -105,13 +105,13 @@
   height: 75px;
 }
 
-.et-num { top: 90px; }
-.et-seq { top: 180px; }
-.et-total { top: 180px; }
+.et-num { top: 125px; }
+.et-seq { top: 265px; }
+.et-total { top: 265px; }
 
 .et-etapa {
   left: 275px;
-  top: 180px;
+  top: 265px;
   width: 135px;
   height: 75px;
   font-size: 20px;
@@ -121,7 +121,7 @@
 .sep {
   position: absolute;
   left: 268px;
-  top: 208px;
+  top: 293px;
   width: 25px;
   height: 10px;
   background: #000;
@@ -130,7 +130,7 @@
 .et-logo {
   position: absolute;
   left: 15px;
-  top: 165px;
+  top: 250px;
   width: 100px;
   height: 100px;
   object-fit: contain;
@@ -139,7 +139,7 @@
 
 @media print {
   @page {
-    size: 15cm 10cm;
+    size: 10cm 10cm;
     margin: 0;
   }
 

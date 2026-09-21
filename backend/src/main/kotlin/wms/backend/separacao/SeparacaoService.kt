@@ -150,6 +150,14 @@ object SeparacaoService {
             // recontagem vinha com TODOS os itens da nota como pendentes,
             // não só o que precisava ser reconferido.
             val ehRecontagem = withContext(Dispatchers.IO) { SeparacaoRepository.houveSessaoAnteriorConcluida(tenantId, nunota) }
+            // Recontagem continua a numeração de volumes da conferência anterior (V44). Tem que ser
+            // calculado ANTES do salvarCabecalhoConferencia: ele cria o NUCONF novo e o sync passa a
+            // apontar pra ele, e a base sai da sessão que a tarefa ainda aponta.
+            if (ehRecontagem) {
+                withContext(Dispatchers.IO) {
+                    SeparacaoRepository.marcarRecontagem(tenantId, sessaoId, SeparacaoRepository.volumeBaseParaRecontagem(tenantId, nunota))
+                }
+            }
             // Conferência do zero (nota nova, ou excluída e reenviada no Sankhya): decisões
             // de liberação de corte de uma conferência anterior NÃO valem mais. Sem isto, se o
             // sync não pegou a exclusão a tempo (limparDecisoesLiberacao só roda lá), os itens
@@ -906,7 +914,16 @@ object SeparacaoService {
         // das etapas ou contador da sessão). O Sankhya só recebe no `cortar`.
         val qtdVolLocal = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
         val base = montarDadosEtiqueta(tenantSlug, tenantId, sessao.nunota, nuconf, qtdVolLocal)
-        if (etapa == null) return base
+        if (etapa == null) {
+            if (!sessao.recontagem) return base
+            // Recontagem: só os volumes NOVOS, numerados a partir da conferência anterior (7 + 1 = etiqueta 08 de 08).
+            return base.copy(
+                totalVolumes = qtdVolLocal,
+                volumeInicial = sessao.volumeBase + 1,
+                volumeFinal = sessao.volumeBase + qtdVolLocal,
+                totalExibicao = sessao.volumeBase + qtdVolLocal,
+            )
+        }
         // Etiqueta POR ETAPA: só os volumes desta etapa, numeração acumulada (ver faixaVolumesEtapa).
         val (ini, fim) = withContext(Dispatchers.IO) { SeparacaoRepository.faixaVolumesEtapa(tenantId, sessaoId, etapa.toShort()) }
         return base.copy(totalVolumes = (fim - ini + 1).coerceAtLeast(0), volumeInicial = ini, volumeFinal = fim, etapaTipo = etapa)
@@ -992,6 +1009,7 @@ object SeparacaoService {
                     peso = item.qtdConferidaLocal.toBigDecimal(),
                     cliente = cliente,
                     nova = nova && codprod != null,
+                    correcao = sessao.recontagem,
                 )
             }
         }

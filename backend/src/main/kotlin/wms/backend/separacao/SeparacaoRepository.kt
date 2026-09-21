@@ -11,6 +11,7 @@ import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.deleteWhere
@@ -1005,6 +1006,8 @@ object SeparacaoRepository {
                     exibirImgProd = it[SeparacaoSessoesTable.exibirImgProd],
                     operadorId = it[SeparacaoSessoesTable.operadorId]?.toString(),
                     estacaoId = it[SeparacaoSessoesTable.estacaoId]?.toString(),
+                    recontagem = it[SeparacaoSessoesTable.recontagem],
+                    volumeBase = it[SeparacaoSessoesTable.volumeBase],
                 )
             }
     }
@@ -1248,6 +1251,7 @@ object SeparacaoRepository {
         peso: BigDecimal,
         cliente: String,
         nova: Boolean,
+        correcao: Boolean = false,
     ): EtiquetaPesoDto = TenantTx.run(tenantId) {
         val pesoKg = peso.setScale(3, RoundingMode.HALF_UP)
         val agora = Instant.now()
@@ -1262,12 +1266,22 @@ object SeparacaoRepository {
                 it[EtiquetasPesoTable.impressoes] = impressoes
                 it[ultimaImpressaoEm] = agora
             }
-            return@run etiquetaPesoDto(existente[EtiquetasPesoTable.numero], existente[EtiquetasPesoTable.produto], pesoKg, existente[EtiquetasPesoTable.cliente], nunota, codprod, controle, true, impressoes)
+            return@run etiquetaPesoDto(existente[EtiquetasPesoTable.numero], existente[EtiquetasPesoTable.produto], pesoKg, existente[EtiquetasPesoTable.cliente], nunota, codprod, controle, true, impressoes,
+                existente[EtiquetasPesoTable.correcao], existente[EtiquetasPesoTable.substituiNumero])
         }
 
         if (existente != null) {
             EtiquetasPesoTable.update({ EtiquetasPesoTable.id eq existente[EtiquetasPesoTable.id] }) { it[ativa] = false }
         }
+        // Recontagem: a etiqueta nova CORRIGE a do mesmo item na conferência original (outra sessão).
+        val substitui = if (!correcao) null else EtiquetasPesoTable.selectAll()
+            .where {
+                (EtiquetasPesoTable.tenantId eq tenantId) and (EtiquetasPesoTable.nunota eq nunota.toInt()) and
+                    (EtiquetasPesoTable.codprod eq codprod) and (EtiquetasPesoTable.controle eq controle) and
+                    (EtiquetasPesoTable.sessaoId neq sessaoId)
+            }
+            .orderBy(EtiquetasPesoTable.numero to SortOrder.DESC)
+            .firstOrNull()?.get(EtiquetasPesoTable.numero)
         val novoId = UUID.randomUUID()
         val stmt = EtiquetasPesoTable.insert {
             it[id] = novoId
@@ -1281,16 +1295,19 @@ object SeparacaoRepository {
             it[EtiquetasPesoTable.peso] = pesoKg
             it[EtiquetasPesoTable.cliente] = cliente
             it[ativa] = true
+            it[EtiquetasPesoTable.correcao] = correcao
+            it[substituiNumero] = substitui
             it[impressoes] = 1
             it[criadoEm] = agora
             it[ultimaImpressaoEm] = agora
         }
-        etiquetaPesoDto(stmt[EtiquetasPesoTable.numero], produto, pesoKg, cliente, nunota, codprod, controle, false, 1)
+        etiquetaPesoDto(stmt[EtiquetasPesoTable.numero], produto, pesoKg, cliente, nunota, codprod, controle, false, 1, correcao, substitui)
     }
 
     private fun etiquetaPesoDto(
         numero: Long, produto: String, peso: BigDecimal, cliente: String, nunota: Long,
         codprod: Int, controle: String, reimpressao: Boolean, impressoes: Int,
+        correcao: Boolean = false, substituiNumero: Long? = null,
     ) = EtiquetaPesoDto(
         numero = numero,
         numeroFormatado = numero.toString().padStart(11, '0'),
@@ -1302,6 +1319,8 @@ object SeparacaoRepository {
         controle = controle,
         reimpressao = reimpressao,
         impressoes = impressoes,
+        correcao = correcao,
+        substituiFormatado = substituiNumero?.toString()?.padStart(11, '0'),
     )
 
     /**
@@ -1397,6 +1416,37 @@ object SeparacaoRepository {
         /** Código de barras escanado da última leitura do grupo (p/ CODBARRA no Sankhya). */
         val codigoBarra: String? = null,
     )
+
+    /**
+     * Volumes JÁ numerados nas conferências anteriores da nota — base da numeração da recontagem
+     * (7 volumes na conferência + 1 novo na recontagem = etiqueta 8). Vem da sessão concluída que a
+     * tarefa ainda aponta (mesmo NUCONF de nuconf_atual — mesma regra de nunotasComSessaoConcluida),
+     * então uma conferência EXCLUÍDA e reenviada não herda nada. Encadeia: base + volumes da anterior.
+     */
+    fun volumeBaseParaRecontagem(tenantId: UUID, nunota: Long): Int = TenantTx.run(tenantId) {
+        val nuconfAtual = TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) }
+            .singleOrNull()?.get(TarefasTable.nuconfAtual) ?: return@run 0
+        val anterior = SeparacaoSessoesTable.selectAll()
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and
+                    (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
+                    (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA) and
+                    (SeparacaoSessoesTable.nuconf eq nuconfAtual)
+            }
+            .orderBy(SeparacaoSessoesTable.criadoEm to SortOrder.DESC)
+            .firstOrNull() ?: return@run 0
+        anterior[SeparacaoSessoesTable.volumeBase] + totalQtdVol(tenantId, anterior[SeparacaoSessoesTable.id])
+    }
+
+    /** Marca a sessão como recontagem e grava a base de numeração de volumes (V44). */
+    fun marcarRecontagem(tenantId: UUID, sessaoId: UUID, volumeBase: Int): Unit = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
+            it[recontagem] = true
+            it[SeparacaoSessoesTable.volumeBase] = volumeBase
+        }
+        Unit
+    }
 
     /** Marca as linhas do grupo produto+controle como já enviadas ao Sankhya (V43). */
     fun marcarGrupoEnviado(tenantId: UUID, sessaoId: UUID, codprod: Int, controle: String): Unit = TenantTx.run(tenantId) {

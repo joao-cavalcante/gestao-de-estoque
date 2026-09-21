@@ -6,7 +6,7 @@ import { EtiquetaPeso } from '../separacao/separacao.model';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 
 /**
- * Etiqueta térmica de produto pesável (10x5 cm, uma por item pesável conferido).
+ * Etiqueta térmica de produto pesável (10x10 cm, uma por item pesável conferido).
  * O peso vem de separacao_itens.qtd_conferida_local (já em KG) — aqui só se
  * formata e imprime; nada de conversão. Abrir esta página CRIA a etiqueta (nº
  * único) na primeira vez e REIMPRIME o mesmo número nas seguintes. Número novo

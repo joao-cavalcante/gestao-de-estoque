@@ -42,6 +42,9 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     val estacaoId = uuid("estacao_id").nullable()
     /** CCO.FORMACAOVOLUMES (V37) — gateia a exigência de volume > 0 pra finalizar. */
     val formacaoVolumes = text("formacao_volumes").nullable()
+    /** V44 — sessão de recontagem; `volumeBase` = volumes já numerados nas conferências anteriores da nota. */
+    val recontagem = bool("recontagem").default(false)
+    val volumeBase = integer("volume_base").default(0)
 
     override val primaryKey = PrimaryKey(id)
 }
@@ -212,6 +215,9 @@ object EtiquetasPesoTable : Table("app.etiquetas_peso") {
     val peso = decimal("peso", 20, 3)
     val cliente = text("cliente")
     val ativa = bool("ativa")
+    /** V44 — etiqueta emitida numa recontagem, no lugar da etiqueta do item na conferência original. */
+    val correcao = bool("correcao").default(false)
+    val substituiNumero = long("substitui_numero").nullable()
     val impressoes = integer("impressoes")
     val criadoEm = timestamp("criado_em")
     val ultimaImpressaoEm = timestamp("ultima_impressao_em")

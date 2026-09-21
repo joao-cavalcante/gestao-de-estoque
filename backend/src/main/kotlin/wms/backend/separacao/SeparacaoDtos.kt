@@ -50,6 +50,9 @@ data class SessaoSeparacaoDto(
     val operadorId: String? = null,
     /** Conta logada no navegador quando o crachá foi bipado (V35) — ex.: "Stage1"/"Stage2", pra filtrar depois. */
     val estacaoId: String? = null,
+    /** V44 — sessão de recontagem. */
+    val recontagem: Boolean = false,
+    val volumeBase: Int = 0,
     /**
      * CCO.FORMACAOVOLUMES cru — 'N' não usa, 'S'/'T' registro simplificado
      * (o contador +/- que a tela já tem), 'D' detalhado (não implementado —
@@ -163,6 +166,8 @@ data class EtiquetaDadosDto(
     val volumeInicial: Int? = null,
     val volumeFinal: Int? = null,
     val etapaTipo: Int? = null,
+    /** Recontagem: total ACUMULADO de volumes da nota (ex.: 8) — a etiqueta sai "08 de 08"; totalVolumes fica só com a quantidade a imprimir. */
+    val totalExibicao: Int? = null,
 )
 
 @Serializable
@@ -305,6 +310,9 @@ data class EtiquetaPesoDto(
     /** true = já existia etiqueta ativa pra esse item: só reimpressão, mesmo número. */
     val reimpressao: Boolean,
     val impressoes: Int,
+    /** Etiqueta de CORREÇÃO (recontagem) — substitui a do mesmo item na conferência original. */
+    val correcao: Boolean = false,
+    val substituiFormatado: String? = null,
 )
 
 @Serializable
