@@ -24,7 +24,6 @@
   @for (e of etiquetas(); track e.numero) {
     <div class="ep-page">
       <div class="ep-topo">
-        <span class="ep-selo">{{ e.correcao ? 'CORREÇÃO' : 'PESÁVEL' }}</span>
         @if (e.correcao && e.substituiFormatado) {
           <span class="ep-substitui">SUBSTITUI Nº {{ e.substituiFormatado }}</span>
         }

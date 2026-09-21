@@ -67,28 +67,17 @@
   height: 1.5cm;
 }
 
-.ep-selo {
-  background: #000;
-  color: #fff;
-  font-size: 14pt;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  padding: 0.14cm 0.45cm;
-  border-radius: 0.08cm;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
 .ep-substitui {
   font-size: 10pt;
   font-weight: 800;
   letter-spacing: 0.04em;
-  margin: 0 0.2cm;
+  margin-right: 0.3cm;
   flex: 1;
-  text-align: center;
+  text-align: left;
 }
 
 .ep-logo {
+  margin-left: auto;
   max-height: 1.5cm;
   max-width: 4.6cm;
   object-fit: contain;
