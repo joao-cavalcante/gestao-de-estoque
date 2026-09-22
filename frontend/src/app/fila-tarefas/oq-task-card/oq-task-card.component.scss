@@ -203,15 +203,24 @@
 
 .oq-card__etapas {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; // nunca quebra pra 2ª linha (Secos/Refrigerado/Congelado empurrando o card) —
+                      // rola na horizontal em vez de quebrar, mantém a linha de altura fixa.
+  overflow-x: auto;
   gap: 6px;
   margin-bottom: 12px;
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // IE/Edge legado
+
+  &::-webkit-scrollbar {
+    display: none; // Chrome/Safari — a rolagem funciona sem a barra visível
+  }
 }
 
 .oq-card__etapa-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto; // nunca encolhe/quebra, tamanho pelo próprio conteúdo
   padding: 6px 10px;
   border: 1px solid var(--oq-border-strong, var(--oq-border));
   border-radius: 999px;
