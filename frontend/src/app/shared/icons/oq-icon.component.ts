@@ -6,7 +6,7 @@ export type OqIconName =
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
   | 'menu' | 'box' | 'user' | 'scale' | 'download' | 'building' | 'logout'
   | 'sun' | 'moon'
-  | 'seco' | 'refrigerado' | 'congelado';
+  | 'seco' | 'refrigerado' | 'congelado' | 'scissors';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -160,6 +160,12 @@ export type OqIconName =
           <!-- floco de neve com pontas — "Congelado" (AD_TIPOSEPARACAO=3) -->
           <path d="M12 2.5v19M3.8 7.25l16.4 9.5M20.2 7.25l-16.4 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
           <path d="M12 2.5 10 5m2-2.5L14 5M12 21.5 10 19m2 2.5L14 19M3.8 7.25l.1 2.9m-.1-2.9 2.8.5M20.2 16.75l-.1-2.9m.1 2.9-2.8-.5M20.2 7.25l-2.8.5m2.8-.5-.1 2.9M3.8 16.75l2.8-.5m-2.8.5.1-2.9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        }
+        @case ('scissors') {
+          <!-- tesoura — Liberação de Corte -->
+          <circle cx="6.5" cy="6.5" r="2.3" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="6.5" cy="17.5" r="2.3" stroke="currentColor" stroke-width="1.6" />
+          <path d="M8.3 8 20 19M8.3 16 20 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         }
       }
     </svg>

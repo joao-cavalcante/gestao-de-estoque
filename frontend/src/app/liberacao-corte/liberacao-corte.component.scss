@@ -9,9 +9,12 @@
   &__head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
 
     h1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-family: var(--oq-font-display);
       font-size: 18px;
       font-weight: 700;
@@ -20,10 +23,16 @@
     }
   }
 
-  &__hint {
+  &__icon {
+    color: var(--oq-brand-accent);
+  }
+
+  &__count {
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     color: var(--oq-text-secondary);
-    font-size: 13px;
-    max-width: 640px;
   }
 
   &__vazio {
@@ -42,6 +51,7 @@
   }
 
   &__refresh {
+    margin-left: auto;
     border: 1px solid var(--oq-border);
     background: var(--oq-surface);
     color: var(--oq-text-primary);
@@ -55,6 +65,25 @@
     cursor: pointer;
 
     &:hover { border-color: var(--oq-text-primary); }
+  }
+}
+
+// ─── Filtros (mesmo padrão de ImpressaoEtiquetasComponent) ───────────────
+
+.lc-filtros {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0;
+
+  input {
+    width: 180px;
+    padding: 8px 10px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    font-family: var(--oq-font-body);
+    font-size: 14px;
+    color: var(--oq-text-primary);
+    background: var(--oq-surface);
   }
 }
 

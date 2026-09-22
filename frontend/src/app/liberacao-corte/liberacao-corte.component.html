@@ -1,13 +1,14 @@
 <div class="lc-page">
   <header class="lc-page__head">
-    <h1>Liberação de Corte</h1>
+    <h1><oq-icon name="scissors" [size]="18" class="lc-page__icon" />Liberação de Corte</h1>
+    <span class="lc-page__count">{{ listaFiltrada.length }} aguardando</span>
     <button type="button" class="lc-page__refresh" (click)="carregar()">Atualizar</button>
   </header>
 
-  <p class="lc-page__hint">
-    Conferências que o Sankhya deixou aguardando liberação de corte (TGFCON2.STATUS = 'C').
-    O liberador aprova ou nega os itens cortados para a nota seguir.
-  </p>
+  <div class="lc-filtros">
+    <input type="number" placeholder="Nº da nota (NF)" [(ngModel)]="filtroNota" />
+    <input type="number" placeholder="Nº único (NUNOTA)" [(ngModel)]="filtroUnico" />
+  </div>
 
   @if (erro()) {
     <div class="lc-page__erro">{{ erro() }}</div>
@@ -19,9 +20,11 @@
     </div>
   } @else if (lista().length === 0) {
     <p class="lc-page__vazio">Nenhuma conferência aguardando liberação.</p>
+  } @else if (listaFiltrada.length === 0) {
+    <p class="lc-page__vazio">Nenhum resultado para esse filtro.</p>
   } @else {
     <div class="lc-grid">
-      @for (item of lista(); track item.nunota) {
+      @for (item of listaFiltrada; track item.nunota) {
         <article class="oq-card">
           <div class="oq-card__dot oq-card__dot--attention"></div>
 

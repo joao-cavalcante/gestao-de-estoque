@@ -31,7 +31,7 @@ const ITENS: ItemMenu[] = [
     icone: 'clock',
     subItens: [
       { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
-      { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'badge' },
+      { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'scissors' },
       { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
       // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
       // { rota: '/transferencias', label: 'Transferências', icone: 'sync' },

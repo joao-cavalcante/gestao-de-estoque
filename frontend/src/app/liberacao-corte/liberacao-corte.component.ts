@@ -1,13 +1,22 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { LiberacaoCorteService } from './liberacao-corte.service';
 import { ConferenciaAguardandoCorte } from './liberacao-corte.model';
 import { OqLiberacaoCorteModalComponent } from './oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
+import { OqIconComponent } from '../shared/icons/oq-icon.component';
 
+/**
+ * Mesmo modelo visual de ImpressaoEtiquetasComponent (header com contador +
+ * filtros por NF/Nº Único) — só que os filtros aqui são em memória: a lista
+ * de "aguardando corte" já vem inteira do backend (revalidada contra o
+ * Sankhya a cada carregar()), não pagina, então não há por quê ir ao
+ * servidor de novo só pra filtrar o que já está na tela.
+ */
 @Component({
   selector: 'app-liberacao-corte',
   standalone: true,
-  imports: [OqLiberacaoCorteModalComponent, OqSkeletonComponent],
+  imports: [FormsModule, OqLiberacaoCorteModalComponent, OqSkeletonComponent, OqIconComponent],
   templateUrl: './liberacao-corte.component.html',
   styleUrl: './liberacao-corte.component.scss',
 })
@@ -18,6 +27,22 @@ export class LiberacaoCorteComponent implements OnInit {
   readonly carregando = signal(true);
   readonly erro = signal<string | null>(null);
   readonly selecionada = signal<ConferenciaAguardandoCorte | null>(null);
+
+  filtroNota: number | null = null;
+  filtroUnico: number | null = null;
+
+  /** Getter (não computed()) de propósito — filtroNota/filtroUnico são campos
+   * simples com [(ngModel)] (mesmo padrão de ImpressaoEtiquetasComponent), não
+   * signals; o template já reavalia a cada ciclo de CD, lista é pequena. */
+  get listaFiltrada(): ConferenciaAguardandoCorte[] {
+    const nota = this.filtroNota;
+    const unico = this.filtroUnico;
+    return this.lista().filter((item) => {
+      if (nota != null && item.numeroNota !== nota) return false;
+      if (unico != null && item.nunota !== unico) return false;
+      return true;
+    });
+  }
 
   ngOnInit(): void {
     this.carregar();
