@@ -39,9 +39,12 @@ object CodigosBarraCacheTable : Table("app.codigos_barra_cache") {
 }
 
 /**
- * app.volumes_alternativos_cache — ver V19. Sem campo de auditoria (TGFVOA não tem DHALTER):
- * populada só sob demanda (cache pra sempre, sem sync periódico — ver ProdutoImagemService
- * pro mesmo padrão já usado nesta pacote).
+ * app.volumes_alternativos_cache — ver V19. Sem campo de auditoria (TGFVOA não tem DHALTER),
+ * então não dá pra fazer sync incremental por página como Produto/CodigoBarras — populada só
+ * sob demanda. MAS diferente do resto do pacote (que documentava "cache pra sempre"), agora tem
+ * revalidação por idade (ver SeparacaoService.buscarVoa/ProdutoCatalogoRepository.buscarVoaPorCodprods):
+ * linha mais velha que o TTL é reconsultada ao vivo — sem isto, um fator de conversão corrigido no
+ * Sankhya depois do 1º cache ficava errado pra sempre no WMS (bug real, produto 3395, ver git log).
  */
 object VolumesAlternativosCacheTable : Table("app.volumes_alternativos_cache") {
     val id = uuid("id")

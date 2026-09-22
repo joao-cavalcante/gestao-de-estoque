@@ -1,6 +1,7 @@
 package wms.backend.produtos
 
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -119,10 +120,21 @@ object ProdutoCatalogoRepository {
 
     // ── Volume Alternativo (TGFVOA) — sem auditoria, cache sob demanda ────
 
-    fun buscarVoaPorCodprods(tenantId: UUID, codprods: List<Int>): List<LinhaCatalogo> = TenantTx.run(tenantId) {
+    /**
+     * `frescoDesde` — linha cacheada antes disso é tratada como "não cacheada" por quem
+     * chama (ver SeparacaoService.buscarVoa), forçando reconsulta ao vivo no Sankhya. Sem
+     * isto, um fator de conversão errado gravado uma vez ficava errado pra sempre (bug real:
+     * TGFVOA.QUANTIDADE corrigido no Sankhya depois do cache já ter gravado o valor velho —
+     * confirmado ao vivo, produto 3395/CX, QUANTIDADE 1 -> 6).
+     */
+    fun buscarVoaPorCodprods(tenantId: UUID, codprods: List<Int>, frescoDesde: Instant): List<LinhaCatalogo> = TenantTx.run(tenantId) {
         if (codprods.isEmpty()) return@run emptyList()
         VolumesAlternativosCacheTable.selectAll()
-            .where { (VolumesAlternativosCacheTable.tenantId eq tenantId) and (VolumesAlternativosCacheTable.codprod inList codprods) }
+            .where {
+                (VolumesAlternativosCacheTable.tenantId eq tenantId) and
+                    (VolumesAlternativosCacheTable.codprod inList codprods) and
+                    (VolumesAlternativosCacheTable.localAtualizadoEm greaterEq frescoDesde)
+            }
             .map {
                 mapOf(
                     "CODPROD" to it[VolumesAlternativosCacheTable.codprod].toString(),
@@ -135,7 +147,38 @@ object ProdutoCatalogoRepository {
             }
     }
 
-    /** Grava o resultado do fallback ao vivo — pra sempre, sem TTL (mesmo espírito de ProdutoImagemService). */
+    /**
+     * Apaga combinações CODVOL/CONTROLE que estavam cacheadas pra um CODPROD mas o Sankhya não
+     * devolveu mais na revalidação ao vivo (excluídas/recadastradas — ex.: usuário apagou TODAS as
+     * unidades alternativas no Sankhya e recadastrou do zero, caso real confirmado nesta sessão).
+     * Sem isto, `upsertVoa` só ATUALIZA quem ainda existe — quem sumiu do Sankhya ficava "órfão"
+     * no cache local pra sempre, igual ao bug de pedido excluído do TarefaSyncService, mesma causa
+     * raiz (mirror local nunca aprende sobre exclusão, só sobre atualização).
+     *
+     * Chamada só pros CODPROD que acabaram de ser revalidados ao vivo (ver SeparacaoService.buscarVoa)
+     * — nunca varre o catálogo inteiro (TGFVOA não tem campo de auditoria pra isso, ver comentário
+     * da tabela).
+     */
+    fun removerVoaOrfas(tenantId: UUID, codprodsRevalidados: List<Int>, linhasVivas: List<LinhaCatalogo>): Int = TenantTx.run(tenantId) {
+        if (codprodsRevalidados.isEmpty()) return@run 0
+        val vivosPorCodprod: Map<Int, Set<Pair<String, String?>>> = linhasVivas
+            .mapNotNull { l -> (l["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null) to ((l["CODVOL"] ?: "") to l["CONTROLE"]) }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { it.value.toSet() }
+
+        val idsParaRemover = VolumesAlternativosCacheTable.selectAll()
+            .where { (VolumesAlternativosCacheTable.tenantId eq tenantId) and (VolumesAlternativosCacheTable.codprod inList codprodsRevalidados) }
+            .filter { row ->
+                val chave = row[VolumesAlternativosCacheTable.codvol] to row[VolumesAlternativosCacheTable.controle]
+                chave !in (vivosPorCodprod[row[VolumesAlternativosCacheTable.codprod]] ?: emptySet())
+            }
+            .map { it[VolumesAlternativosCacheTable.id] }
+
+        if (idsParaRemover.isEmpty()) return@run 0
+        VolumesAlternativosCacheTable.deleteWhere { VolumesAlternativosCacheTable.id inList idsParaRemover }
+    }
+
+    /** Grava o resultado do fallback ao vivo — revalidado por TTL, não mais "pra sempre" (ver buscarVoaPorCodprods). */
     fun upsertVoa(tenantId: UUID, linhas: List<LinhaCatalogo>): Int = TenantTx.run(tenantId) {
         val agora = Instant.now()
         var total = 0

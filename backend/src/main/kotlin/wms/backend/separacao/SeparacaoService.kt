@@ -1253,16 +1253,25 @@ object SeparacaoService {
     }
 
     /**
-     * VOA não tem campo de auditoria (TGFVOA sem DHALTER) — cache pra sempre, sem TTL,
-     * populado sob demanda (mesmo espírito de ProdutoImagemService). Sem sync periódico:
-     * "não achou local" é sempre tratado como "nunca foi buscado", nunca "confirmado vazio" —
-     * aceito, é dado opcional (nem todo produto tem unidade alternativa) e a busca ao vivo já é
-     * escopada só pelos produtos da nota, igual sempre foi.
+     * VOA não tem campo de auditoria (TGFVOA sem DHALTER) — sem sync periódico por página
+     * (incremental de verdade, tipo Produto/CodigoBarras), populado sob demanda (mesmo espírito
+     * de ProdutoImagemService). "Não achou local" é sempre tratado como "nunca foi buscado",
+     * nunca "confirmado vazio" — aceito, é dado opcional (nem todo produto tem unidade
+     * alternativa) e a busca ao vivo já é escopada só pelos produtos da nota, igual sempre foi.
+     *
+     * MAS não é mais cache pra sempre sem revalidação — [VOA_CACHE_TTL] força reconsulta ao vivo
+     * pra linha velha. Bug real confirmado (produto 3395): TGFVOA.QUANTIDADE foi corrigido de 1
+     * pra 6 no Sankhya (provavelmente na mesma limpeza de pedidos que gerou os outros sync bugs
+     * desta sessão), e o WMS continuou aplicando o fator 1 indefinidamente — cache "pra sempre"
+     * significava "errado pra sempre" quando o cadastro do Sankhya muda depois do 1º cache.
      */
+    private val VOA_CACHE_TTL: java.time.Duration = java.time.Duration.ofHours(24)
+
     private suspend fun buscarVoa(tenantSlug: String, tenantId: UUID, codprods: List<Int>): List<Map<String, String?>> {
         if (codprods.isEmpty()) return emptyList()
 
-        val cache = withContext(Dispatchers.IO) { ProdutoCatalogoRepository.buscarVoaPorCodprods(tenantId, codprods) }
+        val frescoDesde = java.time.Instant.now().minus(VOA_CACHE_TTL)
+        val cache = withContext(Dispatchers.IO) { ProdutoCatalogoRepository.buscarVoaPorCodprods(tenantId, codprods, frescoDesde) }
         val faltando = codprods - cache.mapNotNull { it["CODPROD"]?.toIntOrNull() }.toSet()
         if (faltando.isEmpty()) return cache
 
@@ -1275,7 +1284,12 @@ object SeparacaoService {
             ),
         )
         val aoVivo = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_VOA)
-        if (aoVivo.isNotEmpty()) withContext(Dispatchers.IO) { ProdutoCatalogoRepository.upsertVoa(tenantId, aoVivo) }
+        withContext(Dispatchers.IO) {
+            // Limpa órfãos ANTES de upsert — combinação que sumiu do Sankhya pra um CODPROD
+            // revalidado (inclusive CODPROD que ficou com ZERO unidades alternativas agora).
+            ProdutoCatalogoRepository.removerVoaOrfas(tenantId, faltando, aoVivo)
+            if (aoVivo.isNotEmpty()) ProdutoCatalogoRepository.upsertVoa(tenantId, aoVivo)
+        }
         return cache + aoVivo
     }
 
