@@ -19,6 +19,7 @@ import { LiberacaoCorteComponent } from './liberacao-corte/liberacao-corte.compo
 import { EtiquetasComponent } from './etiquetas/etiquetas.component';
 import { EtiquetaPesoComponent } from './etiqueta-peso/etiqueta-peso.component';
 import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
+import { MapaSeparacaoComponent } from './mapa-separacao/mapa-separacao.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -33,6 +34,7 @@ export const routes: Routes = [
   { path: 'config-conferencia', component: ConfigConferenciaComponent, canActivate: [authGuard] },
   { path: 'liberacao-corte', component: LiberacaoCorteComponent, canActivate: [authGuard] },
   { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
+  { path: 'mapa-separacao', component: MapaSeparacaoComponent, canActivate: [authGuard] },
   { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas/:sessaoId', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas-peso/:sessaoId', component: EtiquetaPesoComponent, canActivate: [authGuard] },

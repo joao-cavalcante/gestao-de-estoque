@@ -1,0 +1,348 @@
+.ms-page {
+  padding: 20px 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.ms-toolbar {
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  padding: 14px;
+  margin-bottom: 14px;
+
+  &__title {
+    font-family: var(--oq-font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--oq-text-primary);
+    margin: 0 0 10px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+}
+
+.ms-field {
+  min-width: 200px;
+
+  label {
+    display: block;
+    font-family: var(--oq-font-display);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--oq-text-secondary);
+    margin-bottom: 5px;
+  }
+
+  input {
+    width: 100%;
+    height: 36px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    padding: 0 10px;
+    font-family: var(--oq-font-mono);
+    font-size: 14px;
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    outline: none;
+
+    &:focus {
+      border-color: var(--oq-brand-accent);
+    }
+  }
+}
+
+.ms-status {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--oq-radius-input);
+  font-size: 13px;
+
+  &--erro {
+    background: var(--oq-critical-bg);
+    color: var(--oq-critical-foreground);
+    border: 1px solid var(--oq-critical);
+  }
+}
+
+.ms-vazio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--oq-text-secondary);
+  font-size: 13px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+}
+
+// ─── Relatório ──────────────────────────────────────────────────────────
+
+.ms-report {
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  padding: 16px;
+}
+
+.ms-nota {
+  margin-bottom: 26px;
+  padding-bottom: 18px;
+  border-bottom: 2px dashed var(--oq-border);
+
+  &:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+
+.ms-print-title {
+  display: none;
+  text-align: center;
+  font-family: var(--oq-font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+  margin: 0 0 10px;
+}
+
+.ms-label {
+  display: block;
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-secondary);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.ms-valor {
+  font-family: var(--oq-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.ms-cabecalho {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--oq-border);
+  border: 1px solid var(--oq-border);
+  margin-bottom: 10px;
+
+  &__cel {
+    background: var(--oq-surface-2);
+    padding: 7px 9px;
+  }
+}
+
+.ms-resumo {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+
+  &__card {
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    padding: 8px 10px;
+    background: var(--oq-surface);
+  }
+
+  &__valor {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--oq-font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--oq-text-primary);
+  }
+}
+
+.ms-categoria {
+  margin-top: 14px;
+
+  &__banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--oq-surface-2);
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    color: var(--oq-text-primary);
+    margin-bottom: 7px;
+  }
+
+  &__nome {
+    font-family: var(--oq-font-display);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  &__total {
+    margin-left: auto;
+    font-family: var(--oq-font-mono);
+    font-size: 12px;
+    color: var(--oq-text-secondary);
+  }
+}
+
+.ms-itens {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+
+  thead {
+    display: table-header-group;
+  }
+
+  th {
+    background: var(--oq-surface-2);
+    color: var(--oq-text-secondary);
+    font-weight: 700;
+    text-align: left;
+    border: 1px solid var(--oq-border);
+    padding: 5px 6px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 10px;
+  }
+
+  td {
+    border: 1px solid var(--oq-border);
+    padding: 5px 6px;
+    vertical-align: top;
+    word-break: break-word;
+    color: var(--oq-text-primary);
+  }
+
+  tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  tfoot td {
+    background: var(--oq-surface-2);
+    font-weight: 700;
+    border-top: 2px solid var(--oq-border-strong);
+  }
+}
+
+.ms-col-code {
+  width: 16%;
+}
+.ms-col-desc {
+  width: 50%;
+}
+.ms-col-unit {
+  width: 14%;
+}
+.ms-col-qty {
+  width: 20%;
+}
+
+.ms-center {
+  text-align: center;
+}
+.ms-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ms-total-geral {
+  margin-top: 14px;
+  border: 2px solid var(--oq-text-primary);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  padding: 9px 11px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 30px;
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+
+  strong {
+    font-size: 15px;
+  }
+}
+
+.ms-rodape-nota {
+  display: none;
+  margin-top: 8px;
+  text-align: right;
+  font-family: var(--oq-font-mono);
+  font-size: 9px;
+  color: var(--oq-text-secondary);
+}
+
+// ─── Impressão ──────────────────────────────────────────────────────────
+// app-header/app-nav-menu já somem via regra global (styles.scss); aqui só
+// o que é específico deste relatório (quebras de página por nota/categoria,
+// título repetido, layout A4 retrato — mesma estrutura do JSP original).
+
+@page {
+  size: A4 portrait;
+  margin: 9mm 8mm;
+}
+
+@media print {
+  .ms-page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .ms-report {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .ms-print-title {
+    display: block;
+  }
+
+  .ms-rodape-nota {
+    display: block;
+  }
+
+  .ms-nota {
+    border-bottom: 0;
+  }
+
+  .ms-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .ms-categoria__banner,
+  .ms-total-geral,
+  .ms-resumo__card {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

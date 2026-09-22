@@ -1,0 +1,154 @@
+<div class="ms-page">
+  <div class="ms-toolbar no-print">
+    <h1 class="ms-toolbar__title">Mapa de Separação</h1>
+    <div class="ms-toolbar__row">
+      <div class="ms-field">
+        <label for="ordemCarga">Ordem de Carga</label>
+        <input
+          id="ordemCarga"
+          type="number"
+          inputmode="numeric"
+          placeholder="Ex.: 9"
+          [(ngModel)]="ordemCarga"
+          (keyup.enter)="consultar()"
+        />
+      </div>
+      <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="carregando()" (click)="consultar()">
+        Consultar
+      </button>
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="limpar()">Limpar</button>
+      <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!dados()" (click)="imprimir()">
+        Imprimir / PDF
+      </button>
+    </div>
+  </div>
+
+  @if (erro()) {
+    <div class="ms-status ms-status--erro no-print">{{ erro() }}</div>
+  }
+
+  @if (carregando()) {
+    <div class="ms-vazio no-print" aria-busy="true">
+      <oq-spinner />
+      <span>Consultando Ordem de Carga…</span>
+    </div>
+  } @else if (!dados()) {
+    <div class="ms-vazio no-print">Informe uma Ordem de Carga e clique em Consultar.</div>
+  } @else {
+    <div class="ms-report">
+      @for (nota of dados()!.notas; track nota.nunota; let primeiraNota = $first) {
+        <section class="ms-nota" [class.ms-page-break]="!primeiraNota">
+          <div class="ms-print-title">Separação de Ordem de Carga</div>
+
+          <div class="ms-cabecalho">
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Ordem de Carga</span>
+              <span class="ms-valor">{{ dados()!.ordemCarga }}</span>
+            </div>
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Nro. Pedido</span>
+              <span class="ms-valor">{{ nota.nunota }}</span>
+            </div>
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Parceiro</span>
+              <span class="ms-valor">{{ nota.codParc }} - {{ nota.nomeParceiro }}</span>
+            </div>
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Cód. Veículo</span>
+              <span class="ms-valor">{{ nota.codVeiculo ?? '—' }}</span>
+            </div>
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Placa</span>
+              <span class="ms-valor">{{ nota.placa ?? '—' }}</span>
+            </div>
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Modelo do Veículo</span>
+              <span class="ms-valor">{{ nota.modeloVeiculo ?? '—' }}</span>
+            </div>
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Peso Máximo OC</span>
+              <span class="ms-valor">{{ nota.pesoMaxOc ? formatarPeso(nota.pesoMaxOc) : '—' }}</span>
+            </div>
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Peso Total da Nota</span>
+              <span class="ms-valor">{{ formatarPeso(nota.pesoTotal) }}</span>
+            </div>
+          </div>
+
+          <div class="ms-resumo">
+            <div class="ms-resumo__card">
+              <span class="ms-label">Produtos distintos</span>
+              <span class="ms-resumo__valor">{{ nota.produtosDistintos }}</span>
+            </div>
+            <div class="ms-resumo__card">
+              <span class="ms-label">Quantidade total</span>
+              <span class="ms-resumo__valor">{{ formatarQtd(nota.quantidadeTotal) }}</span>
+            </div>
+            <div class="ms-resumo__card">
+              <span class="ms-label">Peso total</span>
+              <span class="ms-resumo__valor">{{ formatarPeso(nota.pesoTotal) }}</span>
+            </div>
+            <div class="ms-resumo__card">
+              <span class="ms-label">Sem classificação</span>
+              <span class="ms-resumo__valor">{{ nota.semClassificacao }}</span>
+            </div>
+          </div>
+
+          @for (categoria of nota.categorias; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
+            <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria">
+              @if (!primeiraCategoria) {
+                <div class="ms-print-title">Separação de Ordem de Carga</div>
+              }
+              <div class="ms-categoria__banner">
+                <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="20" />
+                <span class="ms-categoria__nome">{{ categoria.descricao }}</span>
+                <span class="ms-categoria__total">
+                  Quantidade: {{ formatarQtd(categoria.quantidadeTotal) }} &nbsp;|&nbsp; Peso: {{ formatarPeso(categoria.pesoTotal) }}
+                </span>
+              </div>
+
+              <table class="ms-itens">
+                <colgroup>
+                  <col class="ms-col-code" />
+                  <col class="ms-col-desc" />
+                  <col class="ms-col-unit" />
+                  <col class="ms-col-qty" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Descrição</th>
+                    <th class="ms-center">Un.</th>
+                    <th class="ms-num">Quantidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of categoria.itens; track item.codProd + '|' + item.controle) {
+                    <tr>
+                      <td>{{ item.codProd }}</td>
+                      <td>{{ item.descricao }}</td>
+                      <td class="ms-center">{{ item.unidade }}</td>
+                      <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3">Subtotal {{ categoria.descricao }}</td>
+                    <td class="ms-num">{{ formatarQtd(categoria.quantidadeTotal) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </section>
+          }
+
+          <div class="ms-total-geral">
+            <span>TOTAL DA NOTA — Quantidade: <strong>{{ formatarQtd(nota.quantidadeTotal) }}</strong></span>
+            <span>Peso Total: <strong>{{ formatarPeso(nota.pesoTotal) }}</strong></span>
+          </div>
+          <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação</div>
+        </section>
+      }
+    </div>
+  }
+</div>
