@@ -36,8 +36,10 @@ object MapaSeparacaoService {
     class MapaSeparacaoException(message: String) : Exception(message)
 
     private val FIELDS_NOTA = listOf("NUNOTA", "CODEMP", "CODPARC", "Parceiro.NOMEPARC", "TIPMOV", "ORDEMCARGA")
-    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODEMP", "PESOMAX", "CODVEICULO")
+    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODEMP", "PESOMAX", "CODVEICULO", "CODPARCMOTORISTA")
+    private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA")
     private val FIELDS_VEICULO = listOf("CODVEICULO", "MARCAMODELO", "PLACA")
+    private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
     private val FIELDS_ITEM = listOf(
         "NUNOTA", "CODPROD", "CONTROLE", "CODVOL", "QTDNEG",
         "Produto.DESCRPROD", "Produto.PESOBRUTO", "Produto.USOPROD", "Produto.AD_TIPOSEPARACAO",
@@ -84,6 +86,7 @@ object MapaSeparacaoService {
 
         val pesoMaxOc = ordemRaw["PESOMAX"].parseBigDecimalBr()
         val codVeiculo = ordemRaw["CODVEICULO"]?.toIntOrNull()
+        val codParcMotorista = ordemRaw["CODPARCMOTORISTA"]?.toIntOrNull()
 
         var placa: String? = null
         var modeloVeiculo: String? = null
@@ -98,6 +101,12 @@ object MapaSeparacaoService {
             placa = veiculoRaw?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() }
             modeloVeiculo = veiculoRaw?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() }
         }
+
+        // Motorista é um Parceiro (TGFPAR), não TGFFUN — confirmado com o usuário
+        // (TGFORD.CODPARCMOTORISTA). Mesma entidade "Parceiro" já usada pro
+        // parceiro da nota (ali via relação direta; aqui via busca própria porque
+        // o vínculo é o motorista da OC, não o cliente da nota).
+        val nomeMotorista = codParcMotorista?.let { buscarNomesParceiro(tenantSlug, listOf(it))[it] }
 
         val nunotas = notas.map { it.nunota }
         val itensRaw = SankhyaLoadRecordsClient.parseRows(
@@ -179,6 +188,8 @@ object MapaSeparacaoService {
                 codVeiculo = codVeiculo,
                 placa = placa,
                 modeloVeiculo = modeloVeiculo,
+                codParcMotorista = codParcMotorista,
+                nomeMotorista = nomeMotorista,
                 pesoMaxOc = pesoMaxOc?.formatar(),
                 produtosDistintos = consolidado.map { it.codProd }.distinct().size,
                 quantidadeTotal = consolidado.sumOf { it.quantidade }.formatar(),
@@ -191,6 +202,77 @@ object MapaSeparacaoService {
         if (notasDto.isEmpty()) throw MapaSeparacaoException("Nenhum item de separação encontrado para a Ordem de Carga $ordemCarga")
 
         return MapaSeparacaoDto(ordemCarga = ordemCarga, notas = notasDto)
+    }
+
+    /**
+     * Ordens de Carga FECHADAS (TGFORD.SITUACAO='F', domínio confirmado com o
+     * usuário: A=Aberta, F=Fechada) — pra tela oferecer uma lista pronta em vez
+     * do operador ter que saber o número de cor. Enriquece placa/motorista em
+     * lote (2 chamadas a mais, não 1 por OC) — mesmo padrão de `montar`.
+     */
+    suspend fun listarFechadas(tenantSlug: String): List<OrdemCargaResumoDto> {
+        val raw = SankhyaLoadRecordsClient.parseRows(
+            SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(
+                    entityName = "OrdemCarga",
+                    fields = FIELDS_ORDEM_LISTA,
+                    criteriaExpression = "SITUACAO = 'F'",
+                    orderByExpression = "ORDEMCARGA DESC",
+                ),
+            ),
+            FIELDS_ORDEM_LISTA,
+        )
+        if (raw.isEmpty()) return emptyList()
+
+        val codVeiculos = raw.mapNotNull { it["CODVEICULO"]?.toIntOrNull() }.distinct()
+        val codMotoristas = raw.mapNotNull { it["CODPARCMOTORISTA"]?.toIntOrNull() }.distinct()
+        val placasPorCodVeiculo = buscarPlacas(tenantSlug, codVeiculos)
+        val nomesPorCodParc = buscarNomesParceiro(tenantSlug, codMotoristas)
+
+        return raw.mapNotNull { r ->
+            val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
+            val codVeiculo = r["CODVEICULO"]?.toIntOrNull()
+            val codMotorista = r["CODPARCMOTORISTA"]?.toIntOrNull()
+            OrdemCargaResumoDto(
+                ordemCarga = ordemCarga,
+                dataPrevSaida = r["DTPREVSAIDA"]?.trim()?.takeIf { it.isNotEmpty() } ?: "—",
+                placa = codVeiculo?.let { placasPorCodVeiculo[it] },
+                nomeMotorista = codMotorista?.let { nomesPorCodParc[it] },
+            )
+        }
+    }
+
+    private suspend fun buscarPlacas(tenantSlug: String, codigos: List<Int>): Map<Int, String> {
+        if (codigos.isEmpty()) return emptyMap()
+        val raw = SankhyaLoadRecordsClient.parseRows(
+            SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(entityName = "Veiculo", fields = FIELDS_VEICULO, criteriaExpression = "CODVEICULO IN (${codigos.joinToString(",")})"),
+            ),
+            FIELDS_VEICULO,
+        )
+        return raw.mapNotNull { r ->
+            val cv = r["CODVEICULO"]?.toIntOrNull() ?: return@mapNotNull null
+            val placa = r["PLACA"]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            cv to placa
+        }.toMap()
+    }
+
+    private suspend fun buscarNomesParceiro(tenantSlug: String, codigos: List<Int>): Map<Int, String> {
+        if (codigos.isEmpty()) return emptyMap()
+        val raw = SankhyaLoadRecordsClient.parseRows(
+            SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(entityName = "Parceiro", fields = FIELDS_PARCEIRO, criteriaExpression = "CODPARC IN (${codigos.joinToString(",")})"),
+            ),
+            FIELDS_PARCEIRO,
+        )
+        return raw.mapNotNull { r ->
+            val cp = r["CODPARC"]?.toIntOrNull() ?: return@mapNotNull null
+            val nome = r["NOMEPARC"]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            cp to nome
+        }.toMap()
     }
 
     private data class ItemAgregado(

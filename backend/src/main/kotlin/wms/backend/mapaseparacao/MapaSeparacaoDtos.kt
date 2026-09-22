@@ -27,6 +27,9 @@ data class NotaSeparacaoDto(
     val codVeiculo: Int?,
     val placa: String?,
     val modeloVeiculo: String?,
+    /** TGFORD.CODPARCMOTORISTA — motorista é um Parceiro (TGFPAR), não TGFFUN. */
+    val codParcMotorista: Int?,
+    val nomeMotorista: String?,
     /** TGFORD.PESOMAX — peso máximo da Ordem de Carga (não da nota). */
     val pesoMaxOc: String?,
     val produtosDistintos: Int,
@@ -34,6 +37,16 @@ data class NotaSeparacaoDto(
     val pesoTotal: String,
     val semClassificacao: Int,
     val categorias: List<CategoriaSeparacaoDto>,
+)
+
+/** Item da lista de Ordens de Carga FECHADAS (TGFORD.SITUACAO='F') pra seleção na tela. */
+@Serializable
+data class OrdemCargaResumoDto(
+    val ordemCarga: Long,
+    /** TGFORD.DTPREVSAIDA (dd/MM/yyyy), já formatada — ou "—" se ausente. */
+    val dataPrevSaida: String,
+    val placa: String?,
+    val nomeMotorista: String?,
 )
 
 @Serializable

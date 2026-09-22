@@ -1,9 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
+import { OqSearchableSelectComponent, OqSearchableSelectOpcao } from '../shared/oq-searchable-select/oq-searchable-select.component';
 import { MapaSeparacaoService } from './mapa-separacao.service';
-import { CategoriaSeparacaoDto, MapaSeparacaoDto, formatarPeso, formatarQtd } from './mapa-separacao.model';
+import { CategoriaSeparacaoDto, MapaSeparacaoDto, OrdemCargaResumoDto, formatarPeso, formatarQtd } from './mapa-separacao.model';
 
 const ICONE_CATEGORIA: Record<string, OqIconName> = {
   '1': 'seco',
@@ -26,14 +28,18 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
 @Component({
   selector: 'app-mapa-separacao',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, NgTemplateOutlet, OqSearchableSelectComponent],
   templateUrl: './mapa-separacao.component.html',
   styleUrl: './mapa-separacao.component.scss',
 })
-export class MapaSeparacaoComponent {
+export class MapaSeparacaoComponent implements OnInit {
   private readonly service = inject(MapaSeparacaoService);
 
-  ordemCarga: number | null = null;
+  /** String (não number) — combina com OqSearchableSelectOpcao.codigo e com [(valor)]. */
+  ordemCargaSelecionada: string | null = null;
+
+  readonly fechadas = signal<OrdemCargaResumoDto[]>([]);
+  readonly carregandoFechadas = signal(true);
 
   readonly dados = signal<MapaSeparacaoDto | null>(null);
   readonly carregando = signal(false);
@@ -42,14 +48,55 @@ export class MapaSeparacaoComponent {
   readonly formatarQtd = formatarQtd;
   readonly formatarPeso = formatarPeso;
 
+  get opcoesFechadas(): OqSearchableSelectOpcao[] {
+    return this.fechadas().map((oc) => ({
+      codigo: String(oc.ordemCarga),
+      label: [oc.dataPrevSaida, oc.placa, oc.nomeMotorista].filter((v) => !!v).join(' — '),
+    }));
+  }
+
   iconeCategoria(codigo: string): OqIconName {
     return ICONE_CATEGORIA[codigo] ?? 'circle-alert';
   }
 
-  consultar(): void {
-    const oc = this.ordemCarga;
+  ngOnInit(): void {
+    this.carregarFechadas();
+  }
+
+  carregarFechadas(): void {
+    this.carregandoFechadas.set(true);
+    this.service.listarFechadas().subscribe({
+      next: (lista) => {
+        this.fechadas.set(lista);
+        this.carregandoFechadas.set(false);
+      },
+      error: () => {
+        // Lista de apoio (conveniência), não bloqueante — se falhar (ex.: Sankhya
+        // fora do ar), some silenciosamente; o campo "Ou digite o número" ao lado
+        // continua funcionando normalmente, a tela não fica presa por causa dela.
+        this.fechadas.set([]);
+        this.carregandoFechadas.set(false);
+      },
+    });
+  }
+
+  /** Campo "Ou digite o número" — fallback pra quando a OC ainda não está fechada, ou a lista falhou ao carregar. */
+  ordemCargaManual: number | null = null;
+
+  consultarManual(): void {
+    const oc = this.ordemCargaManual;
     if (!oc || oc <= 0) {
       this.erro.set('Informe uma Ordem de Carga numérica válida.');
+      return;
+    }
+    this.ordemCargaSelecionada = String(oc);
+    this.consultar();
+  }
+
+  consultar(): void {
+    const oc = Number(this.ordemCargaSelecionada);
+    if (!oc || oc <= 0) {
+      this.erro.set('Selecione uma Ordem de Carga.');
       return;
     }
 
@@ -70,7 +117,8 @@ export class MapaSeparacaoComponent {
   }
 
   limpar(): void {
-    this.ordemCarga = null;
+    this.ordemCargaSelecionada = null;
+    this.ordemCargaManual = null;
     this.dados.set(null);
     this.erro.set(null);
   }

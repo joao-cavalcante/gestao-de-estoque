@@ -30,6 +30,11 @@
 .ms-field {
   min-width: 200px;
 
+  &--select {
+    min-width: 320px;
+    flex: 1 1 320px;
+  }
+
   label {
     display: block;
     font-family: var(--oq-font-display);
@@ -225,6 +230,23 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
     font-size: 10px;
+  }
+
+  // Linhas de cabeçalho (cabeçalho da nota + banner da categoria) dentro do
+  // <thead> — precisam ser <th> pra repetir em toda página impressa (é o que
+  // a tag <thead> faz sozinha), mas o CONTEÚDO delas não é uma célula de
+  // tabela comum: neutraliza o estilo de th padrão e deixa os componentes de
+  // dentro (.ms-print-title, .ms-cabecalho, .ms-categoria__banner) se
+  // estilizarem como sempre se estilizaram fora da tabela.
+  .ms-thead-block {
+    background: none;
+    border: 0;
+    padding: 0;
+    white-space: normal;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: inherit;
+    font-weight: normal;
   }
 
   td {

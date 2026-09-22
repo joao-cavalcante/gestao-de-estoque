@@ -16,12 +16,22 @@ export interface NotaSeparacaoDto {
   codVeiculo: number | null;
   placa: string | null;
   modeloVeiculo: string | null;
+  codParcMotorista: number | null;
+  nomeMotorista: string | null;
   pesoMaxOc: string | null;
   produtosDistintos: number;
   quantidadeTotal: string;
   pesoTotal: string;
   semClassificacao: number;
   categorias: CategoriaSeparacaoDto[];
+}
+
+/** Item de GET /api/mapa-separacao/fechadas — Ordens de Carga já fechadas (TGFORD.SITUACAO='F') pra seleção. */
+export interface OrdemCargaResumoDto {
+  ordemCarga: number;
+  dataPrevSaida: string;
+  placa: string | null;
+  nomeMotorista: string | null;
 }
 
 export interface CategoriaSeparacaoDto {
