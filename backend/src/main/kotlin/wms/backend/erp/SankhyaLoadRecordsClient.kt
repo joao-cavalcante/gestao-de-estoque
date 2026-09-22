@@ -77,7 +77,23 @@ object SankhyaLoadRecordsClient {
             )
         }
 
-        return Json.parseToJsonElement(response.body()).jsonObject
+        val corpo = Json.parseToJsonElement(response.body()).jsonObject
+
+        // O gateway do Sankhya responde 200 OK mesmo em erro DE NEGÓCIO (ex.: usuário de
+        // integração sem permissão de acesso a uma entidade/atributo específico) — o
+        // status real vem dentro do corpo (status="0"), nunca no HTTP. Sem checar isto,
+        // um "acesso negado" virava silenciosamente "0 linhas" pra quem chama (bug real:
+        // OrdemCarga confirmado com dado no Sankhya, mas SUPER.INTEGRACAO sem permissão
+        // nessa entidade — a UI mostrava "não encontrada", escondendo o erro verdadeiro).
+        val statusCorpo = corpo["status"]?.jsonPrimitive?.contentOrNull
+        if (statusCorpo == "0") {
+            val mensagem = corpo["statusMessage"]?.jsonPrimitive?.contentOrNull
+                ?: corpo["tsError"]?.jsonObject?.get("tsErrorCode")?.jsonPrimitive?.contentOrNull
+                ?: "erro não especificado"
+            throw SankhyaApiException("Sankhya recusou loadRecords:${req.entityName} para tenant '$tenantSlug': $mensagem")
+        }
+
+        return corpo
     }
 
     private fun buildBody(req: LoadRecordsRequest): JsonObject = buildJsonObject {

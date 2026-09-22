@@ -74,18 +74,13 @@ object MapaSeparacaoService {
         if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido válido encontrado para a Ordem de Carga $ordemCarga")
         val notaPorNunota = notas.associateBy { it.nunota }
 
-        val ordemRawResponse = SankhyaLoadRecordsClient.loadRecords(
-            tenantSlug,
-            LoadRecordsRequest(entityName = "OrdemCarga", fields = FIELDS_ORDEM, criteriaExpression = "ORDEMCARGA = $ordemCarga"),
-        )
-        val ordemRaw = SankhyaLoadRecordsClient.parseRows(ordemRawResponse, FIELDS_ORDEM).firstOrNull()
-        if (ordemRaw == null) {
-            // DIAGNÓSTICO TEMPORÁRIO (remover depois de confirmar o campo certo) — a
-            // chamada teve ok=true mas voltou 0 linhas pra uma OC que existe no
-            // Sankhya; dump da resposta crua pra ver os campos reais da entidade.
-            println("DIAGNOSTICO MapaSeparacao OrdemCarga=$ordemCarga resposta crua: $ordemRawResponse")
-            throw MapaSeparacaoException("Ordem de Carga $ordemCarga não encontrada (TGFORD)")
-        }
+        val ordemRaw = SankhyaLoadRecordsClient.parseRows(
+            SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(entityName = "OrdemCarga", fields = FIELDS_ORDEM, criteriaExpression = "ORDEMCARGA = $ordemCarga"),
+            ),
+            FIELDS_ORDEM,
+        ).firstOrNull() ?: throw MapaSeparacaoException("Ordem de Carga $ordemCarga não encontrada (TGFORD)")
 
         val pesoMaxOc = ordemRaw["PESOMAX"].parseBigDecimalBr()
         val codVeiculo = ordemRaw["CODVEICULO"]?.toIntOrNull()
