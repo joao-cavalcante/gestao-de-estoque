@@ -113,49 +113,77 @@ object TarefaSyncService {
         }
 
         withContext(Dispatchers.IO) {
-            detectarExclusoesFisicas(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
+            revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
         }
     }
 
     /**
-     * Preventivo pra "pedido excluído no Sankhya fica preso pra sempre na base
-     * local" (causa raiz confirmada de uma limpeza em massa de pedidos no
-     * Sankhya que deixou tarefas travadas aqui): o CRITERIO_BASE acima só
-     * devolve o que "precisa conferência" — quando um NUNOTA é excluído
-     * FISICAMENTE no Sankhya, ele some da resposta e reconciliarLoteTx nunca
-     * mais o revisita, então uma tarefa em status não-final ficaria congelada
-     * indefinidamente sem isto.
+     * Preventivo pra "nota saiu do CRITERIO_BASE e a tarefa local fica presa pra
+     * sempre no último status visto" — o CRITERIO_BASE só devolve o que "precisa
+     * conferência"; uma nota some da resposta por DOIS motivos bem diferentes, e
+     * sem isto os dois travavam a tarefa local igual:
+     *
+     * 1. Excluída FISICAMENTE no Sankhya (causa raiz confirmada de uma limpeza em
+     *    massa de pedidos) — não existe mais em CabecalhoNota de jeito nenhum.
+     * 2. Conferência FINALIZADA/liberada direto no Sankhya (corte, liberação de
+     *    corte, etc.) ENTRE dois ciclos de sync — a nota ainda existe, só que
+     *    TGFCON2.STATUS virou F/D antes do sync ver esse estado, então some da
+     *    fila sem o reconciliarLoteTx normal nunca ter processado essa transição
+     *    (caso real confirmado: nunota 57718, ficou preso em 'aguardando_corte'
+     *    mesmo já liberado/finalizado no Sankhya).
      *
      * Só investiga tarefas locais ATIVAS (não-final, ver
-     * TarefasRepository.listarNunotasAtivasTx) que não vieram neste ciclo — e,
-     * pra cada uma, confirma com uma consulta de existência SEM CRITERIO_BASE
-     * (só "este NUNOTA existe em CabecalhoNota?") antes de apagar. Isso separa
-     * "saiu da fila por regra de negócio legítima" (ex.: TipoOperacao mudou,
-     * LIBCONF mudou) de "não existe mais" — só o segundo caso é removido.
+     * TarefasRepository.listarNunotasAtivasTx) que não vieram neste ciclo. Pra
+     * cada uma, busca o estado real em CabecalhoNota SEM CRITERIO_BASE (com os
+     * MESMOS FIELDS do ciclo normal, pra não gravar um `dados` incompleto) — as
+     * que ainda existem são REVALIDADAS pela mesma reconciliarLoteTx do ciclo
+     * principal (idêntica regra de transição/auditoria, sem duplicar lógica); as
+     * que não existem mais são removidas.
      */
-    private suspend fun detectarExclusoesFisicas(tenantSlug: String, tenantId: UUID, vistasNesteCiclo: Set<Long>) {
+    private suspend fun revalidarNaoVistasNoCiclo(tenantSlug: String, tenantId: UUID, vistasNesteCiclo: Set<Long>) {
         val ativasLocais = TenantTx.run(tenantId) { TarefasRepository.listarNunotasAtivasTx(tenantId) }
         val candidatas = ativasLocais.filterNot { it in vistasNesteCiclo }
         if (candidatas.isEmpty()) return
 
-        val existentesNoSankhya = mutableSetOf<Long>()
+        val existentes = mutableSetOf<Long>()
+        val linhasRevalidadas = mutableListOf<LinhaSankhya>()
+
         candidatas.chunked(200).forEach { lote ->
             val raw = SankhyaLoadRecordsClient.loadRecords(
                 tenantSlug,
                 LoadRecordsRequest(
                     entityName = "CabecalhoNota",
-                    fields = listOf("NUNOTA"),
+                    fields = FIELDS,
                     criteriaExpression = "NUNOTA IN (${lote.joinToString(",")})",
                 ),
             )
-            SankhyaLoadRecordsClient.parseRows(raw, listOf("NUNOTA")).forEach { r ->
-                r["NUNOTA"]?.toLongOrNull()?.let { existentesNoSankhya += it }
+            val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS)
+            val nuconfsLote = rows.mapNotNull { it["NUCONFATUAL"]?.toIntOrNull() }.distinct()
+            val statusPorNuconfLote = buscarStatusPorNuconf(tenantSlug, nuconfsLote)
+
+            rows.forEach { r ->
+                val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@forEach
+                existentes += nunota
+                val nuconfAtual = r["NUCONFATUAL"]?.toIntOrNull()
+                val libconf = r["LIBCONF"]
+                val statusTgfcon2Raw = nuconfAtual?.let { statusPorNuconfLote[it] }
+                val dadosJson = buildJsonObject { FIELDS.forEach { campo -> put(campo, r[campo]) } }.toString()
+                linhasRevalidadas += LinhaSankhya(nunota, nuconfAtual, libconf, statusTgfcon2Raw, dadosJson)
             }
         }
 
-        val inexistentes = candidatas.filterNot { it in existentesNoSankhya }
+        val inexistentes = candidatas.filterNot { it in existentes }
         if (inexistentes.isNotEmpty()) {
             TenantTx.run(tenantId) { TarefasRepository.removerInexistentesNoSankhyaTx(tenantId, inexistentes) }
+        }
+
+        if (linhasRevalidadas.isNotEmpty()) {
+            val notasResetadas = TenantTx.run(tenantId, statementTimeoutMs = 30_000) {
+                TarefasRepository.reconciliarLoteTx(tenantId, linhasRevalidadas)
+            }
+            if (notasResetadas.isNotEmpty()) {
+                wms.backend.separacao.SeparacaoRepository.cancelarSessoesAtivasPorNotas(tenantId, notasResetadas)
+            }
         }
     }
 
