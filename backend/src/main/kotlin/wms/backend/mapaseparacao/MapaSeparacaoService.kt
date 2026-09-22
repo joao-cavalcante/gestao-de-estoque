@@ -1,6 +1,8 @@
 package wms.backend.mapaseparacao
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import wms.backend.erp.LoadRecordsRequest
 import wms.backend.erp.SankhyaLoadRecordsClient
@@ -62,14 +64,34 @@ object MapaSeparacaoService {
         val tipoSeparacao: String,
     )
 
-    suspend fun montar(tenantSlug: String, ordemCarga: Long): MapaSeparacaoDto {
-        val notasRaw = SankhyaLoadRecordsClient.parseRows(
-            SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(entityName = "CabecalhoNota", fields = FIELDS_NOTA, criteriaExpression = "ORDEMCARGA = $ordemCarga"),
-            ),
-            FIELDS_NOTA,
-        )
+    /**
+     * As 4 idas ao Sankhya (nota/ordem/veículo+motorista/itens) rodam em paralelo
+     * onde a dependência permite (`coroutineScope`/`async`, mesmo padrão já usado
+     * em SeparacaoService) — sequencial eram ~4 round-trips somados (relatado como
+     * lento pelo usuário); só nota+ordem são independentes desde o início, e
+     * veículo/motorista/itens só dependem delas, não umas das outras.
+     */
+    suspend fun montar(tenantSlug: String, ordemCarga: Long): MapaSeparacaoDto = coroutineScope {
+        val notasRawDeferred = async {
+            SankhyaLoadRecordsClient.parseRows(
+                SankhyaLoadRecordsClient.loadRecords(
+                    tenantSlug,
+                    LoadRecordsRequest(entityName = "CabecalhoNota", fields = FIELDS_NOTA, criteriaExpression = "ORDEMCARGA = $ordemCarga"),
+                ),
+                FIELDS_NOTA,
+            )
+        }
+        val ordemRawDeferred = async {
+            SankhyaLoadRecordsClient.parseRows(
+                SankhyaLoadRecordsClient.loadRecords(
+                    tenantSlug,
+                    LoadRecordsRequest(entityName = "OrdemCarga", fields = FIELDS_ORDEM, criteriaExpression = "ORDEMCARGA = $ordemCarga"),
+                ),
+                FIELDS_ORDEM,
+            ).firstOrNull()
+        }
+
+        val notasRaw = notasRawDeferred.await()
         if (notasRaw.isEmpty()) throw MapaSeparacaoException("Nenhum pedido encontrado para a Ordem de Carga $ordemCarga")
 
         data class Nota(val nunota: Long, val codParc: Int, val nomeParceiro: String, val tipMov: String)
@@ -80,47 +102,45 @@ object MapaSeparacaoService {
         }
         if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido válido encontrado para a Ordem de Carga $ordemCarga")
         val notaPorNunota = notas.associateBy { it.nunota }
+        val nunotas = notas.map { it.nunota }
 
-        val ordemRaw = SankhyaLoadRecordsClient.parseRows(
-            SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(entityName = "OrdemCarga", fields = FIELDS_ORDEM, criteriaExpression = "ORDEMCARGA = $ordemCarga"),
-            ),
-            FIELDS_ORDEM,
-        ).firstOrNull() ?: throw MapaSeparacaoException("Ordem de Carga $ordemCarga não encontrada (TGFORD)")
-
+        val ordemRaw = ordemRawDeferred.await() ?: throw MapaSeparacaoException("Ordem de Carga $ordemCarga não encontrada (TGFORD)")
         val pesoMaxOc = ordemRaw["PESOMAX"].parseBigDecimalBr()
         val codVeiculo = ordemRaw["CODVEICULO"]?.toIntOrNull()
         val codParcMotorista = ordemRaw["CODPARCMOTORISTA"]?.toIntOrNull()
 
-        var placa: String? = null
-        var modeloVeiculo: String? = null
-        if (codVeiculo != null) {
-            val veiculoRaw = SankhyaLoadRecordsClient.parseRows(
-                SankhyaLoadRecordsClient.loadRecords(
-                    tenantSlug,
-                    LoadRecordsRequest(entityName = "Veiculo", fields = FIELDS_VEICULO, criteriaExpression = "CODVEICULO = $codVeiculo"),
-                ),
-                FIELDS_VEICULO,
-            ).firstOrNull()
-            placa = veiculoRaw?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() }
-            modeloVeiculo = veiculoRaw?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() }
+        // 3 chamadas independentes entre si — só dependem da OrdemCarga/notas já resolvidas acima.
+        val veiculoDeferred = codVeiculo?.let { cv ->
+            async {
+                SankhyaLoadRecordsClient.parseRows(
+                    SankhyaLoadRecordsClient.loadRecords(
+                        tenantSlug,
+                        LoadRecordsRequest(entityName = "Veiculo", fields = FIELDS_VEICULO, criteriaExpression = "CODVEICULO = $cv"),
+                    ),
+                    FIELDS_VEICULO,
+                ).firstOrNull()
+            }
         }
-
         // Motorista é um Parceiro (TGFPAR), não TGFFUN — confirmado com o usuário
         // (TGFORD.CODPARCMOTORISTA). Mesma entidade "Parceiro" já usada pro
         // parceiro da nota (ali via relação direta; aqui via busca própria porque
         // o vínculo é o motorista da OC, não o cliente da nota).
-        val nomeMotorista = codParcMotorista?.let { buscarNomesParceiro(tenantSlug, listOf(it))[it] }
+        val motoristaDeferred = codParcMotorista?.let { cp -> async { buscarNomesParceiro(tenantSlug, listOf(cp)) } }
+        val itensRawDeferred = async {
+            SankhyaLoadRecordsClient.parseRows(
+                SankhyaLoadRecordsClient.loadRecords(
+                    tenantSlug,
+                    LoadRecordsRequest(entityName = "ItemNota", fields = FIELDS_ITEM, criteriaExpression = "NUNOTA IN (${nunotas.joinToString(",")})"),
+                ),
+                FIELDS_ITEM,
+            )
+        }
 
-        val nunotas = notas.map { it.nunota }
-        val itensRaw = SankhyaLoadRecordsClient.parseRows(
-            SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(entityName = "ItemNota", fields = FIELDS_ITEM, criteriaExpression = "NUNOTA IN (${nunotas.joinToString(",")})"),
-            ),
-            FIELDS_ITEM,
-        )
+        val veiculoRaw = veiculoDeferred?.await()
+        val placa = veiculoRaw?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() }
+        val modeloVeiculo = veiculoRaw?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() }
+        val nomeMotorista = codParcMotorista?.let { motoristaDeferred?.await()?.get(it) }
+        val itensRaw = itensRawDeferred.await()
 
         val linhas = itensRaw.mapNotNull { r ->
             val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -206,7 +226,7 @@ object MapaSeparacaoService {
 
         if (notasDto.isEmpty()) throw MapaSeparacaoException("Nenhum item de separação encontrado para a Ordem de Carga $ordemCarga")
 
-        return MapaSeparacaoDto(ordemCarga = ordemCarga, notas = notasDto)
+        MapaSeparacaoDto(ordemCarga = ordemCarga, notas = notasDto)
     }
 
     /** status_operacional que conta como "nota conferida" pra barra de progresso — mesma família de conclusão do resto do app. */
@@ -228,8 +248,12 @@ object MapaSeparacaoService {
      * (app.tarefas, já mantido pelo TarefaSyncService) — não é mais uma 2ª
      * pergunta ao Sankhya sobre status de conferência, reaproveita o que a
      * Fila de Tarefas já sincroniza.
+     *
+     * As 3 buscas de enriquecimento (placas/motoristas/nunotas) são independentes
+     * entre si — rodam em paralelo (`coroutineScope`/`async`) em vez de 3 idas
+     * sequenciais ao Sankhya, que era o gargalo relatado (tela sentida como lenta).
      */
-    suspend fun listarAbertas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> {
+    suspend fun listarAbertas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> = coroutineScope {
         val raw = SankhyaLoadRecordsClient.parseRows(
             SankhyaLoadRecordsClient.loadRecords(
                 tenantSlug,
@@ -242,20 +266,25 @@ object MapaSeparacaoService {
             ),
             FIELDS_ORDEM_LISTA,
         )
-        if (raw.isEmpty()) return emptyList()
+        if (raw.isEmpty()) return@coroutineScope emptyList()
 
         val ordensCarga = raw.mapNotNull { it["ORDEMCARGA"]?.toLongOrNull() }.distinct()
         val codVeiculos = raw.mapNotNull { it["CODVEICULO"]?.toIntOrNull() }.distinct()
         val codMotoristas = raw.mapNotNull { it["CODPARCMOTORISTA"]?.toIntOrNull() }.distinct()
-        val placasPorCodVeiculo = buscarPlacas(tenantSlug, codVeiculos)
-        val nomesPorCodParc = buscarNomesParceiro(tenantSlug, codMotoristas)
-        val nunotasPorOrdemCarga = buscarNunotasPorOrdemCarga(tenantSlug, ordensCarga)
+
+        val placasDeferred = async { buscarPlacas(tenantSlug, codVeiculos) }
+        val nomesDeferred = async { buscarNomesParceiro(tenantSlug, codMotoristas) }
+        val nunotasDeferred = async { buscarNunotasPorOrdemCarga(tenantSlug, ordensCarga) }
+
+        val placasPorCodVeiculo = placasDeferred.await()
+        val nomesPorCodParc = nomesDeferred.await()
+        val nunotasPorOrdemCarga = nunotasDeferred.await()
         val todasNunotas = nunotasPorOrdemCarga.values.flatten()
         val statusPorNunota = withContext(Dispatchers.IO) {
             TarefasRepository.statusOperacionalPorNunotas(tenantId, todasNunotas)
         }
 
-        return raw.mapNotNull { r ->
+        raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
             val codVeiculo = r["CODVEICULO"]?.toIntOrNull()
             val codMotorista = r["CODPARCMOTORISTA"]?.toIntOrNull()
