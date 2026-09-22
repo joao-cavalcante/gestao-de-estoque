@@ -35,6 +35,13 @@
     />
   </div>
 
+  <div class="oq-filtros-avancados__campo">
+    <label class="oq-filtros-avancados__check">
+      <input type="checkbox" [(ngModel)]="rascunho.somenteComOrdemCarga" />
+      <span class="oq-filtros-avancados__label">Somente pedidos com Ordem de Carga</span>
+    </label>
+  </div>
+
   <div class="oq-filtros-avancados__acoes">
     <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="limpar()">Limpar</button>
     <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="aplicarFiltros()">Aplicar</button>

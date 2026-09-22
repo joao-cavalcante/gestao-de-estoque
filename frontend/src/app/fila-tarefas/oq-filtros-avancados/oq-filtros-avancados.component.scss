@@ -90,6 +90,28 @@
   &:focus { border-color: var(--oq-brand); }
 }
 
+.oq-filtros-avancados__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--oq-brand);
+    cursor: pointer;
+    flex: none;
+  }
+
+  .oq-filtros-avancados__label {
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 500;
+    color: var(--oq-text-primary);
+  }
+}
+
 .oq-filtros-avancados__acoes {
   display: flex;
   justify-content: flex-end;

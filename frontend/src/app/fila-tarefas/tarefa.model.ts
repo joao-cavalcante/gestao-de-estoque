@@ -72,6 +72,8 @@ export interface FiltrosAvancados {
   codigoTipoOperacao: string | null;
   /** Texto digitado no campo "Ordem de Carga" (match exato pelo número). */
   ordemCarga: string | null;
+  /** true = esconde pedidos sem Ordem de Carga (TGFCAB.ORDEMCARGA nulo) — não filtra por número, só exige que tenha alguma. */
+  somenteComOrdemCarga: boolean;
 }
 
 export const FILTROS_STATUS = ['todos', 'aguardando', 'andamento', 'aguardando_corte'] as const;

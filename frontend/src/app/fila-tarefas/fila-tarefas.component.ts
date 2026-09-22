@@ -48,6 +48,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     codigoVendedor: null,
     codigoTipoOperacao: null,
     ordemCarga: null,
+    somenteComOrdemCarga: false,
   });
 
   ngOnInit(): void {
@@ -113,7 +114,10 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
 
   readonly totalFiltrosAvancadosAtivos = computed(() => {
     const f = this.filtrosAvancados();
-    return [f.codigoParceiro, f.codigoVendedor, f.codigoTipoOperacao, f.ordemCarga].filter((v) => v !== null).length;
+    return (
+      [f.codigoParceiro, f.codigoVendedor, f.codigoTipoOperacao, f.ordemCarga].filter((v) => v !== null).length +
+      (f.somenteComOrdemCarga ? 1 : 0)
+    );
   });
 
   /** true = alguma tarefa carregada tem etapas → tenant segmentado (V29). */
@@ -139,7 +143,8 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
         (!avancados.codigoParceiro || t.codigoCliente === avancados.codigoParceiro) &&
         (!avancados.codigoVendedor || t.codigoResponsavel === avancados.codigoVendedor) &&
         (!avancados.codigoTipoOperacao || t.codigoTipoOperacao === avancados.codigoTipoOperacao) &&
-        (!avancados.ordemCarga || String(t.ordemCarga ?? '') === avancados.ordemCarga.trim());
+        (!avancados.ordemCarga || String(t.ordemCarga ?? '') === avancados.ordemCarga.trim()) &&
+        (!avancados.somenteComOrdemCarga || t.ordemCarga != null);
 
       // Filtro de tipo de separação: passa se tem etapa PENDENTE de algum tipo selecionado.
       const passaTipoSeparacao =

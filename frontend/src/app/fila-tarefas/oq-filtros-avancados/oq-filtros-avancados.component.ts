@@ -9,6 +9,7 @@ const VAZIO: FiltrosAvancados = {
   codigoVendedor: null,
   codigoTipoOperacao: null,
   ordemCarga: null,
+  somenteComOrdemCarga: false,
 };
 
 /**
