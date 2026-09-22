@@ -1,9 +1,14 @@
 package wms.backend.mapaseparacao
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import wms.backend.erp.LoadRecordsRequest
 import wms.backend.erp.SankhyaLoadRecordsClient
+import wms.backend.tarefas.StatusOperacional
+import wms.backend.tarefas.TarefasRepository
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.UUID
 
 /**
  * Porte do Dashboard HTML5 "Separação de Ordem de Carga" (JSP no Sankhya,
@@ -204,13 +209,26 @@ object MapaSeparacaoService {
         return MapaSeparacaoDto(ordemCarga = ordemCarga, notas = notasDto)
     }
 
+    /** status_operacional que conta como "nota conferida" pra barra de progresso — mesma família de conclusão do resto do app. */
+    private val STATUS_CONFERIDA = setOf(
+        StatusOperacional.CONCLUIDO.codigo,
+        StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
+        StatusOperacional.RECONTAGEM_CONCLUIDA.codigo,
+        StatusOperacional.RECONTAGEM_CONCLUIDA_DIVERGENTE.codigo,
+    )
+
     /**
      * Ordens de Carga FECHADAS (TGFORD.SITUACAO='F', domínio confirmado com o
      * usuário: A=Aberta, F=Fechada) — pra tela oferecer uma lista pronta em vez
      * do operador ter que saber o número de cor. Enriquece placa/motorista em
      * lote (2 chamadas a mais, não 1 por OC) — mesmo padrão de `montar`.
+     *
+     * Progresso de conferência (totalNotas/notasConferidas) vem do MIRROR LOCAL
+     * (app.tarefas, já mantido pelo TarefaSyncService) — não é mais uma 2ª
+     * pergunta ao Sankhya sobre status de conferência, reaproveita o que a
+     * Fila de Tarefas já sincroniza.
      */
-    suspend fun listarFechadas(tenantSlug: String): List<OrdemCargaResumoDto> {
+    suspend fun listarFechadas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> {
         val raw = SankhyaLoadRecordsClient.parseRows(
             SankhyaLoadRecordsClient.loadRecords(
                 tenantSlug,
@@ -225,22 +243,49 @@ object MapaSeparacaoService {
         )
         if (raw.isEmpty()) return emptyList()
 
+        val ordensCarga = raw.mapNotNull { it["ORDEMCARGA"]?.toLongOrNull() }.distinct()
         val codVeiculos = raw.mapNotNull { it["CODVEICULO"]?.toIntOrNull() }.distinct()
         val codMotoristas = raw.mapNotNull { it["CODPARCMOTORISTA"]?.toIntOrNull() }.distinct()
         val placasPorCodVeiculo = buscarPlacas(tenantSlug, codVeiculos)
         val nomesPorCodParc = buscarNomesParceiro(tenantSlug, codMotoristas)
+        val nunotasPorOrdemCarga = buscarNunotasPorOrdemCarga(tenantSlug, ordensCarga)
+        val todasNunotas = nunotasPorOrdemCarga.values.flatten()
+        val statusPorNunota = withContext(Dispatchers.IO) {
+            TarefasRepository.statusOperacionalPorNunotas(tenantId, todasNunotas)
+        }
 
         return raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
             val codVeiculo = r["CODVEICULO"]?.toIntOrNull()
             val codMotorista = r["CODPARCMOTORISTA"]?.toIntOrNull()
+            val nunotasDaOc = nunotasPorOrdemCarga[ordemCarga].orEmpty()
             OrdemCargaResumoDto(
                 ordemCarga = ordemCarga,
                 dataPrevSaida = r["DTPREVSAIDA"]?.trim()?.takeIf { it.isNotEmpty() } ?: "—",
                 placa = codVeiculo?.let { placasPorCodVeiculo[it] },
                 nomeMotorista = codMotorista?.let { nomesPorCodParc[it] },
+                totalNotas = nunotasDaOc.size,
+                notasConferidas = nunotasDaOc.count { statusPorNunota[it] in STATUS_CONFERIDA },
             )
         }
+    }
+
+    /** NUNOTA de TGFCAB por ORDEMCARGA, em lote — usado só pra contar progresso, não carrega mais campos que isso. */
+    private suspend fun buscarNunotasPorOrdemCarga(tenantSlug: String, ordensCarga: List<Long>): Map<Long, List<Long>> {
+        if (ordensCarga.isEmpty()) return emptyMap()
+        val fields = listOf("NUNOTA", "ORDEMCARGA")
+        val raw = SankhyaLoadRecordsClient.parseRows(
+            SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(entityName = "CabecalhoNota", fields = fields, criteriaExpression = "ORDEMCARGA IN (${ordensCarga.joinToString(",")})"),
+            ),
+            fields,
+        )
+        return raw.mapNotNull { r ->
+            val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
+            val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
+            ordemCarga to nunota
+        }.groupBy({ it.first }, { it.second })
     }
 
     private suspend fun buscarPlacas(tenantSlug: String, codigos: List<Int>): Map<Int, String> {

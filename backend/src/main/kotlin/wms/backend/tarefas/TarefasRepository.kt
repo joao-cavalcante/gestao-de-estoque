@@ -492,4 +492,17 @@ object TarefasRepository {
     /** CODPARC da nota (já sincronizado) — usado pra montar os dados da etiqueta de volume. */
     fun buscarCodParcLocal(tenantId: UUID, nunota: Long): Int? =
         campoDosDados(tenantId, nunota, "CODPARC")?.toIntOrNull()
+
+    /**
+     * status_operacional local (mirror já sincronizado, ver TarefaSyncService) pras NUNOTAs
+     * pedidas — usado pra montar o progresso de conferência por Ordem de Carga (Mapa de
+     * Separação). NUNOTA sem linha aqui (nunca entrou no mirror — ex.: nota fora do critério
+     * de conferência) fica de fora do mapa; quem chama trata como "não conferida".
+     */
+    fun statusOperacionalPorNunotas(tenantId: UUID, nunotas: List<Long>): Map<Long, String> = TenantTx.run(tenantId) {
+        if (nunotas.isEmpty()) return@run emptyMap()
+        TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList nunotas.map { it.toInt() }) }
+            .associate { it[TarefasTable.nunota].toLong() to it[TarefasTable.statusOperacional] }
+    }
 }

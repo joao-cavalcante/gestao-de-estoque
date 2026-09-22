@@ -47,6 +47,15 @@ data class OrdemCargaResumoDto(
     val dataPrevSaida: String,
     val placa: String?,
     val nomeMotorista: String?,
+    /** Total de notas da OC (TGFCAB.ORDEMCARGA) — pra barra de progresso de conferência. */
+    val totalNotas: Int,
+    /**
+     * Quantas dessas notas já estão com status_operacional concluído no mirror LOCAL
+     * (app.tarefas, ver TarefaSyncService) — não é uma consulta ao vivo no Sankhya, é o
+     * mesmo espelho que já alimenta a Fila de Tarefas. Nota que nunca passou pelo critério
+     * de conferência (ver CRITERIO_BASE) não entra no mirror — conta como não conferida.
+     */
+    val notasConferidas: Int,
 )
 
 @Serializable

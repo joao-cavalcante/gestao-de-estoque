@@ -20,7 +20,7 @@ fun Route.mapaSeparacaoRoutes() {
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
-                call.respond(MapaSeparacaoService.listarFechadas(slug))
+                call.respond(MapaSeparacaoService.listarFechadas(slug, claims.tenantId))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao consultar o Sankhya")))
             }

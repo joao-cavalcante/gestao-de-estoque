@@ -32,6 +32,9 @@ export interface OrdemCargaResumoDto {
   dataPrevSaida: string;
   placa: string | null;
   nomeMotorista: string | null;
+  /** Total de notas da OC e quantas já estão conferidas no mirror local (ver TarefaSyncService) — barra de progresso do card. */
+  totalNotas: number;
+  notasConferidas: number;
 }
 
 export interface CategoriaSeparacaoDto {
