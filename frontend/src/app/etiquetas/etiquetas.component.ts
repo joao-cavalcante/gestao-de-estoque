@@ -6,20 +6,20 @@ import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
 import { EtiquetaDados } from '../separacao/separacao.model';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
-import { rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
 
 /**
  * Página de impressão de etiquetas de volume (15x10 cm, uma por volume).
  * Renderizada no navegador e impressa via window.print() — sem PDF no backend.
  * Espelha src/templates/template-etiqueta.html do fila-de-conferencia.
  *
- * `grupos`: normalmente 1 elemento (nota inteira OU uma etapa específica,
- * quando aberto com `?etapa=` — fluxo ao vivo, popup de fim de etapa). Mas
- * ao REIMPRIMIR (sem `?etapa=`, vindo da tela "Impressão de Etiquetas") uma
- * conferência que foi feita por etapa, vira 1 grupo por etapa concluída —
- * reproduz exatamente o que já saiu impresso durante a separação (nome da
- * etapa em vez de "X de Y"), em vez de reconsolidar tudo como se fosse uma
- * nota inteira sem etapa nenhuma.
+ * O nome da etapa NÃO aparece na etiqueta (pedido explícito) — é sempre
+ * "X de Y". `grupos`: normalmente 1 elemento (nota inteira OU uma etapa
+ * específica, quando aberto com `?etapa=` — fluxo ao vivo, popup de fim de
+ * etapa). Mas ao REIMPRIMIR (sem `?etapa=`, vindo da tela "Impressão de
+ * Etiquetas") uma conferência que foi feita por etapa, vira 1 grupo por
+ * etapa concluída — reproduz a mesma NUMERAÇÃO que já saiu impressa
+ * durante a separação (X de Y da etapa, não da nota inteira), em vez de
+ * reconsolidar tudo como se fosse uma nota inteira sem etapa nenhuma.
  */
 @Component({
   selector: 'app-etiquetas',
@@ -58,15 +58,6 @@ export class EtiquetasComponent implements OnInit {
 
   get totalVolumesGeral(): number {
     return this.grupos().reduce((acc, g) => acc + g.totalVolumes, 0);
-  }
-
-  /** Etiqueta POR ETAPA: só os volumes da etapa, sem "de N" (o total da nota não é o que importa aqui). */
-  porEtapa(grupo: EtiquetaDados): boolean {
-    return grupo.etapaTipo != null;
-  }
-
-  rotuloEtapa(grupo: EtiquetaDados): string {
-    return grupo.etapaTipo != null ? rotuloTipoSeparacao(grupo.etapaTipo) : '';
   }
 
   /** Volumes a imprimir do grupo: faixa acumulada da etapa (ex.: 3..6) ou [1..totalVolumes] da nota inteira. */

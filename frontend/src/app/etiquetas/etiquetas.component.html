@@ -16,7 +16,9 @@
   <!-- Layout portado 1:1 do template-etiqueta.html do fila-de-conferencia
        (coords em px no espaço 425x283, escalado 1.334 pra preencher 15x10cm).
        Um grupo por etapa quando a conferência foi segmentada (reimpressão
-       reproduz o mesmo formato que já saiu impresso na hora) — senão, 1 grupo só. -->
+       reproduz a mesma numeração que já saiu impressa na hora — X de Y da
+       ETAPA, não da nota inteira) — senão, 1 grupo só. Nome da etapa NÃO
+       aparece mais na etiqueta (pedido explícito) — sempre "X de Y". -->
   @for (grupo of grupos(); track grupo) {
     @for (v of volumesDoGrupo(grupo); track v) {
       <div class="page-outer">
@@ -40,14 +42,10 @@
             <div class="digit et-seq" [style.left.px]="150 + $index * 59">{{ d }}</div>
           }
 
-          @if (porEtapa(grupo)) {
-            <div class="f center et-etapa">{{ rotuloEtapa(grupo) }}</div>
-          } @else {
-            <div class="sep"></div>
+          <div class="sep"></div>
 
-            @for (d of digitosTotal(grupo); track $index) {
-              <div class="digit et-total" [style.left.px]="298 + $index * 58">{{ d }}</div>
-            }
+          @for (d of digitosTotal(grupo); track $index) {
+            <div class="digit et-total" [style.left.px]="298 + $index * 58">{{ d }}</div>
           }
         </div>
       </div>
