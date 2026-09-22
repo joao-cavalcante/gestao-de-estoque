@@ -7,8 +7,10 @@ import kotlinx.serialization.json.contentOrNull
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.notInList
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
 import wms.backend.separacao.SeparacaoRepository
@@ -282,6 +284,75 @@ object TarefasRepository {
                     (TarefasTable.statusOperacional inList familiaAguardando)
             }
             .map { it[TarefasTable.nunota].toLong() }
+    }
+
+    /**
+     * NUNOTAs locais em status NÃO-final (fora de CONCLUIDO/CONCLUIDO_DIVERGENTE/
+     * RECONTAGEM_CONCLUIDA*) — candidatas a "sumiu do Sankhya" quando não aparecem
+     * num ciclo de sync (ver TarefaSyncService.detectarExclusõesFisicas). Notas
+     * concluídas saem do CRITERIO_BASE por razão normal (conferência finalizada não
+     * aparece mais na fila nativa), então não entram aqui.
+     */
+    fun listarNunotasAtivasTx(tenantId: UUID): List<Long> {
+        val statusFinais = listOf(
+            StatusOperacional.CONCLUIDO.codigo,
+            StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
+            StatusOperacional.RECONTAGEM_CONCLUIDA.codigo,
+            StatusOperacional.RECONTAGEM_CONCLUIDA_DIVERGENTE.codigo,
+        )
+        return TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.statusOperacional notInList statusFinais) }
+            .map { it[TarefasTable.nunota].toLong() }
+    }
+
+    /**
+     * Remove tarefas cujo NUNOTA foi confirmado como fisicamente inexistente no
+     * Sankhya (não apenas fora do CRITERIO_BASE da fila — verificado à parte por
+     * quem chama, ver TarefaSyncService). Sem isto, uma nota excluída direto no
+     * Sankhya (fora do fluxo normal de conferência) nunca mais reaparece na
+     * consulta de sync e fica travada pra sempre no último status local — foi
+     * exatamente o que aconteceu numa exclusão em massa de pedidos no Sankhya.
+     *
+     * Grava auditoria ANTES de apagar (histórico não depende da linha continuar
+     * existindo) e limpa o que dependia da tarefa (sessão de separação viva,
+     * decisões de liberação de corte) — mesmo efeito colateral já disparado pra
+     * exclusão de CONFERÊNCIA em reconciliarLoteTx, agora também pra exclusão da
+     * NOTA inteira.
+     */
+    fun removerInexistentesNoSankhyaTx(tenantId: UUID, nunotas: List<Long>) {
+        if (nunotas.isEmpty()) return
+        val nunotasInt = nunotas.map { it.toInt() }
+        val agora = Instant.now()
+
+        val existentes = TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList nunotasInt) }
+            .associateBy { it[TarefasTable.nunota] }
+
+        val paraAuditar = existentes.values.map { row ->
+            AuditoriaPendente(
+                nunotaInt = row[TarefasTable.nunota],
+                statusAnterior = row[TarefasTable.statusOperacional],
+                statusNovo = "excluido_sankhya",
+                motivo = "Sincronização Sankhya: NUNOTA não existe mais no Sankhya (nota excluída) — removida da base local",
+            )
+        }
+        if (paraAuditar.isNotEmpty()) {
+            TarefasAuditoriaTable.batchInsert(paraAuditar) { item ->
+                this[TarefasAuditoriaTable.id] = UUID.randomUUID()
+                this[TarefasAuditoriaTable.tenantId] = tenantId
+                this[TarefasAuditoriaTable.nunota] = item.nunotaInt
+                this[TarefasAuditoriaTable.statusAnterior] = item.statusAnterior
+                this[TarefasAuditoriaTable.statusNovo] = item.statusNovo
+                this[TarefasAuditoriaTable.origem] = "sync_sankhya"
+                this[TarefasAuditoriaTable.motivo] = item.motivo
+                this[TarefasAuditoriaTable.criadoEm] = agora
+            }
+        }
+
+        SeparacaoRepository.cancelarSessoesAtivasPorNotas(tenantId, nunotas, minIdadeSegundos = 0)
+        nunotas.forEach { nunota -> SeparacaoRepository.limparDecisoesLiberacao(tenantId, nunota) }
+
+        TarefasTable.deleteWhere { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList nunotasInt) }
     }
 
     fun listar(tenantId: UUID): List<TarefaApiDto> = TenantTx.run(tenantId) {

@@ -111,6 +111,52 @@ object TarefaSyncService {
                 wms.backend.separacao.SeparacaoRepository.cancelarSessoesAtivasPorNotas(tenantId, notasResetadas)
             }
         }
+
+        withContext(Dispatchers.IO) {
+            detectarExclusoesFisicas(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
+        }
+    }
+
+    /**
+     * Preventivo pra "pedido excluído no Sankhya fica preso pra sempre na base
+     * local" (causa raiz confirmada de uma limpeza em massa de pedidos no
+     * Sankhya que deixou tarefas travadas aqui): o CRITERIO_BASE acima só
+     * devolve o que "precisa conferência" — quando um NUNOTA é excluído
+     * FISICAMENTE no Sankhya, ele some da resposta e reconciliarLoteTx nunca
+     * mais o revisita, então uma tarefa em status não-final ficaria congelada
+     * indefinidamente sem isto.
+     *
+     * Só investiga tarefas locais ATIVAS (não-final, ver
+     * TarefasRepository.listarNunotasAtivasTx) que não vieram neste ciclo — e,
+     * pra cada uma, confirma com uma consulta de existência SEM CRITERIO_BASE
+     * (só "este NUNOTA existe em CabecalhoNota?") antes de apagar. Isso separa
+     * "saiu da fila por regra de negócio legítima" (ex.: TipoOperacao mudou,
+     * LIBCONF mudou) de "não existe mais" — só o segundo caso é removido.
+     */
+    private suspend fun detectarExclusoesFisicas(tenantSlug: String, tenantId: UUID, vistasNesteCiclo: Set<Long>) {
+        val ativasLocais = TenantTx.run(tenantId) { TarefasRepository.listarNunotasAtivasTx(tenantId) }
+        val candidatas = ativasLocais.filterNot { it in vistasNesteCiclo }
+        if (candidatas.isEmpty()) return
+
+        val existentesNoSankhya = mutableSetOf<Long>()
+        candidatas.chunked(200).forEach { lote ->
+            val raw = SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(
+                    entityName = "CabecalhoNota",
+                    fields = listOf("NUNOTA"),
+                    criteriaExpression = "NUNOTA IN (${lote.joinToString(",")})",
+                ),
+            )
+            SankhyaLoadRecordsClient.parseRows(raw, listOf("NUNOTA")).forEach { r ->
+                r["NUNOTA"]?.toLongOrNull()?.let { existentesNoSankhya += it }
+            }
+        }
+
+        val inexistentes = candidatas.filterNot { it in existentesNoSankhya }
+        if (inexistentes.isNotEmpty()) {
+            TenantTx.run(tenantId) { TarefasRepository.removerInexistentesNoSankhyaTx(tenantId, inexistentes) }
+        }
     }
 
     /**
