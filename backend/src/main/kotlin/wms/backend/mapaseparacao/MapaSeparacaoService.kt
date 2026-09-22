@@ -245,13 +245,15 @@ object MapaSeparacaoService {
      * lote (2 chamadas a mais, não 1 por OC) — mesmo padrão de `montar`.
      *
      * Progresso de conferência (totalNotas/notasConferidas) vem do MIRROR LOCAL
-     * (app.tarefas, já mantido pelo TarefaSyncService) — não é mais uma 2ª
-     * pergunta ao Sankhya sobre status de conferência, reaproveita o que a
-     * Fila de Tarefas já sincroniza.
+     * (app.tarefas, já mantido pelo TarefaSyncService) — total NÃO é "toda nota
+     * vinculada à OC no Sankhya" (bug real corrigido: OC 42/46 nunca fechavam
+     * 100% porque contavam nota que nunca precisou de conferência), é "toda
+     * nota que já passou pelo critério de conferência", que é o mirror local
+     * — ver TarefasRepository.statusPorOrdemCarga. Sem pergunta a mais ao
+     * Sankhya pra isso, só ao Postgres.
      *
-     * As 3 buscas de enriquecimento (placas/motoristas/nunotas) são independentes
-     * entre si — rodam em paralelo (`coroutineScope`/`async`) em vez de 3 idas
-     * sequenciais ao Sankhya, que era o gargalo relatado (tela sentida como lenta).
+     * As buscas de enriquecimento (placas/motoristas) são independentes entre
+     * si — rodam em paralelo (`coroutineScope`/`async`) em vez de sequenciais.
      */
     suspend fun listarAbertas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> = coroutineScope {
         val raw = SankhyaLoadRecordsClient.parseRows(
@@ -274,48 +276,27 @@ object MapaSeparacaoService {
 
         val placasDeferred = async { buscarPlacas(tenantSlug, codVeiculos) }
         val nomesDeferred = async { buscarNomesParceiro(tenantSlug, codMotoristas) }
-        val nunotasDeferred = async { buscarNunotasPorOrdemCarga(tenantSlug, ordensCarga) }
 
         val placasPorCodVeiculo = placasDeferred.await()
         val nomesPorCodParc = nomesDeferred.await()
-        val nunotasPorOrdemCarga = nunotasDeferred.await()
-        val todasNunotas = nunotasPorOrdemCarga.values.flatten()
-        val statusPorNunota = withContext(Dispatchers.IO) {
-            TarefasRepository.statusOperacionalPorNunotas(tenantId, todasNunotas)
-        }
+        val statusPorOc = withContext(Dispatchers.IO) {
+            TarefasRepository.statusPorOrdemCarga(tenantId, ordensCarga.toSet())
+        }.groupBy({ it.first }, { it.second })
 
         raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
             val codVeiculo = r["CODVEICULO"]?.toIntOrNull()
             val codMotorista = r["CODPARCMOTORISTA"]?.toIntOrNull()
-            val nunotasDaOc = nunotasPorOrdemCarga[ordemCarga].orEmpty()
+            val statusDaOc = statusPorOc[ordemCarga].orEmpty()
             OrdemCargaResumoDto(
                 ordemCarga = ordemCarga,
                 dataPrevSaida = r["DTPREVSAIDA"]?.trim()?.takeIf { it.isNotEmpty() } ?: "—",
                 placa = codVeiculo?.let { placasPorCodVeiculo[it] },
                 nomeMotorista = codMotorista?.let { nomesPorCodParc[it] },
-                totalNotas = nunotasDaOc.size,
-                notasConferidas = nunotasDaOc.count { statusPorNunota[it] in STATUS_CONFERIDA },
+                totalNotas = statusDaOc.size,
+                notasConferidas = statusDaOc.count { it in STATUS_CONFERIDA },
             )
         }
-    }
-
-    /** NUNOTA de TGFCAB por ORDEMCARGA, em lote — usado só pra contar progresso, não carrega mais campos que isso. */
-    private suspend fun buscarNunotasPorOrdemCarga(tenantSlug: String, ordensCarga: List<Long>): Map<Long, List<Long>> {
-        if (ordensCarga.isEmpty()) return emptyMap()
-        val fields = listOf("NUNOTA", "ORDEMCARGA")
-        val raw = SankhyaLoadRecordsClient.parseRows(
-            SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(entityName = "CabecalhoNota", fields = fields, criteriaExpression = "ORDEMCARGA IN (${ordensCarga.joinToString(",")})"),
-            ),
-            fields,
-        )
-        return raw.mapNotNull { r ->
-            val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
-            val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
-            ordemCarga to nunota
-        }.groupBy({ it.first }, { it.second })
     }
 
     private suspend fun buscarPlacas(tenantSlug: String, codigos: List<Int>): Map<Int, String> {

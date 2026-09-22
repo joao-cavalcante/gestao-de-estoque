@@ -494,15 +494,29 @@ object TarefasRepository {
         campoDosDados(tenantId, nunota, "CODPARC")?.toIntOrNull()
 
     /**
-     * status_operacional local (mirror já sincronizado, ver TarefaSyncService) pras NUNOTAs
-     * pedidas — usado pra montar o progresso de conferência por Ordem de Carga (Mapa de
-     * Separação). NUNOTA sem linha aqui (nunca entrou no mirror — ex.: nota fora do critério
-     * de conferência) fica de fora do mapa; quem chama trata como "não conferida".
+     * (ORDEMCARGA, status_operacional) de toda tarefa local vinculada às Ordens de Carga
+     * pedidas — usado pra montar o progresso de conferência por OC (Mapa de Separação).
+     *
+     * Fonte é o MIRROR LOCAL (app.tarefas), não uma consulta crua ao Sankhya por NUNOTA da
+     * OC: nem toda nota vinculada a uma OC precisa de conferência (depende da config do
+     * TipoOperacao — CRITERIO_BASE em TarefaSyncService) — contar essas como "pendente" pra
+     * sempre inflava o total e a barra nunca fechava 100% mesmo com tudo que realmente
+     * precisava conferência já concluído (bug real confirmado: OC 42 e 46). O mirror local só
+     * tem nota que JÁ passou pelo critério — é o denominador certo.
      */
-    fun statusOperacionalPorNunotas(tenantId: UUID, nunotas: List<Long>): Map<Long, String> = TenantTx.run(tenantId) {
-        if (nunotas.isEmpty()) return@run emptyMap()
+    fun statusPorOrdemCarga(tenantId: UUID, ordensCarga: Set<Long>): List<Pair<Long, String>> = TenantTx.run(tenantId) {
+        if (ordensCarga.isEmpty()) return@run emptyList()
         TarefasTable.selectAll()
-            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList nunotas.map { it.toInt() }) }
-            .associate { it[TarefasTable.nunota].toLong() to it[TarefasTable.statusOperacional] }
+            .where { TarefasTable.tenantId eq tenantId }
+            .mapNotNull { row ->
+                val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                // vem como "46" ou "46.0" do loadRecords — mesma normalização de TarefasRepository.listar (ordemCarga).
+                val ordemCarga = dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull
+                    ?.trim()?.takeIf { it.isNotEmpty() }
+                    ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }
+                    ?: return@mapNotNull null
+                if (ordemCarga !in ordensCarga) return@mapNotNull null
+                ordemCarga to row[TarefasTable.statusOperacional]
+            }
     }
 }
