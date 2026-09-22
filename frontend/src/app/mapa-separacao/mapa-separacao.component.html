@@ -32,79 +32,81 @@
       </div>
     </div>
 
-    @if (erro()) {
-      <div class="ms-status ms-status--erro no-print">{{ erro() }}</div>
-    }
-    @if (erroAbertas()) {
-      <div class="ms-status ms-status--erro no-print">{{ erroAbertas() }}</div>
-    }
+    <div class="ms-scroll">
+      @if (erro()) {
+        <div class="ms-status ms-status--erro no-print">{{ erro() }}</div>
+      }
+      @if (erroAbertas()) {
+        <div class="ms-status ms-status--erro no-print">{{ erroAbertas() }}</div>
+      }
 
-    @if (carregando()) {
-      <div class="ms-vazio no-print" aria-busy="true">
-        <oq-spinner />
-        <span>Consultando Ordem de Carga…</span>
-      </div>
-    } @else if (carregandoAbertas()) {
-      <div class="ms-vazio no-print" aria-busy="true">
-        <oq-spinner />
-        <span>Carregando Ordens de Carga…</span>
-      </div>
-    } @else if (listaFiltrada.length === 0) {
-      <div class="ms-vazio no-print">
-        {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga aberta no momento.' : 'Nenhum resultado para essa busca.' }}
-      </div>
-    } @else {
-      <div class="ms-painel-grid no-print">
-        @for (oc of listaFiltrada; track oc.ordemCarga) {
-          <article class="oq-card oq-card--clicavel" (click)="consultar(oc.ordemCarga)">
-            <div class="oq-card__header">
-              <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
-              <div class="oq-card__status-line">
-                <oq-icon [name]="oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'check' : 'box'" [size]="13" />
-                <span class="oq-card__status-text">
-                  {{ oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'Todas as notas conferidas' : 'Aberta — pronta pra separar' }}
-                </span>
+      @if (carregando()) {
+        <div class="ms-vazio no-print" aria-busy="true">
+          <oq-spinner />
+          <span>Consultando Ordem de Carga…</span>
+        </div>
+      } @else if (carregandoAbertas()) {
+        <div class="ms-vazio no-print" aria-busy="true">
+          <oq-spinner />
+          <span>Carregando Ordens de Carga…</span>
+        </div>
+      } @else if (listaFiltrada.length === 0) {
+        <div class="ms-vazio no-print">
+          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga aberta no momento.' : 'Nenhum resultado para essa busca.' }}
+        </div>
+      } @else {
+        <div class="ms-painel-grid no-print">
+          @for (oc of listaFiltrada; track oc.ordemCarga) {
+            <article class="oq-card oq-card--clicavel" (click)="consultar(oc.ordemCarga)">
+              <div class="oq-card__header">
+                <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
+                <div class="oq-card__status-line">
+                  <oq-icon [name]="oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'check' : 'box'" [size]="13" />
+                  <span class="oq-card__status-text">
+                    {{ oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'Todas as notas conferidas' : 'Aberta — pronta pra separar' }}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div class="oq-card__divider"></div>
-            <div class="oq-card__grid">
-              <div class="oq-card__field">
-                <span class="oq-card__field-label">Data prevista saída</span>
-                <span class="oq-card__field-value">{{ oc.dataPrevSaida }}</span>
+              <div class="oq-card__divider"></div>
+              <div class="oq-card__grid">
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Data prevista saída</span>
+                  <span class="oq-card__field-value">{{ oc.dataPrevSaida }}</span>
+                </div>
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Placa</span>
+                  <span class="oq-card__field-value">{{ oc.placa ?? '—' }}</span>
+                </div>
+                <div class="oq-card__field oq-card__field--full">
+                  <span class="oq-card__field-label">Motorista</span>
+                  <span class="oq-card__field-value">{{ oc.nomeMotorista ?? '—' }}</span>
+                </div>
               </div>
-              <div class="oq-card__field">
-                <span class="oq-card__field-label">Placa</span>
-                <span class="oq-card__field-value">{{ oc.placa ?? '—' }}</span>
-              </div>
-              <div class="oq-card__field oq-card__field--full">
-                <span class="oq-card__field-label">Motorista</span>
-                <span class="oq-card__field-value">{{ oc.nomeMotorista ?? '—' }}</span>
-              </div>
-            </div>
 
-            <div class="ms-progresso">
-              <div class="ms-progresso__linha">
-                <span class="ms-progresso__label">Notas conferidas</span>
-                <span class="ms-progresso__contagem">{{ oc.notasConferidas }}/{{ oc.totalNotas }}</span>
+              <div class="ms-progresso">
+                <div class="ms-progresso__linha">
+                  <span class="ms-progresso__label">Notas conferidas</span>
+                  <span class="ms-progresso__contagem">{{ oc.notasConferidas }}/{{ oc.totalNotas }}</span>
+                </div>
+                <div class="ms-progresso__trilho">
+                  <div
+                    class="ms-progresso__barra"
+                    [class.ms-progresso__barra--completa]="oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas"
+                    [style.width.%]="progressoPct(oc)"
+                  ></div>
+                </div>
               </div>
-              <div class="ms-progresso__trilho">
-                <div
-                  class="ms-progresso__barra"
-                  [class.ms-progresso__barra--completa]="oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas"
-                  [style.width.%]="progressoPct(oc)"
-                ></div>
-              </div>
-            </div>
 
-            <div class="oq-card__footer">
-              <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultar(oc.ordemCarga)">
-                Ver Mapa de Separação
-              </button>
-            </div>
-          </article>
-        }
-      </div>
-    }
+              <div class="oq-card__footer">
+                <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultar(oc.ordemCarga)">
+                  Ver Mapa de Separação
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </div>
   } @else {
     <!-- ─── Relatório de uma OC escolhida ─── -->
     <div class="ms-toolbar no-print">
@@ -118,6 +120,7 @@
       </div>
     </div>
 
+    <div class="ms-scroll">
     <div class="ms-report">
       @for (nota of dados()!.notas; track nota.nunota; let primeiraNota = $first) {
         <section class="ms-nota" [class.ms-page-break]="!primeiraNota">
@@ -243,6 +246,7 @@
           <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação</div>
         </section>
       }
+    </div>
     </div>
   }
 </div>
