@@ -14,13 +14,13 @@ import wms.backend.tenancy.TenantRepository
 fun Route.mapaSeparacaoRoutes() {
     route("/api/mapa-separacao") {
 
-        /** Ordens de Carga fechadas (TGFORD.SITUACAO='F') — pra tela oferecer lista em vez de digitar de cor. */
-        get("/fechadas") {
+        /** Ordens de Carga abertas (TGFORD.SITUACAO='A') — ainda precisam ser separadas; oferece lista em vez de digitar de cor. */
+        get("/abertas") {
             val claims = call.exigirAuth() ?: return@get
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
-                call.respond(MapaSeparacaoService.listarFechadas(slug, claims.tenantId))
+                call.respond(MapaSeparacaoService.listarAbertas(slug, claims.tenantId))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao consultar o Sankhya")))
             }

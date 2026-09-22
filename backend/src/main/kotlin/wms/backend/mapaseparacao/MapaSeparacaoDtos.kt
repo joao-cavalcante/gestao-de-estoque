@@ -39,7 +39,7 @@ data class NotaSeparacaoDto(
     val categorias: List<CategoriaSeparacaoDto>,
 )
 
-/** Item da lista de Ordens de Carga FECHADAS (TGFORD.SITUACAO='F') pra seleção na tela. */
+/** Item da lista de Ordens de Carga ABERTAS (TGFORD.SITUACAO='A') pra seleção na tela — ainda precisam ser separadas. */
 @Serializable
 data class OrdemCargaResumoDto(
     val ordemCarga: Long,

@@ -3,7 +3,7 @@
     <!-- ─── Painel de controle: abre já mostrando quem precisa ser separado ─── -->
     <div class="ms-toolbar no-print">
       <h1 class="ms-toolbar__title">Mapa de Separação</h1>
-      <span class="ms-toolbar__count">{{ listaFiltrada.length }} ordem(ns) de carga fechada(s)</span>
+      <span class="ms-toolbar__count">{{ listaFiltrada.length }} ordem(ns) de carga aberta(s)</span>
       <div class="ms-toolbar__row">
         <div class="ms-field ms-field--filtro">
           <label for="filtroLista">Buscar</label>
@@ -15,7 +15,7 @@
           />
         </div>
         <div class="ms-field">
-          <label for="ordemCargaManual">OC ainda não fechada</label>
+          <label for="ordemCargaManual">OC fora da lista</label>
           <input
             id="ordemCargaManual"
             type="number"
@@ -28,15 +28,15 @@
         <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="!ordemCargaManual" (click)="consultarManual()">
           Consultar
         </button>
-        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarFechadas()">Atualizar</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarAbertas()">Atualizar</button>
       </div>
     </div>
 
     @if (erro()) {
       <div class="ms-status ms-status--erro no-print">{{ erro() }}</div>
     }
-    @if (erroFechadas()) {
-      <div class="ms-status ms-status--erro no-print">{{ erroFechadas() }}</div>
+    @if (erroAbertas()) {
+      <div class="ms-status ms-status--erro no-print">{{ erroAbertas() }}</div>
     }
 
     @if (carregando()) {
@@ -44,14 +44,14 @@
         <oq-spinner />
         <span>Consultando Ordem de Carga…</span>
       </div>
-    } @else if (carregandoFechadas()) {
+    } @else if (carregandoAbertas()) {
       <div class="ms-vazio no-print" aria-busy="true">
         <oq-spinner />
         <span>Carregando Ordens de Carga…</span>
       </div>
     } @else if (listaFiltrada.length === 0) {
       <div class="ms-vazio no-print">
-        {{ fechadas().length === 0 ? 'Nenhuma Ordem de Carga fechada no momento.' : 'Nenhum resultado para essa busca.' }}
+        {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga aberta no momento.' : 'Nenhum resultado para essa busca.' }}
       </div>
     } @else {
       <div class="ms-painel-grid no-print">
@@ -62,7 +62,7 @@
               <div class="oq-card__status-line">
                 <oq-icon [name]="oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'check' : 'box'" [size]="13" />
                 <span class="oq-card__status-text">
-                  {{ oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'Todas as notas conferidas' : 'Fechada — pronta pra separar' }}
+                  {{ oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'Todas as notas conferidas' : 'Aberta — pronta pra separar' }}
                 </span>
               </div>
             </div>

@@ -218,9 +218,10 @@ object MapaSeparacaoService {
     )
 
     /**
-     * Ordens de Carga FECHADAS (TGFORD.SITUACAO='F', domínio confirmado com o
-     * usuário: A=Aberta, F=Fechada) — pra tela oferecer uma lista pronta em vez
-     * do operador ter que saber o número de cor. Enriquece placa/motorista em
+     * Ordens de Carga ABERTAS (TGFORD.SITUACAO='A', domínio confirmado com o
+     * usuário: A=Aberta, F=Fechada) — são as que ainda PRECISAM ser separadas
+     * (conceito corrigido: "fechada" já foi processada/embarcada, não é o que
+     * o painel deve oferecer pra separação). Enriquece placa/motorista em
      * lote (2 chamadas a mais, não 1 por OC) — mesmo padrão de `montar`.
      *
      * Progresso de conferência (totalNotas/notasConferidas) vem do MIRROR LOCAL
@@ -228,14 +229,14 @@ object MapaSeparacaoService {
      * pergunta ao Sankhya sobre status de conferência, reaproveita o que a
      * Fila de Tarefas já sincroniza.
      */
-    suspend fun listarFechadas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> {
+    suspend fun listarAbertas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> {
         val raw = SankhyaLoadRecordsClient.parseRows(
             SankhyaLoadRecordsClient.loadRecords(
                 tenantSlug,
                 LoadRecordsRequest(
                     entityName = "OrdemCarga",
                     fields = FIELDS_ORDEM_LISTA,
-                    criteriaExpression = "SITUACAO = 'F'",
+                    criteriaExpression = "SITUACAO = 'A'",
                     orderByExpression = "ORDEMCARGA DESC",
                 ),
             ),

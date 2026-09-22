@@ -26,7 +26,7 @@ export interface NotaSeparacaoDto {
   categorias: CategoriaSeparacaoDto[];
 }
 
-/** Item de GET /api/mapa-separacao/fechadas — Ordens de Carga já fechadas (TGFORD.SITUACAO='F') pra seleção. */
+/** Item de GET /api/mapa-separacao/abertas — Ordens de Carga ABERTAS (TGFORD.SITUACAO='A'), ainda precisam ser separadas. */
 export interface OrdemCargaResumoDto {
   ordemCarga: number;
   dataPrevSaida: string;

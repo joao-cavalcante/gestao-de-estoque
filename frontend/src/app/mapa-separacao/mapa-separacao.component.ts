@@ -22,10 +22,11 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
  * Tarefas) em vez do CSS solto do JSP original.
  *
  * TELA DE CONTROLE, não busca solta: abre já mostrando as Ordens de Carga
- * FECHADAS como cards (mesmo idioma visual de Fila de Tarefas/Liberação de
- * Corte/Impressão de Etiquetas) — o operador vê de cara quantas tem pra
- * separar, clica na que quer e vai direto pro relatório/impressão. Busca
- * ao vivo, sem cache/mirror.
+ * ABERTAS (SITUACAO='A' — ainda precisam ser separadas; "fechada" já foi
+ * processada/embarcada) como cards (mesmo idioma visual de Fila de
+ * Tarefas/Liberação de Corte/Impressão de Etiquetas) — o operador vê de
+ * cara quantas tem pra separar, clica na que quer e vai direto pro
+ * relatório/impressão. Busca ao vivo, sem cache/mirror.
  */
 @Component({
   selector: 'app-mapa-separacao',
@@ -37,16 +38,16 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
 export class MapaSeparacaoComponent implements OnInit {
   private readonly service = inject(MapaSeparacaoService);
 
-  readonly fechadas = signal<OrdemCargaResumoDto[]>([]);
-  readonly carregandoFechadas = signal(true);
-  readonly erroFechadas = signal<string | null>(null);
+  readonly abertas = signal<OrdemCargaResumoDto[]>([]);
+  readonly carregandoAbertas = signal(true);
+  readonly erroAbertas = signal<string | null>(null);
   filtroLista = '';
 
   readonly dados = signal<MapaSeparacaoDto | null>(null);
   readonly carregando = signal(false);
   readonly erro = signal<string | null>(null);
 
-  /** Fallback pra OC que ainda não está fechada no Sankhya, ou pra quando a lista falha ao carregar. */
+  /** Fallback pra OC que ainda não está aberta na lista (ex.: acabou de abrir no Sankhya), ou pra quando a lista falha ao carregar. */
   ordemCargaManual: number | null = null;
 
   readonly formatarQtd = formatarQtd;
@@ -54,8 +55,8 @@ export class MapaSeparacaoComponent implements OnInit {
 
   get listaFiltrada(): OrdemCargaResumoDto[] {
     const termo = this.filtroLista.trim().toLowerCase();
-    if (!termo) return this.fechadas();
-    return this.fechadas().filter(
+    if (!termo) return this.abertas();
+    return this.abertas().filter(
       (oc) =>
         String(oc.ordemCarga).includes(termo) ||
         oc.placa?.toLowerCase().includes(termo) ||
@@ -73,21 +74,21 @@ export class MapaSeparacaoComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.carregarFechadas();
+    this.carregarAbertas();
   }
 
-  carregarFechadas(): void {
-    this.carregandoFechadas.set(true);
-    this.erroFechadas.set(null);
-    this.service.listarFechadas().subscribe({
+  carregarAbertas(): void {
+    this.carregandoAbertas.set(true);
+    this.erroAbertas.set(null);
+    this.service.listarAbertas().subscribe({
       next: (lista) => {
-        this.fechadas.set(lista);
-        this.carregandoFechadas.set(false);
+        this.abertas.set(lista);
+        this.carregandoAbertas.set(false);
       },
       error: (err) => {
-        this.fechadas.set([]);
-        this.carregandoFechadas.set(false);
-        this.erroFechadas.set(err?.error?.erro ?? 'Falha ao carregar as Ordens de Carga fechadas.');
+        this.abertas.set([]);
+        this.carregandoAbertas.set(false);
+        this.erroAbertas.set(err?.error?.erro ?? 'Falha ao carregar as Ordens de Carga abertas.');
       },
     });
   }

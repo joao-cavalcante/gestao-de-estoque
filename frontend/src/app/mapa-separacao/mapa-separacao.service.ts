@@ -12,8 +12,8 @@ export class MapaSeparacaoService {
     return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/${ordemCarga}`);
   }
 
-  /** Ordens de Carga já fechadas (TGFORD.SITUACAO='F') — pra popular a lista de seleção. */
-  listarFechadas(): Observable<OrdemCargaResumoDto[]> {
-    return this.http.get<OrdemCargaResumoDto[]>(`${this.baseUrl}/fechadas`);
+  /** Ordens de Carga abertas (TGFORD.SITUACAO='A'), ainda precisam ser separadas — pra popular o painel. */
+  listarAbertas(): Observable<OrdemCargaResumoDto[]> {
+    return this.http.get<OrdemCargaResumoDto[]>(`${this.baseUrl}/abertas`);
   }
 }
