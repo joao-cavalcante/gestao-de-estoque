@@ -482,7 +482,12 @@ object SeparacaoService {
      * (PROCEDCORTE/GERARPEDCOMPL etc.), o que é a suspeita mais forte pro
      * "corte maior automático" relatado em conferência de secos divergente.
      */
-    private val CLIENT_EVENT_FINALIZAR_DIVERGENTE = buildJsonObject {
+    // `internal`: a finalização que acontece DEPOIS de uma liberação de corte
+    // (LiberacaoCorteService — automática, manual ou revalidação) precisa do
+    // MESMO payload; com o confirm genérico o Sankhya fechava a conferência sem
+    // cortar os itens a menor que não passaram por liberação (nota 57797:
+    // requeijão 17/20 ficou sem corte porque só o queijo a maior pediu liberação).
+    internal val CLIENT_EVENT_FINALIZAR_DIVERGENTE = buildJsonObject {
         putJsonObject("clientEventList") {
             putJsonArray("clientEvent") {
                 add(buildJsonObject { put("$", "conferencia.lista.produtos.divergentes") })

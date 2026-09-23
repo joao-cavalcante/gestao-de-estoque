@@ -39,6 +39,15 @@ object LiberacaoCorteService {
 
     private const val EVENTO_LIBERACAO_CORTE = 64
 
+    /**
+     * Payload do finalizarConferencia DEPOIS de liberação de corte: mesmos
+     * eventos da finalização divergente normal (SeparacaoService). Sem eles o
+     * Sankhya não processa o corte (PROCEDCORTE/GERARPEDCOMPL) dos itens a menor
+     * que não entraram na liberação — caso real nota 57797.
+     */
+    private val FINALIZAR_POS_LIBERACAO: JsonObject
+        get() = wms.backend.separacao.SeparacaoService.CLIENT_EVENT_FINALIZAR_DIVERGENTE
+
     private val CLIENT_EVENT_CONFIRM: JsonObject = buildJsonObject {
         putJsonObject("clientEventList") {
             putJsonArray("clientEvent") {
@@ -106,7 +115,7 @@ object LiberacaoCorteService {
                         tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
                         buildJsonObject {
                             putJsonObject("params") { put("nuConf", nuconf.toString()); put("peso", 0); put("qtdVol", 0) }
-                            CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                            FINALIZAR_POS_LIBERACAO.forEach { (k, v) -> put(k, v) }
                         },
                     )
                 }
@@ -327,7 +336,7 @@ object LiberacaoCorteService {
                         tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
                         buildJsonObject {
                             putJsonObject("params") { put("nuConf", nuconf.toString()); put("peso", 0); put("qtdVol", 0) }
-                            CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                            FINALIZAR_POS_LIBERACAO.forEach { (k, v) -> put(k, v) }
                         },
                     )
                 }.onFailure {
@@ -556,7 +565,7 @@ object LiberacaoCorteService {
                                     put("peso", 0)
                                     put("qtdVol", 0)
                                 }
-                                CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
+                                FINALIZAR_POS_LIBERACAO.forEach { (k, v) -> put(k, v) }
                             },
                         )
                     }.onFailure {
