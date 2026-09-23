@@ -452,7 +452,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const sessaoId = this.sessaoIdAtual;
     if (!sessaoId) return;
     const etapa = this.conferenciaSegmentada ? this.etapaAtual() : null;
-    if (this.conferenciaSegmentada && etapa == null) return; // ainda vai escolher a etapa
+    if (this.conferenciaSegmentada && etapa == null) {
+      // Ainda vai escolher a etapa — não há lock nenhum desta aba pra estar inválido.
+      this.lockBloqueio.set(null);
+      this.lockService.invalido.set(null);
+      return;
+    }
     // Trocou de etapa nesta aba: solta o lock da anterior.
     if (this.lockEtapa !== undefined && this.lockEtapa !== etapa) this.liberarLock();
 
@@ -512,6 +517,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   );
 
   ngOnInit(): void {
+    // O aviso de lock inválido é global (LockService, root) — um 409 da conferência
+    // ANTERIOR não pode travar esta. Bug real: "sessões presas" sem sessão nenhuma ativa.
+    this.lockService.invalido.set(null);
     const nunota = Number(this.route.snapshot.paramMap.get('nunota'));
     const etapaRaw = Number(this.route.snapshot.queryParamMap.get('etapa'));
     this.etapaParam = Number.isFinite(etapaRaw) && etapaRaw >= 1 && etapaRaw <= 3 ? etapaRaw : null;
@@ -578,6 +586,20 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.sessaoSub?.unsubscribe();
     // Saiu da conferência: libera a etapa pra outro operador (senão só expira em 10 min).
     this.liberarLock();
+    this.lockService.invalido.set(null);
+  }
+
+  /**
+   * O backend já soltou o lock (concluir etapa → liberarEtapa; finalizar →
+   * liberarTodos). Para o heartbeat SEM chamar liberar: senão o próximo
+   * heartbeat (até 60 s depois, com o painel final ainda aberto) volta 409
+   * LOCK_INVALIDO e acende o aviso de "sessão inválida" à toa — que, por ser
+   * global, ainda travava a próxima conferência aberta.
+   */
+  private encerrarLockLocal(): void {
+    this.heartbeatSub?.unsubscribe();
+    this.heartbeatSub = undefined;
+    this.lockEtapa = undefined;
   }
 
   /**
@@ -1099,6 +1121,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente })
       .subscribe({
         next: (res: ConcluirEtapaResultado) => {
+          this.encerrarLockLocal();
           this.concluindoEtapa = false;
           this.finalizando.set(false);
           this.mostrarModalDivergencia.set(false);
@@ -1148,6 +1171,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.feedback.trigger('ENVIANDO_SANKHYA');
     this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
       next: (res) => {
+        this.encerrarLockLocal();
         this.finalizando.set(false);
         this.mostrarModalDivergencia.set(false);
         this.aposFinalizacao(res);
