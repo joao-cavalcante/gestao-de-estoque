@@ -92,7 +92,7 @@ export class EtiquetaPesoComponent implements OnInit {
   /** Número novo pra UM item — só por pedido explícito, com confirmação. */
   gerarNova(e: EtiquetaPeso): void {
     const ok = window.confirm(
-      `Gerar uma NOVA etiqueta para "${e.produto}"?\nA etiqueta ${e.numeroFormatado} continua registrada, mas sairá um número novo.`,
+      `Gerar uma NOVA etiqueta para "${e.produto}"?\nA atual continua registrada no sistema; sai uma etiqueta nova.`,
     );
     if (!ok) return;
     this.router

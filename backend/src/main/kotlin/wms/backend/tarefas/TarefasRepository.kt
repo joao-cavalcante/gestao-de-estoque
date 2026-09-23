@@ -493,6 +493,12 @@ object TarefasRepository {
     fun buscarCodParcLocal(tenantId: UUID, nunota: Long): Int? =
         campoDosDados(tenantId, nunota, "CODPARC")?.toIntOrNull()
 
+    /** TGFCAB.ORDEMCARGA da nota (mirror local) — "46" ou "46.0" do loadRecords; 0/ausente = sem OC. */
+    fun buscarOrdemCargaLocal(tenantId: UUID, nunota: Long): Long? =
+        campoDosDados(tenantId, nunota, "ORDEMCARGA")?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }
+            ?.takeIf { it > 0 }
+
     /**
      * (ORDEMCARGA, status_operacional) de toda tarefa local vinculada às Ordens de Carga
      * pedidas — usado pra montar o progresso de conferência por OC (Mapa de Separação).

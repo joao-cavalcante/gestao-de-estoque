@@ -963,7 +963,16 @@ object SeparacaoService {
         val (cliente, uf) = buscarClienteUf(tenantSlug, codparc)
 
         val numeroNota = nunota.toString().padStart(5, '0').takeLast(5)
-        return EtiquetaDadosDto(cliente = cliente, uf = uf, numeroNota = numeroNota, numeroConferencia = nuconf, totalVolumes = totalVolumes)
+        val ordemCarga = withContext(Dispatchers.IO) { TarefasRepository.buscarOrdemCargaLocal(tenantId, nunota) }
+        return EtiquetaDadosDto(
+            cliente = cliente,
+            uf = uf,
+            numeroNota = numeroNota,
+            nunota = nunota,
+            ordemCarga = ordemCarga,
+            numeroConferencia = nuconf,
+            totalVolumes = totalVolumes,
+        )
     }
 
     /** Cliente (razão social) e UF do parceiro — compartilhado pela etiqueta de volume e pela de peso. */
@@ -1018,6 +1027,7 @@ object SeparacaoService {
 
         val codparc = withContext(Dispatchers.IO) { TarefasRepository.buscarCodParcLocal(tenantId, sessao.nunota) }
         val cliente = buscarClienteUf(tenantSlug, codparc).first
+        val ordemCarga = withContext(Dispatchers.IO) { TarefasRepository.buscarOrdemCargaLocal(tenantId, sessao.nunota) }
 
         return withContext(Dispatchers.IO) {
             itens.map { item ->
@@ -1035,7 +1045,7 @@ object SeparacaoService {
                     cliente = cliente,
                     nova = nova && codprod != null,
                     correcao = sessao.recontagem,
-                )
+                ).copy(ordemCarga = ordemCarga)
             }
         }
     }

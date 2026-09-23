@@ -163,6 +163,9 @@ data class EtiquetaDadosDto(
     val uf: String,
     /** Número da nota com 5 dígitos (zero à esquerda) — mesmo formato do template do projeto base. */
     val numeroNota: String,
+    /** NUNOTA completo (sem corte de dígitos) + Ordem de Carga — o que sai impresso hoje ("Nº Único - O.C."). */
+    val nunota: Long = 0,
+    val ordemCarga: Long? = null,
     val numeroConferencia: Int?,
     val totalVolumes: Int,
     /** Etiqueta POR ETAPA: faixa acumulada de volumes desta etapa (ex.: 3..6) e o tipo da etapa. Null = nota inteira. */
@@ -316,6 +319,8 @@ data class EtiquetaPesoDto(
     /** Etiqueta de CORREÇÃO (recontagem) — substitui a do mesmo item na conferência original. */
     val correcao: Boolean = false,
     val substituiFormatado: String? = null,
+    /** TGFCAB.ORDEMCARGA (mirror local) — impresso junto com o Nº Único. */
+    val ordemCarga: Long? = null,
 )
 
 @Serializable

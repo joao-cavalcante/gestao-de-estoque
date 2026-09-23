@@ -67,19 +67,15 @@ export class EtiquetasComponent implements OnInit {
     return Array.from({ length: total }, (_, i) => ini + i);
   }
 
-  /** 5 dígitos do número único (NUNOTA), zero à esquerda — igual ao JRXML do legado. */
-  digitosNumero(grupo: EtiquetaDados): string[] {
-    return (grupo.numeroNota ?? '').padStart(5, '0').slice(-5).split('');
+  /** "57735 - 48" (Nº Único - Ordem de Carga), número inteiro sem corte; sem OC, só o Nº Único. */
+  numeroUnicoOc(grupo: EtiquetaDados): string {
+    const nunota = grupo.nunota || Number(grupo.numeroNota);
+    return grupo.ordemCarga ? `${nunota} - ${grupo.ordemCarga}` : String(nunota);
   }
 
-  /** 2 dígitos do nº do volume atual (01, 02, …). */
-  digitos2(v: number): string[] {
-    return String(v).padStart(2, '0').slice(-2).split('');
-  }
-
-  /** 2 dígitos do total de volumes exibido no grupo. */
-  digitosTotal(grupo: EtiquetaDados): string[] {
-    return String(grupo.totalExibicao ?? grupo.totalVolumes ?? 0).padStart(2, '0').slice(-2).split('');
+  /** Total de volumes exibido no grupo (acumulado na recontagem), sem zero à esquerda. */
+  totalDoGrupo(grupo: EtiquetaDados): number {
+    return grupo.totalExibicao ?? grupo.totalVolumes ?? 0;
   }
 
   ngOnInit(): void {

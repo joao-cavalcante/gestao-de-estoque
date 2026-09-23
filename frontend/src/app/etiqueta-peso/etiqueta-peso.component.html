@@ -16,7 +16,7 @@
     </span>
     @for (e of etiquetas(); track e.numero) {
       <button type="button" class="ep-toolbar__nova" (click)="gerarNova(e)">
-        Novo nº · {{ e.numeroFormatado }}
+        Nova etiqueta · {{ e.produto }}
       </button>
     }
   </div>
@@ -24,8 +24,9 @@
   @for (e of etiquetas(); track e.numero) {
     <div class="ep-page">
       <div class="ep-topo">
-        @if (e.correcao && e.substituiFormatado) {
-          <span class="ep-substitui">SUBSTITUI Nº {{ e.substituiFormatado }}</span>
+        <!-- O nº interno da etiqueta não sai mais impresso — a correção só se identifica como tal. -->
+        @if (e.correcao) {
+          <span class="ep-substitui">CORREÇÃO · RECONTAGEM</span>
         }
         @if (logoSrc()) {
           <img class="ep-logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
@@ -48,8 +49,8 @@
           <span class="ep-cliente__nome">{{ e.cliente || '—' }}</span>
         </div>
         <div class="ep-numero">
-          <span class="ep-rotulo">ETIQUETA Nº</span>
-          <span class="ep-numero__valor">{{ e.numeroFormatado }}</span>
+          <span class="ep-rotulo">{{ e.ordemCarga ? 'Nº ÚNICO - O.C.' : 'Nº ÚNICO' }}</span>
+          <span class="ep-numero__valor">{{ e.ordemCarga ? e.nunota + ' - ' + e.ordemCarga : e.nunota }}</span>
         </div>
       </div>
     </div>

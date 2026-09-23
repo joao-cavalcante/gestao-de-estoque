@@ -77,6 +77,9 @@ export interface EtiquetaDados {
   cliente: string;
   uf: string;
   numeroNota: string;
+  /** NUNOTA completo + Ordem de Carga — impressos como "Nº Único - O.C.". */
+  nunota?: number;
+  ordemCarga?: number | null;
   numeroConferencia: number | null;
   totalVolumes: number;
   /** Etiqueta POR ETAPA: faixa acumulada de volumes da etapa (ex.: 3..6) e o tipo da etapa. */
@@ -112,6 +115,8 @@ export interface EtiquetaPeso {
   /** Etiqueta de CORREÇÃO (recontagem) e o nº da etiqueta que ela substitui. */
   correcao?: boolean;
   substituiFormatado?: string | null;
+  /** TGFCAB.ORDEMCARGA — impresso junto com o Nº Único. */
+  ordemCarga?: number | null;
 }
 
 export interface EtiquetasPesoResposta {
