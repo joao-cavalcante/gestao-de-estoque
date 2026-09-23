@@ -27,7 +27,8 @@ import { AuthService } from '../auth/auth.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
-import { SomFeedbackService } from '../shared/som-feedback.service';
+import { ActionFeedbackService } from '../shared/action-feedback/action-feedback.service';
+import { OqFeedbackFlashDirective } from '../shared/action-feedback/oq-feedback-flash.directive';
 
 /**
  * Tolerância de peso — só vale pra divergência A MENOR (conferido < esperado):
@@ -134,6 +135,7 @@ function mapearItem(item: ItemSeparacao): ConferenciaItem {
     OqLiberacaoCorteModalComponent,
     OqSpinnerComponent,
     OqSkeletonComponent,
+    OqFeedbackFlashDirective,
     FormsModule,
   ],
   templateUrl: './conferencia.component.html',
@@ -145,7 +147,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   private readonly separacaoService = inject(SeparacaoService);
   private readonly lockService = inject(LockService);
   private readonly authService = inject(AuthService);
-  private readonly som = inject(SomFeedbackService);
+  private readonly feedback = inject(ActionFeedbackService);
   private sessaoSub?: Subscription;
 
   @ViewChild(OqScanBarComponent) private scanBar?: OqScanBarComponent;
@@ -432,6 +434,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly lockBloqueio = signal<string | null>(null);
   /** Mensagem do bloqueio OU da sessão expirada (LOCK_INVALIDO vindo de qualquer chamada) — trava a tela. */
   readonly lockMensagem = computed(() => this.lockBloqueio() ?? this.lockService.invalido());
+  /** Buzzer uma vez quando a tela trava (etapa em uso / sessão expirada) — não a cada re-render. */
+  private readonly efeitoBloqueio = effect(() => {
+    if (this.lockMensagem()) this.feedback.trigger('BLOQUEADO');
+  });
   private heartbeatSub?: Subscription;
   /** Etapa cujo lock esta aba tem (null = sessão inteira). undefined = nenhum lock. */
   private lockEtapa: number | null | undefined = undefined;
@@ -531,6 +537,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.erro.set(err?.error?.erro ?? 'Falha ao iniciar separação.');
+        this.feedback.trigger('ERRO_SANKHYA', { toast: false });
         this.carregando.set(false);
       },
     });
@@ -561,6 +568,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         this.crachaoOperador = '';
         this.identificandoOperador.set(false);
         this.erroOperador.set(err?.error?.erro ?? 'Crachá não reconhecido.');
+        this.feedback.trigger('OPERACAO_NAO_PERMITIDA');
         setTimeout(() => this.inputCrachaOperador?.nativeElement.focus());
       },
     });
@@ -625,6 +633,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.erro.set(err?.error?.erro ?? 'Falha ao carregar itens.');
+        this.feedback.trigger('ERRO_SANKHYA', { toast: false });
         aoTerminar?.();
       },
     });
@@ -642,6 +651,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         next: (sessao) => {
           if (sessao.status !== 'pronta') {
             this.erro.set(sessao.erro ?? `Sessão terminou em status '${sessao.status}'.`);
+            this.feedback.trigger('ERRO_SANKHYA', { toast: false });
             this.carregando.set(false);
             return;
           }
@@ -681,6 +691,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.erro.set('Tempo esgotado aguardando o carregamento da sessão.');
+          this.feedback.trigger('ERRO_SANKHYA', { toast: false });
           this.carregando.set(false);
         },
       });
@@ -779,6 +790,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           ),
         );
         this.lastScan.set(this.conferred()[jaConf]);
+        this.dispararResultadoItem(d, false);
       } else {
         // Item que não estava na tela — produto fora do pedido, adicionado no
         // /identificar (qtd_neg=0, divergente por definição). Entra em conferidos.
@@ -797,6 +809,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         };
         this.conferred.update((c) => [novo, ...c]);
         this.lastScan.set(novo);
+        this.feedback.trigger('PRODUTO_INCORRETO');
       }
       return;
     }
@@ -821,10 +834,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     // Pendentes: sai só quando conclui de verdade; senão fica com o restante atualizado.
     if (concluido) {
       this.items.update((arr) => arr.filter((_, i) => i !== idx));
-      // Última pendência bipada — lista zerou. Som distinto do "ok" comum
-      // (já tocado no scan-bar), mesma ideia do projeto base.
+      // Última pendência bipada — lista zerou.
       if (this.pendingCount() === 0) {
-        this.som.tocar('finalizado');
         // No celular, salta pra aba de conferidos — o operador vê o resultado
         // sem precisar trocar de aba na mão.
         this.abaMobile.set('conferidos');
@@ -836,6 +847,16 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     // parcial — item parcial fica visível nos dois painéis ao mesmo tempo.
     if (scannedNovo > 0) this.upsertConferred(atualizado);
     this.lastScan.set(atualizado);
+    // Som distinto quando zerou os pendentes (mesma ideia do projeto base).
+    this.dispararResultadoItem(d, concluido && this.pendingCount() === 0);
+  }
+
+  /** UM feedback por confirmação de item — a divergência vence o "ok". */
+  private dispararResultadoItem(d: { status: ItemStatus; divergenciaPeso: true | undefined }, zerouPendentes: boolean): void {
+    if (d.divergenciaPeso) this.feedback.trigger('PESO_DIVERGENTE');
+    else if (d.status === 'critical') this.feedback.trigger('QUANTIDADE_DIVERGENTE');
+    else if (zerouPendentes) this.feedback.trigger('TODOS_CONFERIDOS');
+    else this.feedback.trigger('ITEM_CONFERIDO');
   }
 
   /** Insere ou atualiza (por seq) uma linha na lista de conferidos — sem duplicar. */
@@ -919,6 +940,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       next: () => this.recarregarItens(sessaoId),
       error: () => {
         // Falha ao devolver — deixa como está, operador pode tentar de novo.
+        this.feedback.trigger('ERRO', { mensagem: 'Falha ao devolver o item — tente novamente.' });
       },
     });
   }
@@ -934,7 +956,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.volume.set(quantidade);
     this.separacaoService.definirVolume(this.tenantAtual, this.sessaoIdAtual, quantidade, this.etapaAtual()).subscribe({
       next: (v) => this.volume.set(v.quantidade),
-      error: () => this.volume.set(anterior),
+      error: () => {
+        this.volume.set(anterior);
+        this.feedback.trigger('ERRO', { mensagem: 'Falha ao gravar a quantidade de volumes.' });
+      },
     });
   }
 
@@ -958,7 +983,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.cancelando = false;
         this.mostrarModalCancelar.set(false);
-        this.erro.set(err?.error?.erro ?? 'Falha ao cancelar o pedido.');
+        // Mantém a conferência na tela (antes trocava tudo pela tela de erro de abertura).
+        this.feedback.trigger('ERRO_SANKHYA', { mensagem: err?.error?.erro ?? 'Falha ao cancelar o pedido.' });
       },
     });
   }
@@ -997,8 +1023,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         // Regra 5 vs 6: só a ÚLTIMA etapa pendente oferece corte/finalização
         // divergente de verdade — etapa intermediária é só um aviso.
         if (ultima) {
+          this.feedback.trigger('FINALIZACAO_DIVERGENTE');
           this.mostrarModalDivergencia.set(true);
         } else {
+          this.feedback.trigger('DIVERGENCIA');
           this.mostrarModalAvisoEtapa.set(true);
         }
         return;
@@ -1007,6 +1035,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.temDivergenciaSessao()) {
+      this.feedback.trigger('FINALIZACAO_DIVERGENTE');
       this.mostrarModalDivergencia.set(true);
       return;
     }
@@ -1057,6 +1086,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!this.sessaoIdAtual || tipo == null || this.concluindoEtapa || this.finalizando()) return;
     this.concluindoEtapa = true;
     this.finalizando.set(true);
+    this.feedback.trigger('ENVIANDO_SANKHYA');
     // Foto da etapa ANTES de concluir (volume e itens da tela são os dela): base das etiquetas do pop-up.
     const infoEtapa = {
       tipo,
@@ -1077,7 +1107,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.etapaImpressao.set(temEtiqueta ? infoEtapa : null);
           if (res.conferenciaFinalizada) {
             this.aposFinalizacao({ ok: true, aguardandoCorte: res.aguardandoCorte, nuconf: res.nuconf });
-          } else if (temEtiqueta) {
+            return;
+          }
+          this.feedback.trigger('ETAPA_CONCLUIDA');
+          if (temEtiqueta) {
             this.mostrarPainelEtapaConcluida.set(true);
           } else {
             this.router.navigate(['/fila-tarefas']);
@@ -1088,15 +1121,18 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.finalizando.set(false);
           if (err?.status === 409 && typeof err?.error?.pendentes === 'number') {
             if (this.ehUltimaEtapaPendente()) {
+              this.feedback.trigger('FINALIZACAO_DIVERGENTE');
               this.mostrarModalDivergencia.set(true);
             } else {
+              this.feedback.trigger('DIVERGENCIA');
               this.mostrarModalAvisoEtapa.set(true);
             }
             return;
           }
           this.mostrarModalDivergencia.set(false);
           this.mostrarModalAvisoEtapa.set(false);
-          this.erro.set(err?.error?.erro ?? 'Falha ao concluir a etapa.');
+          // Mantém a conferência na tela pra tentar de novo (antes trocava tudo pela tela de erro de abertura).
+          this.feedback.trigger('ERRO_SANKHYA', { mensagem: err?.error?.erro ?? 'Falha ao concluir a etapa.' });
         },
       });
   }
@@ -1109,6 +1145,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   private executarFinalizacao(): void {
     if (!this.sessaoIdAtual || this.finalizando()) return;
     this.finalizando.set(true);
+    this.feedback.trigger('ENVIANDO_SANKHYA');
     this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
       next: (res) => {
         this.finalizando.set(false);
@@ -1118,22 +1155,28 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.finalizando.set(false);
         this.mostrarModalDivergencia.set(false);
-        this.erro.set(err?.error?.erro ?? 'Falha ao finalizar a conferência.');
+        // Mantém a conferência na tela pra tentar de novo (antes trocava tudo pela tela de erro de abertura).
+        this.feedback.trigger('ERRO_SANKHYA', { mensagem: err?.error?.erro ?? 'Falha ao finalizar a conferência.' });
       },
     });
   }
 
   /** Cadeia pós-finalização: liberação de corte → faturamento → painel "finalizada". */
   private aposFinalizacao(res: FinalizarResultado): void {
+    // Corte automático/silencioso (pesável na tolerância) é decidido no backend e
+    // chega aqui como finalização normal — nenhum alerta extra por regra operacional.
     if (res.aguardandoCorte && res.nuconf != null) {
+      this.feedback.trigger('DIVERGENCIA'); // precisa de liberação manual de corte
       this.nuconfLiberacao = res.nuconf;
       this.mostrarModalLiberacaoCorte.set(true);
       return;
     }
     if (this.fatAoConcluir === 'S') {
+      this.feedback.trigger('FINALIZACAO');
       this.abrirModalFaturamento();
       return;
     }
+    this.feedback.trigger('FINALIZACAO');
     this.mostrarPainelFinalizada.set(true);
   }
 
@@ -1170,10 +1213,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       next: () => {
         this.faturando.set(false);
         this.sucessoFaturamento.set(true);
+        this.feedback.trigger('SUCESSO_SANKHYA');
       },
       error: (err) => {
         this.faturando.set(false);
         this.erroFaturamento.set(err?.error?.erro ?? 'Falha ao faturar a nota.');
+        this.feedback.trigger('ERRO_SANKHYA', { toast: false });
       },
     });
   }

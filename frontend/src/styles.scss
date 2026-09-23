@@ -756,3 +756,24 @@ select:focus-visible,
     padding: 0 !important;
   }
 }
+
+/* ─── Biblioteca de feedback (shared/action-feedback) ───────────────────
+   Flash rápido nos elementos marcados com [oqFeedbackFlash]. Só box-shadow
+   (não mexe em layout nem em foco) — some sozinho em ~0,4 s. */
+.oq-fb-flash {
+  animation: oq-fb-flash 0.42s ease-out;
+}
+.oq-fb-flash--info { --oq-fb-cor: var(--oq-brand-accent); }
+.oq-fb-flash--success { --oq-fb-cor: var(--oq-success); }
+.oq-fb-flash--warning { --oq-fb-cor: var(--oq-attention); }
+.oq-fb-flash--critical { --oq-fb-cor: var(--oq-critical); }
+
+@keyframes oq-fb-flash {
+  0% { box-shadow: 0 0 0 0 var(--oq-fb-cor); }
+  25% { box-shadow: 0 0 0 4px var(--oq-fb-cor); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oq-fb-flash { animation-duration: 0.01s; }
+}

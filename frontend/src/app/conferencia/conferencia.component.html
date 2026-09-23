@@ -106,6 +106,7 @@
   <!-- Tarja de última leitura — só no celular (≤639px), abaixo do scan. -->
   @if (exibirImgProd()) {
     <oq-last-scan-panel
+      oqFeedbackFlash
       class="oq-cf-laststrip"
       [item]="lastScan()"
       [compacto]="true"
@@ -161,7 +162,7 @@
           />
         }
         @if (exibirImgProd()) {
-          <oq-last-scan-panel [item]="lastScan()" [exibirQtd]="exibirQtdConf()" (resolver)="onResolver($event)" />
+          <oq-last-scan-panel oqFeedbackFlash [item]="lastScan()" [exibirQtd]="exibirQtdConf()" (resolver)="onResolver($event)" />
         }
       </div>
     }

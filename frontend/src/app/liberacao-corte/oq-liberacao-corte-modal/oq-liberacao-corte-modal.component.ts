@@ -1,6 +1,7 @@
-import { Component, EventEmitter, Input, OnInit, Output, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
+import { ActionFeedbackService } from '../../shared/action-feedback/action-feedback.service';
 import { LiberacaoCorteService } from '../liberacao-corte.service';
 import { LiberacaoPendente } from '../liberacao-corte.model';
 
@@ -17,6 +18,8 @@ import { LiberacaoPendente } from '../liberacao-corte.model';
   styleUrl: './oq-liberacao-corte-modal.component.scss',
 })
 export class OqLiberacaoCorteModalComponent implements OnInit {
+  // As mensagens continuam no próprio modal; o feedback aqui é som + registro do evento.
+  private readonly feedback = inject(ActionFeedbackService);
   @Input({ required: true }) nuconf!: number;
   /** Texto livre pro cabeçalho (ex.: "Pedido 12345 — CLIENTE X"). */
   @Input() rotulo = '';
@@ -63,6 +66,7 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
       error: (err) => {
         this.autenticando.set(false);
         this.erroAutenticacao.set(err?.error?.erro ?? 'Usuário ou senha inválidos.');
+        this.feedback.trigger('OPERACAO_NAO_PERMITIDA');
       },
     });
   }
@@ -84,6 +88,7 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
       error: (err) => {
         this.carregandoPendentes.set(false);
         this.erroAcao.set(err?.error?.erro ?? 'Falha ao carregar os itens pendentes.');
+        this.feedback.trigger('ERRO_SANKHYA', { toast: false });
       },
     });
   }
@@ -142,6 +147,7 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
           this.processando.set(false);
           this.houveAcao = true;
           this.mensagem.set(`${res.itensProcessados} item(ns) ${liberar === 'S' ? 'liberado(s)' : 'negado(s)'}.`);
+          this.feedback.trigger(liberar === 'S' ? 'CORTE_LIBERADO' : 'CORTE_NEGADO');
           this.pendentes.update((arr) => arr.filter((p) => !sequencias.includes(p.sequencia)));
           this.limparSelecao();
           if (this.pendentes().length === 0) setTimeout(() => this.fechar(), 1400);
@@ -149,6 +155,7 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
         error: (err) => {
           this.processando.set(false);
           this.erroAcao.set(err?.error?.erro ?? 'Falha ao processar a liberação.');
+          this.feedback.trigger('ERRO_SANKHYA', { toast: false });
         },
       });
   }

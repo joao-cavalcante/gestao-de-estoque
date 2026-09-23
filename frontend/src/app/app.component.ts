@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AppHeaderComponent } from './shared/app-header/app-header.component';
+import { OqActionFeedbackHostComponent } from './shared/action-feedback/oq-action-feedback-host.component';
 import { NavMenuComponent } from './shared/nav-menu/nav-menu.component';
 import { ThemeService } from './shared/theme/theme.service';
 
@@ -31,7 +32,7 @@ function casaPrefixo(url: string, prefixo: string): boolean {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NavMenuComponent, AppHeaderComponent],
+  imports: [RouterOutlet, NavMenuComponent, AppHeaderComponent, OqActionFeedbackHostComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })

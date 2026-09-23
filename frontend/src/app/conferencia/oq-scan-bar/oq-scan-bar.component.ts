@@ -10,7 +10,7 @@ import { ItemConferido, Uma } from '../../separacao/separacao.model';
 import { BalancaService } from '../../balancas/balanca.service';
 import { LocalScaleService, StatusBalanca } from '../../balancas/local-scale.service';
 import { Balanca } from '../../balancas/balanca.model';
-import { SomFeedbackService } from '../../shared/som-feedback.service';
+import { ActionFeedbackService, ehFalhaComunicacao } from '../../shared/action-feedback/action-feedback.service';
 
 export interface ProdutoIdentificadoEvento {
   codprod: number;
@@ -40,7 +40,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   private readonly separacaoService = inject(SeparacaoService);
   private readonly balancaService = inject(BalancaService);
   private readonly localScale = inject(LocalScaleService);
-  private readonly som = inject(SomFeedbackService);
+  private readonly feedback = inject(ActionFeedbackService);
 
   @Input({ required: true }) tenant!: string;
   @Input({ required: true }) sessaoId!: string;
@@ -244,6 +244,9 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     const codigo = this.codigo.trim();
     if (!codigo || this.carregando) return;
 
+    // Bipe/digitação: tique imediato, antes da resposta do backend. Clique na
+    // lista não é leitura — não bipa.
+    if (this.codprodDaLista == null) this.feedback.trigger('ITEM_LIDO');
     this.carregando = true;
     this.separacaoService
       .identificarProduto(this.tenant, this.sessaoId, codigo, this.codprodDaLista ?? undefined, this.etapa ?? undefined)
@@ -279,9 +282,10 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         // próximo passo (peso, se exigido, senão quantidade) — não faz
         // sentido focar um campo que o operador não pode mexer.
         if (this.controleTravado) {
+          this.feedback.trigger('PRODUTO_ENCONTRADO');
           this.avancarAposControle();
         } else {
-          this.som.tocar('atencao'); // precisa escolher/digitar o controle — chama atenção do operador
+          this.feedback.trigger('CONTROLE_NECESSARIO'); // precisa escolher/digitar o controle — chama atenção do operador
           this.focarControle();
         }
 
@@ -291,10 +295,16 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
           imagemUrl: resultado.imagemBase64,
         });
       },
-      error: () => {
+      error: (err) => {
         this.carregando = false;
-        this.som.tocar('erro');
-        this.naoEncontrado.emit(codigo);
+        // Falha de rede/servidor NÃO é "código não encontrado" — não pinta o
+        // painel com um diagnóstico errado; avisa e deixa bipar de novo.
+        if (ehFalhaComunicacao(err)) {
+          this.feedback.trigger('ERRO', { mensagem: 'Falha ao consultar o produto — bipe novamente.' });
+        } else {
+          this.feedback.trigger('PRODUTO_NAO_ENCONTRADO');
+          this.naoEncontrado.emit(codigo);
+        }
         this.resetarTudo();
         this.focarIdentificador();
       },
@@ -333,6 +343,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   private assinaturaStatusBalanca?: Subscription;
 
   abrirModalPeso(): void {
+    this.feedback.trigger('PESAGEM_INICIADA');
     this.mostrarModalPeso = true;
     this.modoEntradaPeso = this.balancaAtiva && this.balancaAtiva.tipoComunicacao !== 'HTTP' ? 'balanca' : 'manual';
     if (this.modoEntradaPeso === 'balanca') {
@@ -416,7 +427,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   capturarPesoAoVivo(): void {
     if (this.pesoAoVivo == null) return;
     this.peso = this.pesoAoVivo.toFixed(3);
-    this.som.tocar('atencao');
+    this.feedback.trigger('PESAGEM_OK');
     this.confirmarPeso();
   }
 
@@ -433,9 +444,12 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
       next: (r) => {
         this.capturandoPeso = false;
         this.peso = String(r.peso);
-        this.som.tocar('atencao');
+        this.feedback.trigger('PESAGEM_OK');
       },
-      error: () => (this.capturandoPeso = false),
+      error: () => {
+        this.capturandoPeso = false;
+        this.feedback.trigger('ERRO', { mensagem: 'Falha ao ler o peso da balança.' });
+      },
     });
   }
 
@@ -497,15 +511,18 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
       .subscribe({
       next: (resultado) => {
         this.carregando = false;
-        this.som.tocar('ok');
+        // Som/visual do resultado (conferido, divergente, fora do pedido…) é
+        // decidido pela tela, que sabe como o item ficou — ver onConferido.
         this.conferido.emit(resultado);
         this.resetarTudo();
         this.focarIdentificador();
       },
       error: (err) => {
         this.carregando = false;
-        this.som.tocar('invalido');
-        this.erroConferir.emit(err?.error?.erro ?? 'Falha ao confirmar a quantidade.');
+        const mensagem = err?.error?.erro ?? 'Falha ao confirmar a quantidade.';
+        if (ehFalhaComunicacao(err)) this.feedback.trigger('ERRO', { mensagem });
+        else this.feedback.trigger('OPERACAO_NAO_PERMITIDA');
+        this.erroConferir.emit(mensagem);
         this.resetarTudo();
         this.focarIdentificador();
       },
