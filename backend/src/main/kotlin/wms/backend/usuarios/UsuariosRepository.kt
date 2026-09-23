@@ -122,12 +122,19 @@ object UsuariosRepository {
         }
     }
 
+    /** Ordem de exibição da tela de Usuários — pedido explícito: Admin primeiro, depois Estação, depois Operador. */
+    private val ORDEM_PERFIL = listOf("ADMINISTRADOR", "ESTACAO", "OPERADOR")
+
     fun listar(tenantId: UUID): List<UsuarioDto> = TenantTx.run(tenantId) {
         UsersTable.selectAll()
             .where { UsersTable.tenantId eq tenantId }
-            .orderBy(UsersTable.nome)
             .map { it.toDto() }
-    }
+    }.sortedWith(
+        compareBy(
+            { usuario -> ORDEM_PERFIL.indexOf(usuario.perfil).let { if (it < 0) ORDEM_PERFIL.size else it } },
+            { it.nome },
+        ),
+    )
 
     fun atualizar(tenantId: UUID, userId: UUID, req: AtualizarUsuarioRequest): Boolean = TenantTx.run(tenantId) {
         val linhas = UsersTable.update({ (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }) {
