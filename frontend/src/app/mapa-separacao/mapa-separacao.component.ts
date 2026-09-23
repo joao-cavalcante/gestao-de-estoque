@@ -49,7 +49,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   readonly erroAbertas = signal<string | null>(null);
   filtroLista = '';
   /** 'todas' | 'pendentes' (ainda tem nota não conferida) | 'concluidas' (100%) — ajuda a localizar rápido numa lista grande. */
-  filtroStatus: 'todas' | 'pendentes' | 'concluidas' = 'todas';
+  filtroStatus: 'todas' | 'pendentes' | 'concluidas' = 'pendentes';
 
   readonly dados = signal<MapaSeparacaoDto | null>(null);
   readonly carregando = signal(false);
