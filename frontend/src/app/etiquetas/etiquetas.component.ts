@@ -67,15 +67,20 @@ export class EtiquetasComponent implements OnInit {
     return Array.from({ length: total }, (_, i) => ini + i);
   }
 
-  /** "57735 - 48" (Nº Único - Ordem de Carga), número inteiro sem corte; sem OC, só o Nº Único. */
-  numeroUnicoOc(grupo: EtiquetaDados): string {
-    const nunota = grupo.nunota || Number(grupo.numeroNota);
-    return grupo.ordemCarga ? `${nunota} - ${grupo.ordemCarga}` : String(nunota);
+  /** Um quadrado por dígito do Nº Único — sem zero à esquerda, sem quadrado vazio. */
+  digitosNunota(grupo: EtiquetaDados): string[] {
+    const nunota = grupo.nunota || Number(grupo.numeroNota) || 0;
+    return String(nunota).split('');
   }
 
-  /** Total de volumes exibido no grupo (acumulado na recontagem), sem zero à esquerda. */
-  totalDoGrupo(grupo: EtiquetaDados): number {
-    return grupo.totalExibicao ?? grupo.totalVolumes ?? 0;
+  /** Um quadrado por dígito da Ordem de Carga (OC 48 = 2 quadrados, OC 1234 = 4). */
+  digitosOc(grupo: EtiquetaDados): string[] {
+    return String(grupo.ordemCarga ?? '').split('');
+  }
+
+  /** Nº do volume com 2 dígitos (01, 02, …). */
+  digitosVolume(v: number): string[] {
+    return String(v).padStart(2, '0').split('');
   }
 
   ngOnInit(): void {

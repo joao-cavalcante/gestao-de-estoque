@@ -91,35 +91,63 @@
   top: 125px;
   width: 96px;
   height: 75px;
-  font-size: 15px;
+  font-size: 14px;
 }
 
-.box {
-  position: absolute;
+.digit {
   border: 1px solid #000;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 75px;
-  white-space: nowrap;
-  overflow: hidden;
 }
 
-/* Nº Único - O.C.: uma caixa só (cabe "123456 - 1234" em 36px). */
-.et-num { top: 125px; left: 116px; width: 294px; font-size: 36px; }
-/* Volume e total: mesma área das 2 caixas de dígito de antes (150–263 e 298–410). */
-.et-seq { top: 265px; left: 150px; width: 113px; font-size: 52px; }
-.et-total { top: 265px; left: 298px; width: 112px; font-size: 52px; }
-
-.sep {
+/* NUNOTA - OC: quadrados dinâmicos (um por dígito) + traço na faixa 116–410.
+   Largura se divide entre os quadrados (máx. 44px cada); dígito menor que o de
+   antes (36px) pra caber até 6 + 4 dígitos. */
+.et-num {
   position: absolute;
-  left: 268px;
-  top: 293px;
-  width: 25px;
-  height: 10px;
-  background: #000;
+  top: 132px;
+  left: 116px;
+  width: 294px;
+  height: 60px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 3px;
+
+  .digit {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 44px;
+    font-size: 28px;
+  }
+
+  &__traco {
+    flex: none;
+    align-self: center;
+    width: 12px;
+    height: 5px;
+    margin: 0 2px;
+    background: #000;
+  }
 }
+
+/* Volume: 2 quadrados (01, 02…) no tamanho original, centralizados à direita do logo. */
+.et-seq {
+  position: absolute;
+  top: 265px;
+  left: 211px;
+  display: flex;
+  gap: 5px;
+
+  .digit {
+    width: 54px;
+    height: 75px;
+    font-size: 36px;
+  }
+}
+
 
 .et-logo {
   position: absolute;

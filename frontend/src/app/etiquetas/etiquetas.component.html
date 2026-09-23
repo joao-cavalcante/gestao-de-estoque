@@ -31,18 +31,29 @@
           <div class="f center et-num-label">
             @if (grupo.ordemCarga) { Nº Único -<br />Ordem de Carga: } @else { Nº Único: }
           </div>
-          <div class="box et-num">{{ numeroUnicoOc(grupo) }}</div>
+          <!-- NUNOTA - OC: um quadrado por dígito, quantos o número tiver. -->
+          <div class="et-num">
+            @for (d of digitosNunota(grupo); track $index) {
+              <div class="digit">{{ d }}</div>
+            }
+            @if (grupo.ordemCarga) {
+              <div class="et-num__traco"></div>
+              @for (d of digitosOc(grupo); track $index) {
+                <div class="digit">{{ d }}</div>
+              }
+            }
+          </div>
 
           @if (logoSrc()) {
             <img class="et-logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
           }
 
-          <!-- Volume sem zero à esquerda (pedido: "1", "2", "3" — não "01"). -->
-          <div class="box et-seq">{{ v }}</div>
-
-          <div class="sep"></div>
-
-          <div class="box et-total">{{ totalDoGrupo(grupo) }}</div>
+          <!-- Só o número do volume, 2 dígitos (01, 02, 03) — sem o total. -->
+          <div class="et-seq">
+            @for (d of digitosVolume(v); track $index) {
+              <div class="digit">{{ d }}</div>
+            }
+          </div>
         </div>
       </div>
     }
