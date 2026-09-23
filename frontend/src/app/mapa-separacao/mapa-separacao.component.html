@@ -140,10 +140,12 @@
             <span class="ms-label">Ordem de Carga</span>
             <span class="ms-valor">{{ dados()!.ordemCarga }}</span>
           </div>
-          <div class="ms-cabecalho__cel">
-            <span class="ms-label">{{ rotulo }}</span>
-            <span class="ms-valor">{{ valor }}</span>
-          </div>
+          @if (rotulo) {
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">{{ rotulo }}</span>
+              <span class="ms-valor">{{ valor }}</span>
+            </div>
+          }
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Pedidos na OC</span>
             <span class="ms-valor">{{ dados()!.totalPedidos }}</span>
@@ -195,7 +197,7 @@
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ rotulo: 'Folha', valor: 'Todos os clientes' }" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
