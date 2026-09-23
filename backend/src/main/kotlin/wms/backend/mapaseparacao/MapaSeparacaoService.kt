@@ -178,17 +178,20 @@ object MapaSeparacaoService {
         fun LinhaItem.qtdComSinal(): BigDecimal =
             if (notaPorNunota.getValue(nunota).tipMov == "D") qtdNeg.negate() else qtdNeg
 
-        val (linhasPesaveis, linhasConsolidadas) = linhas.partition { it.pesavel() }
+        // Segregado por cliente: pesável (cada cliente tem o seu peso) e todo
+        // CONGELADO (regra operacional confirmada com o usuário). O resto —
+        // seco, refrigerado e sem classificação não pesáveis — é somado na OC.
+        val (linhasSegregadas, linhasConsolidadas) = linhas.partition { it.pesavel() || it.tipoSeparacao == "3" }
 
-        // NÃO pesável → OC inteira, uma folha por categoria (sem quebra por pedido/parceiro).
-        val consolidado = agregar(linhasConsolidadas, pesavel = false) { it.qtdComSinal() }
+        // OC inteira, uma folha por categoria (sem quebra por pedido/parceiro).
+        val consolidado = agregar(linhasConsolidadas, { it.pesavel() }) { it.qtdComSinal() }
 
-        // Pesável → segregado por parceiro (soma só entre os pedidos do MESMO parceiro).
-        val pesaveisPorParceiro = linhasPesaveis.groupBy { notaPorNunota.getValue(it.nunota).codParc }
-            .mapValues { (_, linhasParceiro) -> linhasParceiro to agregar(linhasParceiro, pesavel = true) { it.qtdComSinal() } }
-        val pesaveis = pesaveisPorParceiro.map { (codParc, par) ->
+        // Por parceiro — soma só entre os pedidos do MESMO parceiro.
+        val segregadoPorParceiro = linhasSegregadas.groupBy { notaPorNunota.getValue(it.nunota).codParc }
+            .mapValues { (_, linhasParceiro) -> linhasParceiro to agregar(linhasParceiro, { it.pesavel() }) { it.qtdComSinal() } }
+        val porParceiro = segregadoPorParceiro.map { (codParc, par) ->
             val (linhasParceiro, itens) = par
-            ParceiroPesaveisDto(
+            ParceiroSeparacaoDto(
                 codParc = codParc,
                 nomeParceiro = notaPorNunota.getValue(linhasParceiro.first().nunota).nomeParceiro,
                 nunotas = linhasParceiro.map { it.nunota }.distinct().sorted(),
@@ -198,7 +201,7 @@ object MapaSeparacaoService {
             )
         }.sortedBy { it.nomeParceiro }
 
-        val todos = consolidado + pesaveisPorParceiro.values.flatMap { it.second }
+        val todos = consolidado + segregadoPorParceiro.values.flatMap { it.second }
         MapaSeparacaoDto(
             ordemCarga = ordemCarga,
             codVeiculo = codVeiculo,
@@ -208,17 +211,15 @@ object MapaSeparacaoService {
             nomeMotorista = nomeMotorista,
             pesoMaxOc = pesoMaxOc?.formatar(),
             totalPedidos = linhas.map { it.nunota }.distinct().size,
-            produtosDistintos = linhas.map { it.codProd }.distinct().size,
             quantidadeTotal = todos.sumOf { it.quantidade }.formatar(),
             pesoTotal = todos.sumOf { it.pesoTotal }.formatar(),
-            semClassificacao = linhas.filter { it.tipoSeparacao == "0" }.map { it.codProd }.distinct().size,
             consolidado = categorias(consolidado),
-            pesaveis = pesaveis,
+            porParceiro = porParceiro,
         )
     }
 
     /** Consolida por produto+controle+unidade (mesmo GROUP BY do relatório original) — sobre o conjunto de linhas recebido, não mais por nota. */
-    private fun agregar(linhas: List<LinhaItem>, pesavel: Boolean, qtd: (LinhaItem) -> BigDecimal): List<ItemAgregado> {
+    private fun agregar(linhas: List<LinhaItem>, pesavel: (LinhaItem) -> Boolean, qtd: (LinhaItem) -> BigDecimal): List<ItemAgregado> {
         data class ChaveItem(val codProd: Int, val controle: String?, val codVol: String)
         return linhas.groupBy { ChaveItem(it.codProd, it.controle, it.codVol) }
             .map { (chave, itens) ->
@@ -233,7 +234,8 @@ object MapaSeparacaoService {
                     pesoUnitario = amostra.pesoBruto,
                     pesoTotal = total * amostra.pesoBruto,
                     tipoSeparacao = amostra.tipoSeparacao,
-                    pesavel = pesavel,
+                    // Mesmo produto+unidade → mesma resposta (depende só do CODVOL).
+                    pesavel = pesavel(amostra),
                 )
             }
     }

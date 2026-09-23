@@ -178,26 +178,7 @@
         {{ item.descricao }}
       </ng-template>
 
-      <div class="ms-resumo">
-        <div class="ms-resumo__card">
-          <span class="ms-label">Produtos distintos</span>
-          <span class="ms-resumo__valor">{{ dados()!.produtosDistintos }}</span>
-        </div>
-        <div class="ms-resumo__card">
-          <span class="ms-label">Quantidade total</span>
-          <span class="ms-resumo__valor">{{ formatarQtd(dados()!.quantidadeTotal) }}</span>
-        </div>
-        <div class="ms-resumo__card">
-          <span class="ms-label">Parceiros c/ pesáveis</span>
-          <span class="ms-resumo__valor">{{ dados()!.pesaveis.length }}</span>
-        </div>
-        <div class="ms-resumo__card">
-          <span class="ms-label">Sem classificação</span>
-          <span class="ms-resumo__valor">{{ dados()!.semClassificacao }}</span>
-        </div>
-      </div>
-
-      <!-- ─── NÃO pesáveis: OC inteira somada, UMA folha por categoria (não mais por pedido). ─── -->
+      <!-- ─── Seco/refrigerado/sem classificação não pesáveis: OC inteira somada, UMA folha por categoria. ─── -->
       @for (categoria of dados()!.consolidado; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
         <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria">
           <table class="ms-itens">
@@ -255,9 +236,9 @@
         </section>
       }
 
-      <!-- ─── Pesáveis: continuam segregados por parceiro. Uma tabela só, parceiros
+      <!-- ─── Pesáveis + congelados: segregados por parceiro. Uma tabela só, parceiros
            em sequência (sem folha por parceiro) — cada bloco evita quebrar no meio. ─── -->
-      @if (dados()!.pesaveis.length > 0) {
+      @if (dados()!.porParceiro.length > 0) {
         <section class="ms-categoria" [class.ms-page-break]="dados()!.consolidado.length > 0">
           <table class="ms-itens">
             <colgroup>
@@ -269,15 +250,15 @@
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Pesáveis por parceiro' }" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Por cliente' }" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
                   <div class="ms-categoria__banner">
-                    <oq-icon name="balanca" [size]="20" />
-                    <span class="ms-categoria__nome">Pesáveis — separar por parceiro</span>
-                    <span class="ms-categoria__total">{{ dados()!.pesaveis.length }} parceiro(s)</span>
+                    <oq-icon name="user" [size]="20" />
+                    <span class="ms-categoria__nome">Congelados e pesáveis — separar por cliente</span>
+                    <span class="ms-categoria__total">{{ dados()!.porParceiro.length }} cliente(s)</span>
                   </div>
                 </th>
               </tr>
@@ -288,7 +269,7 @@
                 <th class="ms-num">Quantidade</th>
               </tr>
             </thead>
-            @for (parceiro of dados()!.pesaveis; track parceiro.codParc) {
+            @for (parceiro of dados()!.porParceiro; track parceiro.codParc) {
               <tbody class="ms-parceiro">
                 <tr class="ms-parceiro__cabecalho">
                   <td colspan="4">

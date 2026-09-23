@@ -353,29 +353,6 @@
   }
 }
 
-.ms-resumo {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 14px;
-
-  &__card {
-    border: 1px solid var(--oq-border);
-    border-radius: var(--oq-radius-input);
-    padding: 8px 10px;
-    background: var(--oq-surface);
-  }
-
-  &__valor {
-    display: block;
-    margin-top: 2px;
-    font-family: var(--oq-font-mono);
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--oq-text-primary);
-  }
-}
-
 .ms-categoria {
   margin-top: 14px;
 
@@ -615,8 +592,7 @@
 
   .ms-categoria__banner,
   .ms-parceiro__cabecalho td,
-  .ms-total-geral,
-  .ms-resumo__card {
+  .ms-total-geral {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

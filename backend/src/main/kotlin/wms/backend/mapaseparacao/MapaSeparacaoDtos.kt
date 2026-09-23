@@ -16,12 +16,11 @@ import kotlinx.serialization.Serializable
 /**
  * Quebra do mapa (redução de papel): antes era 1 folha por pedido × categoria.
  * Agora a OC inteira vira:
- * - [consolidado]: produtos NÃO pesáveis somados sobre todos os pedidos da OC,
- *   1 bloco por categoria (Seco/Refrigerado/Congelado/Sem classificação) —
- *   não precisam de segregação por cliente.
- * - [pesaveis]: produtos pesáveis (TGFVOL.UTILICONFPESO, mesma regra da
- *   conferência) continuam separados por parceiro — cada cliente tem o seu
- *   peso, não dá pra misturar.
+ * - [consolidado]: seco/refrigerado/sem classificação NÃO pesáveis somados
+ *   sobre todos os pedidos da OC, 1 bloco por categoria — não precisam de
+ *   segregação por cliente.
+ * - [porParceiro]: pesáveis (TGFVOL.UTILICONFPESO, mesma regra da
+ *   conferência) e todo CONGELADO continuam separados por parceiro.
  */
 @Serializable
 data class MapaSeparacaoDto(
@@ -35,17 +34,15 @@ data class MapaSeparacaoDto(
     /** TGFORD.PESOMAX — peso máximo da Ordem de Carga. */
     val pesoMaxOc: String?,
     val totalPedidos: Int,
-    val produtosDistintos: Int,
     val quantidadeTotal: String,
     val pesoTotal: String,
-    val semClassificacao: Int,
     val consolidado: List<CategoriaSeparacaoDto>,
-    val pesaveis: List<ParceiroPesaveisDto>,
+    val porParceiro: List<ParceiroSeparacaoDto>,
 )
 
-/** Pesáveis de UM parceiro na OC (somados entre os pedidos dele, nunca entre parceiros). */
+/** Pesáveis + congelados de UM parceiro na OC (somados entre os pedidos dele, nunca entre parceiros). */
 @Serializable
-data class ParceiroPesaveisDto(
+data class ParceiroSeparacaoDto(
     val codParc: Int,
     val nomeParceiro: String,
     val nunotas: List<Long>,

@@ -13,17 +13,15 @@ export interface MapaSeparacaoDto {
   nomeMotorista: string | null;
   pesoMaxOc: string | null;
   totalPedidos: number;
-  produtosDistintos: number;
   quantidadeTotal: string;
   pesoTotal: string;
-  semClassificacao: number;
-  /** NÃO pesáveis somados sobre a OC inteira — uma folha por categoria, sem quebra por pedido/parceiro. */
+  /** Seco/refrigerado/sem classificação NÃO pesáveis somados sobre a OC inteira — uma folha por categoria. */
   consolidado: CategoriaSeparacaoDto[];
-  /** Pesáveis segregados por parceiro (soma só entre os pedidos do mesmo parceiro). */
-  pesaveis: ParceiroPesaveisDto[];
+  /** Pesáveis + todo congelado, segregados por parceiro (soma só entre os pedidos do mesmo parceiro). */
+  porParceiro: ParceiroSeparacaoDto[];
 }
 
-export interface ParceiroPesaveisDto {
+export interface ParceiroSeparacaoDto {
   codParc: number;
   nomeParceiro: string;
   nunotas: number[];
