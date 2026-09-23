@@ -5,6 +5,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import wms.backend.erp.LoadRecordsRequest
+import wms.backend.erp.SankhyaDbExplorerClient
 import wms.backend.erp.SankhyaLoadRecordsClient
 import wms.backend.tarefas.StatusOperacional
 import wms.backend.tarefas.TarefasRepository
@@ -49,7 +50,7 @@ object MapaSeparacaoService {
     private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
     private val FIELDS_ITEM = listOf(
         "NUNOTA", "CODPROD", "CONTROLE", "CODVOL", "QTDNEG",
-        "Produto.DESCRPROD", "Produto.PESOBRUTO", "Produto.USOPROD", "Produto.AD_TIPOSEPARACAO",
+        "Produto.DESCRPROD", "Produto.PESOBRUTO", "Produto.USOPROD", "Produto.AD_TIPOSEPARACAO", "Produto.CODVOL",
     )
 
     private data class LinhaItem(
@@ -57,6 +58,8 @@ object MapaSeparacaoService {
         val codProd: Int,
         val controle: String?,
         val codVol: String,
+        /** TGFPRO.CODVOL (cadastro) — chave do UTILICONFPESO, igual à conferência. */
+        val codVolProduto: String?,
         val qtdNeg: BigDecimal,
         val descrProd: String,
         val pesoBruto: BigDecimal,
@@ -135,12 +138,16 @@ object MapaSeparacaoService {
                 FIELDS_ITEM,
             )
         }
+        // Só depende do cadastro de unidades, não da OC — mas fica aqui (e não
+        // junto de nota/ordem) pra não gastar a chamada quando a OC nem existe.
+        val codvolsPesaveisDeferred = async { buscarCodvolsPesaveis(tenantSlug) }
 
         val veiculoRaw = veiculoDeferred?.await()
         val placa = veiculoRaw?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() }
         val modeloVeiculo = veiculoRaw?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() }
         val nomeMotorista = codParcMotorista?.let { motoristaDeferred?.await()?.get(it) }
         val itensRaw = itensRawDeferred.await()
+        val codvolsPesaveis = codvolsPesaveisDeferred.await()
 
         val linhas = itensRaw.mapNotNull { r ->
             val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -150,84 +157,125 @@ object MapaSeparacaoService {
                 codProd = codProd,
                 controle = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() },
                 codVol = r["CODVOL"]?.trim().orEmpty(),
+                codVolProduto = r["Produto.CODVOL"]?.trim()?.takeIf { it.isNotEmpty() },
                 qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO,
                 descrProd = r["Produto.DESCRPROD"]?.trim().orEmpty(),
                 pesoBruto = r["Produto.PESOBRUTO"].parseBigDecimalBr() ?: BigDecimal.ZERO,
                 usoProd = r["Produto.USOPROD"]?.trim(),
                 tipoSeparacao = r["Produto.AD_TIPOSEPARACAO"]?.trim()?.takeIf { it.isNotEmpty() } ?: "0",
             )
-        }.filter { it.usoProd != "S" } // TGFPRO.USOPROD = 'S' — excluído, igual ao relatório original
+        }.filter { it.usoProd != "S" && it.nunota in notaPorNunota } // TGFPRO.USOPROD = 'S' — excluído, igual ao relatório original
 
-        val notasDto = nunotas.mapNotNull { nunota ->
-            val nota = notaPorNunota[nunota] ?: return@mapNotNull null
-            val linhasNota = linhas.filter { it.nunota == nunota }
-            if (linhasNota.isEmpty()) return@mapNotNull null
+        if (linhas.isEmpty()) throw MapaSeparacaoException("Nenhum item de separação encontrado para a Ordem de Carga $ordemCarga")
 
-            // Devolução (TIPMOV = 'D') conta negativo — mesma lógica do iReport original preservada no JSP.
-            val sinal = if (nota.tipMov == "D") BigDecimal.valueOf(-1) else BigDecimal.ONE
+        // Mesma regra de SeparacaoService.itemUsaConfPeso: CODVOL de cadastro do
+        // produto, fallback pro CODVOL da linha — ex.: queijo cadastrado em KG
+        // vendido em PC continua pesável.
+        fun LinhaItem.pesavel(): Boolean = (codVolProduto ?: codVol) in codvolsPesaveis
 
-            // Consolida por produto+controle+unidade dentro da nota (mesmo GROUP BY do relatório original).
-            data class ChaveItem(val codProd: Int, val controle: String?, val codVol: String)
-            val consolidado = linhasNota.groupBy { ChaveItem(it.codProd, it.controle, it.codVol) }
-                .map { (chave, itens) ->
-                    val qtd = itens.sumOf { it.qtdNeg } * sinal
-                    val amostra = itens.first()
-                    ItemAgregado(
-                        codProd = chave.codProd,
-                        descricao = amostra.descrProd,
-                        controle = chave.controle,
-                        unidade = chave.codVol,
-                        quantidade = qtd,
-                        pesoUnitario = amostra.pesoBruto,
-                        pesoTotal = qtd * amostra.pesoBruto,
-                        tipoSeparacao = amostra.tipoSeparacao,
-                    )
-                }
+        // Devolução (TIPMOV = 'D') conta negativo — mesma lógica do iReport original preservada no JSP.
+        // Aplicado por linha (antes de somar) porque agora a soma cruza pedidos.
+        fun LinhaItem.qtdComSinal(): BigDecimal =
+            if (notaPorNunota.getValue(nunota).tipMov == "D") qtdNeg.negate() else qtdNeg
 
-            val categorias = listOf("1", "2", "3", "0").mapNotNull { codigo ->
-                val itensCategoria = consolidado.filter { it.tipoSeparacao == codigo }
-                if (itensCategoria.isEmpty()) return@mapNotNull null
-                CategoriaSeparacaoDto(
-                    codigo = codigo,
-                    descricao = descricaoCategoria(codigo),
-                    quantidadeTotal = itensCategoria.sumOf { it.quantidade }.formatar(),
-                    pesoTotal = itensCategoria.sumOf { it.pesoTotal }.formatar(),
-                    itens = itensCategoria.sortedBy { it.codProd }.map { i ->
-                        ItemSeparacaoDto(
-                            codProd = i.codProd,
-                            descricao = i.descricao,
-                            controle = i.controle,
-                            unidade = i.unidade,
-                            quantidade = i.quantidade.formatar(),
-                            pesoUnitario = i.pesoUnitario.formatar(),
-                            pesoTotal = i.pesoTotal.formatar(),
-                        )
-                    },
+        val (linhasPesaveis, linhasConsolidadas) = linhas.partition { it.pesavel() }
+
+        // NÃO pesável → OC inteira, uma folha por categoria (sem quebra por pedido/parceiro).
+        val consolidado = agregar(linhasConsolidadas, pesavel = false) { it.qtdComSinal() }
+
+        // Pesável → segregado por parceiro (soma só entre os pedidos do MESMO parceiro).
+        val pesaveisPorParceiro = linhasPesaveis.groupBy { notaPorNunota.getValue(it.nunota).codParc }
+            .mapValues { (_, linhasParceiro) -> linhasParceiro to agregar(linhasParceiro, pesavel = true) { it.qtdComSinal() } }
+        val pesaveis = pesaveisPorParceiro.map { (codParc, par) ->
+            val (linhasParceiro, itens) = par
+            ParceiroPesaveisDto(
+                codParc = codParc,
+                nomeParceiro = notaPorNunota.getValue(linhasParceiro.first().nunota).nomeParceiro,
+                nunotas = linhasParceiro.map { it.nunota }.distinct().sorted(),
+                quantidadeTotal = itens.sumOf { it.quantidade }.formatar(),
+                pesoTotal = itens.sumOf { it.pesoTotal }.formatar(),
+                categorias = categorias(itens),
+            )
+        }.sortedBy { it.nomeParceiro }
+
+        val todos = consolidado + pesaveisPorParceiro.values.flatMap { it.second }
+        MapaSeparacaoDto(
+            ordemCarga = ordemCarga,
+            codVeiculo = codVeiculo,
+            placa = placa,
+            modeloVeiculo = modeloVeiculo,
+            codParcMotorista = codParcMotorista,
+            nomeMotorista = nomeMotorista,
+            pesoMaxOc = pesoMaxOc?.formatar(),
+            totalPedidos = linhas.map { it.nunota }.distinct().size,
+            produtosDistintos = linhas.map { it.codProd }.distinct().size,
+            quantidadeTotal = todos.sumOf { it.quantidade }.formatar(),
+            pesoTotal = todos.sumOf { it.pesoTotal }.formatar(),
+            semClassificacao = linhas.filter { it.tipoSeparacao == "0" }.map { it.codProd }.distinct().size,
+            consolidado = categorias(consolidado),
+            pesaveis = pesaveis,
+        )
+    }
+
+    /** Consolida por produto+controle+unidade (mesmo GROUP BY do relatório original) — sobre o conjunto de linhas recebido, não mais por nota. */
+    private fun agregar(linhas: List<LinhaItem>, pesavel: Boolean, qtd: (LinhaItem) -> BigDecimal): List<ItemAgregado> {
+        data class ChaveItem(val codProd: Int, val controle: String?, val codVol: String)
+        return linhas.groupBy { ChaveItem(it.codProd, it.controle, it.codVol) }
+            .map { (chave, itens) ->
+                val total = itens.sumOf(qtd)
+                val amostra = itens.first()
+                ItemAgregado(
+                    codProd = chave.codProd,
+                    descricao = amostra.descrProd,
+                    controle = chave.controle,
+                    unidade = chave.codVol,
+                    quantidade = total,
+                    pesoUnitario = amostra.pesoBruto,
+                    pesoTotal = total * amostra.pesoBruto,
+                    tipoSeparacao = amostra.tipoSeparacao,
+                    pesavel = pesavel,
                 )
             }
+    }
 
-            NotaSeparacaoDto(
-                nunota = nunota,
-                codParc = nota.codParc,
-                nomeParceiro = nota.nomeParceiro,
-                codVeiculo = codVeiculo,
-                placa = placa,
-                modeloVeiculo = modeloVeiculo,
-                codParcMotorista = codParcMotorista,
-                nomeMotorista = nomeMotorista,
-                pesoMaxOc = pesoMaxOc?.formatar(),
-                produtosDistintos = consolidado.map { it.codProd }.distinct().size,
-                quantidadeTotal = consolidado.sumOf { it.quantidade }.formatar(),
-                pesoTotal = consolidado.sumOf { it.pesoTotal }.formatar(),
-                semClassificacao = consolidado.count { it.tipoSeparacao == "0" },
-                categorias = categorias,
+    private fun categorias(itens: List<ItemAgregado>): List<CategoriaSeparacaoDto> =
+        listOf("1", "2", "3", "0").mapNotNull { codigo ->
+            val itensCategoria = itens.filter { it.tipoSeparacao == codigo }
+            if (itensCategoria.isEmpty()) return@mapNotNull null
+            CategoriaSeparacaoDto(
+                codigo = codigo,
+                descricao = descricaoCategoria(codigo),
+                quantidadeTotal = itensCategoria.sumOf { it.quantidade }.formatar(),
+                pesoTotal = itensCategoria.sumOf { it.pesoTotal }.formatar(),
+                itens = itensCategoria.sortedBy { it.codProd }.map { i ->
+                    ItemSeparacaoDto(
+                        codProd = i.codProd,
+                        descricao = i.descricao,
+                        controle = i.controle,
+                        unidade = i.unidade,
+                        quantidade = i.quantidade.formatar(),
+                        pesoUnitario = i.pesoUnitario.formatar(),
+                        pesoTotal = i.pesoTotal.formatar(),
+                        pesavel = i.pesavel,
+                    )
+                },
             )
         }
 
-        if (notasDto.isEmpty()) throw MapaSeparacaoException("Nenhum item de separação encontrado para a Ordem de Carga $ordemCarga")
-
-        MapaSeparacaoDto(ordemCarga = ordemCarga, notas = notasDto)
-    }
+    /**
+     * CODVOLs com TGFVOL.UTILICONFPESO='S' (exigem pesagem) — mesma fonte da
+     * conferência (SeparacaoService.buscarUtilizaConfPeso). SQL direto porque a
+     * entidade "Volume" não é legível via DatasetSP. Traz todas as unidades
+     * marcadas (cadastro pequeno) em vez de só as da OC pra não depender dos
+     * itens e rodar em paralelo com eles.
+     *
+     * Falha aqui DERRUBA o relatório (vira 502) de propósito: sem saber quem é
+     * pesável, o mapa somaria pesáveis de clientes diferentes numa linha só.
+     */
+    private suspend fun buscarCodvolsPesaveis(tenantSlug: String): Set<String> =
+        SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT CODVOL FROM TGFVOL WHERE UTILICONFPESO = 'S'")
+            .mapNotNull { it["CODVOL"]?.trim()?.takeIf { cv -> cv.isNotEmpty() } }
+            .toSet()
 
     /** status_operacional que conta como "nota conferida" pra barra de progresso — mesma família de conclusão do resto do app. */
     private val STATUS_CONFERIDA = setOf(
@@ -340,6 +388,7 @@ object MapaSeparacaoService {
         val pesoUnitario: BigDecimal,
         val pesoTotal: BigDecimal,
         val tipoSeparacao: String,
+        val pesavel: Boolean,
     )
 
     private fun descricaoCategoria(codigo: String): String = when (codigo) {

@@ -130,130 +130,203 @@
 
     <div class="ms-scroll">
     <div class="ms-report">
-      @for (nota of dados()!.notas; track nota.nunota; let primeiraNota = $first) {
-        <section class="ms-nota" [class.ms-page-break]="!primeiraNota">
-          <ng-template #cabecalhoNota>
-            <div class="ms-print-title">Separação de Ordem de Carga</div>
-            <div class="ms-cabecalho">
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Ordem de Carga</span>
-                <span class="ms-valor">{{ dados()!.ordemCarga }}</span>
-              </div>
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Nro. Pedido</span>
-                <span class="ms-valor">{{ nota.nunota }}</span>
-              </div>
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Parceiro</span>
-                <span class="ms-valor">{{ nota.codParc }} - {{ nota.nomeParceiro }}</span>
-              </div>
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Veículo</span>
-                <span class="ms-valor">{{ nota.codVeiculo ?? '—' }} @if (nota.placa) { — {{ nota.placa }} }</span>
-              </div>
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Modelo do Veículo</span>
-                <span class="ms-valor">{{ nota.modeloVeiculo ?? '—' }}</span>
-              </div>
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Motorista</span>
-                <span class="ms-valor">{{ nota.nomeMotorista ?? '—' }}</span>
-              </div>
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Peso Máximo OC</span>
-                <span class="ms-valor">{{ nota.pesoMaxOc ? formatarPeso(nota.pesoMaxOc) : '—' }}</span>
-              </div>
-              <div class="ms-cabecalho__cel">
-                <span class="ms-label">Peso Total da Nota</span>
-                <span class="ms-valor">{{ formatarPeso(nota.pesoTotal) }}</span>
-              </div>
-            </div>
-          </ng-template>
-
-          <div class="ms-resumo">
-            <div class="ms-resumo__card">
-              <span class="ms-label">Produtos distintos</span>
-              <span class="ms-resumo__valor">{{ nota.produtosDistintos }}</span>
-            </div>
-            <div class="ms-resumo__card">
-              <span class="ms-label">Quantidade total</span>
-              <span class="ms-resumo__valor">{{ formatarQtd(nota.quantidadeTotal) }}</span>
-            </div>
-            <div class="ms-resumo__card">
-              <span class="ms-label">Peso total</span>
-              <span class="ms-resumo__valor">{{ formatarPeso(nota.pesoTotal) }}</span>
-            </div>
-            <div class="ms-resumo__card">
-              <span class="ms-label">Sem classificação</span>
-              <span class="ms-resumo__valor">{{ nota.semClassificacao }}</span>
-            </div>
+      <!-- Cabeçalho da OC — repetido no <thead> de cada folha. Não tem mais
+           Pedido/Parceiro: o mapa é da OC inteira (consolidado), e os pesáveis
+           trazem o parceiro na própria linha de agrupamento. -->
+      <ng-template #cabecalhoOc let-escopo>
+        <div class="ms-print-title">Separação de Ordem de Carga</div>
+        <div class="ms-cabecalho">
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Ordem de Carga</span>
+            <span class="ms-valor">{{ dados()!.ordemCarga }}</span>
           </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Folha</span>
+            <span class="ms-valor">{{ escopo }}</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Pedidos na OC</span>
+            <span class="ms-valor">{{ dados()!.totalPedidos }}</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Veículo</span>
+            <span class="ms-valor">{{ dados()!.codVeiculo ?? '—' }} @if (dados()!.placa) { — {{ dados()!.placa }} }</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Modelo do Veículo</span>
+            <span class="ms-valor">{{ dados()!.modeloVeiculo ?? '—' }}</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Motorista</span>
+            <span class="ms-valor">{{ dados()!.nomeMotorista ?? '—' }}</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Peso Máximo OC</span>
+            <span class="ms-valor">{{ dados()!.pesoMaxOc ? formatarPeso(dados()!.pesoMaxOc!) : '—' }}</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Peso Total da OC</span>
+            <span class="ms-valor">{{ formatarPeso(dados()!.pesoTotal) }}</span>
+          </div>
+        </div>
+      </ng-template>
 
-          @for (categoria of nota.categorias; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
-            <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria">
-              <table class="ms-itens">
-                <colgroup>
-                  <col class="ms-col-code" />
-                  <col class="ms-col-desc" />
-                  <col class="ms-col-unit" />
-                  <col class="ms-col-qty" />
-                </colgroup>
-                <!-- thead repete SOZINHO em toda página física impressa (spec de
-                     tabela HTML) — inclusive quando uma categoria sozinha estoura
-                     mais de uma página, não só na troca de categoria. Por isso o
-                     cabeçalho da nota + banner da categoria vivem AQUI dentro,
-                     não em divs soltas antes da tabela (essas nunca repetem). -->
-                <thead>
-                  <tr class="ms-thead-block-row">
-                    <th colspan="4" class="ms-thead-block">
-                      <ng-container [ngTemplateOutlet]="cabecalhoNota" />
-                    </th>
+      <ng-template #descricaoItem let-item>
+        @if (item.pesavel) {
+          <oq-icon class="ms-pesavel-icone" name="balanca" [size]="15" title="Produto pesável" />
+        }
+        {{ item.descricao }}
+      </ng-template>
+
+      <div class="ms-resumo">
+        <div class="ms-resumo__card">
+          <span class="ms-label">Produtos distintos</span>
+          <span class="ms-resumo__valor">{{ dados()!.produtosDistintos }}</span>
+        </div>
+        <div class="ms-resumo__card">
+          <span class="ms-label">Quantidade total</span>
+          <span class="ms-resumo__valor">{{ formatarQtd(dados()!.quantidadeTotal) }}</span>
+        </div>
+        <div class="ms-resumo__card">
+          <span class="ms-label">Parceiros c/ pesáveis</span>
+          <span class="ms-resumo__valor">{{ dados()!.pesaveis.length }}</span>
+        </div>
+        <div class="ms-resumo__card">
+          <span class="ms-label">Sem classificação</span>
+          <span class="ms-resumo__valor">{{ dados()!.semClassificacao }}</span>
+        </div>
+      </div>
+
+      <!-- ─── NÃO pesáveis: OC inteira somada, UMA folha por categoria (não mais por pedido). ─── -->
+      @for (categoria of dados()!.consolidado; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
+        <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria">
+          <table class="ms-itens">
+            <colgroup>
+              <col class="ms-col-code" />
+              <col class="ms-col-desc" />
+              <col class="ms-col-unit" />
+              <col class="ms-col-qty" />
+            </colgroup>
+            <!-- thead repete SOZINHO em toda página física impressa (spec de
+                 tabela HTML) — inclusive quando uma categoria sozinha estoura
+                 mais de uma página. Por isso o cabeçalho da OC + banner da
+                 categoria vivem AQUI dentro, não em divs soltas antes da tabela. -->
+            <thead>
+              <tr class="ms-thead-block-row">
+                <th colspan="4" class="ms-thead-block">
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Consolidado — todos os pedidos' }" />
+                </th>
+              </tr>
+              <tr class="ms-thead-block-row">
+                <th colspan="4" class="ms-thead-block">
+                  <div class="ms-categoria__banner">
+                    <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="20" />
+                    <span class="ms-categoria__nome">{{ categoria.descricao }}</span>
+                    <span class="ms-categoria__total">
+                      Quantidade: {{ formatarQtd(categoria.quantidadeTotal) }} &nbsp;|&nbsp; Peso: {{ formatarPeso(categoria.pesoTotal) }}
+                    </span>
+                  </div>
+                </th>
+              </tr>
+              <tr>
+                <th>Código</th>
+                <th>Descrição</th>
+                <th class="ms-center">Un.</th>
+                <th class="ms-num">Quantidade</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
+                <tr>
+                  <td>{{ item.codProd }}</td>
+                  <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
+                  <td class="ms-center">{{ item.unidade }}</td>
+                  <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3">Subtotal {{ categoria.descricao }}</td>
+                <td class="ms-num">{{ formatarQtd(categoria.quantidadeTotal) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+      }
+
+      <!-- ─── Pesáveis: continuam segregados por parceiro. Uma tabela só, parceiros
+           em sequência (sem folha por parceiro) — cada bloco evita quebrar no meio. ─── -->
+      @if (dados()!.pesaveis.length > 0) {
+        <section class="ms-categoria" [class.ms-page-break]="dados()!.consolidado.length > 0">
+          <table class="ms-itens">
+            <colgroup>
+              <col class="ms-col-code" />
+              <col class="ms-col-desc" />
+              <col class="ms-col-unit" />
+              <col class="ms-col-qty" />
+            </colgroup>
+            <thead>
+              <tr class="ms-thead-block-row">
+                <th colspan="4" class="ms-thead-block">
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Pesáveis por parceiro' }" />
+                </th>
+              </tr>
+              <tr class="ms-thead-block-row">
+                <th colspan="4" class="ms-thead-block">
+                  <div class="ms-categoria__banner">
+                    <oq-icon name="balanca" [size]="20" />
+                    <span class="ms-categoria__nome">Pesáveis — separar por parceiro</span>
+                    <span class="ms-categoria__total">{{ dados()!.pesaveis.length }} parceiro(s)</span>
+                  </div>
+                </th>
+              </tr>
+              <tr>
+                <th>Código</th>
+                <th>Descrição</th>
+                <th class="ms-center">Un.</th>
+                <th class="ms-num">Quantidade</th>
+              </tr>
+            </thead>
+            @for (parceiro of dados()!.pesaveis; track parceiro.codParc) {
+              <tbody class="ms-parceiro">
+                <tr class="ms-parceiro__cabecalho">
+                  <td colspan="4">
+                    <strong>{{ parceiro.codParc }} - {{ parceiro.nomeParceiro }}</strong>
+                    <span class="ms-parceiro__pedidos">Pedido(s): {{ parceiro.nunotas.join(', ') }}</span>
+                  </td>
+                </tr>
+                @for (categoria of parceiro.categorias; track trackCategoria($index, categoria)) {
+                  <tr class="ms-parceiro__categoria">
+                    <td colspan="4">
+                      <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="13" />
+                      {{ categoria.descricao }}
+                    </td>
                   </tr>
-                  <tr class="ms-thead-block-row">
-                    <th colspan="4" class="ms-thead-block">
-                      <div class="ms-categoria__banner">
-                        <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="20" />
-                        <span class="ms-categoria__nome">{{ categoria.descricao }}</span>
-                        <span class="ms-categoria__total">
-                          Quantidade: {{ formatarQtd(categoria.quantidadeTotal) }} &nbsp;|&nbsp; Peso: {{ formatarPeso(categoria.pesoTotal) }}
-                        </span>
-                      </div>
-                    </th>
-                  </tr>
-                  <tr>
-                    <th>Código</th>
-                    <th>Descrição</th>
-                    <th class="ms-center">Un.</th>
-                    <th class="ms-num">Quantidade</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (item of categoria.itens; track item.codProd + '|' + item.controle) {
+                  @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
                     <tr>
                       <td>{{ item.codProd }}</td>
-                      <td>{{ item.descricao }}</td>
+                      <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
                       <td class="ms-center">{{ item.unidade }}</td>
                       <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
                     </tr>
                   }
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colspan="3">Subtotal {{ categoria.descricao }}</td>
-                    <td class="ms-num">{{ formatarQtd(categoria.quantidadeTotal) }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </section>
-          }
-
-          <div class="ms-total-geral">
-            <span>TOTAL DA NOTA — Quantidade: <strong>{{ formatarQtd(nota.quantidadeTotal) }}</strong></span>
-            <span>Peso Total: <strong>{{ formatarPeso(nota.pesoTotal) }}</strong></span>
-          </div>
-          <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação</div>
+                }
+                <tr class="ms-parceiro__subtotal">
+                  <td colspan="3">Subtotal {{ parceiro.nomeParceiro }}</td>
+                  <td class="ms-num">{{ formatarQtd(parceiro.quantidadeTotal) }}</td>
+                </tr>
+              </tbody>
+            }
+          </table>
         </section>
       }
+
+      <div class="ms-total-geral">
+        <span>TOTAL DA OC — Quantidade: <strong>{{ formatarQtd(dados()!.quantidadeTotal) }}</strong></span>
+        <span>Peso Total: <strong>{{ formatarPeso(dados()!.pesoTotal) }}</strong></span>
+      </div>
+      <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação</div>
     </div>
     </div>
   }

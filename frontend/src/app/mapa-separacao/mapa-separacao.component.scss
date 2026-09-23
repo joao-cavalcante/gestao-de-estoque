@@ -311,18 +311,6 @@
   padding: 16px;
 }
 
-.ms-nota {
-  margin-bottom: 26px;
-  padding-bottom: 18px;
-  border-bottom: 2px dashed var(--oq-border);
-
-  &:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: 0;
-  }
-}
-
 .ms-print-title {
   display: none;
   text-align: center;
@@ -480,6 +468,54 @@
   }
 }
 
+// Ícone de balança antes da descrição do item pesável — alinhado ao texto e
+// sempre preto (sai legível em impressora P&B).
+.ms-pesavel-icone {
+  vertical-align: -3px;
+  margin-right: 4px;
+  color: var(--oq-text-primary);
+}
+
+// Bloco de pesáveis de UM parceiro (um <tbody> por parceiro): tenta não
+// partir no meio da página — se não couber, vai inteiro pra próxima.
+.ms-parceiro {
+  break-inside: avoid;
+  page-break-inside: avoid;
+
+  &__cabecalho td {
+    background: var(--oq-surface-2);
+    border-top: 2px solid var(--oq-border-strong);
+    font-size: 13px;
+    padding: 7px 6px;
+  }
+
+  &__pedidos {
+    margin-left: 12px;
+    font-size: 11px;
+    color: var(--oq-text-secondary);
+  }
+
+  &__categoria td {
+    font-family: var(--oq-font-display);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--oq-text-secondary);
+    padding: 3px 6px;
+
+    oq-icon {
+      vertical-align: -2px;
+      margin-right: 3px;
+    }
+  }
+
+  &__subtotal td {
+    font-weight: 700;
+    border-bottom: 2px solid var(--oq-border-strong);
+  }
+}
+
 .ms-col-code {
   width: 16%;
 }
@@ -531,7 +567,7 @@
 
 // ─── Impressão ──────────────────────────────────────────────────────────
 // app-header/app-nav-menu já somem via regra global (styles.scss); aqui só
-// o que é específico deste relatório (quebras de página por nota/categoria,
+// o que é específico deste relatório (quebras de página por categoria/pesáveis,
 // título repetido, layout A4 retrato — mesma estrutura do JSP original).
 
 @page {
@@ -572,16 +608,13 @@
     display: block;
   }
 
-  .ms-nota {
-    border-bottom: 0;
-  }
-
   .ms-page-break {
     break-before: page;
     page-break-before: always;
   }
 
   .ms-categoria__banner,
+  .ms-parceiro__cabecalho td,
   .ms-total-geral,
   .ms-resumo__card {
     -webkit-print-color-adjust: exact;

@@ -4,7 +4,7 @@ export type OqIconName =
   | 'circle' | 'circle-filled' | 'circle-alert' | 'gear' | 'check' | 'triangle'
   | 'search' | 'filter' | 'sync' | 'barcode' | 'x' | 'arrow-left'
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
-  | 'menu' | 'box' | 'user' | 'scale' | 'download' | 'building' | 'logout'
+  | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'building' | 'logout'
   | 'sun' | 'moon'
   | 'seco' | 'refrigerado' | 'congelado' | 'scissors';
 
@@ -126,6 +126,13 @@ export type OqIconName =
           <path d="M12 3v18M8 21h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
           <path d="M12 5 5 8l3.2 6.2a4 4 0 0 0 7.6 0L19 8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
           <path d="M5 8h7M19 8h-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        }
+        @case ('balanca') {
+          <!-- Balança de dois pratos, traço grosso e pratos cheios — pensada pra ser reconhecível impressa em P&B (Mapa de Separação). -->
+          <circle cx="12" cy="4" r="1.6" fill="currentColor" />
+          <path d="M12 5.5V20M7.5 20.5h9M4 7.5h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          <path d="M6 7.5 3 14M6 7.5 9 14M18 7.5 15 14M18 7.5 21 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M2.25 14h7.5a3.75 3.75 0 0 1-7.5 0ZM14.25 14h7.5a3.75 3.75 0 0 1-7.5 0Z" fill="currentColor" />
         }
         @case ('download') {
           <path d="M12 3v12M7.5 10.5 12 15l4.5-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />

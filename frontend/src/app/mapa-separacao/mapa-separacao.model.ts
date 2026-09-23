@@ -6,23 +6,29 @@
  */
 export interface MapaSeparacaoDto {
   ordemCarga: number;
-  notas: NotaSeparacaoDto[];
-}
-
-export interface NotaSeparacaoDto {
-  nunota: number;
-  codParc: number;
-  nomeParceiro: string;
   codVeiculo: number | null;
   placa: string | null;
   modeloVeiculo: string | null;
   codParcMotorista: number | null;
   nomeMotorista: string | null;
   pesoMaxOc: string | null;
+  totalPedidos: number;
   produtosDistintos: number;
   quantidadeTotal: string;
   pesoTotal: string;
   semClassificacao: number;
+  /** NÃO pesáveis somados sobre a OC inteira — uma folha por categoria, sem quebra por pedido/parceiro. */
+  consolidado: CategoriaSeparacaoDto[];
+  /** Pesáveis segregados por parceiro (soma só entre os pedidos do mesmo parceiro). */
+  pesaveis: ParceiroPesaveisDto[];
+}
+
+export interface ParceiroPesaveisDto {
+  codParc: number;
+  nomeParceiro: string;
+  nunotas: number[];
+  quantidadeTotal: string;
+  pesoTotal: string;
   categorias: CategoriaSeparacaoDto[];
 }
 
@@ -53,6 +59,8 @@ export interface ItemSeparacaoDto {
   quantidade: string;
   pesoUnitario: string;
   pesoTotal: string;
+  /** Exige pesagem (TGFVOL.UTILICONFPESO) — ícone de balança antes da descrição. */
+  pesavel: boolean;
 }
 
 /** Cor por categoria — mesma paleta de tarefa.model.ts (rotuloTipoSeparacao), reaproveitada aqui pro banner. */
