@@ -133,6 +133,15 @@
   }
 }
 
+/* Rótulo do volume, entre o logo (15–115) e os quadrados (211+). */
+.et-vol-label {
+  left: 118px;
+  top: 265px;
+  width: 90px;
+  height: 75px;
+  font-size: 14px;
+}
+
 /* Volume: 2 quadrados (01, 02…) no tamanho original, centralizados à direita do logo. */
 .et-seq {
   position: absolute;

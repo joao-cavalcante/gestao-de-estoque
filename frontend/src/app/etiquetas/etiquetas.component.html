@@ -28,9 +28,7 @@
           <div class="f bottom et-cliente">Cliente: {{ grupo.cliente || '—' }}</div>
           <div class="f bottom et-uf">UF: {{ grupo.uf || '—' }}</div>
 
-          <div class="f center et-num-label">
-            @if (grupo.ordemCarga) { Nº Único -<br />Ordem de Carga: } @else { Nº Único: }
-          </div>
+          <div class="f center et-num-label">Nº Único:</div>
           <!-- NUNOTA - OC: um quadrado por dígito, quantos o número tiver. -->
           <div class="et-num">
             @for (d of digitosNunota(grupo); track $index) {
@@ -49,6 +47,7 @@
           }
 
           <!-- Só o número do volume, 2 dígitos (01, 02, 03) — sem o total. -->
+          <div class="f center et-vol-label">Nº Volume:</div>
           <div class="et-seq">
             @for (d of digitosVolume(v); track $index) {
               <div class="digit">{{ d }}</div>
