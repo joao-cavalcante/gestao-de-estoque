@@ -133,7 +133,7 @@
       <!-- Cabeçalho da OC — repetido no <thead> de cada folha. Não tem mais
            Pedido/Parceiro: o mapa é da OC inteira (consolidado), e os pesáveis
            trazem o parceiro na própria linha de agrupamento. -->
-      <ng-template #cabecalhoOc let-escopo>
+      <ng-template #cabecalhoOc let-rotulo="rotulo" let-valor="valor">
         <div class="ms-print-title">Separação de Ordem de Carga</div>
         <div class="ms-cabecalho">
           <div class="ms-cabecalho__cel">
@@ -141,8 +141,8 @@
             <span class="ms-valor">{{ dados()!.ordemCarga }}</span>
           </div>
           <div class="ms-cabecalho__cel">
-            <span class="ms-label">Folha</span>
-            <span class="ms-valor">{{ escopo }}</span>
+            <span class="ms-label">{{ rotulo }}</span>
+            <span class="ms-valor">{{ valor }}</span>
           </div>
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Pedidos na OC</span>
@@ -195,7 +195,7 @@
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Todos os clientes' }" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ rotulo: 'Folha', valor: 'Todos os clientes' }" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
@@ -247,7 +247,7 @@
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Refrigerado — por cliente' }" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ rotulo: 'Nro. Único', valor: parceiro.nunotas.join(', ') }" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
