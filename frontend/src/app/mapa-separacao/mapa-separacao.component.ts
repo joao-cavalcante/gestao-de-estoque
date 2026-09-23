@@ -116,7 +116,10 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     this.erroAbertas.set(null);
     this.service.listarAbertas().subscribe({
       next: (lista) => {
-        this.abertas.set(lista);
+        // OC sem nenhuma nota na conferência (0/0) não tem o que separar no WMS —
+        // o mapa dela sairia vazio. Aparece sozinha no próximo refresh quando a
+        // Fila de Tarefas sincronizar alguma nota dela.
+        this.abertas.set(lista.filter((oc) => oc.totalNotas > 0));
         this.carregandoAbertas.set(false);
       },
       error: (err) => {
