@@ -26,9 +26,9 @@
           </span>
         }
         <span class="oq-label-caps">VOLUMES{{ faltaVolume ? ' *' : '' }}</span>
-        <button type="button" class="oq-cf-footer__volume-btn" (click)="onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
+        <button type="button" class="oq-cf-footer__volume-btn" (click)="soPonteiro($event) && onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
         <span class="oq-cf-footer__volume-valor">{{ volume }}</span>
-        <button type="button" class="oq-cf-footer__volume-btn" (click)="onVolumeMais()" aria-label="Aumentar volumes">+</button>
+        <button type="button" class="oq-cf-footer__volume-btn" (click)="soPonteiro($event) && onVolumeMais()" aria-label="Aumentar volumes">+</button>
       </div>
 
       <span class="oq-cf-footer__progress">
@@ -39,7 +39,7 @@
         class="oq-cf-footer__btn oq-cf-footer__btn--primary"
         [disabled]="!canConfirm || confirmando"
         [title]="confirmando ? 'Enviando para o Sankhya — pode levar alguns segundos' : tituloBotaoPrimario"
-        (click)="confirmar.emit()"
+        (click)="soPonteiro($event) && confirmar.emit()"
       >
         @if (confirmando) {
           <oq-spinner [size]="13" />

@@ -34,6 +34,19 @@ export class OqConferenciaFooterComponent {
   @Output() volumeChange = new EventEmitter<number>();
   @Output() cancelar = new EventEmitter<void>();
 
+  /**
+   * true só pra clique/toque de verdade. Enter/Espaço num botão com foco também
+   * geram "click" (com detail === 0) — e o leitor de código de barras termina
+   * toda leitura com Enter. Caso real (nota 57735): o botão "Concluir Etapa"
+   * ficou com foco, o Enter de um bipe acionou a conclusão da última etapa e
+   * abriu o pop-up de finalização divergente com itens ainda não bipados.
+   * Mesmo guarda no +/− de volumes (o bipe somava volume sozinho).
+   */
+  soPonteiro(event: MouseEvent): boolean {
+    (event.currentTarget as HTMLElement | null)?.blur();
+    return event.detail > 0;
+  }
+
   onVolumeMenos(): void {
     if (this.volume > 0) this.volumeChange.emit(this.volume - 1);
   }
