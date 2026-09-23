@@ -16,7 +16,7 @@ export class UsuarioService {
     return this.http.post<Usuario>(this.baseUrl, req);
   }
 
-  atualizar(id: string, req: Partial<Pick<Usuario, 'nome' | 'perfil' | 'ativo'>>): Observable<unknown> {
+  atualizar(id: string, req: Partial<Pick<Usuario, 'nome' | 'perfil' | 'ativo' | 'turno'>>): Observable<unknown> {
     return this.http.patch(`${this.baseUrl}/${id}`, req);
   }
 

@@ -44,7 +44,7 @@ fun Route.authRoutes() {
             call.respond(
                 LoginResponse(
                     token = token,
-                    usuario = UsuarioDto(usuario.userId.toString(), usuario.nome, usuario.email, usuario.perfil, usuario.ativo),
+                    usuario = UsuarioDto(usuario.userId.toString(), usuario.nome, usuario.email, usuario.perfil, usuario.ativo, turno = usuario.turno),
                     tenantSlug = tenantSlug,
                 ),
             )
@@ -76,7 +76,7 @@ fun Route.authRoutes() {
             call.respond(
                 LoginResponse(
                     token = token,
-                    usuario = UsuarioDto(usuario.userId.toString(), usuario.nome, usuario.email, usuario.perfil, usuario.ativo),
+                    usuario = UsuarioDto(usuario.userId.toString(), usuario.nome, usuario.email, usuario.perfil, usuario.ativo, turno = usuario.turno),
                     tenantSlug = req.tenant,
                 ),
             )

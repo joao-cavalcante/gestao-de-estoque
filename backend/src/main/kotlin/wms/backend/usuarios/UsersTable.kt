@@ -20,6 +20,8 @@ object UsersTable : Table("app.users") {
     val resetTokenExpira = timestamp("reset_token_expira").nullable()
     /** Código do crachá (login nas estações de pesagem) — único por tenant, ver V32. */
     val crachaoCodigo = text("crachao_codigo").nullable()
+    /** MANHA | NOITE — exibido no header global ("Unidade / Turno"), ver V47. */
+    val turno = text("turno").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

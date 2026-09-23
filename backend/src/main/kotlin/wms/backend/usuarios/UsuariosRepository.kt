@@ -20,7 +20,16 @@ import java.util.UUID
 class EmailJaExisteException(email: String) : Exception("e-mail '$email' já está em uso")
 class CrachaoJaExisteException(codigo: String) : Exception("crachá '$codigo' já está em uso neste tenant")
 
-data class UsuarioParaLogin(val tenantId: UUID, val userId: UUID, val senhaHash: String?, val perfil: String, val ativo: Boolean, val nome: String, val email: String)
+data class UsuarioParaLogin(
+    val tenantId: UUID,
+    val userId: UUID,
+    val senhaHash: String?,
+    val perfil: String,
+    val ativo: Boolean,
+    val nome: String,
+    val email: String,
+    val turno: String?,
+)
 
 object UsuariosRepository {
 
@@ -62,6 +71,7 @@ object UsuariosRepository {
                     it[senhaHash] = hash
                     it[perfil] = req.perfil
                     it[ativo] = true
+                    it[turno] = req.turno
                     it[criadoEm] = agora
                     it[atualizadoEm] = agora
                 }
@@ -73,7 +83,7 @@ object UsuariosRepository {
             throw e
         }
 
-        return UsuarioDto(userId.toString(), req.nome, email, req.perfil, true)
+        return UsuarioDto(userId.toString(), req.nome, email, req.perfil, true, turno = req.turno)
     }
 
     fun buscarPorId(tenantId: UUID, userId: UUID): UsuarioDto? = TenantTx.run(tenantId) {
@@ -102,6 +112,7 @@ object UsuariosRepository {
                     ativo = row[UsersTable.ativo],
                     nome = row[UsersTable.nome],
                     email = row[UsersTable.email],
+                    turno = row[UsersTable.turno],
                 )
             }
     }
@@ -141,6 +152,7 @@ object UsuariosRepository {
             req.nome?.let { v -> it[nome] = v }
             req.perfil?.let { v -> it[perfil] = v }
             req.ativo?.let { v -> it[ativo] = v }
+            req.turno?.let { v -> it[turno] = v }
             it[atualizadoEm] = Instant.now()
         }
         linhas > 0
@@ -205,6 +217,7 @@ object UsuariosRepository {
             ativo = row[UsersTable.ativo],
             nome = row[UsersTable.nome],
             email = row[UsersTable.email],
+            turno = row[UsersTable.turno],
         )
     }
 
@@ -265,5 +278,6 @@ object UsuariosRepository {
         perfil = this[UsersTable.perfil],
         ativo = this[UsersTable.ativo],
         crachaoCodigo = this[UsersTable.crachaoCodigo],
+        turno = this[UsersTable.turno],
     )
 }

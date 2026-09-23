@@ -14,10 +14,12 @@ interface FormUsuario {
   senha: string;
   perfil: string;
   crachaoCodigo: string;
+  /** '' = sem turno fixo | 'MANHA' | 'NOITE'. */
+  turno: string;
 }
 
 function formVazio(): FormUsuario {
-  return { nome: '', email: '', senha: '', perfil: 'OPERADOR', crachaoCodigo: '' };
+  return { nome: '', email: '', senha: '', perfil: 'OPERADOR', crachaoCodigo: '', turno: '' };
 }
 
 @Component({
@@ -67,7 +69,14 @@ export class UsuarioListComponent implements OnInit {
 
   abrirEdicao(usuario: Usuario): void {
     this.editandoId.set(usuario.id);
-    this.form = { nome: usuario.nome, email: usuario.email, senha: '', perfil: usuario.perfil, crachaoCodigo: usuario.crachaoCodigo ?? '' };
+    this.form = {
+      nome: usuario.nome,
+      email: usuario.email,
+      senha: '',
+      perfil: usuario.perfil,
+      crachaoCodigo: usuario.crachaoCodigo ?? '',
+      turno: usuario.turno ?? '',
+    };
     this.modalErro.set(null);
     this.modalAberto.set(true);
   }
@@ -82,18 +91,26 @@ export class UsuarioListComponent implements OnInit {
 
     if (!id) {
       this.modalCarregando.set(true);
-      this.service.criar({ nome: this.form.nome, email: this.form.email, senha: this.form.senha, perfil: this.form.perfil }).subscribe({
-        next: (criado) => this.salvarCracha(criado.id, 'Usuário criado, mas falha ao atribuir o crachá.'),
-        error: (err) => {
-          this.modalCarregando.set(false);
-          this.modalErro.set(err?.error?.erro ?? 'Falha ao criar usuário.');
-        },
-      });
+      this.service
+        .criar({
+          nome: this.form.nome,
+          email: this.form.email,
+          senha: this.form.senha,
+          perfil: this.form.perfil,
+          turno: this.form.turno || null,
+        })
+        .subscribe({
+          next: (criado) => this.salvarCracha(criado.id, 'Usuário criado, mas falha ao atribuir o crachá.'),
+          error: (err) => {
+            this.modalCarregando.set(false);
+            this.modalErro.set(err?.error?.erro ?? 'Falha ao criar usuário.');
+          },
+        });
       return;
     }
 
     this.modalCarregando.set(true);
-    this.service.atualizar(id, { nome: this.form.nome, perfil: this.form.perfil }).subscribe({
+    this.service.atualizar(id, { nome: this.form.nome, perfil: this.form.perfil, turno: this.form.turno || null }).subscribe({
       next: () => {
         if (!this.form.senha) {
           this.salvarCracha(id, 'Dados salvos, mas falha ao atribuir o crachá.');

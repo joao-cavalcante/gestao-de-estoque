@@ -9,10 +9,10 @@
     >
       <oq-icon name="menu" [size]="18" />
     </button>
-    <div class="oq-header__logo">{{ contexto.unidade.iniciais }}</div>
+    <div class="oq-header__logo">{{ contexto.unidade().iniciais }}</div>
     <div class="oq-header__unit-name">
-      <span class="oq-header__unit-title">{{ contexto.unidade.nome }}</span>
-      <span class="oq-header__version">{{ contexto.unidade.versao }}</span>
+      <span class="oq-header__unit-title">{{ contexto.unidade().nome }}</span>
+      <span class="oq-header__version">{{ contexto.unidade().versao }}</span>
     </div>
   </div>
 
@@ -20,7 +20,7 @@
 
   <div class="oq-header__center">
     <span class="oq-header__center-label">Unidade / Turno</span>
-    <span class="oq-header__center-value">{{ contexto.unidade.unidadeTurno }}</span>
+    <span class="oq-header__center-value">{{ contexto.unidade().unidadeTurno }}</span>
   </div>
 
   <div class="oq-header__right">
@@ -50,10 +50,10 @@
     </button>
 
     <div class="oq-header__operator">
-      <div class="oq-header__avatar">{{ contexto.operador.iniciais }}</div>
+      <div class="oq-header__avatar">{{ contexto.operador().iniciais }}</div>
       <div class="oq-header__operator-info">
-        <span class="oq-header__operator-name">{{ contexto.operador.nome }}</span>
-        <span class="oq-header__operator-role">{{ contexto.operador.codigo }} · {{ contexto.operador.cargo }}</span>
+        <span class="oq-header__operator-name">{{ contexto.operador().nome }}</span>
+        <span class="oq-header__operator-role">{{ contexto.operador().codigo }} · {{ contexto.operador().cargo }}</span>
       </div>
     </div>
   </div>

@@ -10,6 +10,8 @@ data class UsuarioDto(
     val perfil: String,
     val ativo: Boolean,
     val crachaoCodigo: String? = null,
+    /** MANHA | NOITE | null — exibido no header global ("Unidade / Turno"). */
+    val turno: String? = null,
 )
 
 @Serializable
@@ -18,6 +20,7 @@ data class CriarUsuarioRequest(
     val email: String,
     val senha: String,
     val perfil: String = "OPERADOR",
+    val turno: String? = null,
 )
 
 @Serializable
@@ -25,6 +28,8 @@ data class AtualizarUsuarioRequest(
     val nome: String? = null,
     val perfil: String? = null,
     val ativo: Boolean? = null,
+    /** Mesma convenção dos campos acima: null = não mexe (não dá pra "limpar" o turno por aqui, só trocar). */
+    val turno: String? = null,
 )
 
 @Serializable

@@ -5,6 +5,8 @@ export interface Usuario {
   perfil: string;
   ativo: boolean;
   crachaoCodigo: string | null;
+  /** 'MANHA' | 'NOITE' | null — exibido no header global ("Unidade / Turno"). */
+  turno: string | null;
 }
 
 export interface CriarUsuarioRequest {
@@ -12,4 +14,5 @@ export interface CriarUsuarioRequest {
   email: string;
   senha: string;
   perfil: string;
+  turno?: string | null;
 }

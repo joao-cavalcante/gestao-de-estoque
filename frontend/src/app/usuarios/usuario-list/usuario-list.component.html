@@ -20,7 +20,7 @@
             <span class="oq-admin-row__avatar">{{ iniciais(u.nome) }}</span>
             <div class="oq-admin-row__main">
               <span class="oq-admin-row__titulo">{{ u.nome }}</span>
-              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}</span>
+              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã' : 'Noite') : '' }}</span>
             </div>
             <oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip>
             @if (u.crachaoCodigo) {
@@ -65,6 +65,14 @@
             <option value="OPERADOR">Operador</option>
             <option value="ADMINISTRADOR">Administrador</option>
             <option value="ESTACAO">Estação</option>
+          </select>
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Turno</span>
+          <select name="turno" [(ngModel)]="form.turno">
+            <option value="">Sem turno fixo</option>
+            <option value="MANHA">Manhã</option>
+            <option value="NOITE">Noite</option>
           </select>
         </div>
         <div class="oq-form-field">
