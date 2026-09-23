@@ -42,6 +42,8 @@ export class MapaSeparacaoComponent implements OnInit {
   readonly carregandoAbertas = signal(true);
   readonly erroAbertas = signal<string | null>(null);
   filtroLista = '';
+  /** 'todas' | 'pendentes' (ainda tem nota não conferida) | 'concluidas' (100%) — ajuda a localizar rápido numa lista grande. */
+  filtroStatus: 'todas' | 'pendentes' | 'concluidas' = 'todas';
 
   readonly dados = signal<MapaSeparacaoDto | null>(null);
   readonly carregando = signal(false);
@@ -55,17 +57,28 @@ export class MapaSeparacaoComponent implements OnInit {
 
   get listaFiltrada(): OrdemCargaResumoDto[] {
     const termo = this.filtroLista.trim().toLowerCase();
-    if (!termo) return this.abertas();
-    return this.abertas().filter(
-      (oc) =>
+    const status = this.filtroStatus;
+    return this.abertas().filter((oc) => {
+      const passaBusca =
+        !termo ||
         String(oc.ordemCarga).includes(termo) ||
         oc.placa?.toLowerCase().includes(termo) ||
-        oc.nomeMotorista?.toLowerCase().includes(termo),
-    );
+        oc.nomeMotorista?.toLowerCase().includes(termo);
+
+      const concluida = this.ocConcluida(oc);
+      const passaStatus = status === 'todas' || (status === 'concluidas' ? concluida : !concluida);
+
+      return passaBusca && passaStatus;
+    });
   }
 
   iconeCategoria(codigo: string): OqIconName {
     return ICONE_CATEGORIA[codigo] ?? 'circle-alert';
+  }
+
+  /** 100% conferida — só faz sentido pra OC que já tem pelo menos 1 nota rastreada (ver totalNotas). */
+  ocConcluida(oc: OrdemCargaResumoDto): boolean {
+    return oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas;
   }
 
   progressoPct(oc: OrdemCargaResumoDto): number {

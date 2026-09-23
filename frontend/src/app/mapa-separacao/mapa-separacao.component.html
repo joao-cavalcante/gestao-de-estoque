@@ -15,6 +15,14 @@
           />
         </div>
         <div class="ms-field">
+          <label for="filtroStatus">Status</label>
+          <select id="filtroStatus" [(ngModel)]="filtroStatus">
+            <option value="todas">Todas</option>
+            <option value="pendentes">Pendentes (falta conferir)</option>
+            <option value="concluidas">Concluídas (100%)</option>
+          </select>
+        </div>
+        <div class="ms-field">
           <label for="ordemCargaManual">OC fora da lista</label>
           <input
             id="ordemCargaManual"
@@ -61,9 +69,9 @@
               <div class="oq-card__header">
                 <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
                 <div class="oq-card__status-line">
-                  <oq-icon [name]="oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'check' : 'box'" [size]="13" />
+                  <oq-icon [name]="ocConcluida(oc) ? 'check' : 'box'" [size]="13" />
                   <span class="oq-card__status-text">
-                    {{ oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas ? 'Todas as notas conferidas' : 'Aberta — pronta pra separar' }}
+                    {{ ocConcluida(oc) ? 'Todas as notas conferidas' : 'Aberta — pronta pra separar' }}
                   </span>
                 </div>
               </div>
@@ -91,7 +99,7 @@
                 <div class="ms-progresso__trilho">
                   <div
                     class="ms-progresso__barra"
-                    [class.ms-progresso__barra--completa]="oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas"
+                    [class.ms-progresso__barra--completa]="ocConcluida(oc)"
                     [style.width.%]="progressoPct(oc)"
                   ></div>
                 </div>
