@@ -178,12 +178,13 @@ object MapaSeparacaoService {
         fun LinhaItem.qtdComSinal(): BigDecimal =
             if (notaPorNunota.getValue(nunota).tipMov == "D") qtdNeg.negate() else qtdNeg
 
-        // Segregado por cliente: pesável (cada cliente tem o seu peso) e todo
-        // CONGELADO (regra operacional confirmada com o usuário). O resto —
-        // seco, refrigerado e sem classificação não pesáveis — é somado na OC.
-        val (linhasSegregadas, linhasConsolidadas) = linhas.partition { it.pesavel() || it.tipoSeparacao == "3" }
+        // Desenho definido com o usuário: REFRIGERADO sai por cliente (peso e
+        // unidade juntos, sem distinção); seco + congelado (+ sem classificação)
+        // é somado na OC inteira, todos os clientes numa folha só. Pesável não
+        // decide mais a quebra — só o ícone de balança no item.
+        val (linhasSegregadas, linhasConsolidadas) = linhas.partition { it.tipoSeparacao == "2" }
 
-        // OC inteira, uma folha por categoria (sem quebra por pedido/parceiro).
+        // OC inteira, todos os clientes juntos (sem quebra por pedido/parceiro).
         val consolidado = agregar(linhasConsolidadas, { it.pesavel() }) { it.qtdComSinal() }
 
         // Por parceiro — soma só entre os pedidos do MESMO parceiro.

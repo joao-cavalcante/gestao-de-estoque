@@ -178,9 +178,11 @@
         {{ item.descricao }}
       </ng-template>
 
-      <!-- ─── Seco/refrigerado/sem classificação não pesáveis: OC inteira somada, UMA folha por categoria. ─── -->
-      @for (categoria of dados()!.consolidado; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
-        <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria">
+      <!-- ─── FOLHA 1: seco + congelado (+ sem classificação) da OC inteira, somados,
+           todos os clientes juntos. Categorias em sequência na MESMA folha (sem
+           quebra entre elas) — um <tbody> por categoria. ─── -->
+      @if (dados()!.consolidado.length > 0) {
+        <section class="ms-categoria">
           <table class="ms-itens">
             <colgroup>
               <col class="ms-col-code" />
@@ -189,23 +191,79 @@
               <col class="ms-col-qty" />
             </colgroup>
             <!-- thead repete SOZINHO em toda página física impressa (spec de
-                 tabela HTML) — inclusive quando uma categoria sozinha estoura
-                 mais de uma página. Por isso o cabeçalho da OC + banner da
-                 categoria vivem AQUI dentro, não em divs soltas antes da tabela. -->
+                 tabela HTML) — por isso o cabeçalho da OC + banner vivem AQUI
+                 dentro, não em divs soltas antes da tabela. -->
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Consolidado — todos os pedidos' }" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Seco e congelado — todos os clientes' }" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
                   <div class="ms-categoria__banner">
-                    <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="20" />
-                    <span class="ms-categoria__nome">{{ categoria.descricao }}</span>
-                    <span class="ms-categoria__total">
-                      Quantidade: {{ formatarQtd(categoria.quantidadeTotal) }} &nbsp;|&nbsp; Peso: {{ formatarPeso(categoria.pesoTotal) }}
-                    </span>
+                    <oq-icon name="seco" [size]="20" />
+                    <oq-icon name="congelado" [size]="20" />
+                    <span class="ms-categoria__nome">Seco e congelado</span>
+                    <span class="ms-categoria__total">Todos os clientes da OC</span>
+                  </div>
+                </th>
+              </tr>
+              <tr>
+                <th>Código</th>
+                <th>Descrição</th>
+                <th class="ms-center">Un.</th>
+                <th class="ms-num">Quantidade</th>
+              </tr>
+            </thead>
+            @for (categoria of dados()!.consolidado; track trackCategoria($index, categoria)) {
+              <tbody class="ms-parceiro ms-parceiro--fluido">
+                <tr class="ms-parceiro__cabecalho">
+                  <td colspan="4">
+                    <oq-icon class="ms-pesavel-icone" [name]="iconeCategoria(categoria.codigo)" [size]="15" />
+                    <strong>{{ categoria.descricao }}</strong>
+                  </td>
+                </tr>
+                @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
+                  <tr>
+                    <td>{{ item.codProd }}</td>
+                    <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
+                    <td class="ms-center">{{ item.unidade }}</td>
+                    <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
+                  </tr>
+                }
+                <tr class="ms-parceiro__subtotal">
+                  <td colspan="3">Subtotal {{ categoria.descricao }}</td>
+                  <td class="ms-num">{{ formatarQtd(categoria.quantidadeTotal) }}</td>
+                </tr>
+              </tbody>
+            }
+          </table>
+        </section>
+      }
+
+      <!-- ─── FOLHAS 2..N: refrigerado, UMA folha por cliente (peso e unidade juntos). ─── -->
+      @for (parceiro of dados()!.porParceiro; track parceiro.codParc; let primeiroParceiro = $first) {
+        <section class="ms-categoria" [class.ms-page-break]="!primeiroParceiro || dados()!.consolidado.length > 0">
+          <table class="ms-itens">
+            <colgroup>
+              <col class="ms-col-code" />
+              <col class="ms-col-desc" />
+              <col class="ms-col-unit" />
+              <col class="ms-col-qty" />
+            </colgroup>
+            <thead>
+              <tr class="ms-thead-block-row">
+                <th colspan="4" class="ms-thead-block">
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Refrigerado — por cliente' }" />
+                </th>
+              </tr>
+              <tr class="ms-thead-block-row">
+                <th colspan="4" class="ms-thead-block">
+                  <div class="ms-categoria__banner">
+                    <oq-icon name="refrigerado" [size]="20" />
+                    <span class="ms-categoria__nome">Refrigerado — {{ parceiro.codParc }} - {{ parceiro.nomeParceiro }}</span>
+                    <span class="ms-categoria__total">Pedido(s): {{ parceiro.nunotas.join(', ') }}</span>
                   </div>
                 </th>
               </tr>
@@ -217,88 +275,23 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
-                <tr>
-                  <td>{{ item.codProd }}</td>
-                  <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
-                  <td class="ms-center">{{ item.unidade }}</td>
-                  <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
-                </tr>
+              @for (categoria of parceiro.categorias; track trackCategoria($index, categoria)) {
+                @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
+                  <tr>
+                    <td>{{ item.codProd }}</td>
+                    <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
+                    <td class="ms-center">{{ item.unidade }}</td>
+                    <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
+                  </tr>
+                }
               }
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="3">Subtotal {{ categoria.descricao }}</td>
-                <td class="ms-num">{{ formatarQtd(categoria.quantidadeTotal) }}</td>
+                <td colspan="3">Subtotal {{ parceiro.nomeParceiro }}</td>
+                <td class="ms-num">{{ formatarQtd(parceiro.quantidadeTotal) }}</td>
               </tr>
             </tfoot>
-          </table>
-        </section>
-      }
-
-      <!-- ─── Pesáveis + congelados: segregados por parceiro. Uma tabela só, parceiros
-           em sequência (sem folha por parceiro) — cada bloco evita quebrar no meio. ─── -->
-      @if (dados()!.porParceiro.length > 0) {
-        <section class="ms-categoria" [class.ms-page-break]="dados()!.consolidado.length > 0">
-          <table class="ms-itens">
-            <colgroup>
-              <col class="ms-col-code" />
-              <col class="ms-col-desc" />
-              <col class="ms-col-unit" />
-              <col class="ms-col-qty" />
-            </colgroup>
-            <thead>
-              <tr class="ms-thead-block-row">
-                <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Por cliente' }" />
-                </th>
-              </tr>
-              <tr class="ms-thead-block-row">
-                <th colspan="4" class="ms-thead-block">
-                  <div class="ms-categoria__banner">
-                    <oq-icon name="user" [size]="20" />
-                    <span class="ms-categoria__nome">Congelados e pesáveis — separar por cliente</span>
-                    <span class="ms-categoria__total">{{ dados()!.porParceiro.length }} cliente(s)</span>
-                  </div>
-                </th>
-              </tr>
-              <tr>
-                <th>Código</th>
-                <th>Descrição</th>
-                <th class="ms-center">Un.</th>
-                <th class="ms-num">Quantidade</th>
-              </tr>
-            </thead>
-            @for (parceiro of dados()!.porParceiro; track parceiro.codParc) {
-              <tbody class="ms-parceiro">
-                <tr class="ms-parceiro__cabecalho">
-                  <td colspan="4">
-                    <strong>{{ parceiro.codParc }} - {{ parceiro.nomeParceiro }}</strong>
-                    <span class="ms-parceiro__pedidos">Pedido(s): {{ parceiro.nunotas.join(', ') }}</span>
-                  </td>
-                </tr>
-                @for (categoria of parceiro.categorias; track trackCategoria($index, categoria)) {
-                  <tr class="ms-parceiro__categoria">
-                    <td colspan="4">
-                      <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="13" />
-                      {{ categoria.descricao }}
-                    </td>
-                  </tr>
-                  @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
-                    <tr>
-                      <td>{{ item.codProd }}</td>
-                      <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
-                      <td class="ms-center">{{ item.unidade }}</td>
-                      <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
-                    </tr>
-                  }
-                }
-                <tr class="ms-parceiro__subtotal">
-                  <td colspan="3">Subtotal {{ parceiro.nomeParceiro }}</td>
-                  <td class="ms-num">{{ formatarQtd(parceiro.quantidadeTotal) }}</td>
-                </tr>
-              </tbody>
-            }
           </table>
         </section>
       }

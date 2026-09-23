@@ -459,6 +459,13 @@
   break-inside: avoid;
   page-break-inside: avoid;
 
+  // Categoria da folha seco+congelado: pode ser longa — deixa quebrar entre
+  // páginas em vez de empurrar o bloco inteiro (desperdiçaria papel).
+  &--fluido {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
   &__cabecalho td {
     background: var(--oq-surface-2);
     border-top: 2px solid var(--oq-border-strong);

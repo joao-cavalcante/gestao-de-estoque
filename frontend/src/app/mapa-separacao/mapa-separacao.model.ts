@@ -15,9 +15,9 @@ export interface MapaSeparacaoDto {
   totalPedidos: number;
   quantidadeTotal: string;
   pesoTotal: string;
-  /** Seco/refrigerado/sem classificação NÃO pesáveis somados sobre a OC inteira — uma folha por categoria. */
+  /** Seco + congelado (+ sem classificação) somados sobre a OC inteira — uma folha só, todos os clientes. */
   consolidado: CategoriaSeparacaoDto[];
-  /** Pesáveis + todo congelado, segregados por parceiro (soma só entre os pedidos do mesmo parceiro). */
+  /** Refrigerado, uma folha por parceiro (soma só entre os pedidos do mesmo parceiro). */
   porParceiro: ParceiroSeparacaoDto[];
 }
 

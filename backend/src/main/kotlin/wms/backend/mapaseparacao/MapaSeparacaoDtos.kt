@@ -16,11 +16,10 @@ import kotlinx.serialization.Serializable
 /**
  * Quebra do mapa (redução de papel): antes era 1 folha por pedido × categoria.
  * Agora a OC inteira vira:
- * - [consolidado]: seco/refrigerado/sem classificação NÃO pesáveis somados
- *   sobre todos os pedidos da OC, 1 bloco por categoria — não precisam de
- *   segregação por cliente.
- * - [porParceiro]: pesáveis (TGFVOL.UTILICONFPESO, mesma regra da
- *   conferência) e todo CONGELADO continuam separados por parceiro.
+ * - [consolidado]: seco + congelado (+ sem classificação) somados sobre
+ *   todos os pedidos da OC — uma folha só, todos os clientes juntos.
+ * - [porParceiro]: REFRIGERADO, uma folha por cliente (peso e unidade
+ *   juntos). Pesável (TGFVOL.UTILICONFPESO) só marca o item com a balança.
  */
 @Serializable
 data class MapaSeparacaoDto(
@@ -40,7 +39,7 @@ data class MapaSeparacaoDto(
     val porParceiro: List<ParceiroSeparacaoDto>,
 )
 
-/** Pesáveis + congelados de UM parceiro na OC (somados entre os pedidos dele, nunca entre parceiros). */
+/** Refrigerados de UM parceiro na OC (somados entre os pedidos dele, nunca entre parceiros). */
 @Serializable
 data class ParceiroSeparacaoDto(
     val codParc: Int,
