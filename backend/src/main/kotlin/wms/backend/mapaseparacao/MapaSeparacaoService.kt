@@ -74,7 +74,7 @@ object MapaSeparacaoService {
      * lento pelo usuário); só nota+ordem são independentes desde o início, e
      * veículo/motorista/itens só dependem delas, não umas das outras.
      */
-    suspend fun montar(tenantSlug: String, ordemCarga: Long): MapaSeparacaoDto = coroutineScope {
+    suspend fun montar(tenantSlug: String, tenantId: UUID, ordemCarga: Long): MapaSeparacaoDto = coroutineScope {
         val notasRawDeferred = async {
             SankhyaLoadRecordsClient.parseRows(
                 SankhyaLoadRecordsClient.loadRecords(
@@ -98,12 +98,20 @@ object MapaSeparacaoService {
         if (notasRaw.isEmpty()) throw MapaSeparacaoException("Nenhum pedido encontrado para a Ordem de Carga $ordemCarga")
 
         data class Nota(val nunota: Long, val codParc: Int, val nomeParceiro: String, val tipMov: String)
-        val notas = notasRaw.mapNotNull { r ->
+        val notasDaOc = notasRaw.mapNotNull { r ->
             val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
             val codParc = r["CODPARC"]?.toIntOrNull() ?: return@mapNotNull null
             Nota(nunota, codParc, r["Parceiro.NOMEPARC"]?.trim().orEmpty(), r["TIPMOV"]?.trim().orEmpty())
         }
-        if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido válido encontrado para a Ordem de Carga $ordemCarga")
+        // Só nota que tem conferência (passou pelo critério e está no mirror local
+        // app.tarefas) — a OC pode ter nota que nunca vai ser conferida (ex.: OC 49
+        // com 4 notas e só 3 pedidos de verdade). Mesmo universo da barra de
+        // progresso do painel (listarAbertas).
+        val comConferencia = withContext(Dispatchers.IO) {
+            TarefasRepository.nunotasComConferencia(tenantId, notasDaOc.map { it.nunota })
+        }
+        val notas = notasDaOc.filter { it.nunota in comConferencia }
+        if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido com conferência encontrado para a Ordem de Carga $ordemCarga")
         val notaPorNunota = notas.associateBy { it.nunota }
         val nunotas = notas.map { it.nunota }
 

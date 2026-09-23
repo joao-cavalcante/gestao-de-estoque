@@ -34,7 +34,7 @@ fun Route.mapaSeparacaoRoutes() {
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
 
             try {
-                call.respond(MapaSeparacaoService.montar(slug, ordemCarga))
+                call.respond(MapaSeparacaoService.montar(slug, claims.tenantId, ordemCarga))
             } catch (e: MapaSeparacaoService.MapaSeparacaoException) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to (e.message ?: "Ordem de Carga não encontrada")))
             } catch (e: Exception) {

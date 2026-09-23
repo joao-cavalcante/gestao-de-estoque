@@ -504,6 +504,20 @@ object TarefasRepository {
      * precisava conferência já concluído (bug real confirmado: OC 42 e 46). O mirror local só
      * tem nota que JÁ passou pelo critério — é o denominador certo.
      */
+    /**
+     * Quais dessas NUNOTAs passaram pelo critério de conferência, ou seja, estão no
+     * mirror local (app.tarefas). Usado pelo Mapa de Separação pra ignorar nota da OC
+     * que nunca vai ser conferida — mesmo universo de [statusPorOrdemCarga].
+     */
+    fun nunotasComConferencia(tenantId: UUID, nunotas: Collection<Long>): Set<Long> = TenantTx.run(tenantId) {
+        val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }
+        if (ints.isEmpty()) return@run emptySet()
+        TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList ints) }
+            .map { it[TarefasTable.nunota].toLong() }
+            .toSet()
+    }
+
     fun statusPorOrdemCarga(tenantId: UUID, ordensCarga: Set<Long>): List<Pair<Long, String>> = TenantTx.run(tenantId) {
         if (ordensCarga.isEmpty()) return@run emptyList()
         TarefasTable.selectAll()
