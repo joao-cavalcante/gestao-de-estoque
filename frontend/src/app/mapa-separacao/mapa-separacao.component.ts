@@ -1,6 +1,8 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
+import { SyncTickService } from '../shared/app-header/sync-tick.service';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { MapaSeparacaoService } from './mapa-separacao.service';
@@ -37,8 +39,10 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
   templateUrl: './mapa-separacao.component.html',
   styleUrl: './mapa-separacao.component.scss',
 })
-export class MapaSeparacaoComponent implements OnInit {
+export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   private readonly service = inject(MapaSeparacaoService);
+  private readonly syncTick = inject(SyncTickService);
+  private syncSub?: Subscription;
 
   readonly abertas = signal<OrdemCargaResumoDto[]>([]);
   readonly carregandoAbertas = signal(true);
@@ -71,7 +75,10 @@ export class MapaSeparacaoComponent implements OnInit {
       const passaStatus = status === 'todas' || (status === 'concluidas' ? concluida : !concluida);
 
       return passaBusca && passaStatus;
-    });
+    })
+      // Não concluídas primeiro (é o que ainda precisa de atenção); dentro de
+      // cada grupo mantém a ordem do backend (OC mais recente primeiro) — sort estável.
+      .sort((a, b) => Number(this.ocConcluida(a)) - Number(this.ocConcluida(b)));
   }
 
   iconeCategoria(codigo: string): OqIconName {
@@ -90,10 +97,22 @@ export class MapaSeparacaoComponent implements OnInit {
 
   ngOnInit(): void {
     this.carregarAbertas();
+    // Refresh automático no mesmo ciclo do sync da Fila de Tarefas (60s, contador
+    // do cabeçalho) — é esse sync que atualiza o progresso de conferência. Só
+    // recarrega no painel: com um relatório aberto, não mexe (seria ida à toa ao
+    // Sankhya e a lista nem está visível).
+    this.syncSub = this.syncTick.onTick.subscribe(() => {
+      if (!this.dados() && !this.carregando()) this.carregarAbertas(true);
+    });
   }
 
-  carregarAbertas(): void {
-    this.carregandoAbertas.set(true);
+  ngOnDestroy(): void {
+    this.syncSub?.unsubscribe();
+  }
+
+  /** `silencioso`: refresh automático — não troca a lista pelo spinner nem apaga a lista se falhar. */
+  carregarAbertas(silencioso = false): void {
+    if (!silencioso) this.carregandoAbertas.set(true);
     this.erroAbertas.set(null);
     this.service.listarAbertas().subscribe({
       next: (lista) => {
@@ -101,7 +120,7 @@ export class MapaSeparacaoComponent implements OnInit {
         this.carregandoAbertas.set(false);
       },
       error: (err) => {
-        this.abertas.set([]);
+        if (!silencioso) this.abertas.set([]);
         this.carregandoAbertas.set(false);
         this.erroAbertas.set(err?.error?.erro ?? 'Falha ao carregar as Ordens de Carga abertas.');
       },
