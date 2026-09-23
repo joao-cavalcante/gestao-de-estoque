@@ -179,8 +179,8 @@ object MapaSeparacaoService {
             if (notaPorNunota.getValue(nunota).tipMov == "D") qtdNeg.negate() else qtdNeg
 
         // Desenho definido com o usuário: REFRIGERADO sai por cliente (peso e
-        // unidade juntos, sem distinção); seco + congelado (+ sem classificação)
-        // é somado na OC inteira, todos os clientes numa folha só. Pesável não
+        // unidade juntos, sem distinção); seco e congelado (+ sem classificação)
+        // são somados na OC inteira, uma folha por categoria. Pesável não
         // decide mais a quebra — só o ícone de balança no item.
         val (linhasSegregadas, linhasConsolidadas) = linhas.partition { it.tipoSeparacao == "2" }
 

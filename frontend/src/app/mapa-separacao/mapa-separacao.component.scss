@@ -453,53 +453,6 @@
   color: var(--oq-text-primary);
 }
 
-// Bloco de pesáveis de UM parceiro (um <tbody> por parceiro): tenta não
-// partir no meio da página — se não couber, vai inteiro pra próxima.
-.ms-parceiro {
-  break-inside: avoid;
-  page-break-inside: avoid;
-
-  // Categoria da folha seco+congelado: pode ser longa — deixa quebrar entre
-  // páginas em vez de empurrar o bloco inteiro (desperdiçaria papel).
-  &--fluido {
-    break-inside: auto;
-    page-break-inside: auto;
-  }
-
-  &__cabecalho td {
-    background: var(--oq-surface-2);
-    border-top: 2px solid var(--oq-border-strong);
-    font-size: 13px;
-    padding: 7px 6px;
-  }
-
-  &__pedidos {
-    margin-left: 12px;
-    font-size: 11px;
-    color: var(--oq-text-secondary);
-  }
-
-  &__categoria td {
-    font-family: var(--oq-font-display);
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--oq-text-secondary);
-    padding: 3px 6px;
-
-    oq-icon {
-      vertical-align: -2px;
-      margin-right: 3px;
-    }
-  }
-
-  &__subtotal td {
-    font-weight: 700;
-    border-bottom: 2px solid var(--oq-border-strong);
-  }
-}
-
 .ms-col-code {
   width: 16%;
 }
@@ -598,7 +551,6 @@
   }
 
   .ms-categoria__banner,
-  .ms-parceiro__cabecalho td,
   .ms-total-geral {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

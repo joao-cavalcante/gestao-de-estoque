@@ -17,8 +17,8 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
  * Mapa de Separação por Ordem de Carga — porte do Dashboard HTML5/JSP que
  * substituiu o iReport 513 no Sankhya (ver backend MapaSeparacaoService).
  * Classificação por TGFPRO.AD_TIPOSEPARACAO como no original, mas SEM a
- * quebra por nota (economia de papel): seco + congelado saem somados na OC
- * inteira numa folha só; refrigerado sai uma folha por cliente. Pesável
+ * quebra por nota (economia de papel): seco e congelado saem somados na OC
+ * inteira, uma folha cada; refrigerado sai uma folha por cliente. Pesável
  * leva ícone de balança. Identidade visual do WMS (tokens de
  * styles.scss, ícones seco/refrigerado/congelado já usados na Fila de
  * Tarefas) em vez do CSS solto do JSP original.

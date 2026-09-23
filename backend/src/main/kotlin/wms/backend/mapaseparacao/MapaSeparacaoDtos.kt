@@ -16,8 +16,8 @@ import kotlinx.serialization.Serializable
 /**
  * Quebra do mapa (redução de papel): antes era 1 folha por pedido × categoria.
  * Agora a OC inteira vira:
- * - [consolidado]: seco + congelado (+ sem classificação) somados sobre
- *   todos os pedidos da OC — uma folha só, todos os clientes juntos.
+ * - [consolidado]: seco, congelado (e sem classificação) somados sobre
+ *   todos os pedidos da OC — uma folha por categoria, todos os clientes.
  * - [porParceiro]: REFRIGERADO, uma folha por cliente (peso e unidade
  *   juntos). Pesável (TGFVOL.UTILICONFPESO) só marca o item com a balança.
  */

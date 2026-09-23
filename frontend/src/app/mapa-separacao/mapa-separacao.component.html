@@ -178,11 +178,10 @@
         {{ item.descricao }}
       </ng-template>
 
-      <!-- ─── FOLHA 1: seco + congelado (+ sem classificação) da OC inteira, somados,
-           todos os clientes juntos. Categorias em sequência na MESMA folha (sem
-           quebra entre elas) — um <tbody> por categoria. ─── -->
-      @if (dados()!.consolidado.length > 0) {
-        <section class="ms-categoria">
+      <!-- ─── Seco e congelado (+ sem classificação): UMA folha por categoria, OC
+           inteira somada, todos os clientes juntos. ─── -->
+      @for (categoria of dados()!.consolidado; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
+        <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria">
           <table class="ms-itens">
             <colgroup>
               <col class="ms-col-code" />
@@ -196,15 +195,14 @@
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Seco e congelado — todos os clientes' }" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ $implicit: 'Todos os clientes' }" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
                   <div class="ms-categoria__banner">
-                    <oq-icon name="seco" [size]="20" />
-                    <oq-icon name="congelado" [size]="20" />
-                    <span class="ms-categoria__nome">Seco e congelado</span>
+                    <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="20" />
+                    <span class="ms-categoria__nome">{{ categoria.descricao }}</span>
                     <span class="ms-categoria__total">Todos os clientes da OC</span>
                   </div>
                 </th>
@@ -216,28 +214,22 @@
                 <th class="ms-num">Quantidade</th>
               </tr>
             </thead>
-            @for (categoria of dados()!.consolidado; track trackCategoria($index, categoria)) {
-              <tbody class="ms-parceiro ms-parceiro--fluido">
-                <tr class="ms-parceiro__cabecalho">
-                  <td colspan="4">
-                    <oq-icon class="ms-pesavel-icone" [name]="iconeCategoria(categoria.codigo)" [size]="15" />
-                    <strong>{{ categoria.descricao }}</strong>
-                  </td>
+            <tbody>
+              @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
+                <tr>
+                  <td>{{ item.codProd }}</td>
+                  <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
+                  <td class="ms-center">{{ item.unidade }}</td>
+                  <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
                 </tr>
-                @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
-                  <tr>
-                    <td>{{ item.codProd }}</td>
-                    <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
-                    <td class="ms-center">{{ item.unidade }}</td>
-                    <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
-                  </tr>
-                }
-                <tr class="ms-parceiro__subtotal">
-                  <td colspan="3">Subtotal {{ categoria.descricao }}</td>
-                  <td class="ms-num">{{ formatarQtd(categoria.quantidadeTotal) }}</td>
-                </tr>
-              </tbody>
-            }
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3">Subtotal {{ categoria.descricao }}</td>
+                <td class="ms-num">{{ formatarQtd(categoria.quantidadeTotal) }}</td>
+              </tr>
+            </tfoot>
           </table>
         </section>
       }
