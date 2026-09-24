@@ -1058,7 +1058,10 @@ object SeparacaoRepository {
                 if (nunota != null) cond = cond and (SeparacaoSessoesTable.nunota eq nunota.toInt())
                 cond
             }
-            .orderBy(SeparacaoSessoesTable.criadoEm to SortOrder.DESC)
+            // Última FINALIZADA primeiro: atualizado_em é gravado por marcarConcluida no
+            // momento da finalização. Antes era criado_em (abertura da sessão) — uma
+            // conferência aberta dias atrás e finalizada agora caía numa página lá do fim.
+            .orderBy(SeparacaoSessoesTable.atualizadoEm to SortOrder.DESC)
             .toList()
 
         val nunotas = base.map { it[SeparacaoSessoesTable.nunota] }.distinct()
