@@ -149,6 +149,8 @@ data class ConferenciaFinalizadaDto(
     val dataMovimento: String? = null,
     val apelidoVendedor: String? = null,
     val nuconf: Int? = null,
+    /** Tem item pesável conferido (peso > 0) — sem isso não há etiqueta de peso a imprimir. */
+    val temPesavel: Boolean = false,
 )
 
 @Serializable

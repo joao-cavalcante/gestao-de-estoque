@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
@@ -19,8 +19,9 @@ import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component
 export class ImpressaoEtiquetasComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly separacao = inject(SeparacaoService);
+  private readonly host = inject(ElementRef<HTMLElement>);
 
-  readonly PER_PAGE = 12;
+  readonly PER_PAGE = 24;
 
   readonly itens = signal<ConferenciaFinalizada[]>([]);
   readonly total = signal(0);
@@ -77,6 +78,7 @@ export class ImpressaoEtiquetasComponent implements OnInit {
     if ((this.page() + 1) * this.PER_PAGE < this.total()) {
       this.page.update((p) => p + 1);
       this.buscar(false);
+      this.voltarAoTopo();
     }
   }
 
@@ -84,7 +86,13 @@ export class ImpressaoEtiquetasComponent implements OnInit {
     if (this.page() > 0) {
       this.page.update((p) => p - 1);
       this.buscar(false);
+      this.voltarAoTopo();
     }
+  }
+
+  /** Trocou de página pelo controle do rodapé: volta a lista pro começo. */
+  private voltarAoTopo(): void {
+    this.host.nativeElement.scrollTo({ top: 0 });
   }
 
   /** Etiqueta térmica dos itens pesáveis da conferência (reimprime o mesmo número se já existir). */

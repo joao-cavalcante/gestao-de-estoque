@@ -9,6 +9,7 @@ import kotlinx.serialization.json.put
 import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
@@ -1095,7 +1096,28 @@ object SeparacaoRepository {
 
         val total = todos.size
         val pagina = todos.drop(page * perPage).take(perPage)
-        ConferenciasFinalizadasResponse(itens = pagina, total = total, page = page, perPage = perPage)
+
+        // Só pras sessões da página: quais têm item pesável conferido (etiqueta de peso possível).
+        val idsPagina = pagina.map { UUID.fromString(it.sessaoId) }
+        val comPesavel = if (idsPagina.isEmpty()) {
+            emptySet()
+        } else {
+            SeparacaoItensTable.selectAll()
+                .where {
+                    (SeparacaoItensTable.tenantId eq tenantId) and
+                        (SeparacaoItensTable.sessaoId inList idsPagina) and
+                        (SeparacaoItensTable.usaConfPeso eq true) and
+                        (SeparacaoItensTable.qtdConferidaLocal greater java.math.BigDecimal.ZERO)
+                }
+                .map { it[SeparacaoItensTable.sessaoId].toString() }
+                .toSet()
+        }
+        ConferenciasFinalizadasResponse(
+            itens = pagina.map { it.copy(temPesavel = it.sessaoId in comPesavel) },
+            total = total,
+            page = page,
+            perPage = perPage,
+        )
     }
 
     /** Sessão mais recente (por criado_em) de uma nota — usado pra reimpressão de etiqueta fora da tela de conferência. */

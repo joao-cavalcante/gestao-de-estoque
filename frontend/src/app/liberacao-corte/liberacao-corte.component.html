@@ -5,9 +5,9 @@
     <button type="button" class="lc-page__refresh" (click)="carregar()">Atualizar</button>
     @if (listaFiltrada.length > PER_PAGE) {
       <div class="lc-pager lc-pager--topo">
-        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()" aria-label="Página anterior">‹</button>
-        <span>{{ paginaIdx + 1 }} / {{ totalPaginas }}</span>
-        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()" aria-label="Próxima página">›</button>
+        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()">‹ Anterior</button>
+        <span>Página {{ paginaIdx + 1 }} de {{ totalPaginas }}</span>
+        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()">Próxima ›</button>
       </div>
     }
   </header>
@@ -73,11 +73,11 @@
     </div>
 
     @if (listaFiltrada.length > PER_PAGE) {
-      <footer class="lc-pager">
-        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()" aria-label="Página anterior">‹</button>
-        <span>{{ paginaIdx + 1 }} / {{ totalPaginas }}</span>
-        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()" aria-label="Próxima página">›</button>
-      </footer>
+      <div class="lc-pager">
+        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()">‹ Anterior</button>
+        <span>Página {{ paginaIdx + 1 }} de {{ totalPaginas }}</span>
+        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()">Próxima ›</button>
+      </div>
     }
   }
 

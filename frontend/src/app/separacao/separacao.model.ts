@@ -138,6 +138,8 @@ export interface ConferenciaFinalizada {
   dataMovimento: string | null;
   apelidoVendedor: string | null;
   nuconf: number | null;
+  /** Tem item pesável conferido — sem isso não há etiqueta de peso a imprimir. */
+  temPesavel?: boolean;
 }
 
 export interface ConferenciasFinalizadasResposta {

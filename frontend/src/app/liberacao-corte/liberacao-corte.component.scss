@@ -21,15 +21,21 @@
 
   &--topo { margin: 0 0 0 auto; }
 
+  span { font-weight: 700; color: var(--oq-text-primary); }
+
   button {
-    border: 1px solid var(--oq-border);
+    border: 1px solid var(--oq-brand, var(--oq-border));
     background: var(--oq-surface);
     color: var(--oq-text-primary);
     border-radius: var(--oq-radius-input);
-    width: 28px;
-    height: 28px;
+    height: 30px;
+    padding: 0 12px;
+    font-family: var(--oq-font-display);
+    font-weight: 600;
+    font-size: 12px;
     cursor: pointer;
 
+    &:hover:not(:disabled) { background: var(--oq-surface-2); }
     &:disabled { opacity: 0.4; cursor: not-allowed; }
   }
 }

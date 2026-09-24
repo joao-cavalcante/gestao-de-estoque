@@ -2,12 +2,12 @@
   <header class="ie-page__head">
     <h1>Impressão de Etiquetas</h1>
     <span class="ie-page__count">{{ total() }} finalizada(s)</span>
-    <!-- Paginação também no topo: com 12 cards o rodapé fica fora da tela. -->
+    <!-- Paginação também no topo: com uma página cheia de cards o rodapé fica fora da tela. -->
     @if (total() > PER_PAGE) {
       <div class="ie-pager ie-pager--topo">
-        <button type="button" [disabled]="page() === 0" (click)="anterior()" aria-label="Página anterior">‹</button>
-        <span>{{ page() + 1 }} / {{ totalPaginas }}</span>
-        <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()" aria-label="Próxima página">›</button>
+        <button type="button" [disabled]="page() === 0" (click)="anterior()">‹ Anterior</button>
+        <span>Página {{ page() + 1 }} de {{ totalPaginas }}</span>
+        <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()">Próxima ›</button>
       </div>
     }
   </header>
@@ -73,18 +73,23 @@
             <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="imprimir(item)">
               Imprimir Etiquetas
             </button>
-            <button type="button" class="oq-card__btn oq-card__btn--outline" (click)="imprimirPeso(item)">
-              Etiqueta de Peso
-            </button>
+            <!-- span segura o tooltip: botão desabilitado não dispara hover em alguns navegadores -->
+            <span class="ie-btn-wrap" [title]="item.temPesavel ? 'Imprimir etiqueta de peso' : 'Esta conferência não tem produto pesável — sem etiqueta de peso'">
+              <button type="button" class="oq-card__btn oq-card__btn--outline" [disabled]="!item.temPesavel" (click)="imprimirPeso(item)">
+                Etiqueta de Peso
+              </button>
+            </span>
           </div>
         </article>
       }
     </div>
 
-    <footer class="ie-pager">
-      <button type="button" [disabled]="page() === 0" (click)="anterior()">‹</button>
-      <span>{{ page() + 1 }} / {{ totalPaginas }}</span>
-      <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()">›</button>
-    </footer>
+    @if (total() > PER_PAGE) {
+      <div class="ie-pager">
+        <button type="button" [disabled]="page() === 0" (click)="anterior()">‹ Anterior</button>
+        <span>Página {{ page() + 1 }} de {{ totalPaginas }}</span>
+        <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()">Próxima ›</button>
+      </div>
+    }
   }
 </div>
