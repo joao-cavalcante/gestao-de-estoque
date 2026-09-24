@@ -17,6 +17,7 @@ import { BalancaListComponent } from './balancas/balanca-list/balanca-list.compo
 import { DownloadsComponent } from './downloads/downloads.component';
 import { LiberacaoCorteComponent } from './liberacao-corte/liberacao-corte.component';
 import { EtiquetasComponent } from './etiquetas/etiquetas.component';
+import { CrachasImpressaoComponent } from './crachas/crachas-impressao.component';
 import { EtiquetaPesoComponent } from './etiqueta-peso/etiqueta-peso.component';
 import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
 import { MapaSeparacaoComponent } from './mapa-separacao/mapa-separacao.component';
@@ -40,6 +41,7 @@ export const routes: Routes = [
   { path: 'etiquetas-peso/:sessaoId', component: EtiquetaPesoComponent, canActivate: [authGuard] },
   { path: 'tipos-operacao', component: TiposOperacaoComponent, canActivate: [authGuard] },
   { path: 'usuarios', component: UsuarioListComponent, canActivate: [authGuard] },
+  { path: 'crachas', component: CrachasImpressaoComponent, canActivate: [authGuard] },
   { path: 'balancas', component: BalancaListComponent, canActivate: [authGuard] },
   { path: 'downloads', component: DownloadsComponent },
   { path: 'tenants', component: TenantListComponent, canActivate: [authGuard] },

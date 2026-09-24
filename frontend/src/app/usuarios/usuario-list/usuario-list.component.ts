@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UsuarioService } from '../usuario.service';
 import { Usuario } from '../usuario.model';
@@ -7,6 +7,10 @@ import { OqStatusChipComponent } from '../../conferencia/oq-status-chip/oq-statu
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
+import { CrachaComponent } from '../../shared/cracha/cracha.component';
+import { CrachaLogoService } from '../../shared/cracha/cracha-logo.service';
+import { OrientacaoCracha, dimensoes, nomeArquivoCracha } from '../../shared/cracha/cracha-layout';
+import { baixarPdfDeSvgs } from '../../shared/cracha/cracha-pdf';
 
 interface FormUsuario {
   nome: string;
@@ -25,7 +29,7 @@ function formVazio(): FormUsuario {
 @Component({
   selector: 'app-usuario-list',
   standalone: true,
-  imports: [FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent, OqSkeletonComponent, OqSpinnerComponent],
+  imports: [FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent, OqSkeletonComponent, OqSpinnerComponent, CrachaComponent],
   templateUrl: './usuario-list.component.html',
 })
 export class UsuarioListComponent implements OnInit {
@@ -45,8 +49,92 @@ export class UsuarioListComponent implements OnInit {
   removendoUsuario = signal<Usuario | null>(null);
   removendoCarregando = signal(false);
 
+  // ─── Crachá ────────────────────────────────────────────────────────────
+  private readonly logoService = inject(CrachaLogoService);
+  /** Usuário (versão SALVA) cujo crachá está na prévia. */
+  readonly crachaPrevia = signal<Usuario | null>(null);
+  readonly crachaOrientacao = signal<OrientacaoCracha>('horizontal');
+  readonly crachaDim = computed(() => dimensoes(this.crachaOrientacao()));
+  readonly crachaLogo = signal<string | null>(null);
+  readonly gerandoPdf = signal(false);
+  @ViewChild('svgCracha') svgCracha?: ElementRef<SVGSVGElement>;
+
+  /** Seleção pra impressão em lote (só quem tem crachá). */
+  readonly selecionados = signal<ReadonlySet<string>>(new Set());
+
   ngOnInit(): void {
     this.carregar();
+    this.logoService.obter().then((l) => this.crachaLogo.set(l));
+  }
+
+  /** Código do crachá GRAVADO no banco pro usuário em edição (não o que está digitado). */
+  private get crachaSalvo(): string {
+    const id = this.editandoId();
+    return (id ? this.usuarios().find((u) => u.id === id)?.crachaoCodigo : null)?.trim() ?? '';
+  }
+
+  /**
+   * Motivo pra NÃO imprimir agora (tooltip do botão) — null = pode. Nunca imprime
+   * código que não está no banco: o crachá tem que ser aceito pela conferência.
+   */
+  get bloqueioCracha(): string | null {
+    if (!this.crachaSalvo) {
+      return this.form.crachaoCodigo.trim()
+        ? 'Salve o usuário antes de imprimir — o código do crachá ainda não foi gravado'
+        : 'Cadastre um código de crachá primeiro';
+    }
+    if (this.form.crachaoCodigo.trim() !== this.crachaSalvo) {
+      return 'O código do crachá foi alterado — salve o usuário antes de imprimir';
+    }
+    return null;
+  }
+
+  abrirPreviaCracha(): void {
+    const id = this.editandoId();
+    const u = id ? this.usuarios().find((x) => x.id === id) : null;
+    if (!u || this.bloqueioCracha) return;
+    this.crachaPrevia.set(u);
+  }
+
+  fecharPreviaCracha(): void {
+    this.crachaPrevia.set(null);
+  }
+
+  /** Impressão em aba própria (@page no tamanho exato do CR80, sem o resto do app). */
+  imprimirCracha(): void {
+    const u = this.crachaPrevia();
+    if (!u) return;
+    this.abrirImpressao([u.id], 'unico', true);
+  }
+
+  async baixarPdfCracha(): Promise<void> {
+    const u = this.crachaPrevia();
+    const svg = this.svgCracha?.nativeElement;
+    if (!u || !svg) return;
+    this.gerandoPdf.set(true);
+    try {
+      await baixarPdfDeSvgs([svg], nomeArquivoCracha(u.crachaoCodigo ?? '', u.nome));
+    } finally {
+      this.gerandoPdf.set(false);
+    }
+  }
+
+  alternarSelecao(u: Usuario): void {
+    const s = new Set(this.selecionados());
+    if (s.has(u.id)) s.delete(u.id);
+    else s.add(u.id);
+    this.selecionados.set(s);
+  }
+
+  imprimirLote(): void {
+    const ids = [...this.selecionados()];
+    if (ids.length) this.abrirImpressao(ids, 'a4', false);
+  }
+
+  private abrirImpressao(ids: string[], modo: 'unico' | 'a4', imprimir: boolean): void {
+    const q = new URLSearchParams({ ids: ids.join(','), modo, orientacao: this.crachaOrientacao() });
+    if (imprimir) q.set('imprimir', '1');
+    window.open('/crachas?' + q.toString(), '_blank');
   }
 
   carregar(): void {

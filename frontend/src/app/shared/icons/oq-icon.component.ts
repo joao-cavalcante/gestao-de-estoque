@@ -4,7 +4,7 @@ export type OqIconName =
   | 'circle' | 'circle-filled' | 'circle-alert' | 'gear' | 'check' | 'triangle'
   | 'search' | 'filter' | 'sync' | 'barcode' | 'x' | 'arrow-left'
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
-  | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'building' | 'logout'
+  | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
   | 'sun' | 'moon'
   | 'seco' | 'refrigerado' | 'congelado' | 'scissors';
 
@@ -133,6 +133,12 @@ export type OqIconName =
           <path d="M12 5.5V20M7.5 20.5h9M4 7.5h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           <path d="M6 7.5 3 14M6 7.5 9 14M18 7.5 15 14M18 7.5 21 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
           <path d="M2.25 14h7.5a3.75 3.75 0 0 1-7.5 0ZM14.25 14h7.5a3.75 3.75 0 0 1-7.5 0Z" fill="currentColor" />
+        }
+        @case ('impressora') {
+          <path d="M7 8V3.5h10V8" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+          <rect x="3.5" y="8" width="17" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" />
+          <path d="M7 13.5h10V20.5H7Z" fill="var(--oq-surface, #fff)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+          <circle cx="17" cy="11" r="0.9" fill="currentColor" />
         }
         @case ('download') {
           <path d="M12 3v12M7.5 10.5 12 15l4.5-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
