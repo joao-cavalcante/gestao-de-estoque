@@ -1289,7 +1289,7 @@ object SeparacaoService {
      */
     private val VOA_CACHE_TTL: java.time.Duration = java.time.Duration.ofHours(24)
 
-    private suspend fun buscarVoa(tenantSlug: String, tenantId: UUID, codprods: List<Int>): List<Map<String, String?>> {
+    internal suspend fun buscarVoa(tenantSlug: String, tenantId: UUID, codprods: List<Int>): List<Map<String, String?>> {
         if (codprods.isEmpty()) return emptyList()
 
         val frescoDesde = java.time.Instant.now().minus(VOA_CACHE_TTL)

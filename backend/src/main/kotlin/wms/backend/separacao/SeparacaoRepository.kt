@@ -1437,7 +1437,7 @@ object SeparacaoRepository {
      * espelha fila-conferencia sessao.service.ts:826-852. Só p/ display.
      * 'M' → comercial = padrão / fator ; 'D' → comercial = padrão * fator ; senão 1:1.
      */
-    private fun padraoParaComercial(padrao: BigDecimal, divideMultiplica: String?, fator: BigDecimal?): BigDecimal {
+    internal fun padraoParaComercial(padrao: BigDecimal, divideMultiplica: String?, fator: BigDecimal?): BigDecimal {
         val f = fator ?: BigDecimal.ONE
         return when {
             divideMultiplica == "M" && f.signum() != 0 -> padrao.divide(f, 5, java.math.RoundingMode.HALF_UP)

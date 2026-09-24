@@ -53,6 +53,10 @@ object MapaSeparacaoService {
         "Produto.DESCRPROD", "Produto.PESOBRUTO", "Produto.USOPROD", "Produto.AD_TIPOSEPARACAO", "Produto.CODVOL",
     )
 
+    /** Linha negociada numa unidade diferente da padrão do produto → precisa do fator do VOA. */
+    private fun LinhaItem.precisaConversao(): Boolean =
+        codVolProduto != null && codVol.isNotEmpty() && codVol != codVolProduto
+
     private data class LinhaItem(
         val nunota: Long,
         val codProd: Int,
@@ -176,6 +180,35 @@ object MapaSeparacaoService {
 
         if (linhas.isEmpty()) throw MapaSeparacaoException("Nenhum item de separação encontrado para a Ordem de Carga $ordemCarga")
 
+        // TGFITE.QTDNEG vem SEMPRE na unidade padrão do produto (TGFPRO.CODVOL);
+        // o CODVOL da linha é a unidade NEGOCIADA (comercial). O mapa mostra a
+        // quantidade na comercial — mesma conversão da conferência (TGFVOA,
+        // match por produto + CODVOL da linha + controle, fallback controle livre).
+        // Bug real: queijo pesável saía "12,6 PC" quando eram 12,6 KG.
+        val codprodsComVoa = linhas.filter { it.precisaConversao() }.map { it.codProd }.distinct()
+        val voaPorChave: Map<Triple<Int, String, String>, Pair<String?, BigDecimal?>> =
+            if (codprodsComVoa.isEmpty()) emptyMap()
+            else wms.backend.separacao.SeparacaoService.buscarVoa(tenantSlug, tenantId, codprodsComVoa).mapNotNull { r ->
+                val cp = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
+                val cv = r["CODVOL"]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                val ctrl = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " "
+                Triple(cp, cv, ctrl) to (r["DIVIDEMULTIPLICA"]?.trim()?.takeIf { it.isNotEmpty() } to r["QUANTIDADE"].parseBigDecimalBr())
+            }.toMap()
+
+        /**
+         * (quantidade, unidade) pra exibir: na comercial quando há fator no VOA;
+         * sem fator, fica na PADRÃO com a unidade padrão — nunca número de uma
+         * unidade com o rótulo de outra.
+         */
+        fun LinhaItem.exibicao(qtdPadrao: BigDecimal): Pair<BigDecimal, String> {
+            if (!precisaConversao()) return qtdPadrao to codVol
+            val ctrl = controle?.trim()?.takeIf { it.isNotEmpty() } ?: " "
+            val (dm, fator) = voaPorChave[Triple(codProd, codVol, ctrl)] ?: voaPorChave[Triple(codProd, codVol, " ")]
+                ?: return qtdPadrao to (codVolProduto ?: codVol)
+            if (dm != "M" && dm != "D") return qtdPadrao to (codVolProduto ?: codVol)
+            return wms.backend.separacao.SeparacaoRepository.padraoParaComercial(qtdPadrao, dm, fator) to codVol
+        }
+
         // Mesma regra de SeparacaoService.itemUsaConfPeso: CODVOL de cadastro do
         // produto, fallback pro CODVOL da linha — ex.: queijo cadastrado em KG
         // vendido em PC continua pesável.
@@ -193,13 +226,13 @@ object MapaSeparacaoService {
         val (linhasSegregadas, linhasConsolidadas) = linhas.partition { it.tipoSeparacao == "2" }
 
         // OC inteira, todos os clientes juntos (sem quebra por pedido/parceiro).
-        val consolidado = agregar(linhasConsolidadas, { it.pesavel() }) { it.qtdComSinal() }
+        val consolidado = agregar(linhasConsolidadas, { it.pesavel() }, { l, q -> l.exibicao(q) }) { it.qtdComSinal() }
 
         // Por PEDIDO (NUNOTA) — cada pedido é um bloco próprio, mesmo quando o
         // cliente tem mais de um pedido na OC (pedido do usuário: separação por
         // NUNOTA + cliente, em página corrida). Nunca soma entre pedidos.
         val segregadoPorParceiro = linhasSegregadas.groupBy { it.nunota }
-            .mapValues { (_, linhasPedido) -> linhasPedido to agregar(linhasPedido, { it.pesavel() }) { it.qtdComSinal() } }
+            .mapValues { (_, linhasPedido) -> linhasPedido to agregar(linhasPedido, { it.pesavel() }, { l, q -> l.exibicao(q) }) { it.qtdComSinal() } }
         val porParceiro = segregadoPorParceiro.map { (nunota, par) ->
             val (_, itens) = par
             val nota = notaPorNunota.getValue(nunota)
@@ -231,20 +264,28 @@ object MapaSeparacaoService {
     }
 
     /** Consolida por produto+controle+unidade (mesmo GROUP BY do relatório original) — sobre o conjunto de linhas recebido, não mais por nota. */
-    private fun agregar(linhas: List<LinhaItem>, pesavel: (LinhaItem) -> Boolean, qtd: (LinhaItem) -> BigDecimal): List<ItemAgregado> {
+    private fun agregar(
+        linhas: List<LinhaItem>,
+        pesavel: (LinhaItem) -> Boolean,
+        exibicao: (LinhaItem, BigDecimal) -> Pair<BigDecimal, String>,
+        qtd: (LinhaItem) -> BigDecimal,
+    ): List<ItemAgregado> {
         data class ChaveItem(val codProd: Int, val controle: String?, val codVol: String)
         return linhas.groupBy { ChaveItem(it.codProd, it.controle, it.codVol) }
             .map { (chave, itens) ->
-                val total = itens.sumOf(qtd)
+                val totalPadrao = itens.sumOf(qtd)
                 val amostra = itens.first()
+                // Mesmo produto + controle + CODVOL da linha → mesmo fator de conversão.
+                val (qtdExibida, unidadeExibida) = exibicao(amostra, totalPadrao)
                 ItemAgregado(
                     codProd = chave.codProd,
                     descricao = amostra.descrProd,
                     controle = chave.controle,
-                    unidade = chave.codVol,
-                    quantidade = total,
+                    unidade = unidadeExibida,
+                    quantidade = qtdExibida,
                     pesoUnitario = amostra.pesoBruto,
-                    pesoTotal = total * amostra.pesoBruto,
+                    // PESOBRUTO do cadastro é por unidade PADRÃO — peso sai da qtd padrão.
+                    pesoTotal = totalPadrao * amostra.pesoBruto,
                     tipoSeparacao = amostra.tipoSeparacao,
                     // Mesmo produto+unidade → mesma resposta (depende só do CODVOL).
                     pesavel = pesavel(amostra),
