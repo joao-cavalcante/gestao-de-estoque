@@ -3,6 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { SyncTickService } from '../shared/app-header/sync-tick.service';
+import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { MapaSeparacaoService } from './mapa-separacao.service';
@@ -42,6 +43,17 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
 export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   private readonly service = inject(MapaSeparacaoService);
   private readonly syncTick = inject(SyncTickService);
+  private readonly filtrosSalvos = inject(FiltrosSalvosService);
+
+  /** Status lembrado por usuário (busca por texto não é lembrada); padrão = pendentes. */
+  private statusSalvo(): 'todas' | 'pendentes' | 'concluidas' {
+    const s = this.filtrosSalvos.ler<{ status: string }>('mapa-separacao')?.status;
+    return s === 'todas' || s === 'concluidas' || s === 'pendentes' ? s : 'pendentes';
+  }
+
+  onFiltroStatusChange(): void {
+    this.filtrosSalvos.salvar('mapa-separacao', { status: this.filtroStatus });
+  }
   private syncSub?: Subscription;
 
   readonly abertas = signal<OrdemCargaResumoDto[]>([]);
@@ -49,7 +61,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   readonly erroAbertas = signal<string | null>(null);
   filtroLista = '';
   /** 'todas' | 'pendentes' (ainda tem nota não conferida) | 'concluidas' (100%) — ajuda a localizar rápido numa lista grande. */
-  filtroStatus: 'todas' | 'pendentes' | 'concluidas' = 'pendentes';
+  filtroStatus: 'todas' | 'pendentes' | 'concluidas' = this.statusSalvo();
 
   readonly dados = signal<MapaSeparacaoDto | null>(null);
   readonly carregando = signal(false);

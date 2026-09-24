@@ -16,7 +16,7 @@
         </div>
         <div class="ms-field">
           <label for="filtroStatus">Status</label>
-          <select id="filtroStatus" [(ngModel)]="filtroStatus">
+          <select id="filtroStatus" [(ngModel)]="filtroStatus" (ngModelChange)="onFiltroStatusChange()">
             <option value="todas">Todas</option>
             <option value="pendentes">Pendentes</option>
             <option value="concluidas">Concluídas</option>

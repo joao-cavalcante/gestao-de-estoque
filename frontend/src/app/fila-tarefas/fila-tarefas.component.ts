@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -10,7 +10,19 @@ import { OqTaskCardComponent } from './oq-task-card/oq-task-card.component';
 import { OqEmptyStateComponent } from './oq-empty-state/oq-empty-state.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConferenciasService } from './conferencias.service';
-import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Tarefa } from './tarefa.model';
+import { FILTROS_STATUS, FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Tarefa } from './tarefa.model';
+import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
+
+/** O que a fila lembra por usuário — tudo menos a busca por texto (e a página atual). */
+interface FiltrosFilaSalvos {
+  status: FiltroStatus;
+  tiposSeparacao: number[];
+  avancados: FiltrosAvancados;
+  itensPorPagina: number;
+}
+
+const TELA_FILTROS = 'fila-tarefas';
+const ITENS_POR_PAGINA = [10, 20, 50];
 
 @Component({
   selector: 'app-fila-tarefas',
@@ -50,6 +62,32 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     ordemCarga: null,
     somenteComOrdemCarga: false,
   });
+
+  private readonly filtrosSalvos = inject(FiltrosSalvosService);
+
+  /**
+   * Restaura os filtros do usuário (antes do 1º effect rodar, pra não gravar o
+   * padrão por cima) e grava a cada mudança — voltar da conferência não perde o filtro.
+   */
+  private readonly restaurado = this.restaurarFiltros();
+  private readonly efeitoSalvarFiltros = effect(() => {
+    this.filtrosSalvos.salvar<FiltrosFilaSalvos>(TELA_FILTROS, {
+      status: this.filtroAtivo(),
+      tiposSeparacao: [...this.filtroTipoSeparacao()],
+      avancados: this.filtrosAvancados(),
+      itensPorPagina: this.itensPorPagina(),
+    });
+  });
+
+  private restaurarFiltros(): boolean {
+    const f = this.filtrosSalvos.ler<FiltrosFilaSalvos>(TELA_FILTROS);
+    if (!f) return false;
+    if (f.status && (FILTROS_STATUS as readonly string[]).includes(f.status)) this.filtroAtivo.set(f.status);
+    if (Array.isArray(f.tiposSeparacao)) this.filtroTipoSeparacao.set(new Set(f.tiposSeparacao.filter((t) => typeof t === 'number')));
+    if (f.avancados) this.filtrosAvancados.set({ ...this.filtrosAvancados(), ...f.avancados });
+    if (f.itensPorPagina && ITENS_POR_PAGINA.includes(f.itensPorPagina)) this.itensPorPagina.set(f.itensPorPagina);
+    return true;
+  }
 
   ngOnInit(): void {
     this.carregarFila();
