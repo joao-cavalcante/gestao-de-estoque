@@ -27,8 +27,14 @@ $et-caixa-gap: 1.2mm;
   border: 0.3mm solid #000;
   overflow: hidden;
   display: grid;
-  page-break-after: always;
-  break-after: page;
+
+  /* Quebra ANTES de cada etiqueta a partir da 2ª — nunca DEPOIS da última.
+     Com break-after em todas, qualquer elemento que venha depois no documento
+     (ex.: o host de toasts do app) ganhava uma página em branco no fim. */
+  & + & {
+    break-before: page;
+    page-break-before: always;
+  }
 }
 
 /* Seção abaixo de outra: divisória fina em cima. */

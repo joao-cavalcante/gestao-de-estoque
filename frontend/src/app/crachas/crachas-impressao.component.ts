@@ -1,4 +1,5 @@
-import { Component, ElementRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UsuarioService } from '../usuarios/usuario.service';
 import { Usuario } from '../usuarios/usuario.model';
@@ -87,28 +88,26 @@ interface Folha {
     .cr-info { margin-left: auto; color: #555; font-size: 13px; }
     .cr-pagina { display: block; margin: 16px auto; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
 
-    /* Página no tamanho exato de cada modo — named pages: cada <svg> diz em que tipo de página cai. */
-    @page cracha-h { size: 85.6mm 54mm; margin: 0; }
-    @page cracha-v { size: 54mm 85.6mm; margin: 0; }
-    @page folha-a4 { size: 210mm 297mm; margin: 0; }
-
+    /* @page NÃO fica aqui: é injetado conforme o modo (ver efeitoPagina). Páginas
+       nomeadas (@page cracha-h …) geravam uma página em branco no tamanho padrão
+       da impressora antes e depois dos crachás (o resto do app não tem nome de página). */
     @media print {
       :host { background: #fff; min-height: 0; }
       .cr-toolbar { display: none; }
-      .cr-pagina { margin: 0; box-shadow: none; break-after: page; page-break-after: always; }
-      .cr-pagina:last-child { break-after: auto; page-break-after: auto; }
-      .cr-pagina--h { page: cracha-h; }
-      .cr-pagina--v { page: cracha-v; }
-      .cr-pagina--a4 { page: folha-a4; }
+      .cr-pagina { margin: 0; box-shadow: none; }
+      /* Quebra ANTES de cada página a partir da 2ª — nunca depois da última. */
+      .cr-pagina + .cr-pagina { break-before: page; page-break-before: always; }
     }
   `,
 })
-export class CrachasImpressaoComponent implements OnInit {
+export class CrachasImpressaoComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly service = inject(UsuarioService);
   private readonly logoService = inject(CrachaLogoService);
   private readonly el = inject(ElementRef<HTMLElement>);
+  private readonly doc = inject(DOCUMENT);
+  private estiloPagina: HTMLStyleElement | null = null;
 
   readonly usuarios = signal<Usuario[]>([]);
   readonly ignorados = signal(0);
@@ -121,6 +120,16 @@ export class CrachasImpressaoComponent implements OnInit {
   readonly furo = signal<FuroCracha>('retangular');
 
   readonly dim = computed(() => dimensoes(this.orientacao()));
+
+  /** Um único @page, no tamanho do modo atual (CR80 horizontal/vertical ou A4). */
+  private readonly efeitoPagina = effect(() => {
+    const { w, h } = this.modo() === 'a4' ? A4 : this.dim();
+    if (!this.estiloPagina) {
+      this.estiloPagina = this.doc.createElement('style');
+      this.doc.head.appendChild(this.estiloPagina);
+    }
+    this.estiloPagina.textContent = `@page { size: ${w}mm ${h}mm; margin: 0; }`;
+  });
 
   /** Grade A4: horizontal = 2 x 5 (10 por folha), vertical = 3 x 3 (9), centralizada, sem espaço entre cartões. */
   readonly folhas = computed<Folha[]>(() => {
@@ -187,6 +196,10 @@ export class CrachasImpressaoComponent implements OnInit {
         this.erro.set('Falha ao carregar os usuários.');
         this.carregando.set(false);
       });
+  }
+
+  ngOnDestroy(): void {
+    this.estiloPagina?.remove();
   }
 
   mudar(p: { orientacao?: OrientacaoCracha; modo?: 'unico' | 'a4'; furo?: FuroCracha }): void {
