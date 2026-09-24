@@ -4,9 +4,12 @@ import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
 import { EtiquetaPeso } from '../separacao/separacao.model';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
+import { ET_COMPONENTES, classeTamanhoTexto } from '../shared/etiqueta/et-componentes';
 
 /**
- * Etiqueta térmica de produto pesável (10x10 cm, uma por item pesável conferido).
+ * Etiqueta térmica de produto pesável (100 x 100 mm, uma por item pesável conferido).
+ * Mesma família visual da etiqueta de volume: cabeçalho, bloco CLIENTE e
+ * caixas de dígito vêm de shared/etiqueta.
  * O peso vem de separacao_itens.qtd_conferida_local (já em KG) — aqui só se
  * formata e imprime; nada de conversão. Abrir esta página CRIA a etiqueta (nº
  * único) na primeira vez e REIMPRIME o mesmo número nas seguintes. Número novo
@@ -15,7 +18,7 @@ import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 @Component({
   selector: 'app-etiqueta-peso',
   standalone: true,
-  imports: [OqSpinnerComponent],
+  imports: [OqSpinnerComponent, ...ET_COMPONENTES],
   templateUrl: './etiqueta-peso.component.html',
   styleUrl: './etiqueta-peso.component.scss',
 })
@@ -30,21 +33,17 @@ export class EtiquetaPesoComponent implements OnInit {
   readonly carregando = signal(true);
   readonly reimpressao = computed(() => this.etiquetas().some((e) => e.reimpressao));
 
-  /** Logo do cliente — frontend/src/assets/logos/<slug>.png|jpg (mesma regra da etiqueta de volume). */
-  readonly logoSrc = signal<string | null>(null);
-  private logoTentouJpg = false;
+  /** Data/hora da impressão — mesma pra todas as etiquetas da página. */
+  readonly agora = new Date().toLocaleString('pt-BR');
+  readonly classeTexto = classeTamanhoTexto;
 
   get tenant(): string {
     return this.auth.obterTenantSlug() ?? '';
   }
 
-  onLogoErro(): void {
-    if (!this.logoTentouJpg) {
-      this.logoTentouJpg = true;
-      this.logoSrc.set(`/assets/logos/${this.tenant}.jpg`);
-    } else {
-      this.logoSrc.set(null);
-    }
+  /** "57797-56" (NUNOTA-OC); sem OC, só o NUNOTA. */
+  numeroUnico(e: EtiquetaPeso): string {
+    return e.ordemCarga ? `${e.nunota}-${e.ordemCarga}` : String(e.nunota);
   }
 
   /** 15.640 -> "15,640" (sempre 3 casas — é o que a balança/o Sankhya trabalham). */
@@ -59,7 +58,6 @@ export class EtiquetaPesoComponent implements OnInit {
     const nova = q.get('nova') === 'true';
     const etapa = q.get('etapa');
 
-    if (this.tenant) this.logoSrc.set(`/assets/logos/${this.tenant}.png`);
 
     this.separacao
       .etiquetasPeso(this.tenant, sessaoId, {

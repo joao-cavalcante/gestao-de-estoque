@@ -119,6 +119,9 @@ export interface EtiquetaPeso {
   substituiFormatado?: string | null;
   /** TGFCAB.ORDEMCARGA — impresso junto com o Nº Único. */
   ordemCarga?: number | null;
+  /** Código e UF do cliente (bloco CLIENTE, igual à etiqueta de volume). */
+  codParc?: number | null;
+  uf?: string | null;
 }
 
 export interface EtiquetasPesoResposta {

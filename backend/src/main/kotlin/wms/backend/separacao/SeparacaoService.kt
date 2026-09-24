@@ -1032,7 +1032,7 @@ object SeparacaoService {
         if (itens.isEmpty()) return emptyList()
 
         val codparc = withContext(Dispatchers.IO) { TarefasRepository.buscarCodParcLocal(tenantId, sessao.nunota) }
-        val cliente = buscarClienteUf(tenantSlug, codparc).first
+        val (cliente, uf) = buscarClienteUf(tenantSlug, codparc)
         val ordemCarga = withContext(Dispatchers.IO) { TarefasRepository.buscarOrdemCargaLocal(tenantId, sessao.nunota) }
 
         return withContext(Dispatchers.IO) {
@@ -1051,7 +1051,7 @@ object SeparacaoService {
                     cliente = cliente,
                     nova = nova && codprod != null,
                     correcao = sessao.recontagem,
-                ).copy(ordemCarga = ordemCarga)
+                ).copy(ordemCarga = ordemCarga, codParc = codparc, uf = uf.ifBlank { null })
             }
         }
     }

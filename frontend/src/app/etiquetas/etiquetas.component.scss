@@ -1,12 +1,12 @@
-/* Etiqueta de volume 100 x 100 mm — térmica 203 dpi, SÓ preto e branco (nada de
-   cinza claro/gradiente, some na térmica). Medidas em mm. NÃO usa os tokens do
-   app: é impressão física, igual em tema claro ou escuro. Nada menor que 7 pt. */
+/* Etiqueta de volume 100 x 100 mm. Medidas/estilo comuns em
+   shared/etiqueta/_etiqueta.scss (mesma família da etiqueta de peso). */
+@use '../shared/etiqueta/etiqueta' as *;
 
 :host {
   display: block;
   background: #fff;
   color: #000;
-  font-family: Arial, 'Helvetica Neue', 'DejaVu Sans', sans-serif;
+  font-family: $et-fonte;
 }
 
 .et-msg {
@@ -36,204 +36,31 @@
   span { color: #666; font-size: 13px; }
 }
 
-/* ─── Etiqueta ─────────────────────────────────────────────────────────── */
-
+/* Grade: cabeçalho | cliente + UF | Nº Único | código de barras + volume */
 .et {
-  box-sizing: border-box;
-  width: 100mm;
-  height: 100mm;
-  padding: 3mm;
-  margin: 6px auto;
-  background: #fff;
-  border: 0.3mm solid #000; /* borda externa fina */
-  overflow: hidden;
-  display: grid;
+  @include et-pagina;
   grid-template-rows: 11mm 21mm 29mm 1fr;
-  page-break-after: always;
-  break-after: page;
 }
 
-/* Divisórias finas entre as seções */
-.et__cliente,
-.et__unico,
-.et__rodape {
-  border-top: 0.35mm solid #000;
-}
+.et__rotulo { @include et-rotulo; }
 
-.et__rotulo {
-  display: block;
-  font-size: 7pt;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  line-height: 1;
-}
-
-/* Cabeçalho: logo à esquerda, data/hora à direita */
-.et__cab {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 3mm;
-  padding-bottom: 1mm;
-}
-
-.et__logo {
-  max-height: 9.5mm;
-  max-width: 45mm;
-  object-fit: contain;
-  /* térmica: logo em preto sólido, sem gradiente */
-  filter: grayscale(1) contrast(1.8) brightness(0.9);
-}
-
-.et__data {
-  margin-left: auto;
-  font-size: 7.5pt;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-/* Cliente + UF */
-.et__cliente {
-  display: flex;
-  align-items: stretch;
-  gap: 2mm;
-  padding: 1.5mm 0;
-  min-height: 0;
-}
-
-.et__cliente-txt {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6mm;
-}
-
-.et__cod {
-  font-size: 8pt;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* Nome: nunca cortado — até 2 linhas; nomes longos reduzem a fonte. */
-.et__nome {
-  font-size: 12pt;
-  font-weight: 800;
-  line-height: 1.05;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-
-  &--longo { font-size: 10pt; }
-  &--muito-longo { font-size: 8.5pt; -webkit-line-clamp: 3; }
-}
-
-.et__uf {
-  flex: none;
-  width: 20mm;
-  background: #000;
-  color: #fff;
-  border-radius: 1.5mm;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-.et__uf-rotulo {
-  font-size: 7pt;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  line-height: 1;
-}
-
-.et__uf-valor {
-  font-size: 22pt;
-  font-weight: 900;
-  line-height: 1;
-}
-
-/* Caixas de dígito — uniformes, cantos arredondados, espaçamento constante */
-.et__caixas {
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  gap: 1.2mm;
-}
-
-.et__caixa {
-  box-sizing: border-box;
-  flex: 1 1 0;
-  min-width: 0;
-  border: 0.5mm solid #000;
-  border-radius: 2mm;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.et__traco {
-  flex: none;
-  align-self: center;
-  width: 3.5mm;
-  height: 1.4mm;
-  background: #000;
-}
-
-/* Nº Único: maior destaque. Tamanho da fonte acompanha a quantidade de caixas (--n). */
 .et__unico {
+  @include et-secao;
   display: flex;
   flex-direction: column;
   gap: 1.2mm;
   padding: 1.5mm 0;
-
-  .et__caixas { flex: 1; }
-
-  .et__caixa {
-    max-width: 12mm;
-    font-size: min(13mm, calc(96mm / var(--n, 8)));
-  }
 }
 
-/* Rodapé: código de barras à esquerda, volume (2º destaque) à direita */
 .et__rodape {
+  @include et-secao;
   display: flex;
   align-items: stretch;
   gap: 3mm;
   padding-top: 1.5mm;
-  min-height: 0;
 }
 
-.et__barras {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 0.8mm;
-  /* zona de silêncio do Code 128 (≥ 10 módulos) */
-  padding: 0 2.5mm;
-
-  svg {
-    width: 100%;
-    height: 14mm;
-    fill: #000;
-    shape-rendering: crispEdges;
-  }
-}
-
-.et__barras-txt {
-  font-size: 7.5pt;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 0.05em;
-}
+.et__barras { flex: 1; }
 
 .et__volume {
   flex: none;
@@ -243,31 +70,9 @@
   gap: 1.2mm;
 }
 
-.et__caixas--volume {
-  flex: 1;
-  width: 100%;
-
-  .et__caixa {
-    flex: none;
-    width: 10mm;
-    font-size: 12mm;
-  }
-}
-
-.et__barra {
-  align-self: center;
-  font-size: 11mm;
-  font-weight: 900;
-  line-height: 1;
-}
+@include et-impressao;
 
 @media print {
-  @page {
-    size: 100mm 100mm;
-    margin: 0;
-  }
-
   .et-toolbar { display: none; }
-
   .et { margin: 0; }
 }

@@ -1,0 +1,70 @@
+/* Família visual das etiquetas térmicas 100 x 100 mm (volume, peso, …).
+   Fonte ÚNICA das medidas — importado pelas páginas de etiqueta e pelos
+   componentes compartilhados (cabeçalho, cliente, caixas, barras), então um
+   ajuste aqui vale pra todas. Só preto e branco (nada de cinza claro ou
+   gradiente, some na térmica 203 dpi); nada menor que 7 pt. */
+
+$et-fonte: Arial, 'Helvetica Neue', 'DejaVu Sans', sans-serif;
+$et-lado: 100mm;
+$et-margem: 3mm;
+$et-divisoria: 0.35mm solid #000;
+$et-rotulo: 7pt;
+$et-texto-medio: 12pt;
+$et-caixa-borda: 0.5mm solid #000;
+$et-caixa-raio: 2mm;
+$et-caixa-gap: 1.2mm;
+
+/* Página da etiqueta: quem usa define só grid-template-rows. */
+@mixin et-pagina {
+  box-sizing: border-box;
+  width: $et-lado;
+  height: $et-lado;
+  padding: $et-margem;
+  margin: 6px auto;
+  background: #fff;
+  color: #000;
+  font-family: $et-fonte;
+  border: 0.3mm solid #000;
+  overflow: hidden;
+  display: grid;
+  page-break-after: always;
+  break-after: page;
+}
+
+/* Seção abaixo de outra: divisória fina em cima. */
+@mixin et-secao {
+  border-top: $et-divisoria;
+  min-height: 0;
+}
+
+@mixin et-rotulo {
+  display: block;
+  font-size: $et-rotulo;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+/* Texto médio (nome do cliente, produto): até 2 linhas, encolhe se longo, nunca corta. */
+@mixin et-texto-medio {
+  font-size: $et-texto-medio;
+  font-weight: 800;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  &.longo { font-size: 10pt; }
+  &.muito-longo { font-size: 8.5pt; -webkit-line-clamp: 3; }
+}
+
+@mixin et-impressao {
+  @media print {
+    @page {
+      size: 100mm 100mm;
+      margin: 0;
+    }
+  }
+}

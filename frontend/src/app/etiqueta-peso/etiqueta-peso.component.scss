@@ -1,12 +1,12 @@
-/* Etiqueta térmica de peso 10x10 cm — preto no branco, sem cinza (térmica não
-   reproduz meio-tom). NÃO usa os tokens do app: é impressão física. O peso é
-   o elemento dominante; nome do produto em 2 linhas no máximo. */
+/* Etiqueta de peso 100 x 100 mm — MESMA família da etiqueta de volume:
+   medidas/estilos comuns em shared/etiqueta/_etiqueta.scss. */
+@use '../shared/etiqueta/etiqueta' as *;
 
 :host {
   display: block;
   background: #fff;
-  font-family: Arial, Helvetica, sans-serif;
   color: #000;
+  font-family: $et-fonte;
 }
 
 .ep-msg {
@@ -25,148 +25,78 @@
   gap: 10px;
   padding: 12px 16px;
 
-  button {
-    border: 1px solid #1f6feb;
+  span { color: #666; font-size: 13px; }
+
+  &__print,
+  &__nova {
     border-radius: 6px;
     padding: 8px 14px;
     font-size: 13px;
     cursor: pointer;
+    border: 1px solid #1f6feb;
   }
   &__print { background: #1f6feb; color: #fff; }
   &__nova { background: #fff; color: #1f6feb; }
-  span { color: #555; font-size: 13px; }
 }
 
-.ep-page {
-  box-sizing: border-box;
-  width: 10cm;
-  height: 10cm;
-  padding: 0.45cm 0.5cm;
-  margin: 6px auto;
+/* Grade: cabeçalho | cliente + UF | produto | PESO | Nº Único */
+.ep {
+  @include et-pagina;
+  grid-template-rows: 11mm 19mm 14mm 23mm 1fr;
+}
+
+.ep__rotulo { @include et-rotulo; }
+
+.ep__produto {
+  @include et-secao;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  background: #fff;
-  border: 1px dashed #bbb; /* só na tela — some na impressão */
-  page-break-after: always;
+  gap: 0.8mm;
+  padding: 1.5mm 0;
 }
 
-.ep-rotulo {
-  display: block;
-  font-size: 9pt;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  line-height: 1;
-}
+.ep__produto-nome { @include et-texto-medio; }
 
-.ep-topo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 1.5cm;
-}
-
-.ep-substitui {
-  font-size: 10pt;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  margin-right: 0.3cm;
-  flex: 1;
-  text-align: left;
-}
-
-.ep-logo {
-  margin-left: auto;
-  max-height: 1.5cm;
-  max-width: 4.6cm;
-  object-fit: contain;
-}
-
-.ep-produto__nome {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-top: 0.1cm;
-  font-size: 20pt;
-  font-weight: 800;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-.ep-peso {
+/* PESO: destaque principal. Dígitos tabulares, 3 casas fixas; "kg" menor na linha de base. */
+.ep__peso {
+  @include et-secao;
   display: flex;
   flex-direction: column;
-  border-top: 0.04cm solid #000;
-  border-bottom: 0.04cm solid #000;
-  padding: 0.25cm 0;
-
-  &__valor {
-    font-size: 62pt;
-    font-weight: 900;
-    line-height: 1;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-
-    small {
-      font-size: 26pt;
-      font-weight: 800;
-      margin-left: 0.25cm;
-    }
-  }
+  justify-content: center;
+  gap: 0.5mm;
+  padding: 1.2mm 0;
 }
 
-.ep-rodape {
+.ep__peso-valor {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.3cm;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2mm;
+  font-size: 17mm;
+  font-weight: 900;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-.ep-cliente {
-  min-width: 0;
-  flex: 1;
-
-  &__nome {
-    display: block;
-    margin-top: 0.06cm;
-    font-size: 13pt;
-    font-weight: 700;
-    line-height: 1.15;
-    white-space: normal;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
+.ep__peso-un {
+  font-size: 7mm;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
-.ep-numero {
-  text-align: right;
-  flex: none;
-
-  &__valor {
-    display: block;
-    margin-top: 0.06cm;
-    font-family: 'Courier New', monospace;
-    font-size: 17pt;
-    font-weight: 900;
-    letter-spacing: 0.04em;
-    line-height: 1;
-  }
+.ep__unico {
+  @include et-secao;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2mm;
+  padding-top: 1.5mm;
 }
+
+
+@include et-impressao;
 
 @media print {
-  @page {
-    size: 10cm 10cm;
-    margin: 0;
-  }
-
   .ep-toolbar { display: none; }
-
-  .ep-page {
-    margin: 0;
-    border: 0;
-  }
+  .ep { margin: 0; }
 }

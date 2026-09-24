@@ -323,6 +323,9 @@ data class EtiquetaPesoDto(
     val substituiFormatado: String? = null,
     /** TGFCAB.ORDEMCARGA (mirror local) — impresso junto com o Nº Único. */
     val ordemCarga: Long? = null,
+    /** Código e UF do cliente — mesmo bloco CLIENTE da etiqueta de volume. */
+    val codParc: Int? = null,
+    val uf: String? = null,
 )
 
 @Serializable

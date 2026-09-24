@@ -21,38 +21,30 @@
     }
   </div>
 
+  <!-- Mesma grade/estilo da etiqueta de volume (shared/etiqueta): cabeçalho |
+       cliente + UF | produto | PESO (destaque) | Nº Único. Sem código de barras:
+       com as caixas no mesmo tamanho da etiqueta de volume não sobra espaço
+       legível pra ele (era opcional). -->
   @for (e of etiquetas(); track e.numero) {
-    <div class="ep-page">
-      <div class="ep-topo">
-        <!-- O nº interno da etiqueta não sai mais impresso — a correção só se identifica como tal. -->
-        @if (e.correcao) {
-          <span class="ep-substitui">CORREÇÃO · RECONTAGEM</span>
-        }
-        @if (logoSrc()) {
-          <img class="ep-logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
-        }
-      </div>
+    <div class="ep">
+      <oq-et-cabecalho [data]="agora" [selo]="e.correcao ? 'CORREÇÃO · RECONTAGEM' : null" />
+      <oq-et-cliente [codigo]="e.codParc" [nome]="e.cliente" [uf]="e.uf" />
 
-      <div class="ep-produto">
-        <span class="ep-rotulo">PRODUTO</span>
-        <span class="ep-produto__nome">{{ e.produto }}</span>
-      </div>
+      <section class="ep__produto">
+        <span class="ep__rotulo">PRODUTO</span>
+        <span [class]="'ep__produto-nome ' + classeTexto(e.produto)">{{ e.produto }}</span>
+      </section>
 
-      <div class="ep-peso">
-        <span class="ep-rotulo">PESO</span>
-        <span class="ep-peso__valor">{{ formatarPeso(e.peso) }}<small>KG</small></span>
-      </div>
+      <section class="ep__peso">
+        <span class="ep__rotulo">PESO</span>
+        <span class="ep__peso-valor">{{ formatarPeso(e.peso) }}<span class="ep__peso-un">kg</span></span>
+      </section>
 
-      <div class="ep-rodape">
-        <div class="ep-cliente">
-          <span class="ep-rotulo">CLIENTE</span>
-          <span class="ep-cliente__nome">{{ e.cliente || '—' }}</span>
-        </div>
-        <div class="ep-numero">
-          <span class="ep-rotulo">{{ e.ordemCarga ? 'Nº ÚNICO - O.C.' : 'Nº ÚNICO' }}</span>
-          <span class="ep-numero__valor">{{ e.ordemCarga ? e.nunota + ' - ' + e.ordemCarga : e.nunota }}</span>
-        </div>
-      </div>
+      <section class="ep__unico">
+        <span class="ep__rotulo">{{ e.ordemCarga ? 'Nº ÚNICO - O.C.' : 'Nº ÚNICO' }}</span>
+        <!-- Mesmas caixas da etiqueta de volume (altura 19 mm, largura toda). -->
+        <oq-et-caixas [texto]="numeroUnico(e)" [altura]="19" />
+      </section>
     </div>
   }
 }

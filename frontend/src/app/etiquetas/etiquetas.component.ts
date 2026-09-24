@@ -6,10 +6,12 @@ import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
 import { EtiquetaDados } from '../separacao/separacao.model';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
-import { code128B, larguraModulos } from '../shared/code128';
+import { ET_COMPONENTES } from '../shared/etiqueta/et-componentes';
 
 /**
- * Página de impressão de etiquetas de volume (15x10 cm, uma por volume).
+ * Página de impressão de etiquetas de volume (100 x 100 mm, uma por volume).
+ * Cabeçalho, bloco CLIENTE, caixas de dígito e código de barras são os
+ * componentes de shared/etiqueta — os mesmos da etiqueta de peso.
  * Renderizada no navegador e impressa via window.print() — sem PDF no backend.
  * Espelha src/templates/template-etiqueta.html do fila-de-conferencia.
  *
@@ -25,7 +27,7 @@ import { code128B, larguraModulos } from '../shared/code128';
 @Component({
   selector: 'app-etiquetas',
   standalone: true,
-  imports: [OqSpinnerComponent],
+  imports: [OqSpinnerComponent, ...ET_COMPONENTES],
   templateUrl: './etiquetas.component.html',
   styleUrl: './etiquetas.component.scss',
 })
@@ -41,21 +43,8 @@ export class EtiquetasComponent implements OnInit {
   /** "23/09/2026, 18:15:44" */
   readonly agora = new Date().toLocaleString('pt-BR');
 
-  /** Logo do cliente — o arquivo fica em frontend/src/assets/logos/<slug>.png|jpg. */
-  readonly logoSrc = signal<string | null>(null);
-  private logoTentouJpg = false;
-
   get tenant(): string {
     return this.auth.obterTenantSlug() ?? '';
-  }
-
-  onLogoErro(): void {
-    if (!this.logoTentouJpg) {
-      this.logoTentouJpg = true;
-      this.logoSrc.set(`/assets/logos/${this.tenant}.jpg`);
-    } else {
-      this.logoSrc.set(null); // sem logo pra esse tenant — some, sem erro
-    }
   }
 
   get totalVolumesGeral(): number {
@@ -69,57 +58,29 @@ export class EtiquetasComponent implements OnInit {
     return Array.from({ length: total }, (_, i) => ini + i);
   }
 
-  /**
-   * Caixas do Nº Único: um caractere por caixa, "NUNOTA-OC" (traço vira separador,
-   * não caixa). Sem OC, só o NUNOTA. Quantidade dinâmica — sem caixa vazia.
-   */
-  caixasUnico(grupo: EtiquetaDados): string[] {
-    return this.numeroUnico(grupo).split('');
-  }
-
-  private numeroUnico(grupo: EtiquetaDados): string {
+  /** "57758-56" (NUNOTA-OC); sem OC, só o NUNOTA. Vira caixas no <oq-et-caixas>. */
+  numeroUnico(grupo: EtiquetaDados): string {
     const nunota = grupo.nunota || Number(grupo.numeroNota) || 0;
     return grupo.ordemCarga ? `${nunota}-${grupo.ordemCarga}` : String(nunota);
   }
 
-  /** 2 dígitos (01, 02, …) — cresce sozinho a partir de 100. */
-  digitos2(v: number): string[] {
-    return String(v).padStart(2, '0').split('');
+  private d2(v: number): string {
+    return String(v).padStart(2, '0');
   }
 
   /**
-   * Total de volumes pra "03 / 05" — só quando é CONHECIDO: nota inteira, ou
-   * recontagem (total acumulado). Etiqueta por ETAPA não sabe quantos volumes as
-   * outras etapas ainda vão ter, então mostra só o número do volume.
+   * "03/05" — o total só quando é CONHECIDO: nota inteira, ou recontagem (total
+   * acumulado). Etiqueta por ETAPA não sabe quantos volumes as outras etapas
+   * ainda vão ter, então mostra só "03".
    */
-  totalConhecido(grupo: EtiquetaDados): number | null {
-    if (grupo.totalExibicao) return grupo.totalExibicao;
-    if (grupo.etapaTipo != null) return null;
-    return grupo.totalVolumes || null;
+  textoVolume(grupo: EtiquetaDados, v: number): string {
+    const total = grupo.totalExibicao || (grupo.etapaTipo != null ? null : grupo.totalVolumes || null);
+    return total ? `${this.d2(v)}/${this.d2(total)}` : this.d2(v);
   }
 
   /** Conteúdo do código de barras: Nº Único + volume ("57758-56-03"). */
   textoBarras(grupo: EtiquetaDados, v: number): string {
-    return `${this.numeroUnico(grupo)}-${this.digitos2(v).join('')}`;
-  }
-
-  private readonly cacheBarras = new Map<string, { total: number; retangulos: { x: number; w: number }[] }>();
-
-  /** Code 128 em retângulos (unidade = módulo). Cacheado: o template chama várias vezes por etiqueta. */
-  barras(grupo: EtiquetaDados, v: number): { total: number; retangulos: { x: number; w: number }[] } {
-    const texto = this.textoBarras(grupo, v);
-    const salvo = this.cacheBarras.get(texto);
-    if (salvo) return salvo;
-    const larguras = code128B(texto);
-    const retangulos: { x: number; w: number }[] = [];
-    let x = 0;
-    larguras.forEach((w, i) => {
-      if (i % 2 === 0) retangulos.push({ x, w }); // índice par = barra, ímpar = espaço
-      x += w;
-    });
-    const r = { total: larguraModulos(larguras), retangulos };
-    this.cacheBarras.set(texto, r);
-    return r;
+    return `${this.numeroUnico(grupo)}-${this.d2(v)}`;
   }
 
   ngOnInit(): void {
@@ -127,7 +88,6 @@ export class EtiquetasComponent implements OnInit {
     const nunotaParam = this.route.snapshot.queryParamMap.get('nunota');
     const etapaParam = this.route.snapshot.queryParamMap.get('etapa');
 
-    if (this.tenant) this.logoSrc.set(`/assets/logos/${this.tenant}.png`);
 
     if (!sessaoId) {
       // Impressão por NUNOTA direta (sem sessão local) — sempre nota inteira, sem etapa.
