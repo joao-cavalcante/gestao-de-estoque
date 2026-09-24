@@ -139,7 +139,7 @@
         <div style="padding: 12px; background: #e9e9e9; border-radius: 8px; display: flex; justify-content: center; width: 100%; box-sizing: border-box;">
           <svg #svgCracha xmlns="http://www.w3.org/2000/svg" [attr.width]="crachaDim().w + 'mm'" [attr.height]="crachaDim().h + 'mm'"
                [attr.viewBox]="'0 0 ' + crachaDim().w + ' ' + crachaDim().h" style="background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.25); border-radius: 3mm;">
-            <g appCracha [usuario]="u" [orientacao]="crachaOrientacao()" [logo]="crachaLogo()"></g>
+            <g appCracha [usuario]="u" [orientacao]="crachaOrientacao()" [furo]="crachaFuro()" [logo]="crachaLogo()"></g>
           </svg>
         </div>
         <div style="display: flex; gap: 8px; justify-content: center;">
@@ -147,6 +147,13 @@
                   [class.oq-admin-btn--outline]="crachaOrientacao() !== 'horizontal'" (click)="crachaOrientacao.set('horizontal')">Horizontal</button>
           <button type="button" class="oq-admin-btn" [class.oq-admin-btn--primary]="crachaOrientacao() === 'vertical'"
                   [class.oq-admin-btn--outline]="crachaOrientacao() !== 'vertical'" (click)="crachaOrientacao.set('vertical')">Vertical</button>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+          <span class="oq-form-hint">Furo:</span>
+          @for (op of [{ v: 'retangular', t: 'Retangular' }, { v: 'redondo', t: 'Redondo' }, { v: 'nenhum', t: 'Sem marca' }]; track op.v) {
+            <button type="button" class="oq-admin-btn" [class.oq-admin-btn--primary]="crachaFuro() === op.v"
+                    [class.oq-admin-btn--outline]="crachaFuro() !== op.v" (click)="crachaFuro.set($any(op.v))">{{ op.t }}</button>
+          }
         </div>
       </div>
       <div class="oq-modal__footer">

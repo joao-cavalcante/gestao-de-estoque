@@ -9,7 +9,7 @@ import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.compon
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { CrachaComponent } from '../../shared/cracha/cracha.component';
 import { CrachaLogoService } from '../../shared/cracha/cracha-logo.service';
-import { OrientacaoCracha, dimensoes, nomeArquivoCracha } from '../../shared/cracha/cracha-layout';
+import { FuroCracha, OrientacaoCracha, dimensoes, nomeArquivoCracha } from '../../shared/cracha/cracha-layout';
 import { baixarPdfDeSvgs } from '../../shared/cracha/cracha-pdf';
 
 interface FormUsuario {
@@ -54,6 +54,7 @@ export class UsuarioListComponent implements OnInit {
   /** Usuário (versão SALVA) cujo crachá está na prévia. */
   readonly crachaPrevia = signal<Usuario | null>(null);
   readonly crachaOrientacao = signal<OrientacaoCracha>('horizontal');
+  readonly crachaFuro = signal<FuroCracha>('retangular');
   readonly crachaDim = computed(() => dimensoes(this.crachaOrientacao()));
   readonly crachaLogo = signal<string | null>(null);
   readonly gerandoPdf = signal(false);
@@ -132,7 +133,7 @@ export class UsuarioListComponent implements OnInit {
   }
 
   private abrirImpressao(ids: string[], modo: 'unico' | 'a4', imprimir: boolean): void {
-    const q = new URLSearchParams({ ids: ids.join(','), modo, orientacao: this.crachaOrientacao() });
+    const q = new URLSearchParams({ ids: ids.join(','), modo, orientacao: this.crachaOrientacao(), furo: this.crachaFuro() });
     if (imprimir) q.set('imprimir', '1');
     window.open('/crachas?' + q.toString(), '_blank');
   }

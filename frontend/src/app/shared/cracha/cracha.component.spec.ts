@@ -51,12 +51,34 @@ describe('CrachaComponent', () => {
     expect(nomes[2]).toBe('MARIA MONTENEGRO');
   });
 
-  it('código de barras horizontal com ≥ 50 mm e zona de silêncio ≥ 3 mm', () => {
+  it('código de barras horizontal com ≥ 50 mm, 10 mm de altura e zona de silêncio ≥ 3 mm', () => {
     const l = calcularLayout('X', '000123', 'horizontal');
     expect(l.barras.w).toBeGreaterThanOrEqual(50);
     expect(l.barras.x).toBeGreaterThanOrEqual(3 + 3);
     expect(l.barras.x + l.barras.w).toBeLessThanOrEqual(85.6 - 6 + 1e-9);
-    expect(l.barras.h).toBeCloseTo(12, 1);
+    expect(l.barras.h).toBeCloseTo(10, 1);
+  });
+
+  it('faixa do furo (10 mm) livre: nada de logo/texto/barras acima dela, nas duas orientações', () => {
+    for (const o of ['horizontal', 'vertical'] as const) {
+      const l = calcularLayout('YURI ANTÔNIO DA SILVA XAVIER', '000123', o);
+      expect(l.cabecalho.logoY).toBeGreaterThanOrEqual(10);
+      // baseline − altura da fonte ≈ topo do texto
+      expect(l.cabecalho.operadorY - l.cabecalho.operadorFonte).toBeGreaterThanOrEqual(10);
+      expect(l.nome.y - l.nome.fonte).toBeGreaterThan(l.cabecalho.linhaY);
+      expect(l.barras.y).toBeGreaterThan(l.numero.y);
+      // texto sob as barras a ≥ 3 mm da borda inferior (descendente ~0,25 da fonte)
+      expect(l.barras.textoY + l.barras.textoFonte * 0.25).toBeLessThanOrEqual(l.h - 3);
+      expect(l.barras.textoFonte).toBeGreaterThanOrEqual(2.47); // ≥ 7 pt
+    }
+  });
+
+  it('guia do furo: retângulo 13 x 3 mm a 4 mm do topo, centralizado; redondo Ø 5; oculto', () => {
+    const r = calcularLayout('X', '1', 'horizontal', 'retangular').furo;
+    expect(r).toEqual({ tipo: 'retangular', x: 85.6 / 2 - 6.5, y: 4, w: 13, h: 3, r: 1.5 });
+    const c = calcularLayout('X', '1', 'vertical', 'redondo').furo;
+    expect(c).toEqual({ tipo: 'redondo', cx: 27, cy: 6.5, r: 2.5 });
+    expect(calcularLayout('X', '1', 'horizontal', 'nenhum').furo).toBeNull();
   });
 
   it('texto sob as barras é exatamente o código (o que o leitor devolve)', () => {

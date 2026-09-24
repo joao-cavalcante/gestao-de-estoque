@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges } from '@angular/core';
-import { LayoutCracha, OrientacaoCracha, calcularLayout } from './cracha-layout';
+import { FuroCracha, LayoutCracha, OrientacaoCracha, calcularLayout } from './cracha-layout';
 
 export interface DadosCracha {
   nome: string;
@@ -24,7 +24,18 @@ export interface DadosCracha {
       <svg:rect x="0.15" y="0.15" [attr.width]="l.w - 0.3" [attr.height]="l.h - 0.3" rx="3" ry="3"
                 fill="#fff" stroke="#000" stroke-width="0.3" />
 
-      <!-- Cabeçalho: logo (monocromático) + OPERADOR -->
+      <!-- Guia do furo do cordão (faixa de 10 mm livre no topo): tracejado cinza, sem preenchimento -->
+      @if (l.furo; as f) {
+        @if (f.tipo === 'retangular') {
+          <svg:rect [attr.x]="f.x" [attr.y]="f.y" [attr.width]="f.w" [attr.height]="f.h" [attr.rx]="f.r" [attr.ry]="f.r"
+                    fill="none" stroke="#6b6b6b" stroke-width="0.25" stroke-dasharray="0.8 0.5" />
+        } @else {
+          <svg:circle [attr.cx]="f.cx" [attr.cy]="f.cy" [attr.r]="f.r"
+                      fill="none" stroke="#6b6b6b" stroke-width="0.25" stroke-dasharray="0.8 0.5" />
+        }
+      }
+
+      <!-- Cabeçalho (abaixo da faixa do furo): logo (monocromático) + OPERADOR -->
       @if (logo) {
         <svg:image [attr.href]="logo" [attr.x]="l.cabecalho.logoX" [attr.y]="l.cabecalho.logoY"
                    [attr.width]="l.cabecalho.logoW" [attr.height]="l.cabecalho.logoH"
@@ -61,6 +72,7 @@ export interface DadosCracha {
 export class CrachaComponent implements OnChanges {
   @Input({ required: true }) usuario!: DadosCracha;
   @Input() orientacao: OrientacaoCracha = 'horizontal';
+  @Input() furo: FuroCracha = 'retangular';
   /** data URL do logo já em preto e branco (ver CrachaLogoService) — null = sem logo. */
   @Input() logo: string | null = null;
 
@@ -71,6 +83,6 @@ export class CrachaComponent implements OnChanges {
   }
 
   ngOnChanges(): void {
-    this.l = this.usuario ? calcularLayout(this.usuario.nome, this.codigo, this.orientacao) : null;
+    this.l = this.usuario ? calcularLayout(this.usuario.nome, this.codigo, this.orientacao, this.furo) : null;
   }
 }

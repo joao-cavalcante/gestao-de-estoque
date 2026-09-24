@@ -4,7 +4,7 @@ import { UsuarioService } from '../usuarios/usuario.service';
 import { Usuario } from '../usuarios/usuario.model';
 import { CrachaComponent } from '../shared/cracha/cracha.component';
 import { CrachaLogoService } from '../shared/cracha/cracha-logo.service';
-import { OrientacaoCracha, dimensoes, nomeArquivoCracha } from '../shared/cracha/cracha-layout';
+import { FuroCracha, OrientacaoCracha, dimensoes, nomeArquivoCracha } from '../shared/cracha/cracha-layout';
 import { baixarPdfDeSvgs } from '../shared/cracha/cracha-pdf';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 
@@ -43,6 +43,11 @@ interface Folha {
         <span class="cr-sep"></span>
         <button type="button" class="cr-btn" [class.cr-btn--ativo]="modo() === 'unico'" (click)="mudar({ modo: 'unico' })">1 por página (CR80)</button>
         <button type="button" class="cr-btn" [class.cr-btn--ativo]="modo() === 'a4'" (click)="mudar({ modo: 'a4' })">Folha A4 (lote)</button>
+        <span class="cr-sep"></span>
+        <span class="cr-rotulo">Furo:</span>
+        <button type="button" class="cr-btn" [class.cr-btn--ativo]="furo() === 'retangular'" (click)="mudar({ furo: 'retangular' })">Retangular</button>
+        <button type="button" class="cr-btn" [class.cr-btn--ativo]="furo() === 'redondo'" (click)="mudar({ furo: 'redondo' })">Redondo</button>
+        <button type="button" class="cr-btn" [class.cr-btn--ativo]="furo() === 'nenhum'" (click)="mudar({ furo: 'nenhum' })">Sem marca</button>
         <span class="cr-info">{{ usuarios().length }} crachá(s){{ ignorados() ? ' · ' + ignorados() + ' sem código ignorado(s)' : '' }}</span>
       </div>
 
@@ -51,7 +56,7 @@ interface Folha {
           <svg class="cr-pagina" [class.cr-pagina--h]="orientacao() === 'horizontal'" [class.cr-pagina--v]="orientacao() === 'vertical'"
                xmlns="http://www.w3.org/2000/svg" [attr.width]="dim().w + 'mm'" [attr.height]="dim().h + 'mm'"
                [attr.viewBox]="'0 0 ' + dim().w + ' ' + dim().h">
-            <g appCracha [usuario]="u" [orientacao]="orientacao()" [logo]="logo()"></g>
+            <g appCracha [usuario]="u" [orientacao]="orientacao()" [furo]="furo()" [logo]="logo()"></g>
           </svg>
         }
       } @else {
@@ -62,7 +67,7 @@ interface Folha {
               <line [attr.x1]="m[0]" [attr.y1]="m[1]" [attr.x2]="m[2]" [attr.y2]="m[3]" stroke="#000" stroke-width="0.2" />
             }
             @for (c of f.cartoes; track c.u.id) {
-              <g appCracha [attr.transform]="'translate(' + c.x + ' ' + c.y + ')'" [usuario]="c.u" [orientacao]="orientacao()" [logo]="logo()"></g>
+              <g appCracha [attr.transform]="'translate(' + c.x + ' ' + c.y + ')'" [usuario]="c.u" [orientacao]="orientacao()" [furo]="furo()" [logo]="logo()"></g>
             }
           </svg>
         }
@@ -78,6 +83,7 @@ interface Folha {
     .cr-btn--primario, .cr-btn--ativo { background: #1f6feb; color: #fff; }
     .cr-btn:disabled { opacity: .6; cursor: default; }
     .cr-sep { width: 1px; height: 24px; background: #ccc; margin: 0 4px; }
+    .cr-rotulo { color: #555; font-size: 13px; }
     .cr-info { margin-left: auto; color: #555; font-size: 13px; }
     .cr-pagina { display: block; margin: 16px auto; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
 
@@ -112,6 +118,7 @@ export class CrachasImpressaoComponent implements OnInit {
   readonly gerandoPdf = signal(false);
   readonly orientacao = signal<OrientacaoCracha>('horizontal');
   readonly modo = signal<'unico' | 'a4'>('unico');
+  readonly furo = signal<FuroCracha>('retangular');
 
   readonly dim = computed(() => dimensoes(this.orientacao()));
 
@@ -155,6 +162,8 @@ export class CrachasImpressaoComponent implements OnInit {
     const ids = (q.get('ids') ?? '').split(',').filter(Boolean);
     this.orientacao.set(q.get('orientacao') === 'vertical' ? 'vertical' : 'horizontal');
     this.modo.set(q.get('modo') === 'a4' ? 'a4' : 'unico');
+    const furoQ = q.get('furo');
+    this.furo.set(furoQ === 'redondo' || furoQ === 'nenhum' ? furoQ : 'retangular');
     const imprimirAoAbrir = q.get('imprimir') === '1';
 
     if (ids.length === 0) {
@@ -180,11 +189,12 @@ export class CrachasImpressaoComponent implements OnInit {
       });
   }
 
-  mudar(p: { orientacao?: OrientacaoCracha; modo?: 'unico' | 'a4' }): void {
+  mudar(p: { orientacao?: OrientacaoCracha; modo?: 'unico' | 'a4'; furo?: FuroCracha }): void {
     if (p.orientacao) this.orientacao.set(p.orientacao);
     if (p.modo) this.modo.set(p.modo);
+    if (p.furo) this.furo.set(p.furo);
     this.router.navigate([], {
-      queryParams: { orientacao: this.orientacao(), modo: this.modo(), imprimir: null },
+      queryParams: { orientacao: this.orientacao(), modo: this.modo(), furo: this.furo(), imprimir: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
