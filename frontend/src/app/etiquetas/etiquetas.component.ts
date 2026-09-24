@@ -6,6 +6,7 @@ import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
 import { EtiquetaDados } from '../separacao/separacao.model';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
+import { code128B, larguraModulos } from '../shared/code128';
 
 /**
  * Página de impressão de etiquetas de volume (15x10 cm, uma por volume).
@@ -37,6 +38,7 @@ export class EtiquetasComponent implements OnInit {
   readonly erro = signal<string | null>(null);
   readonly carregando = signal(true);
 
+  /** "23/09/2026, 18:15:44" */
   readonly agora = new Date().toLocaleString('pt-BR');
 
   /** Logo do cliente — o arquivo fica em frontend/src/assets/logos/<slug>.png|jpg. */
@@ -67,20 +69,57 @@ export class EtiquetasComponent implements OnInit {
     return Array.from({ length: total }, (_, i) => ini + i);
   }
 
-  /** Um quadrado por dígito do Nº Único — sem zero à esquerda, sem quadrado vazio. */
-  digitosNunota(grupo: EtiquetaDados): string[] {
+  /**
+   * Caixas do Nº Único: um caractere por caixa, "NUNOTA-OC" (traço vira separador,
+   * não caixa). Sem OC, só o NUNOTA. Quantidade dinâmica — sem caixa vazia.
+   */
+  caixasUnico(grupo: EtiquetaDados): string[] {
+    return this.numeroUnico(grupo).split('');
+  }
+
+  private numeroUnico(grupo: EtiquetaDados): string {
     const nunota = grupo.nunota || Number(grupo.numeroNota) || 0;
-    return String(nunota).split('');
+    return grupo.ordemCarga ? `${nunota}-${grupo.ordemCarga}` : String(nunota);
   }
 
-  /** Um quadrado por dígito da Ordem de Carga (OC 48 = 2 quadrados, OC 1234 = 4). */
-  digitosOc(grupo: EtiquetaDados): string[] {
-    return String(grupo.ordemCarga ?? '').split('');
-  }
-
-  /** Nº do volume com 2 dígitos (01, 02, …). */
-  digitosVolume(v: number): string[] {
+  /** 2 dígitos (01, 02, …) — cresce sozinho a partir de 100. */
+  digitos2(v: number): string[] {
     return String(v).padStart(2, '0').split('');
+  }
+
+  /**
+   * Total de volumes pra "03 / 05" — só quando é CONHECIDO: nota inteira, ou
+   * recontagem (total acumulado). Etiqueta por ETAPA não sabe quantos volumes as
+   * outras etapas ainda vão ter, então mostra só o número do volume.
+   */
+  totalConhecido(grupo: EtiquetaDados): number | null {
+    if (grupo.totalExibicao) return grupo.totalExibicao;
+    if (grupo.etapaTipo != null) return null;
+    return grupo.totalVolumes || null;
+  }
+
+  /** Conteúdo do código de barras: Nº Único + volume ("57758-56-03"). */
+  textoBarras(grupo: EtiquetaDados, v: number): string {
+    return `${this.numeroUnico(grupo)}-${this.digitos2(v).join('')}`;
+  }
+
+  private readonly cacheBarras = new Map<string, { total: number; retangulos: { x: number; w: number }[] }>();
+
+  /** Code 128 em retângulos (unidade = módulo). Cacheado: o template chama várias vezes por etiqueta. */
+  barras(grupo: EtiquetaDados, v: number): { total: number; retangulos: { x: number; w: number }[] } {
+    const texto = this.textoBarras(grupo, v);
+    const salvo = this.cacheBarras.get(texto);
+    if (salvo) return salvo;
+    const larguras = code128B(texto);
+    const retangulos: { x: number; w: number }[] = [];
+    let x = 0;
+    larguras.forEach((w, i) => {
+      if (i % 2 === 0) retangulos.push({ x, w }); // índice par = barra, ímpar = espaço
+      x += w;
+    });
+    const r = { total: larguraModulos(larguras), retangulos };
+    this.cacheBarras.set(texto, r);
+    return r;
   }
 
   ngOnInit(): void {

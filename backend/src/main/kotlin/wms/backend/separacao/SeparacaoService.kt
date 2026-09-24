@@ -975,6 +975,7 @@ object SeparacaoService {
             numeroNota = numeroNota,
             nunota = nunota,
             ordemCarga = ordemCarga,
+            codParc = codparc,
             numeroConferencia = nuconf,
             totalVolumes = totalVolumes,
         )

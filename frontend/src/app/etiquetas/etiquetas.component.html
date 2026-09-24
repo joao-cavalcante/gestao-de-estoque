@@ -13,47 +13,74 @@
     <span>{{ totalVolumesGeral }} etiqueta(s)</span>
   </div>
 
-  <!-- Layout portado 1:1 do template-etiqueta.html do fila-de-conferencia
-       (coords em px no espaço 425x283, escalado 1.334 pra preencher 15x10cm).
-       Um grupo por etapa quando a conferência foi segmentada (reimpressão
-       reproduz a mesma numeração que já saiu impressa na hora — X de Y da
-       ETAPA, não da nota inteira) — senão, 1 grupo só. Nome da etapa NÃO
-       aparece mais na etiqueta (pedido explícito) — sempre "X de Y". -->
+  <!-- Etiqueta de volume 100 x 100 mm (térmica 203 dpi, só preto e branco).
+       Grade: cabeçalho | cliente + UF | Nº Único | volume + código de barras.
+       Um grupo por etapa quando a conferência foi segmentada — mesma numeração
+       que já saiu impressa na hora (nome da etapa NÃO aparece, pedido explícito). -->
   @for (grupo of grupos(); track grupo) {
     @for (v of volumesDoGrupo(grupo); track v) {
-      <div class="page-outer">
-        <div class="page">
-          <div class="et-data">{{ agora }}</div>
+      <div class="et">
+        <header class="et__cab">
+          @if (logoSrc()) {
+            <img class="et__logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
+          }
+          <span class="et__data">{{ agora }}</span>
+        </header>
 
-          <div class="f bottom et-cliente">Cliente: {{ grupo.cliente || '—' }}</div>
-          <div class="f bottom et-uf">UF: {{ grupo.uf || '—' }}</div>
-
-          <div class="f center et-num-label">Nº Único:</div>
-          <!-- NUNOTA - OC: um quadrado por dígito, quantos o número tiver. -->
-          <div class="et-num">
-            @for (d of digitosNunota(grupo); track $index) {
-              <div class="digit">{{ d }}</div>
+        <section class="et__cliente">
+          <div class="et__cliente-txt">
+            <span class="et__rotulo">CLIENTE</span>
+            @if (grupo.codParc) {
+              <span class="et__cod">{{ grupo.codParc }}</span>
             }
-            @if (grupo.ordemCarga) {
-              <div class="et-num__traco"></div>
-              @for (d of digitosOc(grupo); track $index) {
-                <div class="digit">{{ d }}</div>
+            <span class="et__nome" [class.et__nome--longo]="(grupo.cliente || '').length > 32"
+                  [class.et__nome--muito-longo]="(grupo.cliente || '').length > 48">
+              {{ grupo.cliente || '—' }}
+            </span>
+          </div>
+          <div class="et__uf">
+            <span class="et__uf-rotulo">UF</span>
+            <span class="et__uf-valor">{{ grupo.uf || '—' }}</span>
+          </div>
+        </section>
+
+        <section class="et__unico">
+          <span class="et__rotulo">Nº ÚNICO</span>
+          <div class="et__caixas" [style.--n]="caixasUnico(grupo).length">
+            @for (c of caixasUnico(grupo); track $index) {
+              @if (c === '-') {
+                <span class="et__traco"></span>
+              } @else {
+                <span class="et__caixa">{{ c }}</span>
               }
             }
           </div>
+        </section>
 
-          @if (logoSrc()) {
-            <img class="et-logo" [src]="logoSrc()!" alt="" (error)="onLogoErro()" />
-          }
-
-          <!-- Só o número do volume, 2 dígitos (01, 02, 03) — sem o total. -->
-          <div class="f center et-vol-label">Nº Volume:</div>
-          <div class="et-seq">
-            @for (d of digitosVolume(v); track $index) {
-              <div class="digit">{{ d }}</div>
-            }
+        <section class="et__rodape">
+          <div class="et__barras">
+            <svg [attr.viewBox]="'0 0 ' + barras(grupo, v).total + ' 1'" preserveAspectRatio="none" aria-hidden="true">
+              @for (b of barras(grupo, v).retangulos; track $index) {
+                <rect [attr.x]="b.x" y="0" [attr.width]="b.w" height="1" />
+              }
+            </svg>
+            <span class="et__barras-txt">{{ textoBarras(grupo, v) }}</span>
           </div>
-        </div>
+          <div class="et__volume">
+            <span class="et__rotulo">VOLUME</span>
+            <div class="et__caixas et__caixas--volume">
+              @for (d of digitos2(v); track $index) {
+                <span class="et__caixa">{{ d }}</span>
+              }
+              @if (totalConhecido(grupo); as total) {
+                <span class="et__barra">/</span>
+                @for (d of digitos2(total); track $index) {
+                  <span class="et__caixa">{{ d }}</span>
+                }
+              }
+            </div>
+          </div>
+        </section>
       </div>
     }
   }

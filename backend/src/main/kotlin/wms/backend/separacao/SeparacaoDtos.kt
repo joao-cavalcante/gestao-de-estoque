@@ -166,6 +166,8 @@ data class EtiquetaDadosDto(
     /** NUNOTA completo (sem corte de dígitos) + Ordem de Carga — o que sai impresso hoje ("Nº Único - O.C."). */
     val nunota: Long = 0,
     val ordemCarga: Long? = null,
+    /** CODPARC do cliente — impresso pequeno acima do nome. */
+    val codParc: Int? = null,
     val numeroConferencia: Int?,
     val totalVolumes: Int,
     /** Etiqueta POR ETAPA: faixa acumulada de volumes desta etapa (ex.: 3..6) e o tipo da etapa. Null = nota inteira. */

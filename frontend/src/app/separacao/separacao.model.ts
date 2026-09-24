@@ -80,6 +80,8 @@ export interface EtiquetaDados {
   /** NUNOTA completo + Ordem de Carga — impressos como "Nº Único - O.C.". */
   nunota?: number;
   ordemCarga?: number | null;
+  /** CODPARC — impresso pequeno acima do nome do cliente. */
+  codParc?: number | null;
   numeroConferencia: number | null;
   totalVolumes: number;
   /** Etiqueta POR ETAPA: faixa acumulada de volumes da etapa (ex.: 3..6) e o tipo da etapa. */
