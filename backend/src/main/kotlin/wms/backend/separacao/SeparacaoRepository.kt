@@ -1700,7 +1700,7 @@ object SeparacaoRepository {
     }
 
     /** Marca a etapa concluída. Retorna false se a etapa não existe ou já estava 'C'. */
-    fun concluirEtapa(tenantId: UUID, sessaoId: UUID, tipoSeparacao: Short, operador: String): Boolean = TenantTx.run(tenantId) {
+    fun concluirEtapa(tenantId: UUID, sessaoId: UUID, tipoSeparacao: Short, operador: String, divergente: Boolean = false): Boolean = TenantTx.run(tenantId) {
         val n = SeparacaoEtapasTable.update({
             (SeparacaoEtapasTable.tenantId eq tenantId) and
                 (SeparacaoEtapasTable.sessaoId eq sessaoId) and
@@ -1710,6 +1710,7 @@ object SeparacaoRepository {
             it[status] = SeparacaoEtapaStatus.CONCLUIDA
             it[concluidaPor] = operador
             it[concluidaEm] = Instant.now()
+            it[SeparacaoEtapasTable.divergente] = divergente
         }
         n > 0
     }
@@ -1727,6 +1728,7 @@ object SeparacaoRepository {
                 (SeparacaoEtapasTable.tipoSeparacao eq tipoSeparacao)
         }) {
             it[status] = SeparacaoEtapaStatus.PENDENTE
+            it[SeparacaoEtapasTable.divergente] = false
             it[concluidaPor] = null
             it[concluidaEm] = null
         }
@@ -1761,7 +1763,14 @@ object SeparacaoRepository {
     }
 
     /** Tipos de separação já concluídos, por nunota — pro card da fila. */
-    fun etapasConcluidasPorNunota(tenantId: UUID, nunotas: List<Long>): Map<Long, List<Int>> = TenantTx.run(tenantId) {
+    fun etapasConcluidasPorNunota(tenantId: UUID, nunotas: List<Long>): Map<Long, List<Int>> =
+        etapasConcluidas(tenantId, nunotas, soDivergentes = false)
+
+    /** Etapas concluídas COM divergência (V48) — chip vermelho no card da fila. */
+    fun etapasDivergentesPorNunota(tenantId: UUID, nunotas: List<Long>): Map<Long, List<Int>> =
+        etapasConcluidas(tenantId, nunotas, soDivergentes = true)
+
+    private fun etapasConcluidas(tenantId: UUID, nunotas: List<Long>, soDivergentes: Boolean): Map<Long, List<Int>> = TenantTx.run(tenantId) {
         if (nunotas.isEmpty()) return@run emptyMap()
         val nunotasInt = nunotas.map { it.toInt() }
         // sessao_id -> nunota (todas as sessões dessas notas)
@@ -1779,7 +1788,8 @@ object SeparacaoRepository {
             .where {
                 (SeparacaoEtapasTable.tenantId eq tenantId) and
                     (SeparacaoEtapasTable.status eq SeparacaoEtapaStatus.CONCLUIDA) and
-                    (SeparacaoEtapasTable.sessaoId inList nunotaPorSessao.keys)
+                    (SeparacaoEtapasTable.sessaoId inList nunotaPorSessao.keys) and
+                    (if (soDivergentes) SeparacaoEtapasTable.divergente eq true else Op.TRUE)
             }
             .mapNotNull { row ->
                 val nunota = nunotaPorSessao[row[SeparacaoEtapasTable.sessaoId]] ?: return@mapNotNull null

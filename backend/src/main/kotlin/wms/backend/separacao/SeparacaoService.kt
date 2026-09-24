@@ -695,7 +695,9 @@ object SeparacaoService {
         }
 
         val marcou = withContext(Dispatchers.IO) {
-            SeparacaoRepository.concluirEtapa(tenantId, sessaoId, tipo, operador)
+            // manterPendente=true só chega quando o operador confirmou concluir COM
+            // divergência (pop-up de divergência/aviso de etapa) → chip vermelho na fila.
+            SeparacaoRepository.concluirEtapa(tenantId, sessaoId, tipo, operador, divergente = manterPendente)
         }
         if (!marcou) throw ConcluirEtapaException("etapa $tipoSeparacao não encontrada ou já concluída")
 
@@ -781,6 +783,9 @@ object SeparacaoService {
         val concluidos = withContext(Dispatchers.IO) {
             SeparacaoRepository.etapasConcluidasPorNunota(tenantId, nunotas)
         }
+        val divergentes = withContext(Dispatchers.IO) {
+            SeparacaoRepository.etapasDivergentesPorNunota(tenantId, nunotas)
+        }
         val progresso = withContext(Dispatchers.IO) {
             SeparacaoRepository.progressoEtapasPorNunota(tenantId, nunotas)
         }
@@ -795,6 +800,7 @@ object SeparacaoService {
             FilaEtapasDto(
                 tipos = if (nunota in emRecontagem) emptyList() else tiposPorNunota[nunota] ?: emptyList(),
                 concluidos = concluidos[nunota] ?: emptyList(),
+                divergentes = divergentes[nunota] ?: emptyList(),
                 progresso = (progresso[nunota] ?: emptyMap()).mapValues { (_, p) -> EtapaProgressoDto(p.total, p.conferidos) },
             )
         }.filterValues { it.tipos.isNotEmpty() }

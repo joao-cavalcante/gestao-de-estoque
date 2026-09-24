@@ -249,6 +249,14 @@
     color: var(--oq-success-foreground, var(--oq-text-secondary));
     cursor: default;
   }
+
+  // Etapa concluída COM divergência (V48) — vermelho, mesma família do alerta crítico.
+  &--divergente {
+    border-color: var(--oq-critical);
+    background: var(--oq-critical-soft, var(--oq-critical-bg, var(--oq-surface-2)));
+    color: var(--oq-critical-foreground, var(--oq-critical));
+    cursor: default;
+  }
 }
 
 .oq-card__etapa-chip-label {

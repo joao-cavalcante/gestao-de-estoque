@@ -103,6 +103,8 @@ object SeparacaoEtapasTable : Table("app.separacao_etapas") {
     val qtdVol = integer("qtd_vol").default(0)
     val concluidaPor = text("concluida_por").nullable()
     val concluidaEm = timestamp("concluida_em").nullable()
+    /** V48 — concluída com divergência (operador confirmou no pop-up) → chip vermelho na fila. */
+    val divergente = bool("divergente").default(false)
     val criadoEm = timestamp("criado_em")
 
     override val primaryKey = PrimaryKey(id)

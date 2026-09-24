@@ -68,13 +68,14 @@
           <button
             type="button"
             class="oq-card__etapa-chip"
-            [class.oq-card__etapa-chip--ok]="etapa.concluida"
+            [class.oq-card__etapa-chip--ok]="etapa.concluida && !etapa.divergente"
+            [class.oq-card__etapa-chip--divergente]="etapa.divergente"
             [class.oq-card__etapa-chip--andamento]="etapa.emAndamento"
             [disabled]="etapa.concluida"
             [title]="etapa.botao + ' — ' + etapa.label"
             (click)="conferirEtapa(etapa.tipo)"
           >
-            <oq-icon [name]="etapa.concluida ? 'check' : etapa.icone" [size]="13" />
+            <oq-icon [name]="etapa.divergente ? 'circle-alert' : etapa.concluida ? 'check' : etapa.icone" [size]="13" />
             <span class="oq-card__etapa-chip-label">{{ etapa.label }}</span>
             @if (etapa.progresso && !etapa.concluida) {
               <span class="oq-card__etapa-chip-prog">{{ etapa.progresso }}</span>

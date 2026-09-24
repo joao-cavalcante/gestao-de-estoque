@@ -9,6 +9,8 @@ interface FilaEtapasResposta {
   [nunota: string]: {
     tipos: number[];
     concluidos: number[];
+    /** Concluídos COM divergência (V48). */
+    divergentes?: number[];
     progresso?: { [tipo: string]: { total: number; conferidos: number } };
   };
 }
@@ -157,6 +159,7 @@ function mergeEtapas(tarefas: Tarefa[], etapasPorNota: FilaEtapasResposta): Tare
       return {
         tipo,
         status: info.concluidos.includes(tipo) ? 'C' : 'P',
+        divergente: info.divergentes?.includes(tipo) ?? false,
         total: p?.total ?? 0,
         conferidos: p?.conferidos ?? 0,
       };

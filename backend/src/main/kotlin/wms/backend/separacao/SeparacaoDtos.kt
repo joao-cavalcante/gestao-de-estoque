@@ -124,6 +124,8 @@ data class FilaEtapasDto(
     val tipos: List<Int>,
     /** Tipos já concluídos localmente. */
     val concluidos: List<Int>,
+    /** Dos concluídos, os que terminaram COM divergência (V48) — chip vermelho. */
+    val divergentes: List<Int> = emptyList(),
     /** Progresso por tipo (só tipos que têm sessão local com itens) — pra "Continuar 3/8" no card. */
     val progresso: Map<Int, EtapaProgressoDto> = emptyMap(),
 )

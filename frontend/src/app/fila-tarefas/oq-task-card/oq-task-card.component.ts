@@ -43,6 +43,7 @@ export class OqTaskCardComponent {
     label: string;
     icone: OqIconName;
     concluida: boolean;
+    divergente: boolean;
     emAndamento: boolean;
     progresso: string;
     botao: string;
@@ -57,9 +58,10 @@ export class OqTaskCardComponent {
           label: cat?.label ?? `Tipo ${e.tipo}`,
           icone: (cat?.icone ?? 'box') as OqIconName,
           concluida,
+          divergente: concluida && !!e.divergente,
           emAndamento,
           progresso: e.total > 0 ? `${e.conferidos}/${e.total}` : '',
-          botao: concluida ? 'Concluída' : emAndamento ? 'Continuar' : 'Conferir',
+          botao: concluida ? (e.divergente ? 'Concluída com divergência' : 'Concluída') : emAndamento ? 'Continuar' : 'Conferir',
         };
       })
       .sort((a, b) => a.tipo - b.tipo);

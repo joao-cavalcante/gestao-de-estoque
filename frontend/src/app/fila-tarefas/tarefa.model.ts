@@ -43,6 +43,8 @@ export interface TarefaEtapa {
   /** 1 Secos | 2 Resfriados | 3 Congelados. */
   tipo: number;
   status: 'P' | 'C';
+  /** Concluída COM divergência — chip vermelho no card. */
+  divergente?: boolean;
   /** Progresso da etapa (itens conferidos / total) — pra "Continuar 3/8" no card. */
   total: number;
   conferidos: number;
