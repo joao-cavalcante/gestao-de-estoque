@@ -39,7 +39,7 @@ data class MapaSeparacaoDto(
     val porParceiro: List<ParceiroSeparacaoDto>,
 )
 
-/** Refrigerados de UM parceiro na OC (somados entre os pedidos dele, nunca entre parceiros). */
+/** Refrigerados de UM pedido (NUNOTA) da OC — bloco próprio por pedido, com o cliente dele; `nunotas` tem só esse NUNOTA. */
 @Serializable
 data class ParceiroSeparacaoDto(
     val codParc: Int,

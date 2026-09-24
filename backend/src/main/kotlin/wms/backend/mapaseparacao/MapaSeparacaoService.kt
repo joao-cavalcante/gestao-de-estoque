@@ -195,20 +195,23 @@ object MapaSeparacaoService {
         // OC inteira, todos os clientes juntos (sem quebra por pedido/parceiro).
         val consolidado = agregar(linhasConsolidadas, { it.pesavel() }) { it.qtdComSinal() }
 
-        // Por parceiro — soma só entre os pedidos do MESMO parceiro.
-        val segregadoPorParceiro = linhasSegregadas.groupBy { notaPorNunota.getValue(it.nunota).codParc }
-            .mapValues { (_, linhasParceiro) -> linhasParceiro to agregar(linhasParceiro, { it.pesavel() }) { it.qtdComSinal() } }
-        val porParceiro = segregadoPorParceiro.map { (codParc, par) ->
-            val (linhasParceiro, itens) = par
+        // Por PEDIDO (NUNOTA) — cada pedido é um bloco próprio, mesmo quando o
+        // cliente tem mais de um pedido na OC (pedido do usuário: separação por
+        // NUNOTA + cliente, em página corrida). Nunca soma entre pedidos.
+        val segregadoPorParceiro = linhasSegregadas.groupBy { it.nunota }
+            .mapValues { (_, linhasPedido) -> linhasPedido to agregar(linhasPedido, { it.pesavel() }) { it.qtdComSinal() } }
+        val porParceiro = segregadoPorParceiro.map { (nunota, par) ->
+            val (_, itens) = par
+            val nota = notaPorNunota.getValue(nunota)
             ParceiroSeparacaoDto(
-                codParc = codParc,
-                nomeParceiro = notaPorNunota.getValue(linhasParceiro.first().nunota).nomeParceiro,
-                nunotas = linhasParceiro.map { it.nunota }.distinct().sorted(),
+                codParc = nota.codParc,
+                nomeParceiro = nota.nomeParceiro,
+                nunotas = listOf(nunota),
                 quantidadeTotal = itens.sumOf { it.quantidade }.formatar(),
                 pesoTotal = itens.sumOf { it.pesoTotal }.formatar(),
                 categorias = categorias(itens),
             )
-        }.sortedBy { it.nomeParceiro }
+        }.sortedWith(compareBy({ it.nomeParceiro }, { it.nunotas.first() }))
 
         val todos = consolidado + segregadoPorParceiro.values.flatMap { it.second }
         MapaSeparacaoDto(

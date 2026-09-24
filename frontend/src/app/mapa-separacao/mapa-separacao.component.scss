@@ -453,6 +453,32 @@
   color: var(--oq-text-primary);
 }
 
+// Refrigerado em página corrida: um <tbody> por pedido (NUNOTA + cliente). Tenta
+// não partir o pedido no meio da página (se não couber, vai inteiro pra próxima).
+// Linha grossa em cima de cada pedido = separação visível entre os pedidos.
+.ms-cliente {
+  break-inside: avoid;
+  page-break-inside: avoid;
+
+  &__cabecalho td {
+    background: var(--oq-surface-2);
+    border-top: 3px solid var(--oq-text-primary);
+    font-size: 13px;
+    padding: 7px 6px;
+  }
+
+  &__nome {
+    margin-left: 14px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  &__subtotal td {
+    font-weight: 700;
+    border-bottom: 2px solid var(--oq-border-strong);
+  }
+}
+
 .ms-col-code {
   width: 16%;
 }
@@ -551,6 +577,7 @@
   }
 
   .ms-categoria__banner,
+  .ms-cliente__cabecalho td,
   .ms-total-geral {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

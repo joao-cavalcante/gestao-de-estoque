@@ -236,9 +236,12 @@
         </section>
       }
 
-      <!-- ─── FOLHAS 2..N: refrigerado, UMA folha por cliente (peso e unidade juntos). ─── -->
-      @for (parceiro of dados()!.porParceiro; track parceiro.codParc; let primeiroParceiro = $first) {
-        <section class="ms-categoria" [class.ms-page-break]="!primeiroParceiro || dados()!.consolidado.length > 0">
+      <!-- ─── Refrigerado: PÁGINA CORRIDA, separado por PEDIDO (Nro. Único + cliente).
+           Uma tabela só (cabeçalho da OC + faixa repetem sozinhos a cada página
+           impressa); cada pedido é um <tbody>: linha "Nro. Único · cliente", itens
+           e subtotal — tenta não partir no meio da página, mas não força folha nova. ─── -->
+      @if (dados()!.porParceiro.length > 0) {
+        <section class="ms-categoria" [class.ms-page-break]="dados()!.consolidado.length > 0">
           <table class="ms-itens">
             <colgroup>
               <col class="ms-col-code" />
@@ -249,15 +252,15 @@
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ rotulo: 'Nro. Único', valor: parceiro.nunotas.join(', ') }" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
                   <div class="ms-categoria__banner">
                     <oq-icon name="refrigerado" [size]="20" />
-                    <span class="ms-categoria__nome">Refrigerado — {{ parceiro.codParc }} - {{ parceiro.nomeParceiro }}</span>
-                    <span class="ms-categoria__total">Pedido(s): {{ parceiro.nunotas.join(', ') }}</span>
+                    <span class="ms-categoria__nome">Refrigerado — por pedido</span>
+                    <span class="ms-categoria__total">{{ dados()!.porParceiro.length }} pedido(s)</span>
                   </div>
                 </th>
               </tr>
@@ -268,24 +271,30 @@
                 <th class="ms-num">Quantidade</th>
               </tr>
             </thead>
-            <tbody>
-              @for (categoria of parceiro.categorias; track trackCategoria($index, categoria)) {
-                @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
-                  <tr>
-                    <td>{{ item.codProd }}</td>
-                    <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
-                    <td class="ms-center">{{ item.unidade }}</td>
-                    <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
-                  </tr>
+            @for (parceiro of dados()!.porParceiro; track parceiro.nunotas[0]) {
+              <tbody class="ms-cliente">
+                <tr class="ms-cliente__cabecalho">
+                  <td colspan="4">
+                    <strong>Nro. Único {{ parceiro.nunotas.join(', ') }}</strong>
+                    <span class="ms-cliente__nome">{{ parceiro.codParc }} - {{ parceiro.nomeParceiro }}</span>
+                  </td>
+                </tr>
+                @for (categoria of parceiro.categorias; track trackCategoria($index, categoria)) {
+                  @for (item of categoria.itens; track item.codProd + '|' + item.controle + '|' + item.unidade) {
+                    <tr>
+                      <td>{{ item.codProd }}</td>
+                      <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
+                      <td class="ms-center">{{ item.unidade }}</td>
+                      <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
+                    </tr>
+                  }
                 }
-              }
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="3">Subtotal {{ parceiro.nomeParceiro }}</td>
-                <td class="ms-num">{{ formatarQtd(parceiro.quantidadeTotal) }}</td>
-              </tr>
-            </tfoot>
+                <tr class="ms-cliente__subtotal">
+                  <td colspan="3">Subtotal pedido {{ parceiro.nunotas.join(', ') }}</td>
+                  <td class="ms-num">{{ formatarQtd(parceiro.quantidadeTotal) }}</td>
+                </tr>
+              </tbody>
+            }
           </table>
         </section>
       }
