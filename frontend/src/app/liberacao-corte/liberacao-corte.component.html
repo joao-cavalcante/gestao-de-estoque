@@ -3,11 +3,18 @@
     <h1><oq-icon name="scissors" [size]="18" class="lc-page__icon" />Liberação de Corte</h1>
     <span class="lc-page__count">{{ listaFiltrada.length }} aguardando</span>
     <button type="button" class="lc-page__refresh" (click)="carregar()">Atualizar</button>
+    @if (listaFiltrada.length > PER_PAGE) {
+      <div class="lc-pager lc-pager--topo">
+        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()" aria-label="Página anterior">‹</button>
+        <span>{{ paginaIdx + 1 }} / {{ totalPaginas }}</span>
+        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()" aria-label="Próxima página">›</button>
+      </div>
+    }
   </header>
 
   <div class="lc-filtros">
-    <input type="number" placeholder="Nº da nota (NF)" [(ngModel)]="filtroNota" />
-    <input type="number" placeholder="Nº único (NUNOTA)" [(ngModel)]="filtroUnico" />
+    <input type="number" placeholder="Nº da nota (NF)" [(ngModel)]="filtroNota" (ngModelChange)="onFiltroChange()" />
+    <input type="number" placeholder="Nº único (NUNOTA)" [(ngModel)]="filtroUnico" (ngModelChange)="onFiltroChange()" />
   </div>
 
   @if (erro()) {
@@ -24,7 +31,7 @@
     <p class="lc-page__vazio">Nenhum resultado para esse filtro.</p>
   } @else {
     <div class="lc-grid">
-      @for (item of listaFiltrada; track item.nunota) {
+      @for (item of paginaAtual; track item.nunota) {
         <article class="oq-card">
           <div class="oq-card__dot oq-card__dot--attention"></div>
 
@@ -64,6 +71,14 @@
         </article>
       }
     </div>
+
+    @if (listaFiltrada.length > PER_PAGE) {
+      <footer class="lc-pager">
+        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()" aria-label="Página anterior">‹</button>
+        <span>{{ paginaIdx + 1 }} / {{ totalPaginas }}</span>
+        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()" aria-label="Próxima página">›</button>
+      </footer>
+    }
   }
 
   @if (selecionada(); as sel) {

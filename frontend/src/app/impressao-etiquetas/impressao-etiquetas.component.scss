@@ -83,6 +83,8 @@
   font-size: 12px;
   color: var(--oq-text-secondary);
 
+  &--topo { margin: 0 0 0 auto; }
+
   button {
     border: 1px solid var(--oq-border);
     background: var(--oq-surface);

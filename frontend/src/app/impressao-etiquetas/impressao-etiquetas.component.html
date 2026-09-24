@@ -2,6 +2,14 @@
   <header class="ie-page__head">
     <h1>Impressão de Etiquetas</h1>
     <span class="ie-page__count">{{ total() }} finalizada(s)</span>
+    <!-- Paginação também no topo: com 12 cards o rodapé fica fora da tela. -->
+    @if (total() > PER_PAGE) {
+      <div class="ie-pager ie-pager--topo">
+        <button type="button" [disabled]="page() === 0" (click)="anterior()" aria-label="Página anterior">‹</button>
+        <span>{{ page() + 1 }} / {{ totalPaginas }}</span>
+        <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()" aria-label="Próxima página">›</button>
+      </div>
+    }
   </header>
 
   <div class="ie-filtros">

@@ -34,6 +34,36 @@ export class LiberacaoCorteComponent implements OnInit {
   /** Getter (não computed()) de propósito — filtroNota/filtroUnico são campos
    * simples com [(ngModel)] (mesmo padrão de ImpressaoEtiquetasComponent), não
    * signals; o template já reavalia a cada ciclo de CD, lista é pequena. */
+  /** Paginação em memória (a lista já vem inteira do backend) — mesmo tamanho da Impressão de Etiquetas. */
+  readonly PER_PAGE = 12;
+  readonly page = signal(0);
+
+  get totalPaginas(): number {
+    return Math.max(Math.ceil(this.listaFiltrada.length / this.PER_PAGE), 1);
+  }
+
+  /** Página atual sempre válida — filtro/recarga podem encolher a lista. */
+  get paginaIdx(): number {
+    return Math.min(this.page(), this.totalPaginas - 1);
+  }
+
+  get paginaAtual(): ConferenciaAguardandoCorte[] {
+    const p = this.paginaIdx;
+    return this.listaFiltrada.slice(p * this.PER_PAGE, (p + 1) * this.PER_PAGE);
+  }
+
+  proxima(): void {
+    if (this.paginaIdx < this.totalPaginas - 1) this.page.set(this.paginaIdx + 1);
+  }
+
+  anterior(): void {
+    this.page.set(Math.max(0, this.paginaIdx - 1));
+  }
+
+  onFiltroChange(): void {
+    this.page.set(0);
+  }
+
   get listaFiltrada(): ConferenciaAguardandoCorte[] {
     const nota = this.filtroNota;
     const unico = this.filtroUnico;

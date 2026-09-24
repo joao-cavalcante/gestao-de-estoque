@@ -1,6 +1,39 @@
 // Padrão visual da Fila de Tarefas (oq-card) — tokens --oq-*, mono/display,
 // raios 2-3px, paleta contida.
 
+// .oq-app-shell__content é overflow:hidden em 100vh — a tela rola sozinha
+// (mesmo padrão da Impressão de Etiquetas / Mapa de Separação).
+:host {
+  display: block;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.lc-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+
+  &--topo { margin: 0 0 0 auto; }
+
+  button {
+    border: 1px solid var(--oq-border);
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    border-radius: var(--oq-radius-input);
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+  }
+}
+
 .lc-page {
   padding: 20px 24px;
   max-width: 1100px;
