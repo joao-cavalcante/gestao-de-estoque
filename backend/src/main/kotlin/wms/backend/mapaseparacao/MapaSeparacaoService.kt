@@ -453,9 +453,11 @@ object MapaSeparacaoService {
             ),
             FIELDS_ORDEM_LISTA,
         )
+        val ordensCarga = raw.mapNotNull { it["ORDEMCARGA"]?.toLongOrNull() }.distinct()
+        // Diagnóstico de "painel vazio": Sankhya sem OC aberta vs. OC aberta sem nota na fila (0/0, o front esconde).
+        println("MAPA abertas: ${raw.size} linha(s) SITUACAO='A' no Sankhya, OCs=${ordensCarga.take(20)}")
         if (raw.isEmpty()) return@coroutineScope emptyList()
 
-        val ordensCarga = raw.mapNotNull { it["ORDEMCARGA"]?.toLongOrNull() }.distinct()
         val codVeiculos = raw.mapNotNull { it["CODVEICULO"]?.toIntOrNull() }.distinct()
         val codMotoristas = raw.mapNotNull { it["CODPARCMOTORISTA"]?.toIntOrNull() }.distinct()
 
@@ -467,6 +469,7 @@ object MapaSeparacaoService {
         val statusPorOc = withContext(Dispatchers.IO) {
             TarefasRepository.statusPorOrdemCarga(tenantId, ordensCarga.toSet())
         }.groupBy({ it.first }, { it.second })
+        println("MAPA abertas: notas na fila por OC=${ordensCarga.take(20).associateWith { statusPorOc[it].orEmpty().size }}")
 
         raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
