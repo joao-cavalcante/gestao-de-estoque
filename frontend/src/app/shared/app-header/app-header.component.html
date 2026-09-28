@@ -12,7 +12,7 @@
     <div class="oq-header__logo">{{ contexto.unidade().iniciais }}</div>
     <div class="oq-header__unit-name">
       <span class="oq-header__unit-title">{{ contexto.unidade().nome }}</span>
-      <span class="oq-header__version">{{ contexto.unidade().versao }}</span>
+      <span class="oq-header__version" [title]="contexto.unidade().versaoDetalhe">{{ contexto.unidade().versao }}</span>
     </div>
   </div>
 

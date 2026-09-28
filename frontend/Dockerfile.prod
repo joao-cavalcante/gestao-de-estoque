@@ -6,6 +6,10 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+# Versão do cabeçalho (HMI-OPS · vX.Y.<build>) — passada pelo deploy (docker-compose.prod.yml).
+ARG APP_BUILD=
+ARG APP_COMMIT=
+RUN APP_BUILD="$APP_BUILD" APP_COMMIT="$APP_COMMIT" node tools/gerar-versao.mjs
 # angular.json → outputPath dist/frontend ; Angular 17 gera dist/frontend/browser
 RUN npx ng build --configuration production
 

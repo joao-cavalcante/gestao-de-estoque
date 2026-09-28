@@ -71,6 +71,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+      # Versão exibida no cabeçalho — o deploy exporta (deploy.sh / deploy/README.md):
+      #   APP_BUILD=$(git rev-list --count HEAD) APP_COMMIT=$(git rev-parse --short HEAD)
+      args:
+        APP_BUILD: ${APP_BUILD:-}
+        APP_COMMIT: ${APP_COMMIT:-}
     container_name: wms-frontend-prod
     restart: unless-stopped
     depends_on:

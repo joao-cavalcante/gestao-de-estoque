@@ -52,6 +52,8 @@ Web: `http://163.176.239.42:9005` — login `super.negri` / senha atual.
 ```bash
 ssh ubuntu@163.176.239.42
 cd ~/projetos/wms && git pull
+# APP_BUILD/APP_COMMIT = versão no cabeçalho do front (HMI-OPS · v4.2.<build>); sem eles sai só "v4.2".
+export APP_BUILD=$(git rev-list --count HEAD) APP_COMMIT=$(git rev-parse --short HEAD)
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 

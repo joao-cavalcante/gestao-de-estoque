@@ -40,19 +40,22 @@
             />
           </label>
 
-          @if (!semOrdemCarga) {
-            <label class="oq-toolbar__search oq-toolbar__search--curto" title="Ordem de Carga que não está na lista">
-              <oq-icon name="hash" [size]="12" />
-              <input
-                type="number"
-                inputmode="numeric"
-                placeholder="OC FORA DA LISTA"
-                [(ngModel)]="ordemCargaManual"
-                (keyup.enter)="consultarManual()"
-              />
-            </label>
-            <button type="button" class="oq-toolbar__filters-btn" [disabled]="!ordemCargaManual" (click)="consultarManual()">Consultar</button>
-          }
+          <!-- Sempre no mesmo lugar (trocar o filtro S/ OC não desloca a barra): abre direto o mapa de
+               uma OC que não está no painel — ou, no modo S/ OC, de um Nº Único (ex.: reimprimir já conferido). -->
+          <label
+            class="oq-toolbar__search oq-toolbar__search--curto"
+            [title]="semOrdemCarga ? 'Abrir o mapa de um pedido (Nº Único) que não está na lista' : 'Abrir o mapa de uma Ordem de Carga que não está na lista'"
+          >
+            <oq-icon name="hash" [size]="12" />
+            <input
+              type="number"
+              inputmode="numeric"
+              [placeholder]="semOrdemCarga ? 'Nº ÚNICO' : 'OC FORA DA LISTA'"
+              [(ngModel)]="ordemCargaManual"
+              (keyup.enter)="consultarManual()"
+            />
+          </label>
+          <button type="button" class="oq-toolbar__filters-btn" [disabled]="!ordemCargaManual" (click)="consultarManual()">Consultar</button>
 
           <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
 

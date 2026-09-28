@@ -84,6 +84,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     this.salvarFiltros();
     this.selecionados.set(new Set());
     this.pagina.set(1);
+    this.ordemCargaManual = null; // o campo muda de sentido (OC ↔ Nº Único)
     this.erro.set(null);
     this.carregarPainel();
   }
@@ -106,7 +107,10 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   readonly carregando = signal(false);
   readonly erro = signal<string | null>(null);
 
-  /** Fallback pra OC que ainda não está aberta na lista (ex.: acabou de abrir no Sankhya), ou pra quando a lista falha ao carregar. */
+  /**
+   * Campo "fora da lista": OC (modo normal) ou Nº Único (modo S/ OC) que não aparece no painel —
+   * ex.: já toda conferida (reimpressão), acabou de abrir no Sankhya, ou a lista falhou ao carregar.
+   */
   ordemCargaManual: number | null = null;
 
   readonly formatarQtd = formatarQtd;
@@ -292,13 +296,15 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Campo da barra: número de OC (modo normal) ou Nº Único (modo S/ OC) fora da lista. */
   consultarManual(): void {
-    const oc = this.ordemCargaManual;
-    if (!oc || oc <= 0) {
-      this.erro.set('Informe uma Ordem de Carga numérica válida.');
+    const n = this.ordemCargaManual;
+    if (!n || n <= 0) {
+      this.erro.set(this.semOrdemCarga ? 'Informe um Nº Único numérico válido.' : 'Informe uma Ordem de Carga numérica válida.');
       return;
     }
-    this.consultar(oc);
+    if (this.semOrdemCarga) this.consultarSemOrdemCarga([n]);
+    else this.consultar(n);
   }
 
   consultar(ordemCarga: number): void {

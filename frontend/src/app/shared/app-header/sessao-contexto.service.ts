@@ -1,5 +1,6 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { AuthService } from '../../auth/auth.service';
+import { VERSAO } from './versao.gerada';
 
 export interface OperadorInfo {
   iniciais: string;
@@ -12,6 +13,8 @@ export interface UnidadeInfo {
   iniciais: string;
   nome: string;
   versao: string;
+  /** Tooltip: commit e data do build. */
+  versaoDetalhe: string;
   unidadeTurno: string;
 }
 
@@ -32,6 +35,19 @@ function iniciaisDe(nome: string): string {
  * auth.service.ts) — "Unidade" é o tenant (slug), "Turno" é o campo novo em
  * app.users (ver V47__usuario_turno.sql / UsuarioListComponent).
  */
+/** "Commit 3712a94 · build 28/09/2026 16:40" — vazio no dev. */
+function detalheVersao(): string {
+  const partes: string[] = [];
+  if (VERSAO.commit) partes.push(`Commit ${VERSAO.commit}`);
+  if (VERSAO.buildEm) {
+    const d = new Date(VERSAO.buildEm);
+    if (!isNaN(d.getTime())) {
+      partes.push(`build ${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+    }
+  }
+  return partes.join(' · ') || 'Versão de desenvolvimento';
+}
+
 @Injectable({ providedIn: 'root' })
 export class SessaoContextoService {
   private readonly auth = inject(AuthService);
@@ -55,7 +71,8 @@ export class SessaoContextoService {
     return {
       iniciais: slug ? slug.slice(0, 2).toUpperCase() : '—',
       nome: nomeUnidade,
-      versao: 'HMI-OPS · v4.2.1',
+      versao: `HMI-OPS · v${VERSAO.numero}`,
+      versaoDetalhe: detalheVersao(),
       unidadeTurno: `${nomeUnidade} / ${rotuloTurno}`,
     };
   });

@@ -19,7 +19,7 @@ case "${1:-deploy}" in
     ssh_run "cd $REMOTE && $COMPOSE logs -f --tail=100"
     ;;
   deploy)
-    ssh_run "set -e; cd $REMOTE && git pull && $COMPOSE up -d --build && sleep 4 && $COMPOSE ps"
+    ssh_run "set -e; cd $REMOTE && git pull && export APP_BUILD=\$(git rev-list --count HEAD) APP_COMMIT=\$(git rev-parse --short HEAD) && $COMPOSE up -d --build && sleep 4 && $COMPOSE ps"
     echo "Deploy OK — http://163.176.239.42:9005"
     ;;
   *)
