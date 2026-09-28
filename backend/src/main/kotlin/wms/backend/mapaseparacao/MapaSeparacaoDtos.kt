@@ -53,6 +53,8 @@ data class MapaSeparacaoDto(
 @Serializable
 data class PedidoSemOrdemCargaDto(
     val nunota: Long,
+    /** Sempre null nesta lista (é o critério dela) — vai no DTO pro badge do card ser o mesmo [OC n] / [S/ OC]. */
+    val ordemCarga: Long? = null,
     val numNota: Long?,
     val codParc: Int?,
     val nomeParceiro: String?,

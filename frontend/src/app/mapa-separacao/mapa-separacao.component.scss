@@ -417,18 +417,73 @@
   }
 }
 
-.ms-chip-sem-oc {
+// Badge do tipo do pedido — compacto, secundário ao Nro. Único.
+.ms-badge-oc {
   display: inline-block;
-  margin-top: 4px;
-  padding: 2px 8px;
+  padding: 1px 7px;
   border-radius: 999px;
   font-family: var(--oq-font-display);
   font-size: 10px;
   font-weight: 700;
+  line-height: 16px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
+  vertical-align: middle;
   background: var(--oq-warning-soft);
   color: var(--oq-warning-foreground);
+
+  &--com {
+    background: var(--oq-surface-2);
+    color: var(--oq-text-secondary);
+    border: 1px solid var(--oq-border);
+  }
+}
+
+.ms-card-badge {
+  margin: 2px 0 4px 23px; // alinha com o texto do Nro. Único (depois do checkbox)
+}
+
+.ms-toolbar__titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+// "Filtro" com o checkbox dentro de um campo — mesma altura/borda dos outros filtros.
+.ms-field--check {
+  min-width: 0;
+}
+
+.ms-filtro-chip {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  margin: 0 !important;
+  padding: 0 12px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  font-family: var(--oq-font-display);
+  font-size: 12px !important;
+  color: var(--oq-text-primary) !important;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  input {
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0;
+    accent-color: var(--oq-brand-accent);
+    cursor: pointer;
+  }
+
+  &--ativo {
+    border-color: var(--oq-brand-accent);
+    box-shadow: 0 0 0 1px var(--oq-brand-accent);
+  }
 }
 
 .ms-card--selecionado {

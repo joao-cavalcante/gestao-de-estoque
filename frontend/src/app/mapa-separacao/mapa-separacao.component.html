@@ -2,19 +2,28 @@
   @if (!dados()) {
     <!-- ─── Painel de controle: abre já mostrando quem precisa ser separado ─── -->
     <div class="ms-toolbar no-print">
-      <h1 class="ms-toolbar__title">Mapa de Separação</h1>
-      <span class="ms-toolbar__count">
-        @if (semOrdemCarga) {
-          {{ pedidosSemOcFiltrados.length }} pedido(s) sem Ordem de Carga
-        } @else {
-          {{ listaFiltrada.length }} ordem(ns) de carga aberta(s)
-        }
-      </span>
+      <!-- Título fixo; o contexto (com / sem OC) é secundário — o filtro não pode parecer o título da tela. -->
+      <div class="ms-toolbar__titulo">
+        <h1 class="ms-toolbar__title">Mapa de Separação</h1>
+        <span class="ms-toolbar__count">
+          @if (semOrdemCarga) {
+            {{ pedidosSemOcFiltrados.length }} pedido(s) •
+            <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: null }" />
+          } @else {
+            {{ listaFiltrada.length }} ordem(ns) de carga aberta(s) •
+            <span class="ms-badge-oc ms-badge-oc--com">Com Ordem de Carga</span>
+          }
+        </span>
+      </div>
       <div class="ms-toolbar__row">
-        <label class="ms-check" title="Mostra só pedidos sem Ordem de Carga — cada Número Único gera um mapa próprio">
-          <input type="checkbox" [(ngModel)]="semOrdemCarga" (ngModelChange)="onSemOrdemCargaChange()" />
-          <span>S/ Ordem de Carga</span>
-        </label>
+        <div class="ms-field ms-field--check">
+          <label for="filtroSemOc">Filtro</label>
+          <label class="ms-filtro-chip" [class.ms-filtro-chip--ativo]="semOrdemCarga"
+                 title="Mostra só pedidos sem Ordem de Carga — cada Número Único gera um mapa próprio">
+            <input id="filtroSemOc" type="checkbox" [(ngModel)]="semOrdemCarga" (ngModelChange)="onSemOrdemCargaChange()" />
+            <span>S/ Ordem de Carga</span>
+          </label>
+        </div>
         <div class="ms-field ms-field--filtro">
           <label for="filtroLista">Buscar</label>
           <input
@@ -52,6 +61,15 @@
       </div>
     </div>
 
+    <!-- Badge padronizado do tipo do pedido: [OC 12345] ou [S/ ORDEM DE CARGA] — secundário ao Nro. Único. -->
+    <ng-template #badgeOc let-oc="oc">
+      @if (oc) {
+        <span class="ms-badge-oc ms-badge-oc--com">OC {{ oc }}</span>
+      } @else {
+        <span class="ms-badge-oc">S/ Ordem de Carga</span>
+      }
+    </ng-template>
+
     <div class="ms-scroll">
       @if (erro()) {
         <div class="ms-status ms-status--erro no-print">{{ erro() }}</div>
@@ -80,9 +98,9 @@
           <div class="ms-selecao no-print">
             <label class="ms-check">
               <input type="checkbox" [checked]="todosVisiveisSelecionados" (change)="alternarTodos()" />
-              <span>Selecionar todos</span>
+              <span>Selecionar todos os exibidos ({{ pedidosSemOcFiltrados.length }})</span>
             </label>
-            <span class="ms-selecao__info">Cada pedido selecionado gera um mapa próprio — nunca somado com outro.</span>
+            <span class="ms-selecao__info">Só os pedidos desta lista filtrada. Cada um gera um mapa próprio — nunca somado com outro.</span>
             <button
               type="button"
               class="oq-admin-btn oq-admin-btn--primary"
@@ -100,7 +118,9 @@
                     <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
                     <span class="oq-card__client">Nro. Único {{ p.nunota }}</span>
                   </label>
-                  <span class="ms-chip-sem-oc">S/ Ordem de Carga</span>
+                  <div class="ms-card-badge">
+                    <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
+                  </div>
                   <div class="oq-card__status-line">
                     <oq-icon [name]="p.conferido ? 'check' : 'box'" [size]="13" />
                     <span class="oq-card__status-text">{{ p.conferido ? 'Conferido' : 'Pronto pra separar' }}</span>

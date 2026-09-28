@@ -31,6 +31,8 @@ export interface MapaSeparacaoDto {
 /** Item de GET /api/mapa-separacao/sem-ordem-carga — pedido da fila de conferência sem Ordem de Carga. */
 export interface PedidoSemOrdemCargaDto {
   nunota: number;
+  /** null nesta lista (é o critério dela); o badge do card mostra [OC n] ou [S/ ORDEM DE CARGA]. */
+  ordemCarga: number | null;
   numNota: number | null;
   codParc: number | null;
   nomeParceiro: string | null;
