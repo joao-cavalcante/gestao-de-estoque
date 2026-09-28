@@ -73,6 +73,40 @@
   color: var(--oq-surface);
 }
 
+/* Filtros de status com cor própria — quebra visual entre eles (pedido do usuário).
+   Mesma família do resto do app: aguardando = azul da marca, andamento = âmbar
+   (botão "Continuar"), corte = vermelho (crítico). Ativo = fundo na cor do status. */
+.oq-toolbar__pill--status {
+  --pill-cor: var(--oq-text-primary);
+  --pill-ink: var(--oq-surface);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: inset 0 -2px 0 var(--pill-cor);
+}
+
+.oq-toolbar__pill--aguardando { --pill-cor: var(--oq-brand-accent); --pill-ink: #FAFAFA; }
+.oq-toolbar__pill--andamento { --pill-cor: var(--oq-attention); --pill-ink: #18181B; }
+.oq-toolbar__pill--aguardando_corte { --pill-cor: var(--oq-critical); --pill-ink: #FAFAFA; }
+
+.oq-toolbar__pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--pill-cor);
+  flex: none;
+}
+
+.oq-toolbar__pill--status.oq-toolbar__pill--active {
+  background: var(--pill-cor);
+  color: var(--pill-ink);
+  box-shadow: none;
+
+  .oq-toolbar__pill-dot {
+    background: var(--pill-ink);
+  }
+}
+
 .oq-toolbar__pills--tipo-sep { margin-left: 4px; }
 
 .oq-toolbar__pill--icon {

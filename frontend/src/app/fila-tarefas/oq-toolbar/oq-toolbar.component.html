@@ -9,10 +9,15 @@
       @for (pill of pills; track pill.valor) {
         <button
           type="button"
-          class="oq-toolbar__pill"
+          class="oq-toolbar__pill oq-toolbar__pill--status"
+          [class]="'oq-toolbar__pill--' + pill.valor"
           [class.oq-toolbar__pill--active]="filtroAtivo === pill.valor"
+          [attr.aria-pressed]="filtroAtivo === pill.valor"
           (click)="filtroChange.emit(pill.valor)"
         >
+          @if (pill.valor !== 'todos') {
+            <span class="oq-toolbar__pill-dot" aria-hidden="true"></span>
+          }
           {{ pill.label }}
         </button>
       }
