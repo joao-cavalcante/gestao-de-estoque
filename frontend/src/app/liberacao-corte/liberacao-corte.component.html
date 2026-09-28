@@ -1,91 +1,153 @@
-<div class="lc-page">
-  <header class="lc-page__head">
-    <h1><oq-icon name="scissors" [size]="18" class="lc-page__icon" />Liberação de Corte</h1>
-    <span class="lc-page__count">{{ listaFiltrada.length }} aguardando</span>
-    <button type="button" class="lc-page__refresh" (click)="carregar()">Atualizar</button>
-    @if (listaFiltrada.length > PER_PAGE) {
-      <div class="lc-pager lc-pager--topo">
-        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()">‹ Anterior</button>
-        <span>Página {{ paginaIdx + 1 }} de {{ totalPaginas }}</span>
-        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()">Próxima ›</button>
+<!-- Mesmo layout da Fila de Tarefas (estilos globais em styles/_lista-layout.scss). -->
+<div class="oq-page">
+  <header class="oq-page__header">
+    <div class="oq-toolbar">
+      <div class="oq-toolbar__title-block">
+        <h1 class="oq-toolbar__title">Liberação de Corte</h1>
+        <span class="oq-toolbar__counter">[ {{ listaFiltrada.length }} / {{ lista().length }} ]</span>
       </div>
-    }
+
+      <div class="oq-toolbar__actions">
+        <label class="oq-toolbar__search">
+          <oq-icon name="search" [size]="12" />
+          <input
+            type="text"
+            placeholder="BUSCAR NF / Nº ÚNICO / CLIENTE"
+            [(ngModel)]="busca"
+            (ngModelChange)="onFiltroChange()"
+          />
+        </label>
+
+        <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
+
+        <button type="button" class="oq-toolbar__filters-btn" (click)="carregar()">
+          <oq-icon name="sync" [size]="12" />
+          Atualizar
+        </button>
+      </div>
+    </div>
   </header>
 
-  <div class="lc-filtros">
-    <input type="number" placeholder="Nº da nota (NF)" [(ngModel)]="filtroNota" (ngModelChange)="onFiltroChange()" />
-    <input type="number" placeholder="Nº único (NUNOTA)" [(ngModel)]="filtroUnico" (ngModelChange)="onFiltroChange()" />
-  </div>
-
-  @if (erro()) {
-    <div class="lc-page__erro">{{ erro() }}</div>
-  }
-
-  @if (carregando()) {
-    <div class="lc-grid" aria-busy="true">
-      <oq-skeleton variant="task-card" [count]="4" />
-    </div>
-  } @else if (lista().length === 0) {
-    <p class="lc-page__vazio">Nenhuma conferência aguardando liberação.</p>
-  } @else if (listaFiltrada.length === 0) {
-    <p class="lc-page__vazio">Nenhum resultado para esse filtro.</p>
-  } @else {
-    <div class="lc-grid">
-      @for (item of paginaAtual; track item.nunota) {
-        <article class="oq-card">
-          <div class="oq-card__dot oq-card__dot--attention"></div>
-
-          <div class="oq-card__header">
-            <span class="oq-card__client">{{ item.nomeParceiro ?? '—' }}</span>
-            <div class="oq-card__status-line">
-              <span class="oq-card__status-text">Aguardando liberação de corte</span>
-            </div>
-          </div>
-
-          <div class="oq-card__divider"></div>
-
-          <div class="oq-card__grid">
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">Nota</span>
-              <span class="oq-card__field-value">{{ item.numeroNota ?? item.nunota }}</span>
-            </div>
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">Nº Único</span>
-              <span class="oq-card__field-value">{{ item.nunota }}</span>
-            </div>
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">Tipo de Operação</span>
-              <span class="oq-card__field-value">{{ item.descricaoTipoOperacao ?? '—' }}</span>
-            </div>
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">Data</span>
-              <span class="oq-card__field-value">{{ item.dataMovimento ?? '—' }}</span>
-            </div>
-          </div>
-
-          <div class="oq-card__footer">
-            <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="abrir(item)">
-              Liberar Corte
-            </button>
-          </div>
-        </article>
-      }
-    </div>
-
-    @if (listaFiltrada.length > PER_PAGE) {
-      <div class="lc-pager">
-        <button type="button" [disabled]="paginaIdx === 0" (click)="anterior()">‹ Anterior</button>
-        <span>Página {{ paginaIdx + 1 }} de {{ totalPaginas }}</span>
-        <button type="button" [disabled]="paginaIdx >= totalPaginas - 1" (click)="proxima()">Próxima ›</button>
-      </div>
+  <main class="oq-page__content">
+    @if (erro()) {
+      <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
     }
-  }
+
+    @if (carregando()) {
+      @if (viewMode() === 'cards') {
+        <div class="oq-page__grid" aria-busy="true">
+          <oq-skeleton variant="task-card" [count]="4" />
+        </div>
+      } @else {
+        <div class="oq-page__lista" aria-busy="true">
+          <table class="oq-page__lista-skel">
+            <tbody><oq-skeleton variant="table-row" [count]="8" /></tbody>
+          </table>
+        </div>
+      }
+    } @else if (lista().length === 0) {
+      <div class="oq-page__status">Nenhuma conferência aguardando liberação.</div>
+    } @else if (listaFiltrada.length === 0) {
+      <div class="oq-page__status">Nenhum resultado para essa busca.</div>
+    } @else {
+      @if (viewMode() === 'cards') {
+        <div class="oq-page__grid">
+          @for (item of paginaAtual; track item.nunota) {
+            <article class="oq-card">
+              <span class="oq-card__dot oq-card__dot--attention" aria-hidden="true"></span>
+
+              <header class="oq-card__header">
+                <span class="oq-card__client" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
+                <div class="oq-card__status-line">
+                  <span class="oq-status-pin oq-status-pin--corte">
+                    <oq-icon name="scissors" [size]="12" />
+                    Aguardando liberação de corte
+                  </span>
+                </div>
+              </header>
+
+              <div class="oq-card__divider"></div>
+
+              <div class="oq-card__grid">
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Nota</span>
+                  <span class="oq-card__field-value">{{ item.numeroNota ?? item.nunota }}</span>
+                </div>
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Nº Único</span>
+                  <span class="oq-card__field-value">{{ item.nunota }}</span>
+                </div>
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Tipo de Operação</span>
+                  <span class="oq-card__field-value" [title]="item.descricaoTipoOperacao ?? ''">{{ item.descricaoTipoOperacao ?? '—' }}</span>
+                </div>
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Data</span>
+                  <span class="oq-card__field-value">{{ item.dataMovimento ?? '—' }}</span>
+                </div>
+              </div>
+
+              <div class="oq-card__actions">
+                <footer class="oq-card__footer">
+                  <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="abrir(item)">Liberar Corte</button>
+                </footer>
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="oq-page__lista">
+          <table class="oq-lista">
+            <caption class="oq-lista__caption">Conferências aguardando liberação de corte</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="oq-lista__topo">Status</th>
+                <th scope="col" class="oq-lista__principal">Cliente</th>
+                <th scope="col">Nota</th>
+                <th scope="col">Nº Único</th>
+                <th scope="col">Tipo de Operação</th>
+                <th scope="col">Data</th>
+                <th scope="col" class="oq-lista__acoes">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of paginaAtual; track item.nunota) {
+                <tr class="oq-lista__linha oq-lista__linha--attention">
+                  <td class="oq-lista__topo" data-label="Status">
+                    <span class="oq-status-pin oq-status-pin--corte">
+                      <oq-icon name="scissors" [size]="12" />
+                      Aguardando corte
+                    </span>
+                  </td>
+                  <td class="oq-lista__principal" data-label="Cliente">
+                    <span class="oq-lista__destaque" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
+                  </td>
+                  <td data-label="Nota">{{ item.numeroNota ?? item.nunota }}</td>
+                  <td data-label="Nº Único">{{ item.nunota }}</td>
+                  <td data-label="Tipo de Operação">{{ item.descricaoTipoOperacao ?? '—' }}</td>
+                  <td data-label="Data">{{ item.dataMovimento ?? '—' }}</td>
+                  <td class="oq-lista__acoes" data-label="Ação">
+                    <button type="button" class="oq-lista__btn" (click)="abrir(item)">Liberar Corte</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <oq-paginacao
+        [total]="listaFiltrada.length"
+        [pagina]="paginaIdx + 1"
+        [itensPorPagina]="itensPorPagina()"
+        [opcoes]="opcoesItensPorPagina()"
+        (paginaChange)="page.set($event - 1)"
+        (itensPorPaginaChange)="onItensPorPaginaChange($event)"
+      />
+    }
+  </main>
 
   @if (selecionada(); as sel) {
-    <oq-liberacao-corte-modal
-      [nuconf]="sel.nuconf!"
-      [rotulo]="rotulo(sel)"
-      (fechado)="aoFechar($event)"
-    />
+    <oq-liberacao-corte-modal [nuconf]="sel.nuconf!" [rotulo]="rotulo(sel)" (fechado)="aoFechar($event)" />
   }
 </div>

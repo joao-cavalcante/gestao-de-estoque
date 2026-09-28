@@ -13,6 +13,8 @@ import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component
 import { ConferenciasService } from './conferencias.service';
 import { CampoOrdenacao, FILTROS_STATUS, FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Ordenacao, Tarefa, ViewMode } from './tarefa.model';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
+import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
+import { ITENS_POR_PAGINA, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
 
 /** O que a fila lembra por usuário — tudo menos a busca por texto (e a página atual). */
 interface FiltrosFilaSalvos {
@@ -23,20 +25,9 @@ interface FiltrosFilaSalvos {
 }
 
 const TELA_FILTROS = 'fila-tarefas';
-/** Opções de itens/página por modo — a lista cabe mais linhas por tela que o grid de cards. */
-const ITENS_POR_PAGINA: Record<ViewMode, number[]> = { cards: [10, 20, 50], list: [20, 50, 100] };
-const TODOS_ITENS_POR_PAGINA = [10, 20, 50, 100];
-
 /** Preferência de visualização — do navegador, não do usuário (pedido: chave fixa no localStorage). */
 const CHAVE_VIEW_MODE = 'fila-view-mode';
-
-function lerViewMode(): ViewMode {
-  try {
-    return localStorage.getItem(CHAVE_VIEW_MODE) === 'list' ? 'list' : 'cards';
-  } catch {
-    return 'cards'; // storage bloqueado (aba privada/política): padrão
-  }
-}
+const TODOS_ITENS_POR_PAGINA = [10, 20, 50, 100];
 
 /** "28/09/2026 ..." → 20260928 pra ordenar por data; formato desconhecido cai no fim. */
 function chaveData(data: string): number {
@@ -55,6 +46,7 @@ function chaveData(data: string): number {
     OqTaskListComponent,
     OqEmptyStateComponent,
     OqSkeletonComponent,
+    OqPaginacaoComponent,
   ],
   templateUrl: './fila-tarefas.component.html',
   styleUrl: './fila-tarefas.component.scss',
@@ -68,7 +60,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   private syncSub?: Subscription;
 
   /** Cards (grid) ou lista (tabela) — só troca o template; dados, filtros e paginação são os mesmos. */
-  readonly viewMode = signal<ViewMode>(lerViewMode());
+  readonly viewMode = signal<ViewMode>(lerViewMode(CHAVE_VIEW_MODE));
   /** Ordenação pelos cabeçalhos da lista; vale pros dois modos (null = ordem do backend). */
   readonly ordenacao = signal<Ordenacao | null>(null);
   readonly opcoesItensPorPagina = computed(() => ITENS_POR_PAGINA[this.viewMode()]);
@@ -132,7 +124,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       this.filtrosAvancados.set({ ...this.filtrosAvancados(), ...resto, vinculoOrdemCarga: vinculo });
     }
     if (f.itensPorPagina && TODOS_ITENS_POR_PAGINA.includes(f.itensPorPagina)) {
-      this.itensPorPagina.set(this.itensValidosPara(this.viewMode(), f.itensPorPagina));
+      this.itensPorPagina.set(itensValidosPara(this.viewMode(), f.itensPorPagina));
     }
     return true;
   }
@@ -274,14 +266,6 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     return this.tarefasOrdenadas().slice(inicio, inicio + this.itensPorPagina());
   });
 
-  readonly intervaloPagina = computed(() => {
-    const total = this.tarefasFiltradas().length;
-    if (total === 0) return { inicio: 0, fim: 0 };
-    const inicio = (this.paginaAtual() - 1) * this.itensPorPagina() + 1;
-    const fim = Math.min(inicio + this.itensPorPagina() - 1, total);
-    return { inicio, fim };
-  });
-
   irParaPagina(pagina: number): void {
     this.paginaAtual.set(Math.min(Math.max(1, pagina), this.totalPaginas()));
   }
@@ -321,30 +305,19 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     if (this.rolagem) this.scrollPorModo[atual] = this.rolagem.nativeElement.scrollTop;
 
     const primeiroItem = (this.paginaAtual() - 1) * this.itensPorPagina();
-    const novoPorPagina = this.itensValidosPara(modo, this.itensPorPagina());
+    const novoPorPagina = itensValidosPara(modo, this.itensPorPagina());
     this.viewMode.set(modo);
     if (novoPorPagina !== this.itensPorPagina()) {
       this.itensPorPagina.set(novoPorPagina);
       this.paginaAtual.set(Math.floor(primeiroItem / novoPorPagina) + 1);
     }
-    try {
-      localStorage.setItem(CHAVE_VIEW_MODE, modo);
-    } catch {
-      /* sem storage: vale só nesta sessão da tela */
-    }
+    salvarViewMode(CHAVE_VIEW_MODE, modo);
     afterNextRender(
       () => {
         if (this.rolagem) this.rolagem.nativeElement.scrollTop = this.scrollPorModo[modo] ?? 0;
       },
       { injector: this.injector },
     );
-  }
-
-  /** Mantém o valor se o modo oferece; senão o mais próximo (10 → 20 na lista, 100 → 50 nos cards). */
-  private itensValidosPara(modo: ViewMode, valor: number): number {
-    const opcoes = ITENS_POR_PAGINA[modo];
-    if (opcoes.includes(valor)) return valor;
-    return opcoes.reduce((melhor, o) => (Math.abs(o - valor) < Math.abs(melhor - valor) ? o : melhor), opcoes[0]);
   }
 
   /** Clique no cabeçalho: asc → desc → sem ordenação (volta à ordem do backend). */

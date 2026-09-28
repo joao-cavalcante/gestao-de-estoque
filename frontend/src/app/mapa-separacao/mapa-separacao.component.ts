@@ -7,6 +7,10 @@ import { SyncTickService } from '../shared/app-header/sync-tick.service';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
+import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
+import { OqViewToggleComponent } from '../shared/lista-layout/oq-view-toggle.component';
+import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
+import { ITENS_POR_PAGINA, ViewMode, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
 import { MapaSeparacaoService } from './mapa-separacao.service';
 import {
   CategoriaSeparacaoDto,
@@ -27,6 +31,8 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
 /** Quantos mapas S/ OC buscar ao mesmo tempo no Sankhya (cada um é ~3 chamadas). */
 const CONCORRENCIA_MAPAS = 3;
 
+const CHAVE_VIEW_MODE = 'mapa-separacao-view-mode';
+
 /**
  * Mapa de Separação por Ordem de Carga — porte do Dashboard HTML5/JSP que
  * substituiu o iReport 513 no Sankhya (ver backend MapaSeparacaoService).
@@ -44,6 +50,10 @@ const CONCORRENCIA_MAPAS = 3;
  * cara quantas tem pra separar, clica na que quer e vai direto pro
  * relatório/impressão. Busca ao vivo, sem cache/mirror.
  *
+ * Painel no mesmo layout da Fila de Tarefas (barra, cards ↔ lista, paginação —
+ * estilos globais em styles/_lista-layout.scss); o RELATÓRIO continua no layout
+ * próprio (.ms-page), que é o que as regras de impressão A4 esperam.
+ *
  * Filtro "S/ Ordem de Carga": troca o painel pelos PEDIDOS sem OC. Cada
  * Número Único vira um mapa próprio (mesmas categorias, soma só dentro do
  * pedido) — vários selecionados saem como mapas independentes, uma folha
@@ -52,7 +62,7 @@ const CONCORRENCIA_MAPAS = 3;
 @Component({
   selector: 'app-mapa-separacao',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, NgTemplateOutlet],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent],
   templateUrl: './mapa-separacao.component.html',
   styleUrl: './mapa-separacao.component.scss',
 })
@@ -73,6 +83,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   onSemOrdemCargaChange(): void {
     this.salvarFiltros();
     this.selecionados.set(new Set());
+    this.pagina.set(1);
     this.erro.set(null);
     this.carregarPainel();
   }
@@ -101,6 +112,61 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   readonly formatarQtd = formatarQtd;
   readonly formatarPeso = formatarPeso;
 
+  /** Cards (grid) ou lista (tabela) no painel — preferência do navegador, só troca a renderização. */
+  readonly viewMode = signal<ViewMode>(lerViewMode(CHAVE_VIEW_MODE));
+  readonly opcoesItensPorPagina = computed(() => ITENS_POR_PAGINA[this.viewMode()]);
+  readonly itensPorPagina = signal(itensValidosPara(this.viewMode(), 20));
+  /** Paginação em memória do painel (1-based) — vale pra lista de OCs e pra de pedidos S/ OC. */
+  readonly pagina = signal(1);
+
+  /** Total da lista que está no painel agora (OCs ou pedidos S/ OC), já com a busca. */
+  get totalPainel(): number {
+    return this.semOrdemCarga ? this.pedidosSemOcFiltrados.length : this.listaFiltrada.length;
+  }
+
+  /** Página válida — busca/recarga podem encolher a lista. */
+  private get paginaValida(): number {
+    return Math.min(this.pagina(), Math.max(1, Math.ceil(this.totalPainel / this.itensPorPagina())));
+  }
+
+  get paginaExibida(): number {
+    return this.paginaValida;
+  }
+
+  private fatia<T>(lista: T[]): T[] {
+    const n = this.itensPorPagina();
+    const ini = (this.paginaValida - 1) * n;
+    return lista.slice(ini, ini + n);
+  }
+
+  get ocsDaPagina(): OrdemCargaResumoDto[] {
+    return this.fatia(this.listaFiltrada);
+  }
+
+  get pedidosDaPagina(): PedidoSemOrdemCargaDto[] {
+    return this.fatia(this.pedidosSemOcFiltrados);
+  }
+
+  onBuscaChange(): void {
+    this.pagina.set(1);
+  }
+
+  onItensPorPaginaChange(valor: number): void {
+    this.itensPorPagina.set(valor);
+    this.pagina.set(1);
+  }
+
+  /** Troca cards ↔ lista mantendo o 1º item visível (se os itens/página mudarem). */
+  onViewModeChange(modo: ViewMode): void {
+    if (modo === this.viewMode()) return;
+    const primeiro = (this.paginaValida - 1) * this.itensPorPagina();
+    const n = itensValidosPara(modo, this.itensPorPagina());
+    this.viewMode.set(modo);
+    this.itensPorPagina.set(n);
+    this.pagina.set(Math.floor(primeiro / n) + 1);
+    salvarViewMode(CHAVE_VIEW_MODE, modo);
+  }
+
   /**
    * O painel só lista o que ainda tem conferência pra fazer (regra do usuário): o backend já manda só OC
    * com pedido não concluído e só pedido S/ OC não concluído — o filtro aqui é só a busca por texto.
@@ -128,7 +194,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     );
   }
 
-  /** Selecionados que ainda aparecem na lista filtrada — é o que o botão gera. */
+  /** Selecionados que ainda aparecem na lista filtrada (todas as páginas) — é o que o botão gera. */
   get selecionadosVisiveis(): number[] {
     const sel = this.selecionados();
     return this.pedidosSemOcFiltrados.filter((p) => sel.has(p.nunota)).map((p) => p.nunota);

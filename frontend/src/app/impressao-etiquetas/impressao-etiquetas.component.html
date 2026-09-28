@@ -1,95 +1,164 @@
-<div class="ie-page">
-  <header class="ie-page__head">
-    <h1>Impressão de Etiquetas</h1>
-    <span class="ie-page__count">{{ total() }} finalizada(s)</span>
-    <!-- Paginação também no topo: com uma página cheia de cards o rodapé fica fora da tela. -->
-    @if (total() > PER_PAGE) {
-      <div class="ie-pager ie-pager--topo">
-        <button type="button" [disabled]="page() === 0" (click)="anterior()">‹ Anterior</button>
-        <span>Página {{ page() + 1 }} de {{ totalPaginas }}</span>
-        <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()">Próxima ›</button>
+<!-- Mesmo layout da Fila de Tarefas (estilos globais em styles/_lista-layout.scss). -->
+<div class="oq-page">
+  <header class="oq-page__header">
+    <div class="oq-toolbar">
+      <div class="oq-toolbar__title-block">
+        <h1 class="oq-toolbar__title">Impressão de Etiquetas</h1>
+        <span class="oq-toolbar__counter">[ {{ total() }} finalizada(s) ]</span>
       </div>
-    }
+
+      <div class="oq-toolbar__actions">
+        <!-- Dois campos (e não uma busca só): o filtro é no servidor, por NF OU por Nº Único. -->
+        <label class="oq-toolbar__search oq-toolbar__search--curto">
+          <oq-icon name="search" [size]="12" />
+          <input type="number" inputmode="numeric" placeholder="Nº DA NOTA (NF)" [(ngModel)]="filtroNota" (ngModelChange)="onFiltroChange()" />
+        </label>
+        <label class="oq-toolbar__search oq-toolbar__search--curto">
+          <oq-icon name="search" [size]="12" />
+          <input type="number" inputmode="numeric" placeholder="Nº ÚNICO" [(ngModel)]="filtroUnico" (ngModelChange)="onFiltroChange()" />
+        </label>
+
+        <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
+
+        <button type="button" class="oq-toolbar__filters-btn" (click)="buscar(false)">
+          <oq-icon name="sync" [size]="12" />
+          Atualizar
+        </button>
+      </div>
+    </div>
   </header>
 
-  <div class="ie-filtros">
-    <input
-      type="number"
-      placeholder="Nº da nota (NF)"
-      [(ngModel)]="filtroNota"
-      (ngModelChange)="onFiltroChange()"
-    />
-    <input
-      type="number"
-      placeholder="Nº único (NUNOTA)"
-      [(ngModel)]="filtroUnico"
-      (ngModelChange)="onFiltroChange()"
-    />
-  </div>
-
-  @if (erro()) {
-    <div class="ie-page__erro">{{ erro() }}</div>
-  }
-
-  @if (carregando()) {
-    <div class="ie-grid" aria-busy="true">
-      <oq-skeleton variant="task-card" [count]="6" />
-    </div>
-  } @else if (itens().length === 0) {
-    <p class="ie-page__vazio">Nenhuma conferência finalizada.</p>
-  } @else {
-    <div class="ie-grid">
-      @for (item of itens(); track item.sessaoId) {
-        <article class="oq-card">
-          <div class="oq-card__header">
-            <span class="oq-card__client">{{ item.nomeParceiro ?? '—' }}</span>
-            <div class="oq-card__status-line">
-              <span class="oq-card__status-text">{{ item.descricaoTipoOperacao ?? 'Conferência finalizada' }}</span>
-            </div>
-          </div>
-
-          <div class="oq-card__divider"></div>
-
-          <div class="oq-card__grid">
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">NF</span>
-              <span class="oq-card__field-value">{{ item.numeroNota ?? '—' }}</span>
-            </div>
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">Nº Único</span>
-              <span class="oq-card__field-value">{{ item.nunota }}</span>
-            </div>
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">Vendedor</span>
-              <span class="oq-card__field-value">{{ item.apelidoVendedor ?? '—' }}</span>
-            </div>
-            <div class="oq-card__field">
-              <span class="oq-card__field-label">Data</span>
-              <span class="oq-card__field-value">{{ data(item.dataMovimento) }}</span>
-            </div>
-          </div>
-
-          <div class="oq-card__footer">
-            <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="imprimir(item)">
-              Imprimir Etiquetas
-            </button>
-            <!-- span segura o tooltip: botão desabilitado não dispara hover em alguns navegadores -->
-            <span class="ie-btn-wrap" [title]="item.temPesavel ? 'Imprimir etiqueta de peso' : 'Esta conferência não tem produto pesável — sem etiqueta de peso'">
-              <button type="button" class="oq-card__btn oq-card__btn--outline" [disabled]="!item.temPesavel" (click)="imprimirPeso(item)">
-                Etiqueta de Peso
-              </button>
-            </span>
-          </div>
-        </article>
-      }
-    </div>
-
-    @if (total() > PER_PAGE) {
-      <div class="ie-pager">
-        <button type="button" [disabled]="page() === 0" (click)="anterior()">‹ Anterior</button>
-        <span>Página {{ page() + 1 }} de {{ totalPaginas }}</span>
-        <button type="button" [disabled]="(page() + 1) * PER_PAGE >= total()" (click)="proxima()">Próxima ›</button>
-      </div>
+  <main class="oq-page__content">
+    @if (erro()) {
+      <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
     }
-  }
+
+    @if (carregando()) {
+      @if (viewMode() === 'cards') {
+        <div class="oq-page__grid" aria-busy="true">
+          <oq-skeleton variant="task-card" [count]="6" />
+        </div>
+      } @else {
+        <div class="oq-page__lista" aria-busy="true">
+          <table class="oq-page__lista-skel">
+            <tbody><oq-skeleton variant="table-row" [count]="10" /></tbody>
+          </table>
+        </div>
+      }
+    } @else if (itens().length === 0) {
+      <div class="oq-page__status">Nenhuma conferência finalizada.</div>
+    } @else {
+      @if (viewMode() === 'cards') {
+        <div class="oq-page__grid" #rolagem>
+          @for (item of itens(); track item.sessaoId) {
+            <article class="oq-card">
+              <header class="oq-card__header">
+                <span class="oq-card__client" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
+                <div class="oq-card__status-line">
+                  <span class="oq-status-pin oq-status-pin--concluido">
+                    <oq-icon name="check" [size]="12" />
+                    Conferência finalizada
+                  </span>
+                </div>
+              </header>
+
+              <div class="oq-card__divider"></div>
+
+              <div class="oq-card__grid">
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">NF</span>
+                  <span class="oq-card__field-value">{{ item.numeroNota ?? '—' }}</span>
+                </div>
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Nº Único</span>
+                  <span class="oq-card__field-value">{{ item.nunota }}</span>
+                </div>
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Vendedor</span>
+                  <span class="oq-card__field-value">{{ item.apelidoVendedor ?? '—' }}</span>
+                </div>
+                <div class="oq-card__field">
+                  <span class="oq-card__field-label">Data</span>
+                  <span class="oq-card__field-value">{{ data(item.dataMovimento) }}</span>
+                </div>
+                <div class="oq-card__field oq-card__field--full">
+                  <span class="oq-card__field-label">Tipo de Operação</span>
+                  <span class="oq-card__field-value" [title]="item.descricaoTipoOperacao ?? ''">{{ item.descricaoTipoOperacao ?? '—' }}</span>
+                </div>
+              </div>
+
+              <div class="oq-card__actions">
+                <footer class="oq-card__footer">
+                  <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="imprimir(item)">Imprimir Etiquetas</button>
+                  <!-- span segura o tooltip: botão desabilitado não dispara hover em alguns navegadores -->
+                  <span class="ie-btn-wrap" [title]="tituloPeso(item)">
+                    <button type="button" class="oq-card__btn oq-card__btn--outline" [disabled]="!item.temPesavel" (click)="imprimirPeso(item)">
+                      Etiqueta de Peso
+                    </button>
+                  </span>
+                </footer>
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="oq-page__lista" #rolagem>
+          <table class="oq-lista">
+            <caption class="oq-lista__caption">Conferências finalizadas para impressão de etiquetas</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="oq-lista__topo">Status</th>
+                <th scope="col" class="oq-lista__principal">Cliente</th>
+                <th scope="col">NF</th>
+                <th scope="col">Nº Único</th>
+                <th scope="col">Tipo de Operação</th>
+                <th scope="col">Vendedor</th>
+                <th scope="col">Data</th>
+                <th scope="col" class="oq-lista__acoes">Imprimir</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of itens(); track item.sessaoId) {
+                <tr class="oq-lista__linha">
+                  <td class="oq-lista__topo" data-label="Status">
+                    <span class="oq-status-pin oq-status-pin--concluido">
+                      <oq-icon name="check" [size]="12" />
+                      Finalizada
+                    </span>
+                  </td>
+                  <td class="oq-lista__principal" data-label="Cliente">
+                    <span class="oq-lista__destaque" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
+                  </td>
+                  <td data-label="NF">{{ item.numeroNota ?? '—' }}</td>
+                  <td data-label="Nº Único">{{ item.nunota }}</td>
+                  <td data-label="Tipo de Operação">{{ item.descricaoTipoOperacao ?? '—' }}</td>
+                  <td data-label="Vendedor">{{ item.apelidoVendedor ?? '—' }}</td>
+                  <td data-label="Data">{{ data(item.dataMovimento) }}</td>
+                  <td class="oq-lista__acoes" data-label="Imprimir">
+                    <div class="oq-lista__btns">
+                      <button type="button" class="oq-lista__btn" (click)="imprimir(item)">Etiquetas</button>
+                      <span [title]="tituloPeso(item)">
+                        <button type="button" class="oq-lista__btn oq-lista__btn--outline" [disabled]="!item.temPesavel" (click)="imprimirPeso(item)">
+                          Peso
+                        </button>
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <oq-paginacao
+        [total]="total()"
+        [pagina]="page() + 1"
+        [itensPorPagina]="itensPorPagina()"
+        [opcoes]="opcoesItensPorPagina()"
+        (paginaChange)="irParaPagina($event - 1)"
+        (itensPorPaginaChange)="onItensPorPaginaChange($event)"
+      />
+    }
+  </main>
 </div>

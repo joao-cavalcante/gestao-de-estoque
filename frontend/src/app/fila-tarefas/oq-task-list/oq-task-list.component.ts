@@ -44,15 +44,15 @@ export class OqTaskListComponent {
   @Output() ordenar = new EventEmitter<CampoOrdenacao>();
 
   readonly colunas: Coluna[] = [
-    { titulo: 'Status', classe: 'col-status' },
-    { titulo: 'Cliente', campo: 'cliente', classe: 'col-cliente' },
-    { titulo: 'Nº Único', campo: 'numeroUnico', classe: 'col-num' },
-    { titulo: 'NF', campo: 'nf', classe: 'col-num' },
-    { titulo: 'Ordem de Carga', classe: 'col-num' },
-    { titulo: 'Data', campo: 'data', classe: 'col-num' },
-    { titulo: 'Itens', campo: 'itens', classe: 'col-itens' },
-    { titulo: 'Período p/ entrega', classe: 'col-periodo' },
-    { titulo: 'Conferir por etapa', classe: 'col-etapas' },
+    { titulo: 'Status', classe: 'oq-lista__topo' },
+    { titulo: 'Cliente', campo: 'cliente', classe: 'oq-lista__principal' },
+    { titulo: 'Nº Único', campo: 'numeroUnico' },
+    { titulo: 'NF', campo: 'nf' },
+    { titulo: 'Ordem de Carga' },
+    { titulo: 'Data', campo: 'data' },
+    { titulo: 'Itens', campo: 'itens', classe: 'oq-lista__direita' },
+    { titulo: 'Período p/ entrega' },
+    { titulo: 'Conferir por etapa', classe: 'oq-lista__acoes' },
   ];
 
   /** aria-sort do cabeçalho — só a coluna ordenada anuncia a direção. */

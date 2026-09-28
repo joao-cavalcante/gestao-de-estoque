@@ -814,3 +814,6 @@ select:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .oq-fb-flash { animation-duration: 0.01s; }
 }
+
+/* Layout compartilhado das telas de fila (Fila de Tarefas, Impressão de Etiquetas, Liberação de Corte, Mapa de Separação). */
+@import 'styles/lista-layout';

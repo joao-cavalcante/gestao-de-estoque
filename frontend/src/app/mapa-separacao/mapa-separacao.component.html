@@ -1,57 +1,68 @@
-<div class="ms-page">
-  @if (!dados()) {
-    <!-- ─── Painel de controle: abre já mostrando quem precisa ser separado ─── -->
-    <div class="ms-toolbar no-print">
-      <!-- Título fixo; o contexto (com / sem OC) é secundário — o filtro não pode parecer o título da tela. -->
-      <div class="ms-toolbar__titulo">
-        <h1 class="ms-toolbar__title">Mapa de Separação</h1>
-        <span class="ms-toolbar__count">
+@if (!dados()) {
+  <!-- ─── Painel: mesmo layout da Fila de Tarefas (estilos globais em styles/_lista-layout.scss) ─── -->
+  <div class="oq-page no-print">
+    <header class="oq-page__header">
+      <div class="oq-toolbar">
+        <!-- Título fixo; o contexto (com / sem OC) é secundário — o filtro não pode parecer o título da tela. -->
+        <div class="oq-toolbar__title-block">
+          <h1 class="oq-toolbar__title">Mapa de Separação</h1>
+          <span class="oq-toolbar__counter">
+            @if (semOrdemCarga) {
+              [ {{ pedidosSemOcFiltrados.length }} pedido(s) ]
+            } @else {
+              [ {{ listaFiltrada.length }} ordem(ns) de carga ]
+            }
+          </span>
           @if (semOrdemCarga) {
-            {{ pedidosSemOcFiltrados.length }} pedido(s) •
             <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: null }" />
           } @else {
-            {{ listaFiltrada.length }} ordem(ns) de carga •
             <span class="ms-badge-oc ms-badge-oc--com">Com Ordem de Carga</span>
           }
-        </span>
-      </div>
-      <div class="ms-toolbar__row">
-        <div class="ms-field ms-field--check">
-          <label for="filtroSemOc">Filtro</label>
-          <label class="ms-filtro-chip" [class.ms-filtro-chip--ativo]="semOrdemCarga"
-                 title="Mostra só pedidos sem Ordem de Carga — cada Número Único gera um mapa próprio">
-            <input id="filtroSemOc" type="checkbox" [(ngModel)]="semOrdemCarga" (ngModelChange)="onSemOrdemCargaChange()" />
-            <span>S/ Ordem de Carga</span>
+        </div>
+
+        <div class="oq-toolbar__actions">
+          <label
+            class="oq-toolbar__filters-btn ms-filtro-chip"
+            [class.oq-toolbar__filters-btn--ativo]="semOrdemCarga"
+            title="Filtro: mostra só pedidos sem Ordem de Carga — cada Número Único gera um mapa próprio"
+          >
+            <input type="checkbox" [(ngModel)]="semOrdemCarga" (ngModelChange)="onSemOrdemCargaChange()" />
+            S/ Ordem de Carga
           </label>
-        </div>
-        <div class="ms-field ms-field--filtro">
-          <label for="filtroLista">Buscar</label>
-          <input
-            id="filtroLista"
-            type="text"
-            [placeholder]="semOrdemCarga ? 'Nro. Único, nota ou parceiro' : 'OC, placa ou motorista'"
-            [(ngModel)]="filtroLista"
-          />
-        </div>
-        @if (!semOrdemCarga) {
-          <div class="ms-field">
-            <label for="ordemCargaManual">OC fora da lista</label>
+
+          <label class="oq-toolbar__search">
+            <oq-icon name="search" [size]="12" />
             <input
-              id="ordemCargaManual"
-              type="number"
-              inputmode="numeric"
-              placeholder="Digite o número"
-              [(ngModel)]="ordemCargaManual"
-              (keyup.enter)="consultarManual()"
+              type="text"
+              [placeholder]="semOrdemCarga ? 'BUSCAR Nº ÚNICO / NOTA / PARCEIRO' : 'BUSCAR OC / PLACA / MOTORISTA'"
+              [(ngModel)]="filtroLista"
+              (ngModelChange)="onBuscaChange()"
             />
-          </div>
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="!ordemCargaManual" (click)="consultarManual()">
-            Consultar
+          </label>
+
+          @if (!semOrdemCarga) {
+            <label class="oq-toolbar__search oq-toolbar__search--curto" title="Ordem de Carga que não está na lista">
+              <oq-icon name="hash" [size]="12" />
+              <input
+                type="number"
+                inputmode="numeric"
+                placeholder="OC FORA DA LISTA"
+                [(ngModel)]="ordemCargaManual"
+                (keyup.enter)="consultarManual()"
+              />
+            </label>
+            <button type="button" class="oq-toolbar__filters-btn" [disabled]="!ordemCargaManual" (click)="consultarManual()">Consultar</button>
+          }
+
+          <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
+
+          <button type="button" class="oq-toolbar__filters-btn" (click)="carregarPainel()">
+            <oq-icon name="sync" [size]="12" />
+            Atualizar
           </button>
-        }
-        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarPainel()">Atualizar</button>
+        </div>
       </div>
-    </div>
+    </header>
 
     <!-- Badge padronizado do tipo do pedido: [OC 12345] ou [S/ ORDEM DE CARGA] — secundário ao Nro. Único. -->
     <ng-template #badgeOc let-oc="oc">
@@ -62,37 +73,44 @@
       }
     </ng-template>
 
-    <div class="ms-scroll">
+    <main class="oq-page__content">
       @if (erro()) {
-        <div class="ms-status ms-status--erro no-print">{{ erro() }}</div>
+        <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
       }
       @if (erroAbertas()) {
-        <div class="ms-status ms-status--erro no-print">{{ erroAbertas() }}</div>
+        <div class="oq-page__status oq-page__status--erro">{{ erroAbertas() }}</div>
       }
 
       @if (carregando()) {
-        <div class="ms-vazio no-print" aria-busy="true">
+        <div class="oq-page__status" aria-busy="true">
           <oq-spinner />
-          <span>{{ semOrdemCarga ? 'Montando mapas…' : 'Consultando Ordem de Carga…' }}</span>
+          {{ semOrdemCarga ? 'Montando mapas…' : 'Consultando Ordem de Carga…' }}
         </div>
       } @else if (carregandoAbertas()) {
-        <div class="ms-vazio no-print" aria-busy="true">
-          <oq-spinner />
-          <span>{{ semOrdemCarga ? 'Carregando pedidos sem Ordem de Carga…' : 'Carregando Ordens de Carga…' }}</span>
-        </div>
+        @if (viewMode() === 'cards') {
+          <div class="oq-page__grid" aria-busy="true">
+            <oq-skeleton variant="task-card" [count]="6" />
+          </div>
+        } @else {
+          <div class="oq-page__lista" aria-busy="true">
+            <table class="oq-page__lista-skel">
+              <tbody><oq-skeleton variant="table-row" [count]="10" /></tbody>
+            </table>
+          </div>
+        }
       } @else if (semOrdemCarga) {
         <!-- ─── Pedidos SEM Ordem de Carga: um mapa por Número Único ─── -->
         @if (pedidosSemOcFiltrados.length === 0) {
-          <div class="ms-vazio no-print">
+          <div class="oq-page__status">
             {{ pedidosSemOc().length === 0 ? 'Nenhum pedido sem Ordem de Carga com conferência pendente.' : 'Nenhum resultado para essa busca.' }}
           </div>
         } @else {
-          <div class="ms-selecao no-print">
+          <div class="ms-selecao">
             <label class="ms-check">
               <input type="checkbox" [checked]="todosVisiveisSelecionados" (change)="alternarTodos()" />
-              <span>Selecionar todos os exibidos ({{ pedidosSemOcFiltrados.length }})</span>
+              <span>Selecionar todos os filtrados ({{ pedidosSemOcFiltrados.length }})</span>
             </label>
-            <span class="ms-selecao__info">Só os pedidos desta lista filtrada. Cada um gera um mapa próprio — nunca somado com outro.</span>
+            <span class="ms-selecao__info">Vale pra todas as páginas desta busca. Cada pedido gera um mapa próprio — nunca somado com outro.</span>
             <button
               type="button"
               class="oq-admin-btn oq-admin-btn--primary"
@@ -102,109 +120,226 @@
               Gerar {{ selecionadosVisiveis.length || '' }} mapa(s)
             </button>
           </div>
-          <div class="ms-painel-grid no-print">
-            @for (p of pedidosSemOcFiltrados; track p.nunota) {
-              <article class="oq-card" [class.ms-card--selecionado]="selecionados().has(p.nunota)">
-                <div class="oq-card__header">
-                  <label class="ms-check ms-check--card">
-                    <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
-                    <span class="oq-card__client">Nro. Único {{ p.nunota }}</span>
-                  </label>
-                  <div class="ms-card-badge">
-                    <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
+
+          @if (viewMode() === 'cards') {
+            <div class="oq-page__grid">
+              @for (p of pedidosDaPagina; track p.nunota) {
+                <article class="oq-card" [class.ms-card--selecionado]="selecionados().has(p.nunota)">
+                  <header class="oq-card__header">
+                    <label class="ms-check ms-check--card">
+                      <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
+                      <span class="oq-card__client">Nro. Único {{ p.nunota }}</span>
+                    </label>
+                    <div class="ms-card-badge">
+                      <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
+                    </div>
+                    <div class="oq-card__status-line">
+                      <span class="oq-status-pin oq-status-pin--aguardando">
+                        <oq-icon name="box" [size]="12" />
+                        Pronto pra separar
+                      </span>
+                    </div>
+                  </header>
+                  <div class="oq-card__divider"></div>
+                  <div class="oq-card__grid">
+                    <div class="oq-card__field">
+                      <span class="oq-card__field-label">Nota</span>
+                      <span class="oq-card__field-value">{{ p.numNota ?? '—' }}</span>
+                    </div>
+                    <div class="oq-card__field">
+                      <span class="oq-card__field-label">Data</span>
+                      <span class="oq-card__field-value">{{ p.dataMovimento ?? '—' }}</span>
+                    </div>
+                    <div class="oq-card__field oq-card__field--full">
+                      <span class="oq-card__field-label">Parceiro</span>
+                      <span class="oq-card__field-value" [title]="p.nomeParceiro ?? ''">{{ p.codParc ?? '' }} {{ p.nomeParceiro ? '- ' + p.nomeParceiro : '—' }}</span>
+                    </div>
                   </div>
+                  <div class="oq-card__actions">
+                    <footer class="oq-card__footer">
+                      <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultarSemOrdemCarga([p.nunota])">
+                        Ver Mapa deste pedido
+                      </button>
+                    </footer>
+                  </div>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="oq-page__lista">
+              <table class="oq-lista">
+                <caption class="oq-lista__caption">Pedidos sem Ordem de Carga</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="oq-lista__topo">Status</th>
+                    <th scope="col" class="oq-lista__principal">Nº Único</th>
+                    <th scope="col">Nota</th>
+                    <th scope="col">Data</th>
+                    <th scope="col">Parceiro</th>
+                    <th scope="col" class="oq-lista__acoes">Mapa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of pedidosDaPagina; track p.nunota) {
+                    <tr class="oq-lista__linha" [class.ms-linha--selecionada]="selecionados().has(p.nunota)">
+                      <td class="oq-lista__topo" data-label="Status">
+                        <span class="oq-status-pin oq-status-pin--aguardando">
+                          <oq-icon name="box" [size]="12" />
+                          Pronto pra separar
+                        </span>
+                      </td>
+                      <td class="oq-lista__principal" data-label="Nº Único">
+                        <label class="ms-check ms-check--card">
+                          <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
+                          <span class="oq-lista__destaque">Nro. Único {{ p.nunota }}</span>
+                        </label>
+                        <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
+                      </td>
+                      <td data-label="Nota">{{ p.numNota ?? '—' }}</td>
+                      <td data-label="Data">{{ p.dataMovimento ?? '—' }}</td>
+                      <td data-label="Parceiro" [title]="p.nomeParceiro ?? ''">{{ p.codParc ?? '' }} {{ p.nomeParceiro ? '- ' + p.nomeParceiro : '—' }}</td>
+                      <td class="oq-lista__acoes" data-label="Mapa">
+                        <button type="button" class="oq-lista__btn" (click)="consultarSemOrdemCarga([p.nunota])">Ver Mapa</button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <oq-paginacao
+            [total]="pedidosSemOcFiltrados.length"
+            [pagina]="paginaExibida"
+            [itensPorPagina]="itensPorPagina()"
+            [opcoes]="opcoesItensPorPagina()"
+            (paginaChange)="pagina.set($event)"
+            (itensPorPaginaChange)="onItensPorPaginaChange($event)"
+          />
+        }
+      } @else if (listaFiltrada.length === 0) {
+        <div class="oq-page__status">
+          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga com conferência pendente no momento.' : 'Nenhum resultado para essa busca.' }}
+        </div>
+      } @else {
+        @if (viewMode() === 'cards') {
+          <div class="oq-page__grid">
+            @for (oc of ocsDaPagina; track oc.ordemCarga) {
+              <article class="oq-card">
+                <header class="oq-card__header">
+                  <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
                   <div class="oq-card__status-line">
-                    <oq-icon name="box" [size]="13" />
-                    <span class="oq-card__status-text">Pronto pra separar</span>
+                    <span class="oq-status-pin oq-status-pin--aguardando">
+                      <oq-icon name="box" [size]="12" />
+                      Pronta pra separar
+                    </span>
+                    @if (oc.situacao === 'F') {
+                      <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
+                    }
                   </div>
-                </div>
+                </header>
                 <div class="oq-card__divider"></div>
                 <div class="oq-card__grid">
                   <div class="oq-card__field">
-                    <span class="oq-card__field-label">Nota</span>
-                    <span class="oq-card__field-value">{{ p.numNota ?? '—' }}</span>
+                    <span class="oq-card__field-label">Data prevista saída</span>
+                    <span class="oq-card__field-value">{{ oc.dataPrevSaida }}</span>
                   </div>
                   <div class="oq-card__field">
-                    <span class="oq-card__field-label">Data</span>
-                    <span class="oq-card__field-value">{{ p.dataMovimento ?? '—' }}</span>
+                    <span class="oq-card__field-label">Placa</span>
+                    <span class="oq-card__field-value">{{ oc.placa ?? '—' }}</span>
                   </div>
                   <div class="oq-card__field oq-card__field--full">
-                    <span class="oq-card__field-label">Parceiro</span>
-                    <span class="oq-card__field-value">{{ p.codParc ?? '' }} {{ p.nomeParceiro ? '- ' + p.nomeParceiro : '—' }}</span>
+                    <span class="oq-card__field-label">Motorista</span>
+                    <span class="oq-card__field-value">{{ oc.nomeMotorista ?? '—' }}</span>
                   </div>
                 </div>
-                <div class="oq-card__footer">
-                  <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultarSemOrdemCarga([p.nunota])">
-                    Ver Mapa deste pedido
-                  </button>
+
+                <div class="ms-progresso">
+                  <div class="ms-progresso__linha">
+                    <span class="ms-progresso__label">Notas conferidas</span>
+                    <span class="ms-progresso__contagem">{{ oc.notasConferidas }}/{{ oc.totalNotas }}</span>
+                  </div>
+                  <div class="ms-progresso__trilho">
+                    <div class="ms-progresso__barra" [class.ms-progresso__barra--completa]="ocConcluida(oc)" [style.width.%]="progressoPct(oc)"></div>
+                  </div>
+                </div>
+
+                <div class="oq-card__actions">
+                  <footer class="oq-card__footer">
+                    <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultar(oc.ordemCarga)">
+                      Ver Mapa de Separação
+                    </button>
+                  </footer>
                 </div>
               </article>
             }
           </div>
+        } @else {
+          <div class="oq-page__lista">
+            <table class="oq-lista">
+              <caption class="oq-lista__caption">Ordens de Carga com conferência pendente</caption>
+              <thead>
+                <tr>
+                  <th scope="col" class="oq-lista__topo">Status</th>
+                  <th scope="col" class="oq-lista__principal">Ordem de Carga</th>
+                  <th scope="col">Data prev. saída</th>
+                  <th scope="col">Placa</th>
+                  <th scope="col">Motorista</th>
+                  <th scope="col">Notas conferidas</th>
+                  <th scope="col" class="oq-lista__acoes">Mapa</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (oc of ocsDaPagina; track oc.ordemCarga) {
+                  <tr class="oq-lista__linha">
+                    <td class="oq-lista__topo" data-label="Status">
+                      <span class="oq-status-pin oq-status-pin--aguardando">
+                        <oq-icon name="box" [size]="12" />
+                        Pronta pra separar
+                      </span>
+                    </td>
+                    <td class="oq-lista__principal" data-label="Ordem de Carga">
+                      <span class="oq-lista__destaque">
+                        Ordem de Carga {{ oc.ordemCarga }}
+                        @if (oc.situacao === 'F') {
+                          <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
+                        }
+                      </span>
+                    </td>
+                    <td data-label="Data prev. saída">{{ oc.dataPrevSaida }}</td>
+                    <td data-label="Placa">{{ oc.placa ?? '—' }}</td>
+                    <td data-label="Motorista" [title]="oc.nomeMotorista ?? ''">{{ oc.nomeMotorista ?? '—' }}</td>
+                    <td data-label="Notas conferidas">
+                      <div class="ms-progresso ms-progresso--linha">
+                        <span class="ms-progresso__contagem">{{ oc.notasConferidas }}/{{ oc.totalNotas }}</span>
+                        <div class="ms-progresso__trilho">
+                          <div class="ms-progresso__barra" [class.ms-progresso__barra--completa]="ocConcluida(oc)" [style.width.%]="progressoPct(oc)"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="oq-lista__acoes" data-label="Mapa">
+                      <button type="button" class="oq-lista__btn" (click)="consultar(oc.ordemCarga)">Ver Mapa</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
-      } @else if (listaFiltrada.length === 0) {
-        <div class="ms-vazio no-print">
-          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga com conferência pendente no momento.' : 'Nenhum resultado para essa busca.' }}
-        </div>
-      } @else {
-        <div class="ms-painel-grid no-print">
-          @for (oc of listaFiltrada; track oc.ordemCarga) {
-            <article class="oq-card oq-card--clicavel" (click)="consultar(oc.ordemCarga)">
-              <div class="oq-card__header">
-                <span class="oq-card__client">
-                  Ordem de Carga {{ oc.ordemCarga }}
-                  @if (oc.situacao === 'F') {
-                    <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
-                  }
-                </span>
-                <div class="oq-card__status-line">
-                  <oq-icon [name]="ocConcluida(oc) ? 'check' : 'box'" [size]="13" />
-                  <span class="oq-card__status-text">
-                    {{ ocConcluida(oc) ? 'Todas as notas conferidas' : 'Pronta pra separar' }}
-                  </span>
-                </div>
-              </div>
-              <div class="oq-card__divider"></div>
-              <div class="oq-card__grid">
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Data prevista saída</span>
-                  <span class="oq-card__field-value">{{ oc.dataPrevSaida }}</span>
-                </div>
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Placa</span>
-                  <span class="oq-card__field-value">{{ oc.placa ?? '—' }}</span>
-                </div>
-                <div class="oq-card__field oq-card__field--full">
-                  <span class="oq-card__field-label">Motorista</span>
-                  <span class="oq-card__field-value">{{ oc.nomeMotorista ?? '—' }}</span>
-                </div>
-              </div>
 
-              <div class="ms-progresso">
-                <div class="ms-progresso__linha">
-                  <span class="ms-progresso__label">Notas conferidas</span>
-                  <span class="ms-progresso__contagem">{{ oc.notasConferidas }}/{{ oc.totalNotas }}</span>
-                </div>
-                <div class="ms-progresso__trilho">
-                  <div
-                    class="ms-progresso__barra"
-                    [class.ms-progresso__barra--completa]="ocConcluida(oc)"
-                    [style.width.%]="progressoPct(oc)"
-                  ></div>
-                </div>
-              </div>
-
-              <div class="oq-card__footer">
-                <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultar(oc.ordemCarga)">
-                  Ver Mapa de Separação
-                </button>
-              </div>
-            </article>
-          }
-        </div>
+        <oq-paginacao
+          [total]="listaFiltrada.length"
+          [pagina]="paginaExibida"
+          [itensPorPagina]="itensPorPagina()"
+          [opcoes]="opcoesItensPorPagina()"
+          (paginaChange)="pagina.set($event)"
+          (itensPorPaginaChange)="onItensPorPaginaChange($event)"
+        />
       }
-    </div>
-  } @else {
+    </main>
+  </div>
+} @else {
+<div class="ms-page">
     <!-- ─── Relatório: uma OC escolhida, ou N pedidos S/ OC (um mapa independente por Número Único) ─── -->
     <div class="ms-toolbar no-print">
       <h1 class="ms-toolbar__title">{{ tituloRelatorio() }}</h1>
@@ -421,5 +556,5 @@
     </div>
     }
     </div>
-  }
 </div>
+}

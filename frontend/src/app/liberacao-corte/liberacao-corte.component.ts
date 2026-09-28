@@ -1,22 +1,27 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LiberacaoCorteService } from './liberacao-corte.service';
 import { ConferenciaAguardandoCorte } from './liberacao-corte.model';
 import { OqLiberacaoCorteModalComponent } from './oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
+import { OqViewToggleComponent } from '../shared/lista-layout/oq-view-toggle.component';
+import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
+import { ITENS_POR_PAGINA, ViewMode, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
+
+const CHAVE_VIEW_MODE = 'liberacao-corte-view-mode';
 
 /**
- * Mesmo modelo visual de ImpressaoEtiquetasComponent (header com contador +
- * filtros por NF/Nº Único) — só que os filtros aqui são em memória: a lista
- * de "aguardando corte" já vem inteira do backend (revalidada contra o
- * Sankhya a cada carregar()), não pagina, então não há por quê ir ao
- * servidor de novo só pra filtrar o que já está na tela.
+ * Mesmo layout da Fila de Tarefas (barra com contador, busca, alternador
+ * cards/lista, paginação no rodapé — estilos globais em styles/_lista-layout.scss).
+ * A busca e a paginação são em memória: a lista de "aguardando corte" já vem
+ * inteira do backend (revalidada contra o Sankhya a cada carregar()), então
+ * não há por quê ir ao servidor de novo só pra filtrar o que já está na tela.
  */
 @Component({
   selector: 'app-liberacao-corte',
   standalone: true,
-  imports: [FormsModule, OqLiberacaoCorteModalComponent, OqSkeletonComponent, OqIconComponent],
+  imports: [FormsModule, OqLiberacaoCorteModalComponent, OqSkeletonComponent, OqIconComponent, OqViewToggleComponent, OqPaginacaoComponent],
   templateUrl: './liberacao-corte.component.html',
   styleUrl: './liberacao-corte.component.scss',
 })
@@ -28,50 +33,60 @@ export class LiberacaoCorteComponent implements OnInit {
   readonly erro = signal<string | null>(null);
   readonly selecionada = signal<ConferenciaAguardandoCorte | null>(null);
 
-  filtroNota: number | null = null;
-  filtroUnico: number | null = null;
+  /** Busca por NF, Nº Único ou cliente (texto livre, em memória). */
+  busca = '';
 
-  /** Getter (não computed()) de propósito — filtroNota/filtroUnico são campos
-   * simples com [(ngModel)] (mesmo padrão de ImpressaoEtiquetasComponent), não
-   * signals; o template já reavalia a cada ciclo de CD, lista é pequena. */
-  /** Paginação em memória (a lista já vem inteira do backend) — mesmo tamanho da Impressão de Etiquetas. */
-  readonly PER_PAGE = 12;
+  /** Cards (grid) ou lista (tabela) — preferência do navegador, só troca a renderização. */
+  readonly viewMode = signal<ViewMode>(lerViewMode(CHAVE_VIEW_MODE));
+  readonly opcoesItensPorPagina = computed(() => ITENS_POR_PAGINA[this.viewMode()]);
+  readonly itensPorPagina = signal(itensValidosPara(this.viewMode(), 20));
+  /** Paginação em memória (a lista já vem inteira do backend). 0-based. */
   readonly page = signal(0);
 
   get totalPaginas(): number {
-    return Math.max(Math.ceil(this.listaFiltrada.length / this.PER_PAGE), 1);
+    return Math.max(Math.ceil(this.listaFiltrada.length / this.itensPorPagina()), 1);
   }
 
-  /** Página atual sempre válida — filtro/recarga podem encolher a lista. */
+  /** Página atual sempre válida — busca/recarga podem encolher a lista. */
   get paginaIdx(): number {
     return Math.min(this.page(), this.totalPaginas - 1);
   }
 
   get paginaAtual(): ConferenciaAguardandoCorte[] {
     const p = this.paginaIdx;
-    return this.listaFiltrada.slice(p * this.PER_PAGE, (p + 1) * this.PER_PAGE);
-  }
-
-  proxima(): void {
-    if (this.paginaIdx < this.totalPaginas - 1) this.page.set(this.paginaIdx + 1);
-  }
-
-  anterior(): void {
-    this.page.set(Math.max(0, this.paginaIdx - 1));
+    const n = this.itensPorPagina();
+    return this.listaFiltrada.slice(p * n, (p + 1) * n);
   }
 
   onFiltroChange(): void {
     this.page.set(0);
   }
 
+  onItensPorPaginaChange(valor: number): void {
+    this.itensPorPagina.set(valor);
+    this.page.set(0);
+  }
+
+  /** Troca cards ↔ lista mantendo o 1º item visível (se os itens/página mudarem). */
+  onViewModeChange(modo: ViewMode): void {
+    if (modo === this.viewMode()) return;
+    const primeiro = this.paginaIdx * this.itensPorPagina();
+    const n = itensValidosPara(modo, this.itensPorPagina());
+    this.viewMode.set(modo);
+    this.itensPorPagina.set(n);
+    this.page.set(Math.floor(primeiro / n));
+    salvarViewMode(CHAVE_VIEW_MODE, modo);
+  }
+
   get listaFiltrada(): ConferenciaAguardandoCorte[] {
-    const nota = this.filtroNota;
-    const unico = this.filtroUnico;
-    return this.lista().filter((item) => {
-      if (nota != null && item.numeroNota !== nota) return false;
-      if (unico != null && item.nunota !== unico) return false;
-      return true;
-    });
+    const termo = this.busca.trim().toLowerCase();
+    if (!termo) return this.lista();
+    return this.lista().filter(
+      (item) =>
+        String(item.numeroNota ?? '').includes(termo) ||
+        String(item.nunota).includes(termo) ||
+        !!item.nomeParceiro?.toLowerCase().includes(termo),
+    );
   }
 
   ngOnInit(): void {
@@ -80,6 +95,7 @@ export class LiberacaoCorteComponent implements OnInit {
 
   carregar(): void {
     this.carregando.set(true);
+    this.erro.set(null);
     this.service.listar().subscribe({
       next: (l) => {
         this.lista.set(l);

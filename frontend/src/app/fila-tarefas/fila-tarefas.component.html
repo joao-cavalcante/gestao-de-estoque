@@ -73,41 +73,14 @@
         </div>
       }
 
-      <footer class="oq-pagination">
-        <label class="oq-pagination__per-page">
-          Itens / Pág
-          <select [ngModel]="itensPorPagina()" (ngModelChange)="onItensPorPaginaChange($event)">
-            @for (op of opcoesItensPorPagina(); track op) {
-              <option [ngValue]="op">{{ op }}</option>
-            }
-          </select>
-        </label>
-
-        <span class="oq-pagination__range">
-          <span class="oq-pagination__range-num">{{ intervaloPagina().inicio }}–{{ intervaloPagina().fim }}</span>
-          DE
-          <span class="oq-pagination__range-num">{{ tarefasFiltradas().length }}</span>
-        </span>
-
-        <div class="oq-pagination__pages">
-          <button type="button" (click)="irParaPagina(paginaAtual() - 1)" [disabled]="paginaAtual() === 1" aria-label="Página anterior">
-            ‹
-          </button>
-          @for (p of [].constructor(totalPaginas()); track $index) {
-            <button
-              type="button"
-              class="oq-pagination__page"
-              [class.oq-pagination__page--active]="paginaAtual() === $index + 1"
-              (click)="irParaPagina($index + 1)"
-            >
-              {{ $index + 1 }}
-            </button>
-          }
-          <button type="button" (click)="irParaPagina(paginaAtual() + 1)" [disabled]="paginaAtual() === totalPaginas()" aria-label="Próxima página">
-            ›
-          </button>
-        </div>
-      </footer>
+      <oq-paginacao
+        [total]="tarefasFiltradas().length"
+        [pagina]="paginaAtual()"
+        [itensPorPagina]="itensPorPagina()"
+        [opcoes]="opcoesItensPorPagina()"
+        (paginaChange)="irParaPagina($event)"
+        (itensPorPaginaChange)="onItensPorPaginaChange($event)"
+      />
     }
   </main>
 </div>

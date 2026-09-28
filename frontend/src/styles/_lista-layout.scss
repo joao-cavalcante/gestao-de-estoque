@@ -1,0 +1,866 @@
+/* ============================================================
+   Layout das telas de fila (Fila de Tarefas, Impressão de Etiquetas,
+   Liberação de Corte, Mapa de Separação) — mesmo esqueleto em todas:
+   página → cabeçalho (.oq-toolbar) → conteúdo que rola por dentro
+   (grid de .oq-card OU tabela .oq-lista) → paginação (.oq-pagination).
+   Veio da Fila de Tarefas (antes escopado nos componentes dela); cada
+   tela tinha a sua cópia do card, com pequenas diferenças.
+   ============================================================ */
+
+/* ─── Página ─────────────────────────────────────────────── */
+.oq-page {
+  /* 100% (não 100vh) — a tela vive dentro da área de conteúdo do app-shell
+     (ver app.component.scss), que já é o viewport menos o header global. */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--oq-bg-page);
+}
+
+/* Envolve KPIs + toolbar num só bloco visual — a identidade (logo/unidade/
+   sync/operador) virou o header global, fora daqui. */
+.oq-page__header {
+  flex: none;
+  background: var(--oq-surface);
+  border-bottom: 1px solid var(--oq-header-border);
+}
+
+.oq-page__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.oq-page__status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 16px;
+  text-align: center;
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  color: var(--oq-text-secondary);
+
+  button {
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    padding: 6px 14px;
+    font-family: var(--oq-font-display);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--oq-text-primary);
+    cursor: pointer;
+  }
+}
+
+.oq-page__status--erro {
+  color: var(--oq-critical-foreground, #7A1610);
+}
+
+.oq-page__grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  // O grid rola por dentro; header/toolbar (flex: none) e a paginação
+  // (flex: none, fora deste bloco) ficam sempre visíveis no viewport,
+  // em vez de a página inteira crescer e empurrar a paginação pra fora.
+  padding-bottom: 4px;
+
+  @media (min-width: 640px) { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
+  @media (min-width: 1280px) { grid-template-columns: repeat(4, 1fr); }
+  @media (min-width: 1536px) { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* Modo LISTA — rola por dentro, igual ao grid; o thead da tabela é sticky dentro daqui. */
+.oq-page__lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+
+.oq-page__lista-skel {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.oq-pagination {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--oq-border);
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-pagination__per-page {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+
+  select {
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    padding: 4px 8px;
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    color: var(--oq-text-primary);
+
+    &:focus-visible {
+      border-color: var(--oq-brand-accent);
+    }
+  }
+}
+
+.oq-pagination__range {
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.oq-pagination__range-num {
+  color: var(--oq-text-primary);
+}
+
+.oq-pagination__pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  button {
+    min-width: 28px;
+    height: 28px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled):not(.oq-pagination__page--active) {
+      border-color: var(--oq-text-primary);
+    }
+  }
+}
+
+.oq-pagination__page--active {
+  background: var(--oq-text-primary);
+  border-color: var(--oq-text-primary);
+  color: var(--oq-surface);
+}
+
+
+/* ─── Barra de ferramentas (título + contador + ações) ───── */
+.oq-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 24px;
+}
+
+.oq-toolbar__title-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.oq-toolbar__title {
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--oq-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin: 0;
+}
+
+.oq-toolbar__counter {
+  font-family: var(--oq-font-mono);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.oq-toolbar__pills {
+  display: flex;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  overflow: hidden;
+  background: var(--oq-surface);
+}
+
+.oq-toolbar__pill {
+  border: none;
+  border-right: 1px solid var(--oq-border);
+  background: transparent;
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+
+  &:last-child {
+    border-right: none;
+  }
+
+  &:hover:not(.oq-toolbar__pill--active) {
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-toolbar__pill--active {
+  background: var(--oq-text-primary);
+  color: var(--oq-surface);
+}
+
+.oq-toolbar__pills--tipo-sep { margin-left: 4px; }
+
+.oq-toolbar__pill--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Alternador cards/lista — só ícone, mesma altura dos outros pills. */
+.oq-toolbar__pill--view {
+  padding: 5px 8px;
+}
+
+.oq-toolbar__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  padding: 6px 8px;
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  transition: border-color .15s ease;
+
+  &:focus-within {
+    border-color: var(--oq-brand-accent);
+  }
+
+  input {
+    border: none;
+    outline: none;
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: var(--oq-text-primary);
+    width: 224px;
+    background: transparent;
+
+    &::placeholder {
+      color: var(--oq-text-secondary);
+    }
+  }
+}
+
+/* Campo de busca numérico curto (ex.: NF / Nº Único separados, quando o filtro é no servidor). */
+.oq-toolbar__search--curto input {
+  width: 128px;
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+.oq-toolbar__filters-wrapper {
+  position: relative;
+}
+
+.oq-toolbar__filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+
+  &:hover {
+    border-color: var(--oq-brand);
+    color: var(--oq-brand-text);
+  }
+}
+
+.oq-toolbar__filters-btn--ativo {
+  border-color: var(--oq-brand);
+  color: var(--oq-brand-text);
+}
+
+.oq-toolbar__filters-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+
+/* ─── Card ───────────────────────────────────────────────── */
+.oq-card {
+  position: relative;
+  width: 100%;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  // Sem isto, o <span> com white-space:nowrap do nome do cliente (que pode
+  // ser bem longo com dado real) força a trilha do grid a crescer pro
+  // min-content (a largura total do texto), quebrando as colunas iguais e
+  // estourando a largura da página — bug clássico do "min-width:auto" em
+  // itens de grid/flex.
+  min-width: 0;
+}
+
+.oq-card--critical {
+  border: 2px solid var(--oq-critical);
+  box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.12), 0 2px 10px -2px rgba(180, 35, 24, 0.25);
+}
+
+.oq-card--attention {
+  border: 2px solid var(--oq-attention);
+  box-shadow: 0 0 0 1px rgba(194, 118, 12, 0.12), 0 2px 10px -2px rgba(194, 118, 12, 0.20);
+}
+
+.oq-card__dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.oq-card__dot--critical { background: var(--oq-critical); }
+.oq-card__dot--attention { background: var(--oq-attention); }
+
+.oq-card__header {
+  min-width: 0;
+  padding-right: 24px;
+}
+
+.oq-card__client {
+  display: block;
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.25;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oq-card__status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-card__status-text {
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-card__status-sep {
+  color: var(--oq-text-secondary);
+  font-size: 11px;
+}
+
+.oq-card__alert-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--oq-font-mono);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.oq-card__alert-text--critical { color: var(--oq-critical-foreground); }
+.oq-card__alert-text--attention { color: var(--oq-warning-foreground); }
+
+.oq-card__divider {
+  border-top: 1px dashed var(--oq-border);
+  margin: 12px 0;
+}
+
+.oq-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.oq-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.oq-card__field--full {
+  grid-column: 1 / -1;
+}
+
+.oq-card__field-label {
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-card__field-value {
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bloco de ação — encostado na base pra alinhar os botões entre cards da mesma linha. */
+.oq-card__actions {
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.oq-card__footer {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--oq-border);
+}
+
+.oq-card__btn {
+  flex: 1;
+  border-radius: var(--oq-radius-input);
+  padding: 6px 8px;
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.oq-card__btn--outline {
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  color: var(--oq-text-primary);
+
+  &:hover:not(:disabled) {
+    border-color: var(--oq-text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.oq-card__btn--primary {
+  background: var(--oq-brand);
+  border: 1px solid var(--oq-brand);
+  color: #fff;
+
+  &:hover {
+    background: var(--oq-brand-hover);
+    border-color: var(--oq-brand-hover);
+  }
+
+  &:disabled {
+    background: var(--oq-surface-2);
+    border-color: var(--oq-border);
+    color: var(--oq-text-secondary);
+    cursor: not-allowed;
+  }
+}
+
+/* Tarefa já em andamento — "Continuar" em vez de "Conferir". */
+.oq-card__btn--continuar {
+  background: var(--oq-attention, var(--oq-brand));
+  border-color: var(--oq-attention, var(--oq-brand));
+
+  &:hover { background: var(--oq-warning-foreground, var(--oq-brand-hover)); border-color: var(--oq-warning-foreground, var(--oq-brand-hover)); }
+}
+
+/* Conferência por etapa (V29) — chips clicáveis, linha de altura fixa. */
+.oq-card__etapas-titulo {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+.oq-card__etapas {
+  display: flex;
+  flex-wrap: nowrap; // nunca quebra pra 2ª linha (Secos/Refrigerado/Congelado empurrando o card) —
+                      // rola na horizontal em vez de quebrar, mantém a linha de altura fixa.
+  overflow-x: auto;
+  gap: 6px;
+  margin-bottom: 12px;
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // IE/Edge legado
+
+  &::-webkit-scrollbar {
+    display: none; // Chrome/Safari — a rolagem funciona sem a barra visível
+  }
+}
+
+
+/* ─── Lista (modo tabela) ────────────────────────────────── */
+/* Modo LISTA — o contêiner de rolagem é do pai (.oq-page__lista, overflow-y); o
+   cabeçalho fica fixo (sticky) dentro dele. Só tokens do tema: claro e escuro. */
+.oq-lista {
+  width: 100%;
+  border-collapse: separate; // sticky + bordas: com "collapse" a borda do th some ao rolar
+  border-spacing: 0;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-primary);
+}
+
+.oq-lista__caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.oq-lista thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--oq-surface-2);
+  border-bottom: 1px solid var(--oq-border);
+  padding: 8px 10px;
+  text-align: left;
+  font-family: var(--oq-font-mono);
+  font-weight: 500;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+.oq-lista__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover,
+  &--ativo {
+    color: var(--oq-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: 2px;
+  }
+}
+
+.oq-lista__sort-ind {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.oq-lista tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--oq-border);
+  vertical-align: middle;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.oq-lista tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.oq-lista__linha {
+  transition: background-color .12s ease;
+
+  &:hover {
+    background: var(--oq-surface-2);
+  }
+
+  // Mesma sinalização do card crítico/atenção, na borda esquerda da linha.
+  &--critical td:first-child {
+    box-shadow: inset 3px 0 0 var(--oq-critical);
+  }
+
+  &--attention td:first-child {
+    box-shadow: inset 3px 0 0 var(--oq-attention);
+  }
+}
+
+.oq-lista__principal {
+  width: 100%; // a coluna flexível — as demais ficam no tamanho do conteúdo
+  max-width: 0; // deixa o ellipsis funcionar dentro de tabela
+}
+
+.oq-lista__destaque {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.oq-lista__direita {
+  text-align: right;
+}
+
+.oq-lista__alerta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+
+  &--critical { color: var(--oq-critical-foreground); }
+  &--attention { color: var(--oq-warning-foreground); }
+}
+
+.oq-lista__chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+// Mesmo visual do botão do card (primário / "Continuar").
+.oq-lista__btn {
+  border: 1px solid var(--oq-brand);
+  border-radius: var(--oq-radius-input);
+  padding: 5px 12px;
+  background: var(--oq-brand);
+  color: #fff;
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--oq-brand-hover);
+    border-color: var(--oq-brand-hover);
+  }
+
+  &--continuar {
+    background: var(--oq-attention, var(--oq-brand));
+    border-color: var(--oq-attention, var(--oq-brand));
+
+    &:hover {
+      background: var(--oq-warning-foreground, var(--oq-brand-hover));
+      border-color: var(--oq-warning-foreground, var(--oq-brand-hover));
+    }
+  }
+}
+
+.oq-lista__btn--outline {
+  background: var(--oq-surface);
+  border-color: var(--oq-border);
+  color: var(--oq-text-primary);
+
+  &:hover {
+    background: var(--oq-surface);
+    border-color: var(--oq-text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.oq-lista__btns {
+  display: flex;
+  gap: 6px;
+}
+
+/* < 768px: cada pedido vira um bloco — cliente + status em cima, demais campos em 2 colunas,
+   rótulo vindo do data-label de cada célula. */
+@media (max-width: 767.98px) {
+  .oq-lista {
+    border: none;
+    background: transparent;
+  }
+
+  .oq-lista thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .oq-lista tbody,
+  .oq-lista__linha {
+    display: block;
+  }
+
+  .oq-lista__linha {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    margin-bottom: 10px;
+    padding: 12px;
+    background: var(--oq-surface);
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-block);
+  }
+
+  .oq-lista tbody td {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+    border: none;
+    white-space: normal;
+    min-width: 0;
+
+    &::before {
+      content: attr(data-label);
+      font-size: 9px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--oq-text-secondary);
+    }
+  }
+
+  // Cliente e status em cima, linha inteira, sem rótulo.
+  .oq-lista tbody td.oq-lista__principal {
+    order: -2;
+    grid-column: 1 / -1;
+    max-width: none;
+    width: auto;
+
+    &::before { display: none; }
+  }
+
+  .oq-lista tbody td.oq-lista__topo {
+    order: -1;
+    grid-column: 1 / -1;
+
+    &::before { display: none; }
+  }
+
+  .oq-lista tbody td.oq-lista__direita {
+    text-align: left;
+  }
+
+  .oq-lista tbody td.oq-lista__acoes {
+    grid-column: 1 / -1;
+  }
+
+  .oq-lista__chips {
+    overflow-x: auto;
+  }
+
+  .oq-lista__linha--critical td:first-child,
+  .oq-lista__linha--attention td:first-child {
+    box-shadow: none;
+  }
+
+  .oq-lista__linha--critical { border: 2px solid var(--oq-critical); }
+  .oq-lista__linha--attention { border: 2px solid var(--oq-attention); }
+}

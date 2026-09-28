@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqFiltrosAvancadosComponent } from '../oq-filtros-avancados/oq-filtros-avancados.component';
 import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, TIPOS_SEPARACAO, ViewMode } from '../tarefa.model';
-import { OqIconName } from '../../shared/icons/oq-icon.component';
+import { OqViewToggleComponent } from '../../shared/lista-layout/oq-view-toggle.component';
 
 interface PillFiltro {
   valor: FiltroStatus;
@@ -13,7 +13,7 @@ interface PillFiltro {
 @Component({
   selector: 'oq-toolbar',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqFiltrosAvancadosComponent],
+  imports: [FormsModule, OqIconComponent, OqFiltrosAvancadosComponent, OqViewToggleComponent],
   templateUrl: './oq-toolbar.component.html',
   styleUrl: './oq-toolbar.component.scss',
 })
@@ -48,10 +48,6 @@ export class OqToolbarComponent {
   @Output() fecharFiltrosAvancados = new EventEmitter<void>();
   @Output() viewModeChange = new EventEmitter<ViewMode>();
 
-  readonly modos: { valor: ViewMode; icone: OqIconName; label: string }[] = [
-    { valor: 'cards', icone: 'grid', label: 'Visualizar em cards' },
-    { valor: 'list', icone: 'list', label: 'Visualizar em lista' },
-  ];
 
   readonly pills: PillFiltro[] = [
     { valor: 'todos', label: 'Todos' },

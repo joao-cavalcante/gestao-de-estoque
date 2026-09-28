@@ -28,7 +28,7 @@
         [class.oq-lista__linha--critical]="linha.t.alerta === 'critico'"
         [class.oq-lista__linha--attention]="linha.t.alerta === 'atencao'"
       >
-        <td class="col-status" data-label="Status">
+        <td class="oq-lista__topo" data-label="Status">
           <span class="oq-status-pin" [class]="'oq-status-pin--' + linha.st.tom">
             <oq-icon [name]="linha.st.icone" [size]="12" [class.oq-gear-spin]="linha.st.gira" />
             {{ linha.st.label }}
@@ -44,18 +44,18 @@
             </span>
           }
         </td>
-        <td class="col-cliente" data-label="Cliente">
-          <span class="oq-lista__cliente" [title]="linha.t.cliente">{{ linha.t.cliente }}</span>
+        <td class="oq-lista__principal" data-label="Cliente">
+          <span class="oq-lista__destaque" [title]="linha.t.cliente">{{ linha.t.cliente }}</span>
         </td>
-        <td class="col-num" data-label="Nº Único">{{ linha.t.numeroUnico }}</td>
-        <td class="col-num" data-label="NF">{{ linha.t.nf }}</td>
-        <td class="col-num" data-label="Ordem de Carga">{{ linha.t.ordemCarga ?? '—' }}</td>
-        <td class="col-num" data-label="Data">{{ linha.t.data }}</td>
-        <td class="col-itens" data-label="Itens">{{ linha.t.itens }}</td>
-        <td class="col-periodo" data-label="Período p/ entrega">{{ linha.t.periodoEntrega }}</td>
-        <td class="col-etapas" data-label="Conferir por etapa">
+        <td data-label="Nº Único">{{ linha.t.numeroUnico }}</td>
+        <td data-label="NF">{{ linha.t.nf }}</td>
+        <td data-label="Ordem de Carga">{{ linha.t.ordemCarga ?? '—' }}</td>
+        <td data-label="Data">{{ linha.t.data }}</td>
+        <td class="oq-lista__direita" data-label="Itens">{{ linha.t.itens }}</td>
+        <td data-label="Período p/ entrega">{{ linha.t.periodoEntrega }}</td>
+        <td class="oq-lista__acoes" data-label="Conferir por etapa">
           @if (linha.ets.length > 0) {
-            <oq-etapa-chips class="oq-lista__etapas" [etapas]="linha.ets" (conferirEtapa)="conferirEtapa(linha.t, $event)" />
+            <oq-etapa-chips class="oq-lista__chips" [etapas]="linha.ets" (conferirEtapa)="conferirEtapa(linha.t, $event)" />
           } @else {
             <!-- Mesma ação do botão do card — só o botão/chip inicia a conferência, a linha não. -->
             <button
