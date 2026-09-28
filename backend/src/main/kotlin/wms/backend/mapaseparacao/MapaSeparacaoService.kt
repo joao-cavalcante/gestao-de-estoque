@@ -456,6 +456,18 @@ object MapaSeparacaoService {
         val ordensCarga = raw.mapNotNull { it["ORDEMCARGA"]?.toLongOrNull() }.distinct()
         // Diagnóstico de "painel vazio": Sankhya sem OC aberta vs. OC aberta sem nota na fila (0/0, o front esconde).
         println("MAPA abertas: ${raw.size} linha(s) SITUACAO='A' no Sankhya, OCs=${ordensCarga.take(20)}")
+        if (raw.isEmpty()) {
+            val recentes = runCatching {
+                SankhyaLoadRecordsClient.parseRows(
+                    SankhyaLoadRecordsClient.loadRecords(
+                        tenantSlug,
+                        LoadRecordsRequest(entityName = "OrdemCarga", fields = listOf("ORDEMCARGA", "SITUACAO"), criteriaExpression = "ORDEMCARGA >= 55"),
+                    ),
+                    listOf("ORDEMCARGA", "SITUACAO"),
+                ).map { "${it["ORDEMCARGA"]}=${it["SITUACAO"]}" }
+            }.getOrElse { listOf("erro: ${it.message}") }
+            println("MAPA abertas: situacao das OCs recentes (>=55): $recentes")
+        }
         if (raw.isEmpty()) return@coroutineScope emptyList()
 
         val codVeiculos = raw.mapNotNull { it["CODVEICULO"]?.toIntOrNull() }.distinct()
