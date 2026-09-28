@@ -74,7 +74,7 @@ data class ParceiroSeparacaoDto(
     val categorias: List<CategoriaSeparacaoDto>,
 )
 
-/** Item do painel: OC aberta, ou fechada que ainda tem nota na fila de conferência (ver MapaSeparacaoService.listarAbertas). */
+/** Item do painel: OC (aberta ou fechada) com pedido de conferência ainda não concluída (ver MapaSeparacaoService.listarAbertas). */
 @Serializable
 data class OrdemCargaResumoDto(
     val ordemCarga: Long,

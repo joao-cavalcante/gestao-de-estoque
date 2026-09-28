@@ -24,8 +24,6 @@ const ICONE_CATEGORIA: Record<string, OqIconName> = {
   '0': 'circle-alert',
 };
 
-type FiltroStatus = 'todas' | 'pendentes' | 'concluidas';
-
 /** Quantos mapas S/ OC buscar ao mesmo tempo no Sankhya (cada um é ~3 chamadas). */
 const CONCORRENCIA_MAPAS = 3;
 
@@ -63,22 +61,13 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   private readonly syncTick = inject(SyncTickService);
   private readonly filtrosSalvos = inject(FiltrosSalvosService);
 
-  /** Status e "S/ Ordem de Carga" lembrados por usuário (busca por texto não é lembrada); padrão = pendentes, com OC. */
-  private filtrosSalvosLidos(): { status: FiltroStatus; semOrdemCarga: boolean } {
-    const salvo = this.filtrosSalvos.ler<{ status: string; semOrdemCarga?: boolean }>('mapa-separacao');
-    const s = salvo?.status;
-    return {
-      status: s === 'todas' || s === 'concluidas' || s === 'pendentes' ? s : 'pendentes',
-      semOrdemCarga: salvo?.semOrdemCarga === true,
-    };
+  /** "S/ Ordem de Carga" lembrado por usuário (busca por texto não é lembrada); padrão = com OC. */
+  private semOrdemCargaSalvo(): boolean {
+    return this.filtrosSalvos.ler<{ semOrdemCarga?: boolean }>('mapa-separacao')?.semOrdemCarga === true;
   }
 
   private salvarFiltros(): void {
-    this.filtrosSalvos.salvar('mapa-separacao', { status: this.filtroStatus, semOrdemCarga: this.semOrdemCarga });
-  }
-
-  onFiltroStatusChange(): void {
-    this.salvarFiltros();
+    this.filtrosSalvos.salvar('mapa-separacao', { semOrdemCarga: this.semOrdemCarga });
   }
 
   onSemOrdemCargaChange(): void {
@@ -93,10 +82,8 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   readonly carregandoAbertas = signal(true);
   readonly erroAbertas = signal<string | null>(null);
   filtroLista = '';
-  /** 'todas' | 'pendentes' (ainda tem nota não conferida) | 'concluidas' (100%) — ajuda a localizar rápido numa lista grande. */
-  filtroStatus: FiltroStatus = this.filtrosSalvosLidos().status;
   /** true = painel mostra só pedidos SEM Ordem de Carga (um mapa por Número Único). */
-  semOrdemCarga = this.filtrosSalvosLidos().semOrdemCarga;
+  semOrdemCarga = this.semOrdemCargaSalvo();
 
   readonly pedidosSemOc = signal<PedidoSemOrdemCargaDto[]>([]);
   /** Números Únicos marcados pra gerar os mapas S/ OC de uma vez. */
@@ -114,42 +101,31 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   readonly formatarQtd = formatarQtd;
   readonly formatarPeso = formatarPeso;
 
+  /**
+   * O painel só lista o que ainda tem conferência pra fazer (regra do usuário): o backend já manda só OC
+   * com pedido não concluído e só pedido S/ OC não concluído — o filtro aqui é só a busca por texto.
+   */
   get listaFiltrada(): OrdemCargaResumoDto[] {
     const termo = this.filtroLista.trim().toLowerCase();
-    const status = this.filtroStatus;
-    return this.abertas().filter((oc) => {
-      const passaBusca =
+    return this.abertas().filter(
+      (oc) =>
         !termo ||
         String(oc.ordemCarga).includes(termo) ||
-        oc.placa?.toLowerCase().includes(termo) ||
-        oc.nomeMotorista?.toLowerCase().includes(termo);
-
-      const concluida = this.ocConcluida(oc);
-      const passaStatus = status === 'todas' || (status === 'concluidas' ? concluida : !concluida);
-
-      return passaBusca && passaStatus;
-    })
-      // Não concluídas primeiro (é o que ainda precisa de atenção); dentro de
-      // cada grupo mantém a ordem do backend (OC mais recente primeiro) — sort estável.
-      .sort((a, b) => Number(this.ocConcluida(a)) - Number(this.ocConcluida(b)));
+        !!oc.placa?.toLowerCase().includes(termo) ||
+        !!oc.nomeMotorista?.toLowerCase().includes(termo),
+    );
   }
 
-  /** Pedidos S/ OC com os mesmos filtros do painel (busca + status), não conferidos primeiro. */
   get pedidosSemOcFiltrados(): PedidoSemOrdemCargaDto[] {
     const termo = this.filtroLista.trim().toLowerCase();
-    const status = this.filtroStatus;
-    return this.pedidosSemOc()
-      .filter((p) => {
-        const passaBusca =
-          !termo ||
-          String(p.nunota).includes(termo) ||
-          (p.numNota != null && String(p.numNota).includes(termo)) ||
-          (p.codParc != null && String(p.codParc).includes(termo)) ||
-          !!p.nomeParceiro?.toLowerCase().includes(termo);
-        const passaStatus = status === 'todas' || (status === 'concluidas' ? p.conferido : !p.conferido);
-        return passaBusca && passaStatus;
-      })
-      .sort((a, b) => Number(a.conferido) - Number(b.conferido));
+    return this.pedidosSemOc().filter(
+      (p) =>
+        !termo ||
+        String(p.nunota).includes(termo) ||
+        (p.numNota != null && String(p.numNota).includes(termo)) ||
+        (p.codParc != null && String(p.codParc).includes(termo)) ||
+        !!p.nomeParceiro?.toLowerCase().includes(termo),
+    );
   }
 
   /** Selecionados que ainda aparecem na lista filtrada — é o que o botão gera. */
@@ -219,10 +195,8 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     this.erroAbertas.set(null);
     this.service.listarAbertas().subscribe({
       next: (lista) => {
-        // OC sem nenhuma nota na conferência (0/0) não tem o que separar no WMS —
-        // o mapa dela sairia vazio. Aparece sozinha no próximo refresh quando a
-        // Fila de Tarefas sincronizar alguma nota dela.
-        this.abertas.set(lista.filter((oc) => oc.totalNotas > 0));
+        // Defesa: OC sem pedido pendente (0/0 ou 100% conferida) não tem o que separar.
+        this.abertas.set(lista.filter((oc) => oc.totalNotas > oc.notasConferidas));
         this.carregandoAbertas.set(false);
       },
       error: (err) => {

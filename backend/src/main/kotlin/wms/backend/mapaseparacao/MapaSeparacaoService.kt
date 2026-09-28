@@ -217,9 +217,9 @@ object MapaSeparacaoService {
         )
     }
 
-    /** Pedidos sem Ordem de Carga do mirror local, pro painel "S/ Ordem de Carga". */
+    /** Pedidos sem Ordem de Carga com conferência AINDA NÃO CONCLUÍDA (mirror local), pro painel "S/ Ordem de Carga". */
     fun listarSemOrdemCarga(tenantId: UUID): List<PedidoSemOrdemCargaDto> =
-        TarefasRepository.listarSemOrdemCarga(tenantId).map {
+        TarefasRepository.listarSemOrdemCarga(tenantId).filter { it.statusOperacional !in STATUS_CONFERIDA }.map {
             PedidoSemOrdemCargaDto(
                 nunota = it.nunota,
                 numNota = it.numNota,
@@ -423,10 +423,10 @@ object MapaSeparacaoService {
     )
 
     /**
-     * Ordens de Carga do painel: ABERTAS (TGFORD.SITUACAO='A'; A=Aberta,
-     * F=Fechada) + as FECHADAS que ainda têm nota na fila de conferência —
+     * Ordens de Carga do painel: só as que têm pedido com conferência AINDA
+     * NÃO CONCLUÍDA, aberta ou fechada no Sankhya (TGFORD.SITUACAO A/F) —
      * decisão do usuário (2026-09-28): a OC é fechada no Sankhya antes da
-     * separação terminar, então "fechada" não quer dizer "já separada". A
+     * separação terminar, então SITUACAO não diz se ainda falta separar. A
      * situação vai no DTO pro card mostrar o badge "Fechada". Enriquece placa/motorista em
      * lote (2 chamadas a mais, não 1 por OC) — mesmo padrão de `montar`.
      *
@@ -442,11 +442,12 @@ object MapaSeparacaoService {
      * si — rodam em paralelo (`coroutineScope`/`async`) em vez de sequenciais.
      */
     suspend fun listarAbertas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> = coroutineScope {
-        // Abertas no Sankhya + qualquer OC (aberta ou FECHADA) que ainda tenha nota na fila de conferência:
-        // na prática a OC é fechada no Sankhya antes da separação terminar (confirmado: OCs 55–64 todas 'F'
-        // com notas ainda na fila) — só SITUACAO='A' deixava o painel vazio.
-        val naFila = withContext(Dispatchers.IO) { TarefasRepository.ordensCargaNaFila(tenantId) }
-        val criterio = if (naFila.isEmpty()) "SITUACAO = 'A'" else "(SITUACAO = 'A' OR ORDEMCARGA IN (${naFila.joinToString(",")}))"
+        // Só OC com pedido de conferência AINDA NÃO CONCLUÍDA (regra do usuário), aberta ou FECHADA no
+        // Sankhya — na prática a OC é fechada antes da separação terminar (confirmado: OCs 55–64 todas 'F'
+        // com notas ainda na fila), então SITUACAO não serve de critério.
+        val pendentes = withContext(Dispatchers.IO) { TarefasRepository.ordensCargaNaFila(tenantId, STATUS_CONFERIDA) }
+        if (pendentes.isEmpty()) return@coroutineScope emptyList()
+        val criterio = "ORDEMCARGA IN (${pendentes.joinToString(",")})"
         val raw = SankhyaLoadRecordsClient.parseRows(
             SankhyaLoadRecordsClient.loadRecords(
                 tenantSlug,

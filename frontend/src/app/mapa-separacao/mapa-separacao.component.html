@@ -33,14 +33,6 @@
             [(ngModel)]="filtroLista"
           />
         </div>
-        <div class="ms-field">
-          <label for="filtroStatus">Status</label>
-          <select id="filtroStatus" [(ngModel)]="filtroStatus" (ngModelChange)="onFiltroStatusChange()">
-            <option value="todas">Todas</option>
-            <option value="pendentes">Pendentes</option>
-            <option value="concluidas">Concluídas</option>
-          </select>
-        </div>
         @if (!semOrdemCarga) {
           <div class="ms-field">
             <label for="ordemCargaManual">OC fora da lista</label>
@@ -92,7 +84,7 @@
         <!-- ─── Pedidos SEM Ordem de Carga: um mapa por Número Único ─── -->
         @if (pedidosSemOcFiltrados.length === 0) {
           <div class="ms-vazio no-print">
-            {{ pedidosSemOc().length === 0 ? 'Nenhum pedido sem Ordem de Carga na fila de conferência.' : 'Nenhum resultado para essa busca.' }}
+            {{ pedidosSemOc().length === 0 ? 'Nenhum pedido sem Ordem de Carga com conferência pendente.' : 'Nenhum resultado para essa busca.' }}
           </div>
         } @else {
           <div class="ms-selecao no-print">
@@ -122,8 +114,8 @@
                     <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
                   </div>
                   <div class="oq-card__status-line">
-                    <oq-icon [name]="p.conferido ? 'check' : 'box'" [size]="13" />
-                    <span class="oq-card__status-text">{{ p.conferido ? 'Conferido' : 'Pronto pra separar' }}</span>
+                    <oq-icon name="box" [size]="13" />
+                    <span class="oq-card__status-text">Pronto pra separar</span>
                   </div>
                 </div>
                 <div class="oq-card__divider"></div>
@@ -152,7 +144,7 @@
         }
       } @else if (listaFiltrada.length === 0) {
         <div class="ms-vazio no-print">
-          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga com nota na fila de conferência no momento.' : 'Nenhum resultado para essa busca.' }}
+          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga com conferência pendente no momento.' : 'Nenhum resultado para essa busca.' }}
         </div>
       } @else {
         <div class="ms-painel-grid no-print">

@@ -564,11 +564,15 @@ object TarefasRepository {
             .toSet()
     }
 
-    /** Ordens de Carga que têm alguma nota no mirror local (fila de conferência) — [normalizarOrdemCarga]. */
-    fun ordensCargaNaFila(tenantId: UUID): Set<Long> = TenantTx.run(tenantId) {
+    /**
+     * Ordens de Carga com alguma nota no mirror local (fila de conferência) cujo status NÃO está em
+     * [statusIgnorados] (ex.: conferência concluída) — [normalizarOrdemCarga].
+     */
+    fun ordensCargaNaFila(tenantId: UUID, statusIgnorados: Set<String>): Set<Long> = TenantTx.run(tenantId) {
         TarefasTable.selectAll()
             .where { TarefasTable.tenantId eq tenantId }
             .mapNotNull { row ->
+                if (row[TarefasTable.statusOperacional] in statusIgnorados) return@mapNotNull null
                 val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
                 normalizarOrdemCarga(dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull)
             }
