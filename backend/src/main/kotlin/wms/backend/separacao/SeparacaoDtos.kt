@@ -231,7 +231,7 @@ data class IdentificarProdutoResultado(
     val controleAutoSelecionado: String?,
     /** true = campo desabilitado (mesmos 2 casos acima); operador não pode alterar. */
     val controleTravado: Boolean,
-    /** TGFVOL.UTILICONFPESO do codvol — rotina de peso portada do projeto base (combinar com SessaoSeparacaoDto.obterQtdBalanca no front). */
+    /** Exige pesagem (RegraPesavel) — rotina de peso portada do projeto base (combinar com SessaoSeparacaoDto.obterQtdBalanca no front). */
     val usaConfPeso: Boolean = false,
     /** Unidade escanada (VOA) — reenviada no /conferir p/ virar CODVOL no Sankhya. */
     val codvol: String? = null,

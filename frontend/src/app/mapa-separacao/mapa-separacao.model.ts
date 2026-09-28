@@ -78,7 +78,7 @@ export interface ItemSeparacaoDto {
   quantidade: string;
   pesoUnitario: string;
   pesoTotal: string;
-  /** Exige pesagem (TGFVOL.UTILICONFPESO) — ícone de balança antes da descrição. */
+  /** Exige pesagem (backend RegraPesavel) — ícone de balança antes da descrição. */
   pesavel: boolean;
 }
 

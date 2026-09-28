@@ -122,7 +122,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   controleTravado = false;
   carregando = false;
 
-  /** TGFVOL.UTILICONFPESO do produto identificado — rotina de peso portada do projeto base. */
+  /** Produto identificado é pesável (backend RegraPesavel) — rotina de peso portada do projeto base. */
   usaConfPesoAtual = false;
   capturandoPeso = false;
 

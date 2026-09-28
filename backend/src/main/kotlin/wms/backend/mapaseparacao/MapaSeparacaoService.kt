@@ -5,7 +5,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import wms.backend.erp.LoadRecordsRequest
-import wms.backend.erp.SankhyaDbExplorerClient
 import wms.backend.erp.SankhyaLoadRecordsClient
 import wms.backend.tarefas.StatusOperacional
 import wms.backend.tarefas.TarefasRepository
@@ -64,7 +63,7 @@ object MapaSeparacaoService {
         val codProd: Int,
         val controle: String?,
         val codVol: String,
-        /** TGFPRO.CODVOL (cadastro) — chave do UTILICONFPESO, igual à conferência. */
+        /** TGFPRO.CODVOL (cadastro) — unidade padrão pra conversão da quantidade exibida. */
         val codVolProduto: String?,
         val qtdNeg: BigDecimal,
         val descrProd: String,
@@ -246,9 +245,16 @@ object MapaSeparacaoService {
                 FIELDS_ITEM,
             )
         }
-        val codvolsPesaveisDeferred = async { buscarCodvolsPesaveis(tenantSlug) }
+        // Regra central de pesável (unidade, ou TGFPRO.AD_PESAVEL com o módulo PESAVEL_POR_PRODUTO) —
+        // subselect nas notas pra rodar em paralelo com os itens. Falha aqui DERRUBA o relatório de
+        // propósito: sem saber quem é pesável, o mapa somaria pesáveis de clientes diferentes numa linha só.
+        val decisorPesavelDeferred = async {
+            wms.backend.produtos.RegraPesavel.decisor(
+                tenantSlug, tenantId, "CODPROD IN (SELECT CODPROD FROM TGFITE WHERE NUNOTA IN (${nunotas.joinToString(",")}))",
+            )
+        }
         val itensRaw = itensRawDeferred.await()
-        val codvolsPesaveis = codvolsPesaveisDeferred.await()
+        val decisorPesavel = decisorPesavelDeferred.await()
 
         val linhas = itensRaw.mapNotNull { r ->
             val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -298,10 +304,9 @@ object MapaSeparacaoService {
             return wms.backend.separacao.SeparacaoRepository.padraoParaComercial(qtdPadrao, dm, fator) to codVol
         }
 
-        // Mesma regra de SeparacaoService.itemUsaConfPeso: CODVOL de cadastro do
-        // produto, fallback pro CODVOL da linha — ex.: queijo cadastrado em KG
-        // vendido em PC continua pesável.
-        fun LinhaItem.pesavel(): Boolean = (codVolProduto ?: codVol) in codvolsPesaveis
+        // Mesma regra da conferência (RegraPesavel) — o ícone de balança do mapa bate com o que a
+        // conferência vai pedir de peso.
+        fun LinhaItem.pesavel(): Boolean = decisorPesavel.pesavel(codProd, codVol)
 
         // Devolução (TIPMOV = 'D') conta negativo — mesma lógica do iReport original preservada no JSP.
         // Aplicado por linha (antes de somar) porque agora a soma cruza pedidos.
@@ -398,21 +403,6 @@ object MapaSeparacaoService {
                 },
             )
         }
-
-    /**
-     * CODVOLs com TGFVOL.UTILICONFPESO='S' (exigem pesagem) — mesma fonte da
-     * conferência (SeparacaoService.buscarUtilizaConfPeso). SQL direto porque a
-     * entidade "Volume" não é legível via DatasetSP. Traz todas as unidades
-     * marcadas (cadastro pequeno) em vez de só as da OC pra não depender dos
-     * itens e rodar em paralelo com eles.
-     *
-     * Falha aqui DERRUBA o relatório (vira 502) de propósito: sem saber quem é
-     * pesável, o mapa somaria pesáveis de clientes diferentes numa linha só.
-     */
-    private suspend fun buscarCodvolsPesaveis(tenantSlug: String): Set<String> =
-        SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT CODVOL FROM TGFVOL WHERE UTILICONFPESO = 'S'")
-            .mapNotNull { it["CODVOL"]?.trim()?.takeIf { cv -> cv.isNotEmpty() } }
-            .toSet()
 
     /** status_operacional que conta como "nota conferida" pra barra de progresso — mesma família de conclusão do resto do app. */
     private val STATUS_CONFERIDA = setOf(

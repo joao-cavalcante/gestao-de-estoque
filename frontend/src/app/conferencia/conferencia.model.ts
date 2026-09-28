@@ -10,7 +10,7 @@ export interface ConferenciaItem {
   status: ItemStatus;
   divergenceReason?: string;
   imagemUrl?: string | null;
-  /** TGFVOL.UTILICONFPESO — produto pesável (rotina de peso do projeto base). */
+  /** Produto pesável (backend RegraPesavel: unidade TGFVOL, ou TGFPRO.AD_PESAVEL com o módulo) — rotina de peso do projeto base. */
   usaConfPeso?: boolean;
   /** Unidade de cadastro / base (TGFPRO.CODVOL) — a magnitude `expected`/`scanned` está nela. */
   unidadePadrao?: string;

@@ -13,6 +13,12 @@ object Modulos {
     /** Conferência segmentada — conceito exclusivo de um cliente; nenhum outro tenant enxerga. */
     const val CONFERENCIA_SEGMENTADA = "conferencia_segmentada"
 
+    /**
+     * Pesável pelo PRODUTO (TGFPRO.AD_PESAVEL = 'S') em vez da unidade (TGFVOL.UTILICONFPESO) —
+     * exigência do cliente Negri. Ver wms.backend.produtos.RegraPesavel.
+     */
+    const val PESAVEL_POR_PRODUTO = "pesavel_por_produto"
+
     /** Todos os módulos conhecidos — usado pela tela de admin de tenant pra listar as opções. */
-    val TODOS = setOf(CONFERENCIA_SEGMENTADA)
+    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO)
 }

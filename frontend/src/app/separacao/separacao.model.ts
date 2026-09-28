@@ -200,7 +200,7 @@ export interface IdentificarProdutoResultado {
   controlesDisponiveis: string[];
   controleAutoSelecionado: string | null;
   controleTravado: boolean;
-  /** TGFVOL.UTILICONFPESO do produto — rotina de peso portada do projeto base (combinar com SessaoSeparacao.obterQtdBalanca). */
+  /** Produto pesável (backend RegraPesavel) — rotina de peso portada do projeto base (combinar com SessaoSeparacao.obterQtdBalanca). */
   usaConfPeso: boolean;
   /** Unidade escanada (VOA) — reenviada no /conferir p/ virar CODVOL no Sankhya. */
   codvol: string | null;

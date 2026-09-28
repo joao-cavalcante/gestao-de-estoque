@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
  * - [consolidado]: seco, congelado (e sem classificação) somados sobre
  *   todos os pedidos da OC — uma folha por categoria, todos os clientes.
  * - [porParceiro]: REFRIGERADO, uma folha por cliente (peso e unidade
- *   juntos). Pesável (TGFVOL.UTILICONFPESO) só marca o item com a balança.
+ *   juntos). Pesável (RegraPesavel) só marca o item com a balança.
  */
 @Serializable
 data class MapaSeparacaoDto(
@@ -114,6 +114,6 @@ data class ItemSeparacaoDto(
     val quantidade: String,
     val pesoUnitario: String,
     val pesoTotal: String,
-    /** Exige pesagem (TGFVOL.UTILICONFPESO) — o front mostra o ícone de balança. */
+    /** Exige pesagem (RegraPesavel: unidade, ou TGFPRO.AD_PESAVEL com o módulo) — o front mostra o ícone de balança. */
     val pesavel: Boolean,
 )

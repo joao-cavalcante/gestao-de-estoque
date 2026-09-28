@@ -309,26 +309,21 @@ object SeparacaoService {
                 }
             }
 
-            // Peso (UTILICONFPESO por CODVOL + UMA por produto pesável) — mesma
-            // técnica do projeto base: TGFVOL.UTILICONFPESO diz se aquele CODVOL
-            // exige pesagem; só pra esses produtos vale a pena buscar UMA. Falha
-            // aqui não derruba a sessão (peso é aditivo, não bloqueia bipagem
-            // por quantidade) — só loga e segue sem peso pra essa sessão.
-            val codprodsDosItens = itens.map { it.codprod }.distinct()
-            val codvolProdutoPorCodprod = runCatching { buscarCodvolProduto(tenantSlug, codprodsDosItens) }
+            val codvolProdutoPorCodprod = runCatching { buscarCodvolProduto(tenantSlug, itens.map { it.codprod }.distinct()) }
                 .onFailure { println("AVISO: falha ao ler TGFPRO.CODVOL (tenant $tenantId, nunota $nunota): ${it.message}") }
                 .getOrDefault(emptyMap())
-            val codvolsDosItens = (itens.mapNotNull { it.codvol } + codvolProdutoPorCodprod.values).distinct()
-            val utilizaConfPesoPorCodvol = runCatching { buscarUtilizaConfPeso(tenantSlug, codvolsDosItens) }
-                .onFailure { println("AVISO: falha ao ler TGFVOL.UTILICONFPESO (tenant $tenantId, nunota $nunota): ${it.message}") }
-                .getOrDefault(emptyMap())
-            // usaConfPeso chaveado no CODVOL DE CADASTRO do produto (TGFPRO.CODVOL),
-            // fallback pro CODVOL da linha só se o do produto não existir — exatamente
-            // como o fila-de-conferencia (conferencia.helper.ts:307).
-            fun itemUsaConfPeso(item: ItemParaSalvar): Boolean {
-                val codvolChave = codvolProdutoPorCodprod[item.codprod] ?: item.codvol
-                return utilizaConfPesoPorCodvol[codvolChave] == true
-            }
+
+            // Pesável (regra central: unidade TGFVOL.UTILICONFPESO, ou TGFPRO.AD_PESAVEL no tenant
+            // com o módulo PESAVEL_POR_PRODUTO — ver RegraPesavel) + UMA só dos pesáveis. Falha aqui
+            // não derruba a sessão (peso é aditivo, não bloqueia bipagem por quantidade) — só loga e
+            // segue sem peso pra essa sessão.
+            val decisorPesavel = runCatching {
+                wms.backend.produtos.RegraPesavel.decisor(
+                    tenantSlug, tenantId, wms.backend.produtos.RegraPesavel.filtroCodprods(itens.map { it.codprod }),
+                )
+            }.onFailure { println("AVISO: falha ao decidir produtos pesáveis (tenant $tenantId, nunota $nunota): ${it.message}") }
+                .getOrDefault(wms.backend.produtos.RegraPesavel.NENHUM)
+            fun itemUsaConfPeso(item: ItemParaSalvar): Boolean = decisorPesavel.pesavel(item.codprod, item.codvol)
             val codprodsPesaveis = itens.filter { itemUsaConfPeso(it) }.map { it.codprod }.distinct()
             val umas = if (codprodsPesaveis.isEmpty()) emptyList() else runCatching { buscarUma(tenantSlug, codprodsPesaveis) }
                 .onFailure { println("AVISO: falha ao ler UMA (tenant $tenantId, nunota $nunota): ${it.message}") }
@@ -1373,24 +1368,6 @@ object SeparacaoService {
     private val PRODUTOS_DA_NOTA = "CODPROD IN (SELECT CODPROD FROM TGFITE WHERE NUNOTA = %d)"
 
     /**
-     * TGFVOL.UTILICONFPESO — diz se aquele CODVOL exige pesagem na conferência
-     * (rotina de peso portada do projeto base). SQL direto (DbExplorer), NÃO
-     * `DatasetSP.loadRecords` — confirmado ao vivo que a entidade "Volume" não
-     * é legível via DatasetSP (mesma limitação de "VolumeConferencia"/
-     * "DetalhesConferencia": volta sempre vazio, mesmo com dado real na
-     * tabela — só funciona por SQL cru). Consulta pontual (só os codvols da
-     * nota), não catálogo completo — mesmo espírito de buscarBar.
-     */
-    private suspend fun buscarUtilizaConfPeso(tenantSlug: String, codvols: List<String>): Map<String, Boolean> {
-        if (codvols.isEmpty()) return emptyMap()
-        val lista = codvols.joinToString(",") { "'${it.replace("'", "''")}'" }
-        val sql = "SELECT CODVOL, UTILICONFPESO FROM TGFVOL WHERE CODVOL IN ($lista)"
-        return SankhyaDbExplorerClient.executarQuery(tenantSlug, sql)
-            .mapNotNull { r -> r["CODVOL"]?.let { it to (r["UTILICONFPESO"]?.trim() == "S") } }
-            .toMap()
-    }
-
-    /**
      * CODVOL "nativo" (cadastro) do produto, TGFPRO.CODVOL — diferente do
      * CODVOL da linha da nota (TGFITE.CODVOL), que reflete a unidade
      * NEGOCIADA naquela venda (ex.: produto pesável cadastrado em KG mas
@@ -1398,8 +1375,8 @@ object SeparacaoService {
      * ao vivo (produto 3832, "QUEIJO MUSSARELA"): TGFPRO.CODVOL='KG' com
      * TGFVOL.UTILICONFPESO='S', mas a linha do pedido negociava em CODVOL
      * 'PC' — checar só o CODVOL da linha (como antes) nunca acionava o
-     * popup de peso pra esse produto. Agora `usaConfPeso` considera os
-     * dois CODVOLs (linha OU cadastro do produto).
+     * popup de peso pra esse produto. Hoje a decisão de pesável mora em
+     * RegraPesavel; aqui o CODVOL de cadastro só alimenta a unidade padrão/comercial do item.
      */
     private suspend fun buscarCodvolProduto(tenantSlug: String, codprods: List<Int>): Map<Int, String> {
         if (codprods.isEmpty()) return emptyMap()
@@ -1417,8 +1394,8 @@ object SeparacaoService {
     /**
      * UMA (Unidade de Movimentação e Armazenagem) — não é catálogo
      * persistente nem no Sankhya nem no projeto base: lida ao vivo por
-     * sessão, só pros produtos que exigem pesagem (buscarUtilizaConfPeso).
-     * SQL direto (mesmo motivo de buscarUtilizaConfPeso) — tabelas reais
+     * sessão, só pros produtos que exigem pesagem (RegraPesavel).
+     * SQL direto (DatasetSP não lê essas tabelas) — tabelas reais
      * confirmadas ao vivo: `TGFPUMA` (produto×UMA) join `TGFUMA` (UMA).
      */
     private suspend fun buscarUma(tenantSlug: String, codprods: List<Int>): List<UmaParaSalvar> {

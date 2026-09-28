@@ -38,7 +38,7 @@ data class ItemParaSalvar(
     val qtdNeg: BigDecimal,
     val qtdEntregue: BigDecimal,
     val dadosJson: String,
-    /** TGFVOL.UTILICONFPESO do codvol — exige pesagem na bipagem (rotina de peso, portada do projeto base). */
+    /** Exige pesagem na bipagem (rotina de peso do projeto base) — decidido por RegraPesavel ao carregar a sessão. */
     val usaConfPeso: Boolean = false,
     /** Unidades alternativas (TGFVOA), match por linha — só p/ display "Pedido: X CX". */
     val unidadeComercial: String? = null,

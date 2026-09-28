@@ -5,6 +5,7 @@
  */
 export const MODULOS_DISPONIVEIS = [
   { id: 'conferencia_segmentada', label: 'Conferência segmentada' },
+  { id: 'pesavel_por_produto', label: 'Pesável pelo produto (TGFPRO.AD_PESAVEL, não pela unidade)' },
 ] as const;
 
 /** Leitura — nunca traz segredo em texto plano, só se está configurado ou não. */
