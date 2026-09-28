@@ -44,6 +44,8 @@ object MapaSeparacaoService {
     class MapaSeparacaoException(message: String) : Exception(message)
 
     private val FIELDS_NOTA = listOf("NUNOTA", "CODEMP", "CODPARC", "Parceiro.NOMEPARC", "TIPMOV", "ORDEMCARGA")
+    /** + NUMNOTA pro cabeçalho do mapa S/ Ordem de Carga (identificação do pedido impresso). */
+    private val FIELDS_NOTA_SEM_OC = FIELDS_NOTA + "NUMNOTA"
     private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODEMP", "PESOMAX", "CODVEICULO", "CODPARCMOTORISTA")
     private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA")
     private val FIELDS_VEICULO = listOf("CODVEICULO", "MARCAMODELO", "PLACA")
@@ -71,8 +73,25 @@ object MapaSeparacaoService {
         val tipoSeparacao: String,
     )
 
+    private data class Nota(val nunota: Long, val codParc: Int, val nomeParceiro: String, val tipMov: String)
+
+    private fun parseNotas(raw: List<Map<String, String?>>): List<Nota> = raw.mapNotNull { r ->
+        val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
+        val codParc = r["CODPARC"]?.toIntOrNull() ?: return@mapNotNull null
+        Nota(nunota, codParc, r["Parceiro.NOMEPARC"]?.trim().orEmpty(), r["TIPMOV"]?.trim().orEmpty())
+    }
+
+    /** Parte do mapa que não depende de OC: itens classificados e somados SÓ entre as notas recebidas. */
+    private data class Corpo(
+        val totalPedidos: Int,
+        val quantidadeTotal: String,
+        val pesoTotal: String,
+        val consolidado: List<CategoriaSeparacaoDto>,
+        val porParceiro: List<ParceiroSeparacaoDto>,
+    )
+
     /**
-     * As 4 idas ao Sankhya (nota/ordem/veículo+motorista/itens) rodam em paralelo
+     * As idas ao Sankhya (nota/ordem/veículo+motorista/itens) rodam em paralelo
      * onde a dependência permite (`coroutineScope`/`async`, mesmo padrão já usado
      * em SeparacaoService) — sequencial eram ~4 round-trips somados (relatado como
      * lento pelo usuário); só nota+ordem são independentes desde o início, e
@@ -101,12 +120,7 @@ object MapaSeparacaoService {
         val notasRaw = notasRawDeferred.await()
         if (notasRaw.isEmpty()) throw MapaSeparacaoException("Nenhum pedido encontrado para a Ordem de Carga $ordemCarga")
 
-        data class Nota(val nunota: Long, val codParc: Int, val nomeParceiro: String, val tipMov: String)
-        val notasDaOc = notasRaw.mapNotNull { r ->
-            val nunota = r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null
-            val codParc = r["CODPARC"]?.toIntOrNull() ?: return@mapNotNull null
-            Nota(nunota, codParc, r["Parceiro.NOMEPARC"]?.trim().orEmpty(), r["TIPMOV"]?.trim().orEmpty())
-        }
+        val notasDaOc = parseNotas(notasRaw)
         // Só nota que tem conferência (passou pelo critério e está no mirror local
         // app.tarefas) — a OC pode ter nota que nunca vai ser conferida (ex.: OC 49
         // com 4 notas e só 3 pedidos de verdade). Mesmo universo da barra de
@@ -116,15 +130,13 @@ object MapaSeparacaoService {
         }
         val notas = notasDaOc.filter { it.nunota in comConferencia }
         if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido com conferência encontrado para a Ordem de Carga $ordemCarga")
-        val notaPorNunota = notas.associateBy { it.nunota }
-        val nunotas = notas.map { it.nunota }
 
         val ordemRaw = ordemRawDeferred.await() ?: throw MapaSeparacaoException("Ordem de Carga $ordemCarga não encontrada (TGFORD)")
         val pesoMaxOc = ordemRaw["PESOMAX"].parseBigDecimalBr()
         val codVeiculo = ordemRaw["CODVEICULO"]?.toIntOrNull()
         val codParcMotorista = ordemRaw["CODPARCMOTORISTA"]?.toIntOrNull()
 
-        // 3 chamadas independentes entre si — só dependem da OrdemCarga/notas já resolvidas acima.
+        // Independentes entre si — só dependem da OrdemCarga/notas já resolvidas acima.
         val veiculoDeferred = codVeiculo?.let { cv ->
             async {
                 SankhyaLoadRecordsClient.parseRows(
@@ -141,6 +153,90 @@ object MapaSeparacaoService {
         // parceiro da nota (ali via relação direta; aqui via busca própria porque
         // o vínculo é o motorista da OC, não o cliente da nota).
         val motoristaDeferred = codParcMotorista?.let { cp -> async { buscarNomesParceiro(tenantSlug, listOf(cp)) } }
+        val corpoDeferred = async { montarCorpo(tenantSlug, tenantId, notas, "a Ordem de Carga $ordemCarga") }
+
+        val veiculoRaw = veiculoDeferred?.await()
+        val corpo = corpoDeferred.await()
+        MapaSeparacaoDto(
+            ordemCarga = ordemCarga,
+            codVeiculo = codVeiculo,
+            placa = veiculoRaw?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() },
+            modeloVeiculo = veiculoRaw?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() },
+            codParcMotorista = codParcMotorista,
+            nomeMotorista = codParcMotorista?.let { motoristaDeferred?.await()?.get(it) },
+            pesoMaxOc = pesoMaxOc?.formatar(),
+            totalPedidos = corpo.totalPedidos,
+            quantidadeTotal = corpo.quantidadeTotal,
+            pesoTotal = corpo.pesoTotal,
+            consolidado = corpo.consolidado,
+            porParceiro = corpo.porParceiro,
+        )
+    }
+
+    /**
+     * Mapa S/ ORDEM DE CARGA — UM pedido (Número Único) por mapa, nunca somado com outro pedido,
+     * mesmo do mesmo parceiro ou com os mesmos produtos. Mesmas categorias/regras do mapa por OC
+     * ([montarCorpo]); só o agrupamento principal muda (NUNOTA em vez de OC). Confere AO VIVO que a
+     * nota não tem OC (regra [TarefasRepository.normalizarOrdemCarga]) — nota com OC usa o mapa da OC.
+     */
+    suspend fun montarSemOrdemCarga(tenantSlug: String, tenantId: UUID, nunota: Long): MapaSeparacaoDto {
+        val raw = SankhyaLoadRecordsClient.parseRows(
+            SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(entityName = "CabecalhoNota", fields = FIELDS_NOTA_SEM_OC, criteriaExpression = "NUNOTA = $nunota"),
+            ),
+            FIELDS_NOTA_SEM_OC,
+        ).firstOrNull() ?: throw MapaSeparacaoException("Pedido (Nro. Único) $nunota não encontrado")
+
+        TarefasRepository.normalizarOrdemCarga(raw["ORDEMCARGA"])?.let { oc ->
+            throw MapaSeparacaoException("O pedido $nunota está na Ordem de Carga $oc — use o mapa da Ordem de Carga")
+        }
+        val nota = parseNotas(listOf(raw)).firstOrNull() ?: throw MapaSeparacaoException("Pedido (Nro. Único) $nunota sem parceiro")
+        val comConferencia = withContext(Dispatchers.IO) { TarefasRepository.nunotasComConferencia(tenantId, listOf(nunota)) }
+        if (nunota !in comConferencia) throw MapaSeparacaoException("O pedido $nunota não está na fila de conferência")
+
+        val corpo = montarCorpo(tenantSlug, tenantId, listOf(nota), "o pedido $nunota")
+        return MapaSeparacaoDto(
+            ordemCarga = null,
+            codVeiculo = null,
+            placa = null,
+            modeloVeiculo = null,
+            codParcMotorista = null,
+            nomeMotorista = null,
+            pesoMaxOc = null,
+            totalPedidos = corpo.totalPedidos,
+            quantidadeTotal = corpo.quantidadeTotal,
+            pesoTotal = corpo.pesoTotal,
+            consolidado = corpo.consolidado,
+            porParceiro = corpo.porParceiro,
+            semOrdemCarga = true,
+            nunota = nunota,
+            numNota = raw["NUMNOTA"]?.trim()?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
+            codParc = nota.codParc,
+            nomeParceiro = nota.nomeParceiro,
+        )
+    }
+
+    /** Pedidos sem Ordem de Carga do mirror local, pro painel "S/ Ordem de Carga". */
+    fun listarSemOrdemCarga(tenantId: UUID): List<PedidoSemOrdemCargaDto> =
+        TarefasRepository.listarSemOrdemCarga(tenantId).map {
+            PedidoSemOrdemCargaDto(
+                nunota = it.nunota,
+                numNota = it.numNota,
+                codParc = it.codParc,
+                nomeParceiro = it.nomeParceiro,
+                dataMovimento = it.dataMovimento,
+                conferido = it.statusOperacional in STATUS_CONFERIDA,
+            )
+        }
+
+    /**
+     * Itens das [notas] classificados por TGFPRO.AD_TIPOSEPARACAO — a soma cruza SÓ as notas
+     * recebidas (a OC inteira no mapa por OC; um único pedido no mapa S/ OC).
+     */
+    private suspend fun montarCorpo(tenantSlug: String, tenantId: UUID, notas: List<Nota>, contexto: String): Corpo = coroutineScope {
+        val notaPorNunota = notas.associateBy { it.nunota }
+        val nunotas = notas.map { it.nunota }
         val itensRawDeferred = async {
             SankhyaLoadRecordsClient.parseRows(
                 SankhyaLoadRecordsClient.loadRecords(
@@ -150,14 +246,7 @@ object MapaSeparacaoService {
                 FIELDS_ITEM,
             )
         }
-        // Só depende do cadastro de unidades, não da OC — mas fica aqui (e não
-        // junto de nota/ordem) pra não gastar a chamada quando a OC nem existe.
         val codvolsPesaveisDeferred = async { buscarCodvolsPesaveis(tenantSlug) }
-
-        val veiculoRaw = veiculoDeferred?.await()
-        val placa = veiculoRaw?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() }
-        val modeloVeiculo = veiculoRaw?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() }
-        val nomeMotorista = codParcMotorista?.let { motoristaDeferred?.await()?.get(it) }
         val itensRaw = itensRawDeferred.await()
         val codvolsPesaveis = codvolsPesaveisDeferred.await()
 
@@ -178,7 +267,7 @@ object MapaSeparacaoService {
             )
         }.filter { it.usoProd != "S" && it.nunota in notaPorNunota } // TGFPRO.USOPROD = 'S' — excluído, igual ao relatório original
 
-        if (linhas.isEmpty()) throw MapaSeparacaoException("Nenhum item de separação encontrado para a Ordem de Carga $ordemCarga")
+        if (linhas.isEmpty()) throw MapaSeparacaoException("Nenhum item de separação encontrado para $contexto")
 
         // TGFITE.QTDNEG vem SEMPRE na unidade padrão do produto (TGFPRO.CODVOL);
         // o CODVOL da linha é a unidade NEGOCIADA (comercial). O mapa mostra a
@@ -225,7 +314,7 @@ object MapaSeparacaoService {
         // decide mais a quebra — só o ícone de balança no item.
         val (linhasSegregadas, linhasConsolidadas) = linhas.partition { it.tipoSeparacao == "2" }
 
-        // OC inteira, todos os clientes juntos (sem quebra por pedido/parceiro).
+        // Todas as notas recebidas juntas (OC inteira; ou o único pedido, no mapa S/ OC).
         val consolidado = agregar(linhasConsolidadas, { it.pesavel() }, { l, q -> l.exibicao(q) }) { it.qtdComSinal() }
 
         // Por PEDIDO (NUNOTA) — cada pedido é um bloco próprio, mesmo quando o
@@ -247,14 +336,7 @@ object MapaSeparacaoService {
         }.sortedWith(compareBy({ it.nomeParceiro }, { it.nunotas.first() }))
 
         val todos = consolidado + segregadoPorParceiro.values.flatMap { it.second }
-        MapaSeparacaoDto(
-            ordemCarga = ordemCarga,
-            codVeiculo = codVeiculo,
-            placa = placa,
-            modeloVeiculo = modeloVeiculo,
-            codParcMotorista = codParcMotorista,
-            nomeMotorista = nomeMotorista,
-            pesoMaxOc = pesoMaxOc?.formatar(),
+        Corpo(
             totalPedidos = linhas.map { it.nunota }.distinct().size,
             quantidadeTotal = todos.sumOf { it.quantidade }.formatar(),
             pesoTotal = todos.sumOf { it.pesoTotal }.formatar(),

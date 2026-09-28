@@ -3,14 +3,24 @@
     <!-- ─── Painel de controle: abre já mostrando quem precisa ser separado ─── -->
     <div class="ms-toolbar no-print">
       <h1 class="ms-toolbar__title">Mapa de Separação</h1>
-      <span class="ms-toolbar__count">{{ listaFiltrada.length }} ordem(ns) de carga aberta(s)</span>
+      <span class="ms-toolbar__count">
+        @if (semOrdemCarga) {
+          {{ pedidosSemOcFiltrados.length }} pedido(s) sem Ordem de Carga
+        } @else {
+          {{ listaFiltrada.length }} ordem(ns) de carga aberta(s)
+        }
+      </span>
       <div class="ms-toolbar__row">
+        <label class="ms-check" title="Mostra só pedidos sem Ordem de Carga — cada Número Único gera um mapa próprio">
+          <input type="checkbox" [(ngModel)]="semOrdemCarga" (ngModelChange)="onSemOrdemCargaChange()" />
+          <span>S/ Ordem de Carga</span>
+        </label>
         <div class="ms-field ms-field--filtro">
           <label for="filtroLista">Buscar</label>
           <input
             id="filtroLista"
             type="text"
-            placeholder="OC, placa ou motorista"
+            [placeholder]="semOrdemCarga ? 'Nro. Único, nota ou parceiro' : 'OC, placa ou motorista'"
             [(ngModel)]="filtroLista"
           />
         </div>
@@ -22,21 +32,23 @@
             <option value="concluidas">Concluídas</option>
           </select>
         </div>
-        <div class="ms-field">
-          <label for="ordemCargaManual">OC fora da lista</label>
-          <input
-            id="ordemCargaManual"
-            type="number"
-            inputmode="numeric"
-            placeholder="Digite o número"
-            [(ngModel)]="ordemCargaManual"
-            (keyup.enter)="consultarManual()"
-          />
-        </div>
-        <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="!ordemCargaManual" (click)="consultarManual()">
-          Consultar
-        </button>
-        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarAbertas()">Atualizar</button>
+        @if (!semOrdemCarga) {
+          <div class="ms-field">
+            <label for="ordemCargaManual">OC fora da lista</label>
+            <input
+              id="ordemCargaManual"
+              type="number"
+              inputmode="numeric"
+              placeholder="Digite o número"
+              [(ngModel)]="ordemCargaManual"
+              (keyup.enter)="consultarManual()"
+            />
+          </div>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="!ordemCargaManual" (click)="consultarManual()">
+            Consultar
+          </button>
+        }
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarPainel()">Atualizar</button>
       </div>
     </div>
 
@@ -51,13 +63,73 @@
       @if (carregando()) {
         <div class="ms-vazio no-print" aria-busy="true">
           <oq-spinner />
-          <span>Consultando Ordem de Carga…</span>
+          <span>{{ semOrdemCarga ? 'Montando mapas…' : 'Consultando Ordem de Carga…' }}</span>
         </div>
       } @else if (carregandoAbertas()) {
         <div class="ms-vazio no-print" aria-busy="true">
           <oq-spinner />
-          <span>Carregando Ordens de Carga…</span>
+          <span>{{ semOrdemCarga ? 'Carregando pedidos sem Ordem de Carga…' : 'Carregando Ordens de Carga…' }}</span>
         </div>
+      } @else if (semOrdemCarga) {
+        <!-- ─── Pedidos SEM Ordem de Carga: um mapa por Número Único ─── -->
+        @if (pedidosSemOcFiltrados.length === 0) {
+          <div class="ms-vazio no-print">
+            {{ pedidosSemOc().length === 0 ? 'Nenhum pedido sem Ordem de Carga na fila de conferência.' : 'Nenhum resultado para essa busca.' }}
+          </div>
+        } @else {
+          <div class="ms-selecao no-print">
+            <label class="ms-check">
+              <input type="checkbox" [checked]="todosVisiveisSelecionados" (change)="alternarTodos()" />
+              <span>Selecionar todos</span>
+            </label>
+            <span class="ms-selecao__info">Cada pedido selecionado gera um mapa próprio — nunca somado com outro.</span>
+            <button
+              type="button"
+              class="oq-admin-btn oq-admin-btn--primary"
+              [disabled]="selecionadosVisiveis.length === 0"
+              (click)="consultarSemOrdemCarga(selecionadosVisiveis)"
+            >
+              Gerar {{ selecionadosVisiveis.length || '' }} mapa(s)
+            </button>
+          </div>
+          <div class="ms-painel-grid no-print">
+            @for (p of pedidosSemOcFiltrados; track p.nunota) {
+              <article class="oq-card" [class.ms-card--selecionado]="selecionados().has(p.nunota)">
+                <div class="oq-card__header">
+                  <label class="ms-check ms-check--card">
+                    <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
+                    <span class="oq-card__client">Nro. Único {{ p.nunota }}</span>
+                  </label>
+                  <span class="ms-chip-sem-oc">S/ Ordem de Carga</span>
+                  <div class="oq-card__status-line">
+                    <oq-icon [name]="p.conferido ? 'check' : 'box'" [size]="13" />
+                    <span class="oq-card__status-text">{{ p.conferido ? 'Conferido' : 'Pronto pra separar' }}</span>
+                  </div>
+                </div>
+                <div class="oq-card__divider"></div>
+                <div class="oq-card__grid">
+                  <div class="oq-card__field">
+                    <span class="oq-card__field-label">Nota</span>
+                    <span class="oq-card__field-value">{{ p.numNota ?? '—' }}</span>
+                  </div>
+                  <div class="oq-card__field">
+                    <span class="oq-card__field-label">Data</span>
+                    <span class="oq-card__field-value">{{ p.dataMovimento ?? '—' }}</span>
+                  </div>
+                  <div class="oq-card__field oq-card__field--full">
+                    <span class="oq-card__field-label">Parceiro</span>
+                    <span class="oq-card__field-value">{{ p.codParc ?? '' }} {{ p.nomeParceiro ? '- ' + p.nomeParceiro : '—' }}</span>
+                  </div>
+                </div>
+                <div class="oq-card__footer">
+                  <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultarSemOrdemCarga([p.nunota])">
+                    Ver Mapa deste pedido
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        }
       } @else if (listaFiltrada.length === 0) {
         <div class="ms-vazio no-print">
           {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga aberta no momento.' : 'Nenhum resultado para essa busca.' }}
@@ -116,9 +188,9 @@
       }
     </div>
   } @else {
-    <!-- ─── Relatório de uma OC escolhida ─── -->
+    <!-- ─── Relatório: uma OC escolhida, ou N pedidos S/ OC (um mapa independente por Número Único) ─── -->
     <div class="ms-toolbar no-print">
-      <h1 class="ms-toolbar__title">Ordem de Carga {{ dados()!.ordemCarga }}</h1>
+      <h1 class="ms-toolbar__title">{{ tituloRelatorio() }}</h1>
       <div class="ms-toolbar__row">
         <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="voltar()">
           <oq-icon name="arrow-left" [size]="14" />
@@ -129,61 +201,81 @@
     </div>
 
     <div class="ms-scroll">
-    <div class="ms-report">
-      <!-- Cabeçalho da OC — repetido no <thead> de cada folha. Não tem mais
-           Pedido/Parceiro: o mapa é da OC inteira (consolidado), e os pesáveis
-           trazem o parceiro na própria linha de agrupamento. -->
-      <ng-template #cabecalhoOc let-rotulo="rotulo" let-valor="valor">
+    @if (erro()) {
+      <!-- Algum pedido S/ OC falhou — os outros mapas abriram mesmo assim. -->
+      <div class="ms-status ms-status--erro no-print">{{ erro() }}</div>
+    }
+    <!-- Cabeçalho do mapa — repetido no <thead> de cada folha. Mapa por OC: dados da
+         OC/veículo. Mapa S/ OC: identificado pelo Número Único (não existe OC). -->
+    <ng-template #cabecalhoOc let-mapa="mapa">
+      @if (mapa.semOrdemCarga) {
+        <div class="ms-print-title">Mapa de Separação — S/ Ordem de Carga</div>
+        <div class="ms-cabecalho">
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Número Único</span>
+            <span class="ms-valor ms-valor--destaque">{{ mapa.nunota }}</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Nota</span>
+            <span class="ms-valor">{{ mapa.numNota ?? '—' }}</span>
+          </div>
+          <div class="ms-cabecalho__cel ms-cabecalho__cel--largo">
+            <span class="ms-label">Parceiro</span>
+            <span class="ms-valor">{{ mapa.codParc }} - {{ mapa.nomeParceiro }}</span>
+          </div>
+          <div class="ms-cabecalho__cel">
+            <span class="ms-label">Peso Total do Pedido</span>
+            <span class="ms-valor">{{ formatarPeso(mapa.pesoTotal) }}</span>
+          </div>
+        </div>
+      } @else {
         <div class="ms-print-title">Separação de Ordem de Carga</div>
         <div class="ms-cabecalho">
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Ordem de Carga</span>
-            <span class="ms-valor">{{ dados()!.ordemCarga }}</span>
+            <span class="ms-valor">{{ mapa.ordemCarga }}</span>
           </div>
-          @if (rotulo) {
-            <div class="ms-cabecalho__cel">
-              <span class="ms-label">{{ rotulo }}</span>
-              <span class="ms-valor">{{ valor }}</span>
-            </div>
-          }
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Pedidos na OC</span>
-            <span class="ms-valor">{{ dados()!.totalPedidos }}</span>
+            <span class="ms-valor">{{ mapa.totalPedidos }}</span>
           </div>
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Veículo</span>
-            <span class="ms-valor">{{ dados()!.codVeiculo ?? '—' }} @if (dados()!.placa) { — {{ dados()!.placa }} }</span>
+            <span class="ms-valor">{{ mapa.codVeiculo ?? '—' }} @if (mapa.placa) { — {{ mapa.placa }} }</span>
           </div>
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Modelo do Veículo</span>
-            <span class="ms-valor">{{ dados()!.modeloVeiculo ?? '—' }}</span>
+            <span class="ms-valor">{{ mapa.modeloVeiculo ?? '—' }}</span>
           </div>
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Motorista</span>
-            <span class="ms-valor">{{ dados()!.nomeMotorista ?? '—' }}</span>
+            <span class="ms-valor">{{ mapa.nomeMotorista ?? '—' }}</span>
           </div>
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Peso Máximo OC</span>
-            <span class="ms-valor">{{ dados()!.pesoMaxOc ? formatarPeso(dados()!.pesoMaxOc!) : '—' }}</span>
+            <span class="ms-valor">{{ mapa.pesoMaxOc ? formatarPeso(mapa.pesoMaxOc) : '—' }}</span>
           </div>
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Peso Total da OC</span>
-            <span class="ms-valor">{{ formatarPeso(dados()!.pesoTotal) }}</span>
+            <span class="ms-valor">{{ formatarPeso(mapa.pesoTotal) }}</span>
           </div>
         </div>
-      </ng-template>
+      }
+    </ng-template>
 
-      <ng-template #descricaoItem let-item>
-        @if (item.pesavel) {
-          <oq-icon class="ms-pesavel-icone" name="balanca" [size]="15" title="Produto pesável" />
-        }
-        {{ item.descricao }}
-      </ng-template>
+    <ng-template #descricaoItem let-item>
+      @if (item.pesavel) {
+        <oq-icon class="ms-pesavel-icone" name="balanca" [size]="15" title="Produto pesável" />
+      }
+      {{ item.descricao }}
+    </ng-template>
 
-      <!-- ─── Seco e congelado (+ sem classificação): UMA folha por categoria, OC
-           inteira somada, todos os clientes juntos. ─── -->
-      @for (categoria of dados()!.consolidado; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
-        <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria">
+    @for (mapa of mapas(); track trackMapa($index, mapa); let primeiroMapa = $first) {
+    <div class="ms-report">
+      <!-- ─── Seco e congelado (+ sem classificação): UMA folha por categoria, somada
+           sobre as notas do mapa (OC inteira; ou só o pedido, no mapa S/ OC). ─── -->
+      @for (categoria of mapa.consolidado; track trackCategoria($index, categoria); let primeiraCategoria = $first) {
+        <section class="ms-categoria" [class.ms-page-break]="!primeiraCategoria || !primeiroMapa">
           <table class="ms-itens">
             <colgroup>
               <col class="ms-col-code" />
@@ -192,12 +284,12 @@
               <col class="ms-col-qty" />
             </colgroup>
             <!-- thead repete SOZINHO em toda página física impressa (spec de
-                 tabela HTML) — por isso o cabeçalho da OC + banner vivem AQUI
+                 tabela HTML) — por isso o cabeçalho + banner vivem AQUI
                  dentro, não em divs soltas antes da tabela. -->
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ mapa }" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
@@ -205,7 +297,9 @@
                   <div class="ms-categoria__banner">
                     <oq-icon [name]="iconeCategoria(categoria.codigo)" [size]="20" />
                     <span class="ms-categoria__nome">{{ categoria.descricao }}</span>
-                    <span class="ms-categoria__total">Todos os clientes da OC</span>
+                    <span class="ms-categoria__total">
+                      {{ mapa.semOrdemCarga ? 'Nro. Único ' + mapa.nunota : 'Todos os clientes da OC' }}
+                    </span>
                   </div>
                 </th>
               </tr>
@@ -237,11 +331,11 @@
       }
 
       <!-- ─── Refrigerado: PÁGINA CORRIDA, separado por PEDIDO (Nro. Único + cliente).
-           Uma tabela só (cabeçalho da OC + faixa repetem sozinhos a cada página
+           Uma tabela só (cabeçalho + faixa repetem sozinhos a cada página
            impressa); cada pedido é um <tbody>: linha "Nro. Único · cliente", itens
            e subtotal — tenta não partir no meio da página, mas não força folha nova. ─── -->
-      @if (dados()!.porParceiro.length > 0) {
-        <section class="ms-categoria" [class.ms-page-break]="dados()!.consolidado.length > 0">
+      @if (mapa.porParceiro.length > 0) {
+        <section class="ms-categoria" [class.ms-page-break]="mapa.consolidado.length > 0 || !primeiroMapa">
           <table class="ms-itens">
             <colgroup>
               <col class="ms-col-code" />
@@ -252,7 +346,7 @@
             <thead>
               <tr class="ms-thead-block-row">
                 <th colspan="4" class="ms-thead-block">
-                  <ng-container [ngTemplateOutlet]="cabecalhoOc" />
+                  <ng-container [ngTemplateOutlet]="cabecalhoOc" [ngTemplateOutletContext]="{ mapa }" />
                 </th>
               </tr>
               <tr class="ms-thead-block-row">
@@ -260,7 +354,7 @@
                   <div class="ms-categoria__banner">
                     <oq-icon name="refrigerado" [size]="20" />
                     <span class="ms-categoria__nome">Refrigerado — por pedido</span>
-                    <span class="ms-categoria__total">{{ dados()!.porParceiro.length }} pedido(s)</span>
+                    <span class="ms-categoria__total">{{ mapa.porParceiro.length }} pedido(s)</span>
                   </div>
                 </th>
               </tr>
@@ -271,7 +365,7 @@
                 <th class="ms-num">Quantidade</th>
               </tr>
             </thead>
-            @for (parceiro of dados()!.porParceiro; track parceiro.nunotas[0]) {
+            @for (parceiro of mapa.porParceiro; track parceiro.nunotas[0]) {
               <tbody class="ms-cliente">
                 <tr class="ms-cliente__cabecalho">
                   <td colspan="4">
@@ -300,11 +394,15 @@
       }
 
       <div class="ms-total-geral">
-        <span>TOTAL DA OC — Quantidade: <strong>{{ formatarQtd(dados()!.quantidadeTotal) }}</strong></span>
-        <span>Peso Total: <strong>{{ formatarPeso(dados()!.pesoTotal) }}</strong></span>
+        <span>
+          {{ mapa.semOrdemCarga ? 'TOTAL DO PEDIDO ' + mapa.nunota : 'TOTAL DA OC' }} — Quantidade:
+          <strong>{{ formatarQtd(mapa.quantidadeTotal) }}</strong>
+        </span>
+        <span>Peso Total: <strong>{{ formatarPeso(mapa.pesoTotal) }}</strong></span>
       </div>
-      <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação</div>
+      <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação{{ mapa.semOrdemCarga ? ' S/ Ordem de Carga' : '' }}</div>
     </div>
+    }
     </div>
   }
 </div>

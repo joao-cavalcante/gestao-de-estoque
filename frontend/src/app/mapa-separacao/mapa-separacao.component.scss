@@ -309,6 +309,11 @@
   border: 1px solid var(--oq-border);
   border-radius: var(--oq-radius-block);
   padding: 16px;
+
+  // Vários mapas S/ OC na tela: um cartão por Número Único (na impressão, folha nova — ms-page-break).
+  & + & {
+    margin-top: 20px;
+  }
 }
 
 .ms-print-title {
@@ -350,7 +355,85 @@
   &__cel {
     background: var(--oq-surface-2);
     padding: 7px 9px;
+
+    &--largo {
+      grid-column: span 2;
+    }
   }
+}
+
+// Número Único do mapa S/ Ordem de Carga — é o que identifica a folha impressa.
+.ms-valor--destaque {
+  font-size: 18px;
+}
+
+// ─── Filtro / seleção S/ Ordem de Carga ──────────────────────────────────
+
+.ms-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--oq-text-primary);
+  cursor: pointer;
+  user-select: none;
+
+  input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--oq-brand-accent);
+    cursor: pointer;
+  }
+
+  &--card {
+    height: auto;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+}
+
+.ms-selecao {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+
+  &__info {
+    flex: 1;
+    min-width: 200px;
+    font-size: 12px;
+    color: var(--oq-text-secondary);
+  }
+}
+
+.ms-chip-sem-oc {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--oq-warning-soft);
+  color: var(--oq-warning-foreground);
+}
+
+.ms-card--selecionado {
+  border-color: var(--oq-brand-accent);
+  box-shadow: 0 0 0 1px var(--oq-brand-accent);
 }
 
 .ms-categoria {

@@ -493,11 +493,51 @@ object TarefasRepository {
     fun buscarCodParcLocal(tenantId: UUID, nunota: Long): Int? =
         campoDosDados(tenantId, nunota, "CODPARC")?.toIntOrNull()
 
-    /** TGFCAB.ORDEMCARGA da nota (mirror local) — "46" ou "46.0" do loadRecords; 0/ausente = sem OC. */
-    fun buscarOrdemCargaLocal(tenantId: UUID, nunota: Long): Long? =
-        campoDosDados(tenantId, nunota, "ORDEMCARGA")?.trim()?.takeIf { it.isNotEmpty() }
+    /**
+     * Regra ÚNICA de "a nota tem Ordem de Carga": TGFCAB.ORDEMCARGA vem como "46" ou "46.0" do
+     * loadRecords; NULL, vazio ou 0 = sem OC (null aqui). Usada também pelo Mapa de Separação
+     * S/ Ordem de Carga, pra não haver duas definições de "sem vínculo".
+     */
+    fun normalizarOrdemCarga(bruto: String?): Long? =
+        bruto?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }
             ?.takeIf { it > 0 }
+
+    /** TGFCAB.ORDEMCARGA da nota (mirror local) — ver [normalizarOrdemCarga]. */
+    fun buscarOrdemCargaLocal(tenantId: UUID, nunota: Long): Long? =
+        normalizarOrdemCarga(campoDosDados(tenantId, nunota, "ORDEMCARGA"))
+
+    data class PedidoSemOrdemCarga(
+        val nunota: Long,
+        val numNota: Long?,
+        val codParc: Int?,
+        val nomeParceiro: String?,
+        val dataMovimento: String?,
+        val statusOperacional: String,
+    )
+
+    /**
+     * Notas do mirror local (mesmo universo da Fila de Tarefas / barra de progresso das OCs — só nota
+     * que passou pelo critério de conferência) SEM Ordem de Carga, pelo [normalizarOrdemCarga].
+     */
+    fun listarSemOrdemCarga(tenantId: UUID): List<PedidoSemOrdemCarga> = TenantTx.run(tenantId) {
+        TarefasTable.selectAll()
+            .where { TarefasTable.tenantId eq tenantId }
+            .orderBy(TarefasTable.nunota to SortOrder.DESC)
+            .mapNotNull { row ->
+                val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                fun campo(nome: String) = dados?.get(nome)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+                if (normalizarOrdemCarga(campo("ORDEMCARGA")) != null) return@mapNotNull null
+                PedidoSemOrdemCarga(
+                    nunota = row[TarefasTable.nunota].toLong(),
+                    numNota = campo("NUMNOTA")?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
+                    codParc = campo("CODPARC")?.let { it.toIntOrNull() ?: it.toDoubleOrNull()?.toInt() },
+                    nomeParceiro = campo("Parceiro.NOMEPARC"),
+                    dataMovimento = campo("DTNEG"),
+                    statusOperacional = row[TarefasTable.statusOperacional],
+                )
+            }
+    }
 
     /**
      * (ORDEMCARGA, status_operacional) de toda tarefa local vinculada às Ordens de Carga

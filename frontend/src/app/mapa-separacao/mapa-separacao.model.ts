@@ -5,7 +5,8 @@
  * formatação pt-BR de exibição é feita aqui (ver formatarQtd/formatarPeso).
  */
 export interface MapaSeparacaoDto {
-  ordemCarga: number;
+  /** null = mapa S/ ORDEM DE CARGA (um pedido só — ver `nunota`). */
+  ordemCarga: number | null;
   codVeiculo: number | null;
   placa: string | null;
   modeloVeiculo: string | null;
@@ -19,6 +20,22 @@ export interface MapaSeparacaoDto {
   consolidado: CategoriaSeparacaoDto[];
   /** Refrigerado, uma folha por parceiro (soma só entre os pedidos do mesmo parceiro). */
   porParceiro: ParceiroSeparacaoDto[];
+  /** Mapa S/ ORDEM DE CARGA: um mapa por Número Único, nunca consolidado com outro pedido. */
+  semOrdemCarga?: boolean;
+  nunota?: number | null;
+  numNota?: number | null;
+  codParc?: number | null;
+  nomeParceiro?: string | null;
+}
+
+/** Item de GET /api/mapa-separacao/sem-ordem-carga — pedido da fila de conferência sem Ordem de Carga. */
+export interface PedidoSemOrdemCargaDto {
+  nunota: number;
+  numNota: number | null;
+  codParc: number | null;
+  nomeParceiro: string | null;
+  dataMovimento: string | null;
+  conferido: boolean;
 }
 
 export interface ParceiroSeparacaoDto {

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { MapaSeparacaoDto, OrdemCargaResumoDto } from './mapa-separacao.model';
+import { MapaSeparacaoDto, OrdemCargaResumoDto, PedidoSemOrdemCargaDto } from './mapa-separacao.model';
 
 @Injectable({ providedIn: 'root' })
 export class MapaSeparacaoService {
@@ -15,5 +15,15 @@ export class MapaSeparacaoService {
   /** Ordens de Carga abertas (TGFORD.SITUACAO='A'), ainda precisam ser separadas — pra popular o painel. */
   listarAbertas(): Observable<OrdemCargaResumoDto[]> {
     return this.http.get<OrdemCargaResumoDto[]>(`${this.baseUrl}/abertas`);
+  }
+
+  /** Pedidos da fila de conferência SEM Ordem de Carga — painel do filtro "S/ Ordem de Carga". */
+  listarSemOrdemCarga(): Observable<PedidoSemOrdemCargaDto[]> {
+    return this.http.get<PedidoSemOrdemCargaDto[]>(`${this.baseUrl}/sem-ordem-carga`);
+  }
+
+  /** Mapa de UM pedido sem Ordem de Carga (um mapa por Número Único). */
+  consultarSemOrdemCarga(nunota: number): Observable<MapaSeparacaoDto> {
+    return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/sem-ordem-carga/${nunota}`);
   }
 }

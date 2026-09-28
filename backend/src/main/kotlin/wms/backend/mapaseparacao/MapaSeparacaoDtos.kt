@@ -23,7 +23,8 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class MapaSeparacaoDto(
-    val ordemCarga: Long,
+    /** null = mapa S/ ORDEM DE CARGA (um pedido só — ver [nunota]). */
+    val ordemCarga: Long?,
     val codVeiculo: Int?,
     val placa: String?,
     val modeloVeiculo: String?,
@@ -37,6 +38,27 @@ data class MapaSeparacaoDto(
     val pesoTotal: String,
     val consolidado: List<CategoriaSeparacaoDto>,
     val porParceiro: List<ParceiroSeparacaoDto>,
+    /**
+     * Mapa S/ ORDEM DE CARGA: um mapa por Número Único, nunca consolidado com outro pedido.
+     * Os campos abaixo só vêm preenchidos nesse modo (identificação do cabeçalho impresso).
+     */
+    val semOrdemCarga: Boolean = false,
+    val nunota: Long? = null,
+    val numNota: Long? = null,
+    val codParc: Int? = null,
+    val nomeParceiro: String? = null,
+)
+
+/** Pedido do painel "S/ Ordem de Carga" (mirror local, mesmo universo da Fila de Tarefas). */
+@Serializable
+data class PedidoSemOrdemCargaDto(
+    val nunota: Long,
+    val numNota: Long?,
+    val codParc: Int?,
+    val nomeParceiro: String?,
+    val dataMovimento: String?,
+    /** Conferência já concluída (mesma regra da barra de progresso das OCs). */
+    val conferido: Boolean,
 )
 
 /** Refrigerados de UM pedido (NUNOTA) da OC — bloco próprio por pedido, com o cliente dele; `nunotas` tem só esse NUNOTA. */
