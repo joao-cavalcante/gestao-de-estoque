@@ -85,16 +85,9 @@ tbody tr:last-child td {
 }
 
 .oq-lista__linha {
-  cursor: pointer;
   transition: background-color .12s ease;
 
   &:hover {
-    background: var(--oq-surface-2);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--oq-brand-accent);
-    outline-offset: -2px;
     background: var(--oq-surface-2);
   }
 

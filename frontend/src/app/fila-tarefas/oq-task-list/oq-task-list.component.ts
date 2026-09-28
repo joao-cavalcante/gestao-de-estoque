@@ -22,10 +22,8 @@ interface Coluna {
  * paginada pelo pai; só a renderização muda. Status e etapas vêm do mesmo
  * tarefa-visual.ts do card, e os chips de etapa são o mesmo componente.
  *
- * Linha clicável (clique / Enter) = o botão "Conferir"/"Continuar" do card.
- * Em nota por etapa o card só tem os chips; aqui a linha abre a conferência
- * sem etapa, e a própria tela de conferência mostra o seletor (ou assume a
- * única etapa pendente) — os chips continuam abrindo direto a etapa.
+ * Clicar na linha NÃO inicia conferência (pedido do usuário — toque sem querer
+ * no tablet abria a nota): só o botão "Conferir"/"Continuar" ou os chips de etapa.
  */
 @Component({
   selector: 'oq-task-list',

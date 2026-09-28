@@ -182,9 +182,12 @@ export type OqIconName =
           <path d="M12 2.5v19M3.8 7.25l16.4 9.5M20.2 7.25l-16.4 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
         }
         @case ('congelado') {
-          <!-- floco de neve com pontas — "Congelado" (AD_TIPOSEPARACAO=3) -->
-          <path d="M12 2.5v19M3.8 7.25l16.4 9.5M20.2 7.25l-16.4 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-          <path d="M12 2.5 10 5m2-2.5L14 5M12 21.5 10 19m2 2.5L14 19M3.8 7.25l.1 2.9m-.1-2.9 2.8.5M20.2 16.75l-.1-2.9m.1 2.9-2.8-.5M20.2 7.25l-2.8.5m2.8-.5-.1 2.9M3.8 16.75l2.8-.5m-2.8.5.1-2.9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          <!-- termômetro no frio (mercúrio baixo + estrela de gelo) — "Congelado" (AD_TIPOSEPARACAO=3).
+               Exclusivo: antes era um floco quase igual ao do Refrigerado e não dava pra distinguir pequeno. -->
+          <path d="M7 4.5a2.5 2.5 0 0 1 5 0v9.3a4.5 4.5 0 1 1-5 0V4.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+          <circle cx="9.5" cy="17.5" r="2" fill="currentColor" />
+          <path d="M9.5 15.5v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          <path d="M18 3.5v7M15 5.25l6 3.5M21 5.25l-6 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         }
         @case ('scissors') {
           <!-- tesoura — Liberação de Corte -->

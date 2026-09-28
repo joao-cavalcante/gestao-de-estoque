@@ -27,10 +27,6 @@
         class="oq-lista__linha"
         [class.oq-lista__linha--critical]="linha.t.alerta === 'critico'"
         [class.oq-lista__linha--attention]="linha.t.alerta === 'atencao'"
-        tabindex="0"
-        [attr.aria-label]="'Abrir conferência de ' + linha.t.cliente + ', Nº Único ' + linha.t.numeroUnico"
-        (click)="abrir(linha.t)"
-        (keydown.enter)="abrir(linha.t)"
       >
         <td class="col-status" data-label="Status">
           <span class="oq-status-pin" [class]="'oq-status-pin--' + linha.st.tom">
@@ -61,13 +57,12 @@
           @if (linha.ets.length > 0) {
             <oq-etapa-chips class="oq-lista__etapas" [etapas]="linha.ets" (conferirEtapa)="conferirEtapa(linha.t, $event)" />
           } @else {
-            <!-- Mesma ação do botão do card; a linha inteira também abre. -->
+            <!-- Mesma ação do botão do card — só o botão/chip inicia a conferência, a linha não. -->
             <button
               type="button"
               class="oq-lista__btn"
               [class.oq-lista__btn--continuar]="linha.t.status === 'andamento'"
-              (click)="$event.stopPropagation(); abrir(linha.t)"
-              (keydown.enter)="$event.stopPropagation()"
+              (click)="abrir(linha.t)"
             >
               {{ linha.t.status === 'andamento' ? 'Continuar' : 'Conferir' }}
             </button>

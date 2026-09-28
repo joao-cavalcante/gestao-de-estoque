@@ -7,8 +7,7 @@
     [class.oq-etapa-chip--andamento]="etapa.emAndamento"
     [disabled]="etapa.concluida"
     [title]="etapa.botao + ' — ' + etapa.label"
-    (click)="clicar($event, etapa.tipo)"
-    (keydown.enter)="$event.stopPropagation()"
+    (click)="clicar(etapa.tipo)"
   >
     <oq-icon [name]="etapa.divergente ? 'circle-alert' : etapa.concluida ? 'check' : etapa.icone" [size]="13" />
     <span class="oq-etapa-chip__label">{{ etapa.label }}</span>

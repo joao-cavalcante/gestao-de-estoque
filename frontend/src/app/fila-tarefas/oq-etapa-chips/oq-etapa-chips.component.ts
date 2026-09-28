@@ -20,9 +20,7 @@ export class OqEtapaChipsComponent {
   @Input({ required: true }) etapas: EtapaVisual[] = [];
   @Output() conferirEtapa = new EventEmitter<number>();
 
-  clicar(evento: Event, tipo: number): void {
-    // Dentro da linha da lista a linha inteira também é clicável — o chip decide sozinho.
-    evento.stopPropagation();
+  clicar(tipo: number): void {
     this.conferirEtapa.emit(tipo);
   }
 }
