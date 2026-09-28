@@ -19,25 +19,20 @@ interface ItemMenu {
  * fica de fora — é painel master, separado, ninguém além do master deve
  * ter acesso a essa tela por este menu.
  *
- * Agrupado em 3 categorias (Operações/Coletor/Administração) — a lista
- * plana virou 8+ itens soltos conforme os módulos foram entrando, e isso
- * deixou de escalar. Fila de Tarefas fica sozinha no topo por ser a tela
- * principal do dia a dia, o resto entra em submenu.
+ * As 4 telas de operação (Fila de Conferência, Mapa de Separação,
+ * Impressão de Etiquetas, Liberação de Corte) ficam soltas no topo — o
+ * grupo "Operações" saiu a pedido do usuário. Só Administração segue em
+ * submenu.
  */
 const ITENS: ItemMenu[] = [
-  { rota: '/fila-tarefas', label: 'Fila de Tarefas', icone: 'list-check' },
-  {
-    label: 'Operações',
-    icone: 'clock',
-    subItens: [
-      { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
-      { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'scissors' },
-      { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
-      // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
-      // { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
-      // { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },
-    ],
-  },
+  // Telas do dia a dia soltas no topo, na ordem do fluxo (pedido do usuário: sem o grupo "Operações").
+  { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
+  { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
+  { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
+  { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'scissors' },
+  // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
+  // { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
+  // { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },
   // Grupo "Coletor" desabilitado por enquanto (Transferência Rápida + Contagem de Inventário):
   // {
   //   label: 'Coletor',
