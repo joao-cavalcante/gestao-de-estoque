@@ -13,6 +13,7 @@ import { SeparacaoService } from '../separacao/separacao.service';
 import { LockService } from '../separacao/lock.service';
 import {
   ConcluirEtapaResultado,
+  ConclusaoServidor,
   FinalizacaoProgresso,
   FinalizarResultado,
   ItemConferido,
@@ -269,9 +270,18 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!sessaoId) return;
     const sub = timer(0, 1000)
       .pipe(switchMap(() => this.separacaoService.progressoFinalizacao(this.tenantAtual, sessaoId).pipe(catchError(() => of(null)))))
-      .subscribe((p) => this.progressoFinalizacao.set(p));
+      .subscribe((p) => {
+        this.progressoFinalizacao.set(p);
+        if (p?.concluido) this.recuperarConclusao(p.concluido);
+      });
     onCleanup(() => sub.unsubscribe());
   });
+  /** Envio em andamento (concluir etapa / finalizar) — pra poder abandonar o request se o servidor já concluiu. */
+  private operacaoSub?: Subscription;
+  private operacaoEmCurso:
+    | { tipo: 'etapa'; etapa: number; info: { tipo: number; rotulo: string; volumes: number; pesaveis: boolean } }
+    | { tipo: 'finalizar' }
+    | null = null;
   /**
    * Botão "Finalizar Conferência" fica sempre disponível — quem decide o que
    * fazer com a divergência é a CCO do Sankhya, não um bloqueio nosso. Única
@@ -1116,33 +1126,15 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       volumes: this.volume(),
       pesaveis: this.conferred().some((i) => !!i.usaConfPeso && i.scanned > 0),
     };
+    this.operacaoEmCurso = { tipo: 'etapa', etapa: tipo, info: infoEtapa };
     // Quem conclui vem do JWT no backend (call.exigirAuth()), não daqui.
-    this.separacaoService
+    this.operacaoSub = this.separacaoService
       .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente })
       .subscribe({
-        next: (res: ConcluirEtapaResultado) => {
-          this.encerrarLockLocal();
-          this.concluindoEtapa = false;
-          this.finalizando.set(false);
-          this.mostrarModalDivergencia.set(false);
-          this.mostrarModalAvisoEtapa.set(false);
-          const temEtiqueta = infoEtapa.volumes > 0 || infoEtapa.pesaveis;
-          this.etapaImpressao.set(temEtiqueta ? infoEtapa : null);
-          if (res.conferenciaFinalizada) {
-            this.aposFinalizacao({ ok: true, aguardandoCorte: res.aguardandoCorte, nuconf: res.nuconf });
-            return;
-          }
-          this.feedback.trigger('ETAPA_CONCLUIDA');
-          if (temEtiqueta) {
-            this.mostrarPainelEtapaConcluida.set(true);
-          } else {
-            this.router.navigate(['/fila-tarefas']);
-          }
-        },
+        next: (res: ConcluirEtapaResultado) => this.aoConcluirEtapa(res, infoEtapa),
         error: (err) => {
-          this.concluindoEtapa = false;
-          this.finalizando.set(false);
           if (err?.status === 409 && typeof err?.error?.pendentes === 'number') {
+            this.encerrarOperacao();
             if (this.ehUltimaEtapaPendente()) {
               this.feedback.trigger('FINALIZACAO_DIVERGENTE');
               this.mostrarModalDivergencia.set(true);
@@ -1152,11 +1144,76 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
             }
             return;
           }
-          this.mostrarModalDivergencia.set(false);
-          this.mostrarModalAvisoEtapa.set(false);
-          // Mantém a conferência na tela pra tentar de novo (antes trocava tudo pela tela de erro de abertura).
-          this.feedback.trigger('ERRO_SANKHYA', { mensagem: err?.error?.erro ?? 'Falha ao concluir a etapa.' });
+          this.verificarConclusaoAntesDoErro(() => {
+            this.encerrarOperacao();
+            this.mostrarModalDivergencia.set(false);
+            this.mostrarModalAvisoEtapa.set(false);
+            // Mantém a conferência na tela pra tentar de novo (antes trocava tudo pela tela de erro de abertura).
+            this.feedback.trigger('ERRO_SANKHYA', { mensagem: err?.error?.erro ?? 'Falha ao concluir a etapa.' });
+          });
         },
+      });
+  }
+
+  private aoConcluirEtapa(
+    res: Pick<ConcluirEtapaResultado, 'conferenciaFinalizada' | 'nuconf'> & { aguardandoCorte: boolean | null },
+    infoEtapa: { tipo: number; rotulo: string; volumes: number; pesaveis: boolean },
+  ): void {
+    this.encerrarLockLocal();
+    this.encerrarOperacao();
+    this.mostrarModalDivergencia.set(false);
+    this.mostrarModalAvisoEtapa.set(false);
+    const temEtiqueta = infoEtapa.volumes > 0 || infoEtapa.pesaveis;
+    this.etapaImpressao.set(temEtiqueta ? infoEtapa : null);
+    if (res.conferenciaFinalizada) {
+      this.aposFinalizacao({ ok: true, aguardandoCorte: res.aguardandoCorte, nuconf: res.nuconf });
+      return;
+    }
+    this.feedback.trigger('ETAPA_CONCLUIDA');
+    if (temEtiqueta) {
+      this.mostrarPainelEtapaConcluida.set(true);
+    } else {
+      this.router.navigate(['/fila-tarefas']);
+    }
+  }
+
+  private encerrarOperacao(): void {
+    this.operacaoSub?.unsubscribe();
+    this.operacaoSub = undefined;
+    this.operacaoEmCurso = null;
+    this.concluindoEtapa = false;
+    this.finalizando.set(false);
+  }
+
+  /**
+   * O servidor já terminou esta conclusão? (resposta perdida na rede — bug real da nota 58213: tudo foi
+   * pro Sankhya, mas o tablet ficou preso em "Enviando…" e o operador reabriu a nota). Se sim, abandona o
+   * request pendente e segue como sucesso. Devolve true se recuperou.
+   */
+  private recuperarConclusao(c: ConclusaoServidor): boolean {
+    const op = this.operacaoEmCurso;
+    if (!op || !this.finalizando()) return false;
+    if (op.tipo === 'etapa' && (c.conferenciaFinalizada || c.etapa === op.etapa)) {
+      this.aoConcluirEtapa(c, op.info);
+      return true;
+    }
+    if (op.tipo === 'finalizar' && c.conferenciaFinalizada) {
+      this.aoFinalizar({ ok: true, aguardandoCorte: c.aguardandoCorte, nuconf: c.nuconf });
+      return true;
+    }
+    return false;
+  }
+
+  /** Antes de mostrar erro de envio: confere uma vez se o servidor concluiu mesmo assim (ex.: conexão caiu). */
+  private verificarConclusaoAntesDoErro(mostrarErro: () => void): void {
+    const sessaoId = this.sessaoIdAtual;
+    if (!sessaoId) return mostrarErro();
+    this.separacaoService
+      .progressoFinalizacao(this.tenantAtual, sessaoId)
+      .pipe(catchError(() => of(null)))
+      .subscribe((p) => {
+        if (p?.concluido && this.recuperarConclusao(p.concluido)) return;
+        mostrarErro();
       });
   }
 
@@ -1169,24 +1226,38 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (!this.sessaoIdAtual || this.finalizando()) return;
     this.finalizando.set(true);
     this.feedback.trigger('ENVIANDO_SANKHYA');
-    this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
-      next: (res) => {
-        this.encerrarLockLocal();
-        this.finalizando.set(false);
-        this.mostrarModalDivergencia.set(false);
-        this.aposFinalizacao(res);
-      },
+    this.operacaoEmCurso = { tipo: 'finalizar' };
+    this.operacaoSub = this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
+      next: (res) => this.aoFinalizar(res),
       error: (err) => {
-        this.finalizando.set(false);
-        this.mostrarModalDivergencia.set(false);
-        // Mantém a conferência na tela pra tentar de novo (antes trocava tudo pela tela de erro de abertura).
-        this.feedback.trigger('ERRO_SANKHYA', { mensagem: err?.error?.erro ?? 'Falha ao finalizar a conferência.' });
+        this.verificarConclusaoAntesDoErro(() => {
+          this.encerrarOperacao();
+          this.mostrarModalDivergencia.set(false);
+          // Mantém a conferência na tela pra tentar de novo (antes trocava tudo pela tela de erro de abertura).
+          this.feedback.trigger('ERRO_SANKHYA', { mensagem: err?.error?.erro ?? 'Falha ao finalizar a conferência.' });
+        });
       },
     });
   }
 
-  /** Cadeia pós-finalização: liberação de corte → faturamento → painel "finalizada". */
-  private aposFinalizacao(res: FinalizarResultado): void {
+  private aoFinalizar(res: Omit<FinalizarResultado, 'aguardandoCorte'> & { aguardandoCorte: boolean | null }): void {
+    this.encerrarLockLocal();
+    this.encerrarOperacao();
+    this.mostrarModalDivergencia.set(false);
+    this.aposFinalizacao(res);
+  }
+
+  /**
+   * Cadeia pós-finalização: liberação de corte → faturamento → painel "finalizada".
+   * `aguardandoCorte: null` = desconhecido (recuperado só pelo status da sessão): vai direto ao painel —
+   * se houver corte pendente, a nota aparece na tela de Liberação de Corte pelo sync.
+   */
+  private aposFinalizacao(res: Omit<FinalizarResultado, 'aguardandoCorte'> & { aguardandoCorte: boolean | null }): void {
+    if (res.aguardandoCorte == null) {
+      this.feedback.trigger('FINALIZACAO');
+      this.mostrarPainelFinalizada.set(true);
+      return;
+    }
     // Corte automático/silencioso (pesável na tolerância) é decidido no backend e
     // chega aqui como finalização normal — nenhum alerta extra por regra operacional.
     if (res.aguardandoCorte && res.nuconf != null) {

@@ -97,6 +97,17 @@ export interface FinalizacaoProgresso {
   fase: 'itens' | 'corte' | 'liberacao' | 'finalizando' | null;
   feitos: number;
   total: number;
+  /** Conclusão que o servidor já terminou — recupera a tela se a resposta do concluir/finalizar se perder. */
+  concluido?: ConclusaoServidor | null;
+}
+
+export interface ConclusaoServidor {
+  /** Etapa concluída (segmentada); null = conferência inteira finalizada. */
+  etapa: number | null;
+  conferenciaFinalizada: boolean;
+  /** null = desconhecido (servidor reiniciou depois de concluir). */
+  aguardandoCorte: boolean | null;
+  nuconf: number | null;
 }
 
 /** Etiqueta de produto pesável (POST /sessoes/:id/etiquetas-peso). */

@@ -336,7 +336,26 @@ data class EtiquetaPesoDto(
 data class EtiquetasPesoResponse(val etiquetas: List<EtiquetaPesoDto>)
 
 @Serializable
-data class FinalizacaoProgressoDto(val fase: String?, val feitos: Int, val total: Int)
+data class FinalizacaoProgressoDto(
+    val fase: String?,
+    val feitos: Int,
+    val total: Int,
+    /**
+     * Conclusão que o servidor JÁ terminou (etapa intermediária ou a conferência inteira). Se a resposta do
+     * concluir-etapa/finalizar se perder na rede, o front acha o resultado aqui no polling e segue sozinho.
+     */
+    val concluido: ConclusaoDto? = null,
+)
+
+@Serializable
+data class ConclusaoDto(
+    /** Etapa concluída (conferência segmentada); null = conferência inteira finalizada. */
+    val etapa: Int? = null,
+    val conferenciaFinalizada: Boolean,
+    /** null = desconhecido (servidor reiniciou depois de concluir — só o status da sessão sobrou). */
+    val aguardandoCorte: Boolean? = null,
+    val nuconf: Int? = null,
+)
 
 /** Corpo de POST /sessoes/{id}/lock, /heartbeat e /lock/liberar — `etapa` só vale em sessão segmentada. */
 @Serializable

@@ -705,6 +705,13 @@ fun Route.separacaoRoutes() {
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "cabeçalho X-Lock-Token é obrigatório"))
             val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
+            // Sessão concluída/cancelada não tem mais o que travar — antes o "Tentar novamente" criava lock órfão nela.
+            if (sessao.status != SeparacaoStatus.PRONTA) {
+                return@post call.respond(
+                    HttpStatusCode.Conflict,
+                    mapOf("codigo" to "SESSAO_ENCERRADA", "erro" to "Esta conferência já foi encerrada (${sessao.status}). Volte à fila."),
+                )
+            }
             val body = call.receive<LockRequest>()
             val tipo: Short = if (sessao.conferenciaSegmentada) {
                 body.etapa?.toShort() ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'etapa' é obrigatória em sessão segmentada"))
@@ -712,7 +719,10 @@ fun Route.separacaoRoutes() {
                 0
             }
             val operadorId = sessao.operadorId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-            if (SeparacaoLockRepository.adquirir(tenantId, sessaoId, tipo, token, claims.userId, operadorId)) {
+            // Login pessoal: o mesmo usuário assume o próprio lock de outra aba/aparelho (queda de conexão, aba
+            // reaberta). Conta de estação é compartilhada entre tablets — ali o login não identifica a pessoa.
+            val assumirProprio = claims.perfil != "ESTACAO"
+            if (SeparacaoLockRepository.adquirir(tenantId, sessaoId, tipo, token, claims.userId, operadorId, assumirProprio)) {
                 call.respond(mapOf("ok" to true))
             } else {
                 val dono = SeparacaoLockRepository.donoAtivo(tenantId, sessaoId, tipo)
@@ -748,9 +758,16 @@ fun Route.separacaoRoutes() {
 
         /** Etapa atual do `finalizar` em andamento (em memória) — o front dá polling pra mostrar progresso. */
         get("/sessoes/{id}/finalizacao-progresso") {
-            val (_, sessaoId, _) = resolverSessao(call) ?: return@get
+            val (_, sessaoId, tenantId) = resolverSessao(call) ?: return@get
             val e = FinalizacaoProgresso.obter(sessaoId)
-            call.respond(FinalizacaoProgressoDto(fase = e?.fase, feitos = e?.feitos ?: 0, total = e?.total ?: 0))
+            // Resultado guardado em memória; se o servidor reiniciou no meio, o status da sessão ainda diz se finalizou.
+            val concluido = FinalizacaoProgresso.conclusao(sessaoId)
+                ?: if (e == null && SeparacaoRepository.buscarSessao(tenantId, sessaoId)?.status == SeparacaoStatus.CONCLUIDA) {
+                    ConclusaoDto(etapa = null, conferenciaFinalizada = true)
+                } else {
+                    null
+                }
+            call.respond(FinalizacaoProgressoDto(fase = e?.fase, feitos = e?.feitos ?: 0, total = e?.total ?: 0, concluido = concluido))
         }
 
         /**
@@ -868,7 +885,7 @@ private suspend fun exigirLock(call: io.ktor.server.application.ApplicationCall,
             HttpStatusCode.Conflict,
             mapOf(
                 "codigo" to "LOCK_INVALIDO",
-                "erro" to "Sua sessão nesta etapa não é mais válida (expirou por inatividade ou outro operador assumiu). Volte à fila e abra a conferência de novo.",
+                "erro" to "Sua sessão nesta etapa não é mais válida (expirou por inatividade, foi aberta em outra aba/aparelho ou outro operador assumiu). Volte à fila e abra a conferência de novo.",
             ),
         )
     }

@@ -30,6 +30,8 @@ import wms.backend.tarefas.TarefaSyncService
 import wms.backend.tarefas.TarefasRepository
 import java.math.BigDecimal
 import java.security.MessageDigest
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.UUID
 
@@ -66,6 +68,24 @@ object FinalizacaoProgresso {
     fun atualizar(sessaoId: UUID, fase: String, feitos: Int = 0, total: Int = 0) { estados[sessaoId] = Estado(fase, feitos, total) }
     fun limpar(sessaoId: UUID) { estados.remove(sessaoId) }
     fun obter(sessaoId: UUID): Estado? = estados[sessaoId]
+
+    /**
+     * Último resultado de conclusão por sessão, guardado por 15 min. Bug real (nota 58213): o servidor
+     * finalizou tudo no Sankhya, mas a resposta não chegou ao tablet (queda de conexão) — a tela ficou
+     * presa em "Enviando…" e o operador reabriu a nota achando que não tinha ido.
+     */
+    private data class Guardado(val conclusao: ConclusaoDto, val em: Instant)
+    private val resultados = java.util.concurrent.ConcurrentHashMap<UUID, Guardado>()
+    private val RETENCAO: Duration = Duration.ofMinutes(15)
+
+    fun registrarConclusao(sessaoId: UUID, conclusao: ConclusaoDto) {
+        val limite = Instant.now().minus(RETENCAO)
+        resultados.entries.removeIf { it.value.em.isBefore(limite) }
+        resultados[sessaoId] = Guardado(conclusao, Instant.now())
+    }
+
+    fun conclusao(sessaoId: UUID): ConclusaoDto? =
+        resultados[sessaoId]?.takeIf { it.em.isAfter(Instant.now().minus(RETENCAO)) }?.conclusao
 }
 
 /** Quantos salvarItemConferido em voo ao mesmo tempo no finalizar. */
@@ -657,6 +677,9 @@ object SeparacaoService {
             TarefasRepository.concluirLocalSemWriteBack(tenantId, sessao.nunota)
         }
 
+        FinalizacaoProgresso.registrarConclusao(
+            sessaoId, ConclusaoDto(etapa = null, conferenciaFinalizada = true, aguardandoCorte = aguardandoCorte, nuconf = nuconf),
+        )
         return FinalizarResultadoDto(ok = true, aguardandoCorte = aguardandoCorte, nuconf = nuconf)
         } finally {
             FinalizacaoProgresso.limpar(sessaoId)
@@ -725,6 +748,7 @@ object SeparacaoService {
             }
             // Etapa concluída: quem quiser abrir outra etapa não é barrado por este lock.
             withContext(Dispatchers.IO) { SeparacaoLockRepository.liberarEtapa(tenantId, sessaoId, tipo) }
+            FinalizacaoProgresso.registrarConclusao(sessaoId, ConclusaoDto(etapa = tipoSeparacao, conferenciaFinalizada = false))
             return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = false)
         }
 

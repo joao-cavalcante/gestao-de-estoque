@@ -36,10 +36,19 @@ object SeparacaoLockRepository {
             (SeparacaoLocksTable.tipoSeparacao eq tipo)
 
     /**
-     * Tenta assumir a etapa. true = este token agora é o dono (novo, re-entrada do mesmo token, ou tomada
-     * de um lock expirado). false = outro token com atividade recente já está usando.
+     * Tenta assumir a etapa. true = este token agora é o dono (novo, re-entrada do mesmo token, tomada
+     * de um lock expirado, ou — com `assumirProprio` — tomada de um lock do MESMO usuário em outra aba/aparelho).
+     * false = outro token com atividade recente já está usando.
      */
-    fun adquirir(tenantId: UUID, sessaoId: UUID, tipo: Short, token: UUID, userId: UUID, operadorId: UUID?): Boolean =
+    fun adquirir(
+        tenantId: UUID,
+        sessaoId: UUID,
+        tipo: Short,
+        token: UUID,
+        userId: UUID,
+        operadorId: UUID?,
+        assumirProprio: Boolean = false,
+    ): Boolean =
         TenantTx.run(tenantId) {
             val agora = Instant.now()
             val limite = corte()
@@ -63,6 +72,18 @@ object SeparacaoLockRepository {
                 it[ultimaAtividade] = agora
             }
             if (tomou > 0) return@run true
+
+            // 2b) Mesmo usuário, outro token (aba antiga ainda viva depois de uma queda de conexão): assume na
+            //     hora. A aba antiga passa a levar LOCK_INVALIDO na próxima operação.
+            if (assumirProprio) {
+                val assumiu = SeparacaoLocksTable.update({ chave(tenantId, sessaoId, tipo) and (SeparacaoLocksTable.userId eq userId) }) {
+                    it[SeparacaoLocksTable.token] = token
+                    it[SeparacaoLocksTable.operadorId] = operadorId
+                    it[adquiridoEm] = agora
+                    it[ultimaAtividade] = agora
+                }
+                if (assumiu > 0) return@run true
+            }
 
             // 3) Nenhuma linha (etapa nunca usada / já liberada): INSERT ... ON CONFLICT DO NOTHING — se
             //    outro candidato inseriu primeiro, insertedCount = 0 e este perde.
