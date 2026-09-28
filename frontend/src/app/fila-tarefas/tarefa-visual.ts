@@ -9,15 +9,16 @@ import { StatusTarefa, Tarefa, TIPOS_SEPARACAO } from './tarefa.model';
 export interface StatusVisual {
   icone: OqIconName;
   label: string;
-  corVar: string;
   gira: boolean;
+  /** Modificador da etiqueta colorida (.oq-status-pin--{tom}, styles.scss). */
+  tom: 'aguardando' | 'andamento' | 'corte' | 'concluido';
 }
 
 const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
-  aguardando: { icone: 'circle', label: 'AGUARDANDO CONFERÊNCIA', corVar: 'var(--oq-status-idle)', gira: false },
-  andamento: { icone: 'gear', label: 'EM ANDAMENTO', corVar: 'var(--oq-status-active)', gira: true },
-  aguardando_corte: { icone: 'circle-alert', label: 'AGUARDANDO CORTE', corVar: 'var(--oq-status-active)', gira: false },
-  concluido: { icone: 'check', label: 'CONCLUÍDO', corVar: 'var(--oq-status-done)', gira: false },
+  aguardando: { icone: 'circle', label: 'AGUARDANDO CONFERÊNCIA', gira: false, tom: 'aguardando' },
+  andamento: { icone: 'gear', label: 'EM ANDAMENTO', gira: true, tom: 'andamento' },
+  aguardando_corte: { icone: 'circle-alert', label: 'AGUARDANDO CORTE', gira: false, tom: 'corte' },
+  concluido: { icone: 'check', label: 'CONCLUÍDO', gira: false, tom: 'concluido' },
 };
 
 export function statusVisual(tarefa: Tarefa): StatusVisual {

@@ -33,9 +33,9 @@
         (keydown.enter)="abrir(linha.t)"
       >
         <td class="col-status" data-label="Status">
-          <span class="oq-lista__status">
-            <oq-icon [name]="linha.st.icone" [size]="13" [class.oq-gear-spin]="linha.st.gira" [style.color]="linha.st.corVar" />
-            <span class="oq-lista__status-text">{{ linha.st.label }}</span>
+          <span class="oq-status-pin" [class]="'oq-status-pin--' + linha.st.tom">
+            <oq-icon [name]="linha.st.icone" [size]="12" [class.oq-gear-spin]="linha.st.gira" />
+            {{ linha.st.label }}
           </span>
           @if (linha.t.alerta) {
             <span

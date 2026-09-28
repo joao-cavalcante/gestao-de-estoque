@@ -126,19 +126,6 @@ tbody tr:last-child td {
   text-align: right;
 }
 
-.oq-lista__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.oq-lista__status-text {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--oq-text-secondary);
-}
-
 .oq-lista__alerta {
   display: flex;
   align-items: center;

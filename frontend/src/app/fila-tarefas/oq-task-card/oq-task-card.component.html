@@ -11,8 +11,10 @@
   <header class="oq-card__header">
     <span class="oq-card__client">{{ tarefa.cliente }}</span>
     <div class="oq-card__status-line">
-      <oq-icon [name]="statusVisual.icone" [size]="13" [class.oq-gear-spin]="statusVisual.gira" [style.color]="statusVisual.corVar" />
-      <span class="oq-card__status-text">{{ statusVisual.label }}</span>
+      <span class="oq-status-pin" [class]="'oq-status-pin--' + statusVisual.tom">
+        <oq-icon [name]="statusVisual.icone" [size]="12" [class.oq-gear-spin]="statusVisual.gira" />
+        {{ statusVisual.label }}
+      </span>
 
       @if (tarefa.alerta) {
         <span class="oq-card__status-sep">·</span>
