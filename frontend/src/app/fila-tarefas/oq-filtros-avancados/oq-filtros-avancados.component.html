@@ -36,10 +36,20 @@
   </div>
 
   <div class="oq-filtros-avancados__campo">
-    <label class="oq-filtros-avancados__check">
-      <input type="checkbox" [(ngModel)]="rascunho.somenteComOrdemCarga" />
-      <span class="oq-filtros-avancados__label">Somente pedidos com Ordem de Carga</span>
-    </label>
+    <span class="oq-filtros-avancados__label">Pedidos</span>
+    <div class="oq-filtros-avancados__segmentado" role="radiogroup" aria-label="Vínculo com Ordem de Carga">
+      @for (op of opcoesVinculo; track op.valor) {
+        <button
+          type="button"
+          role="radio"
+          [attr.aria-checked]="rascunho.vinculoOrdemCarga === op.valor"
+          [class.ativo]="rascunho.vinculoOrdemCarga === op.valor"
+          (click)="rascunho.vinculoOrdemCarga = op.valor"
+        >
+          {{ op.label }}
+        </button>
+      }
+    </div>
   </div>
 
   <div class="oq-filtros-avancados__acoes">

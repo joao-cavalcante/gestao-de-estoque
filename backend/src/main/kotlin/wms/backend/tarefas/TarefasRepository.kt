@@ -376,10 +376,8 @@ object TarefasRepository {
                     dataMovimento = dados?.get("DTNEG")?.jsonPrimitive?.contentOrNull,
                     codigoTipoOperacao = dados?.get("CODTIPOPER")?.jsonPrimitive?.contentOrNull,
                     descricaoTipoOperacao = dados?.get("TipoOperacao.DESCROPER")?.jsonPrimitive?.contentOrNull,
-                    ordemCarga = dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull
-                        ?.trim()?.takeIf { it.isNotEmpty() }
-                        // vem como "1234" ou "1234.0" do loadRecords — normaliza pra Long
-                        ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
+                    // "1234"/"1234.0" do loadRecords → Long; NULL/vazio/0 = sem OC (mesma regra do Mapa S/ OC).
+                    ordemCarga = normalizarOrdemCarga(dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull),
                     turnoEntrega = dados?.get("AD_TURNOENTREGA")?.jsonPrimitive?.contentOrNull
                         ?.trim()?.takeIf { it.isNotEmpty() }
                         // normaliza "1"/"1.0" -> "1" (mesma razão do ordemCarga acima)

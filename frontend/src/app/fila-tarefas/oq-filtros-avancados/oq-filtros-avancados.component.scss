@@ -90,28 +90,6 @@
   &:focus { border-color: var(--oq-brand); }
 }
 
-.oq-filtros-avancados__check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-
-  input[type='checkbox'] {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--oq-brand);
-    cursor: pointer;
-    flex: none;
-  }
-
-  .oq-filtros-avancados__label {
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 500;
-    color: var(--oq-text-primary);
-  }
-}
-
 .oq-filtros-avancados__acoes {
   display: flex;
   justify-content: flex-end;
@@ -119,4 +97,34 @@
   margin-top: 4px;
   padding-top: 8px;
   border-top: 1px solid var(--oq-border);
+}
+
+/* Com / Sem Ordem de Carga — 3 opções exclusivas lado a lado. */
+.oq-filtros-avancados__segmentado {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  overflow: hidden;
+
+  button {
+    padding: 8px 6px;
+    border: none;
+    border-left: 1px solid var(--oq-border);
+    background: var(--oq-surface);
+    color: var(--oq-text-secondary);
+    font-family: var(--oq-font-display);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:first-child {
+      border-left: none;
+    }
+
+    &.ativo {
+      background: var(--oq-brand);
+      color: var(--oq-brand-ink);
+    }
+  }
 }

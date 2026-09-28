@@ -28,7 +28,7 @@ export class OqToolbarComponent {
     codigoVendedor: null,
     codigoTipoOperacao: null,
     ordemCarga: null,
-    somenteComOrdemCarga: false,
+    vinculoOrdemCarga: 'todos',
   };
   @Input() opcoesParceiros: OpcaoComCodigo[] = [];
   @Input() opcoesVendedores: OpcaoComCodigo[] = [];

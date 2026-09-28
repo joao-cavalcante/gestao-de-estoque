@@ -60,7 +60,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     codigoVendedor: null,
     codigoTipoOperacao: null,
     ordemCarga: null,
-    somenteComOrdemCarga: false,
+    vinculoOrdemCarga: 'todos',
   });
 
   private readonly filtrosSalvos = inject(FiltrosSalvosService);
@@ -84,7 +84,14 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     if (!f) return false;
     if (f.status && (FILTROS_STATUS as readonly string[]).includes(f.status)) this.filtroAtivo.set(f.status);
     if (Array.isArray(f.tiposSeparacao)) this.filtroTipoSeparacao.set(new Set(f.tiposSeparacao.filter((t) => typeof t === 'number')));
-    if (f.avancados) this.filtrosAvancados.set({ ...this.filtrosAvancados(), ...f.avancados });
+    if (f.avancados) {
+      // Filtro salvo antes do Com/Sem OC: a caixa "Somente com Ordem de Carga" marcada vira 'com'.
+      const { somenteComOrdemCarga, ...resto } = f.avancados as FiltrosAvancados & { somenteComOrdemCarga?: boolean };
+      const vinculo = (['todos', 'com', 'sem'] as const).includes(resto.vinculoOrdemCarga)
+        ? resto.vinculoOrdemCarga
+        : somenteComOrdemCarga ? 'com' : 'todos';
+      this.filtrosAvancados.set({ ...this.filtrosAvancados(), ...resto, vinculoOrdemCarga: vinculo });
+    }
     if (f.itensPorPagina && ITENS_POR_PAGINA.includes(f.itensPorPagina)) this.itensPorPagina.set(f.itensPorPagina);
     return true;
   }
@@ -154,7 +161,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const f = this.filtrosAvancados();
     return (
       [f.codigoParceiro, f.codigoVendedor, f.codigoTipoOperacao, f.ordemCarga].filter((v) => v !== null).length +
-      (f.somenteComOrdemCarga ? 1 : 0)
+      (f.vinculoOrdemCarga !== 'todos' ? 1 : 0)
     );
   });
 
@@ -182,7 +189,8 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
         (!avancados.codigoVendedor || t.codigoResponsavel === avancados.codigoVendedor) &&
         (!avancados.codigoTipoOperacao || t.codigoTipoOperacao === avancados.codigoTipoOperacao) &&
         (!avancados.ordemCarga || String(t.ordemCarga ?? '') === avancados.ordemCarga.trim()) &&
-        (!avancados.somenteComOrdemCarga || t.ordemCarga != null);
+        (avancados.vinculoOrdemCarga === 'todos' ||
+          (avancados.vinculoOrdemCarga === 'com' ? t.ordemCarga != null : t.ordemCarga == null));
 
       // Filtro de tipo de separação: passa se tem etapa PENDENTE de algum tipo selecionado.
       const passaTipoSeparacao =

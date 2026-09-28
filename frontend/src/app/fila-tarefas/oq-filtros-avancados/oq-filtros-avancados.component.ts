@@ -2,14 +2,14 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSearchableSelectComponent } from '../../shared/oq-searchable-select/oq-searchable-select.component';
-import { FiltrosAvancados, OpcaoComCodigo } from '../tarefa.model';
+import { FiltrosAvancados, OpcaoComCodigo, VinculoOrdemCarga } from '../tarefa.model';
 
 const VAZIO: FiltrosAvancados = {
   codigoParceiro: null,
   codigoVendedor: null,
   codigoTipoOperacao: null,
   ordemCarga: null,
-  somenteComOrdemCarga: false,
+  vinculoOrdemCarga: 'todos',
 };
 
 /**
@@ -31,6 +31,12 @@ export class OqFiltrosAvancadosComponent {
   @Input() opcoesTiposOperacao: OpcaoComCodigo[] = [];
 
   rascunho: FiltrosAvancados = { ...VAZIO };
+
+  readonly opcoesVinculo: { valor: VinculoOrdemCarga; label: string }[] = [
+    { valor: 'todos', label: 'Todos' },
+    { valor: 'com', label: 'Com OC' },
+    { valor: 'sem', label: 'Sem OC' },
+  ];
 
   @Input({ required: true }) set valores(v: FiltrosAvancados) {
     this.rascunho = { ...v };
