@@ -75,6 +75,19 @@
   @media (min-width: 1536px) { grid-template-columns: repeat(5, 1fr); }
 }
 
+/* Modo LISTA — rola por dentro, igual ao grid; o thead da tabela é sticky dentro daqui. */
+.oq-page__lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+
+.oq-page__lista-skel {
+  width: 100%;
+  border-collapse: collapse;
+}
+
 .oq-pagination {
   display: flex;
   flex: none;

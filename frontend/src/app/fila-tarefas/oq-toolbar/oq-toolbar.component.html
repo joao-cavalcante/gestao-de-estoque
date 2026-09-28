@@ -44,6 +44,22 @@
       />
     </label>
 
+    <div class="oq-toolbar__pills" role="group" aria-label="Modo de visualização">
+      @for (modo of modos; track modo.valor) {
+        <button
+          type="button"
+          class="oq-toolbar__pill oq-toolbar__pill--icon oq-toolbar__pill--view"
+          [class.oq-toolbar__pill--active]="viewMode === modo.valor"
+          [attr.aria-pressed]="viewMode === modo.valor"
+          [attr.aria-label]="modo.label"
+          [title]="modo.label"
+          (click)="viewModeChange.emit(modo.valor)"
+        >
+          <oq-icon [name]="modo.icone" [size]="14" />
+        </button>
+      }
+    </div>
+
     <div class="oq-toolbar__filters-wrapper">
       <button
         type="button"

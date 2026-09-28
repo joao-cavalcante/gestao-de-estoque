@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, ElementRef, Injector, ViewChild, afterNextRender, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -7,10 +7,11 @@ import { AuthService } from '../auth/auth.service';
 import { OqKpiBarComponent } from './oq-kpi-bar/oq-kpi-bar.component';
 import { OqToolbarComponent } from './oq-toolbar/oq-toolbar.component';
 import { OqTaskCardComponent } from './oq-task-card/oq-task-card.component';
+import { OqTaskListComponent } from './oq-task-list/oq-task-list.component';
 import { OqEmptyStateComponent } from './oq-empty-state/oq-empty-state.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConferenciasService } from './conferencias.service';
-import { FILTROS_STATUS, FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Tarefa } from './tarefa.model';
+import { CampoOrdenacao, FILTROS_STATUS, FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Ordenacao, Tarefa, ViewMode } from './tarefa.model';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
 
 /** O que a fila lembra por usuário — tudo menos a busca por texto (e a página atual). */
@@ -22,12 +23,39 @@ interface FiltrosFilaSalvos {
 }
 
 const TELA_FILTROS = 'fila-tarefas';
-const ITENS_POR_PAGINA = [10, 20, 50];
+/** Opções de itens/página por modo — a lista cabe mais linhas por tela que o grid de cards. */
+const ITENS_POR_PAGINA: Record<ViewMode, number[]> = { cards: [10, 20, 50], list: [20, 50, 100] };
+const TODOS_ITENS_POR_PAGINA = [10, 20, 50, 100];
+
+/** Preferência de visualização — do navegador, não do usuário (pedido: chave fixa no localStorage). */
+const CHAVE_VIEW_MODE = 'fila-view-mode';
+
+function lerViewMode(): ViewMode {
+  try {
+    return localStorage.getItem(CHAVE_VIEW_MODE) === 'list' ? 'list' : 'cards';
+  } catch {
+    return 'cards'; // storage bloqueado (aba privada/política): padrão
+  }
+}
+
+/** "28/09/2026 ..." → 20260928 pra ordenar por data; formato desconhecido cai no fim. */
+function chaveData(data: string): number {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(data.trim());
+  return m ? Number(m[3] + m[2] + m[1]) : Number.MAX_SAFE_INTEGER;
+}
 
 @Component({
   selector: 'app-fila-tarefas',
   standalone: true,
-  imports: [FormsModule, OqKpiBarComponent, OqToolbarComponent, OqTaskCardComponent, OqEmptyStateComponent, OqSkeletonComponent],
+  imports: [
+    FormsModule,
+    OqKpiBarComponent,
+    OqToolbarComponent,
+    OqTaskCardComponent,
+    OqTaskListComponent,
+    OqEmptyStateComponent,
+    OqSkeletonComponent,
+  ],
   templateUrl: './fila-tarefas.component.html',
   styleUrl: './fila-tarefas.component.scss',
 })
@@ -36,7 +64,18 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   readonly syncTick = inject(SyncTickService);
   private readonly authService = inject(AuthService);
+  private readonly injector = inject(Injector);
   private syncSub?: Subscription;
+
+  /** Cards (grid) ou lista (tabela) — só troca o template; dados, filtros e paginação são os mesmos. */
+  readonly viewMode = signal<ViewMode>(lerViewMode());
+  /** Ordenação pelos cabeçalhos da lista; vale pros dois modos (null = ordem do backend). */
+  readonly ordenacao = signal<Ordenacao | null>(null);
+  readonly opcoesItensPorPagina = computed(() => ITENS_POR_PAGINA[this.viewMode()]);
+
+  /** Área que rola (grid de cards ou lista) — pra devolver a posição ao voltar pra um modo. */
+  @ViewChild('rolagem') private rolagem?: ElementRef<HTMLElement>;
+  private readonly scrollPorModo: Partial<Record<ViewMode, number>> = {};
 
   private get tenantAtual(): string {
     return this.authService.obterTenantSlug() ?? '';
@@ -92,7 +131,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
         : somenteComOrdemCarga ? 'com' : 'todos';
       this.filtrosAvancados.set({ ...this.filtrosAvancados(), ...resto, vinculoOrdemCarga: vinculo });
     }
-    if (f.itensPorPagina && ITENS_POR_PAGINA.includes(f.itensPorPagina)) this.itensPorPagina.set(f.itensPorPagina);
+    if (f.itensPorPagina && TODOS_ITENS_POR_PAGINA.includes(f.itensPorPagina)) {
+      this.itensPorPagina.set(this.itensValidosPara(this.viewMode(), f.itensPorPagina));
+    }
     return true;
   }
 
@@ -200,13 +241,37 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     });
   });
 
+  /** Filtradas + ordenadas — base da paginação (e do contador) nos dois modos. */
+  readonly tarefasOrdenadas = computed(() => {
+    const lista = this.tarefasFiltradas();
+    const ord = this.ordenacao();
+    if (!ord) return lista;
+    const fator = ord.direcao === 'asc' ? 1 : -1;
+    const chave = (t: Tarefa): string | number => {
+      switch (ord.campo) {
+        case 'cliente': return t.cliente.toLocaleLowerCase('pt-BR');
+        case 'numeroUnico': return Number(t.numeroUnico) || 0;
+        case 'nf': return t.nf;
+        case 'data': return chaveData(t.data);
+        case 'itens': return t.itens;
+      }
+    };
+    // sort estável: empate mantém a ordem do backend
+    return [...lista].sort((a, b) => {
+      const ka = chave(a);
+      const kb = chave(b);
+      const cmp = typeof ka === 'number' && typeof kb === 'number' ? ka - kb : String(ka).localeCompare(String(kb), 'pt-BR');
+      return cmp * fator;
+    });
+  });
+
   readonly totalPaginas = computed(() =>
     Math.max(1, Math.ceil(this.tarefasFiltradas().length / this.itensPorPagina())),
   );
 
   readonly tarefasPaginadas = computed(() => {
     const inicio = (this.paginaAtual() - 1) * this.itensPorPagina();
-    return this.tarefasFiltradas().slice(inicio, inicio + this.itensPorPagina());
+    return this.tarefasOrdenadas().slice(inicio, inicio + this.itensPorPagina());
   });
 
   readonly intervaloPagina = computed(() => {
@@ -242,6 +307,52 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
 
   onItensPorPaginaChange(valor: number): void {
     this.itensPorPagina.set(valor);
+    this.paginaAtual.set(1);
+  }
+
+  /**
+   * Troca cards ↔ lista sem ir ao backend. Mantém o 1º pedido visível na página (se o modo novo
+   * não tem a mesma opção de itens/página, recalcula a página) e devolve a rolagem de quando
+   * aquele modo foi visto por último.
+   */
+  onViewModeChange(modo: ViewMode): void {
+    const atual = this.viewMode();
+    if (modo === atual) return;
+    if (this.rolagem) this.scrollPorModo[atual] = this.rolagem.nativeElement.scrollTop;
+
+    const primeiroItem = (this.paginaAtual() - 1) * this.itensPorPagina();
+    const novoPorPagina = this.itensValidosPara(modo, this.itensPorPagina());
+    this.viewMode.set(modo);
+    if (novoPorPagina !== this.itensPorPagina()) {
+      this.itensPorPagina.set(novoPorPagina);
+      this.paginaAtual.set(Math.floor(primeiroItem / novoPorPagina) + 1);
+    }
+    try {
+      localStorage.setItem(CHAVE_VIEW_MODE, modo);
+    } catch {
+      /* sem storage: vale só nesta sessão da tela */
+    }
+    afterNextRender(
+      () => {
+        if (this.rolagem) this.rolagem.nativeElement.scrollTop = this.scrollPorModo[modo] ?? 0;
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** Mantém o valor se o modo oferece; senão o mais próximo (10 → 20 na lista, 100 → 50 nos cards). */
+  private itensValidosPara(modo: ViewMode, valor: number): number {
+    const opcoes = ITENS_POR_PAGINA[modo];
+    if (opcoes.includes(valor)) return valor;
+    return opcoes.reduce((melhor, o) => (Math.abs(o - valor) < Math.abs(melhor - valor) ? o : melhor), opcoes[0]);
+  }
+
+  /** Clique no cabeçalho: asc → desc → sem ordenação (volta à ordem do backend). */
+  onOrdenar(campo: CampoOrdenacao): void {
+    const atual = this.ordenacao();
+    if (atual?.campo !== campo) this.ordenacao.set({ campo, direcao: 'asc' });
+    else if (atual.direcao === 'asc') this.ordenacao.set({ campo, direcao: 'desc' });
+    else this.ordenacao.set(null);
     this.paginaAtual.set(1);
   }
 

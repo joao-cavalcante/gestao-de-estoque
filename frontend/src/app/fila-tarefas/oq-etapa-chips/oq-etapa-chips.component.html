@@ -1,0 +1,19 @@
+@for (etapa of etapas; track etapa.tipo) {
+  <button
+    type="button"
+    class="oq-etapa-chip"
+    [class.oq-etapa-chip--ok]="etapa.concluida && !etapa.divergente"
+    [class.oq-etapa-chip--divergente]="etapa.divergente"
+    [class.oq-etapa-chip--andamento]="etapa.emAndamento"
+    [disabled]="etapa.concluida"
+    [title]="etapa.botao + ' — ' + etapa.label"
+    (click)="clicar($event, etapa.tipo)"
+    (keydown.enter)="$event.stopPropagation()"
+  >
+    <oq-icon [name]="etapa.divergente ? 'circle-alert' : etapa.concluida ? 'check' : etapa.icone" [size]="13" />
+    <span class="oq-etapa-chip__label">{{ etapa.label }}</span>
+    @if (etapa.progresso && !etapa.concluida) {
+      <span class="oq-etapa-chip__prog">{{ etapa.progresso }}</span>
+    }
+  </button>
+}

@@ -82,3 +82,14 @@ export type VinculoOrdemCarga = 'todos' | 'com' | 'sem';
 
 export const FILTROS_STATUS = ['todos', 'aguardando', 'andamento', 'aguardando_corte'] as const;
 export type FiltroStatus = (typeof FILTROS_STATUS)[number];
+
+/** Modo de exibição da Fila de Tarefas — preferência do navegador (localStorage "fila-view-mode"). */
+export type ViewMode = 'cards' | 'list';
+
+/** Colunas ordenáveis (cabeçalho da lista) — a ordenação vale pros dois modos. */
+export type CampoOrdenacao = 'cliente' | 'numeroUnico' | 'nf' | 'data' | 'itens';
+
+export interface Ordenacao {
+  campo: CampoOrdenacao;
+  direcao: 'asc' | 'desc';
+}

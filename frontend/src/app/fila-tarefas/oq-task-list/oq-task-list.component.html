@@ -1,0 +1,79 @@
+<table class="oq-lista">
+  <caption class="oq-lista__caption">Fila de tarefas em lista</caption>
+  <thead>
+    <tr>
+      @for (col of colunas; track col.titulo) {
+        <th scope="col" [class]="col.classe" [attr.aria-sort]="ariaSort(col.campo)">
+          @if (col.campo) {
+            <button
+              type="button"
+              class="oq-lista__sort"
+              [class.oq-lista__sort--ativo]="ordenacao?.campo === col.campo"
+              (click)="ordenar.emit(col.campo!)"
+            >
+              {{ col.titulo }}
+              <span class="oq-lista__sort-ind" aria-hidden="true">{{ indicador(col.campo) }}</span>
+            </button>
+          } @else {
+            {{ col.titulo }}
+          }
+        </th>
+      }
+    </tr>
+  </thead>
+  <tbody>
+    @for (linha of linhas; track linha.t.id) {
+      <tr
+        class="oq-lista__linha"
+        [class.oq-lista__linha--critical]="linha.t.alerta === 'critico'"
+        [class.oq-lista__linha--attention]="linha.t.alerta === 'atencao'"
+        tabindex="0"
+        [attr.aria-label]="'Abrir conferência de ' + linha.t.cliente + ', Nº Único ' + linha.t.numeroUnico"
+        (click)="abrir(linha.t)"
+        (keydown.enter)="abrir(linha.t)"
+      >
+        <td class="col-status" data-label="Status">
+          <span class="oq-lista__status">
+            <oq-icon [name]="linha.st.icone" [size]="13" [class.oq-gear-spin]="linha.st.gira" [style.color]="linha.st.corVar" />
+            <span class="oq-lista__status-text">{{ linha.st.label }}</span>
+          </span>
+          @if (linha.t.alerta) {
+            <span
+              class="oq-lista__alerta"
+              [class.oq-lista__alerta--critical]="linha.t.alerta === 'critico'"
+              [class.oq-lista__alerta--attention]="linha.t.alerta === 'atencao'"
+            >
+              <oq-icon name="triangle" [size]="10" />
+              {{ linha.t.motivoAlerta }}
+            </span>
+          }
+        </td>
+        <td class="col-cliente" data-label="Cliente">
+          <span class="oq-lista__cliente" [title]="linha.t.cliente">{{ linha.t.cliente }}</span>
+        </td>
+        <td class="col-num" data-label="Nº Único">{{ linha.t.numeroUnico }}</td>
+        <td class="col-num" data-label="NF">{{ linha.t.nf }}</td>
+        <td class="col-num" data-label="Ordem de Carga">{{ linha.t.ordemCarga ?? '—' }}</td>
+        <td class="col-num" data-label="Data">{{ linha.t.data }}</td>
+        <td class="col-itens" data-label="Itens">{{ linha.t.itens }}</td>
+        <td class="col-periodo" data-label="Período p/ entrega">{{ linha.t.periodoEntrega }}</td>
+        <td class="col-etapas" data-label="Conferir por etapa">
+          @if (linha.ets.length > 0) {
+            <oq-etapa-chips class="oq-lista__etapas" [etapas]="linha.ets" (conferirEtapa)="conferirEtapa(linha.t, $event)" />
+          } @else {
+            <!-- Mesma ação do botão do card; a linha inteira também abre. -->
+            <button
+              type="button"
+              class="oq-lista__btn"
+              [class.oq-lista__btn--continuar]="linha.t.status === 'andamento'"
+              (click)="$event.stopPropagation(); abrir(linha.t)"
+              (keydown.enter)="$event.stopPropagation()"
+            >
+              {{ linha.t.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+            </button>
+          }
+        </td>
+      </tr>
+    }
+  </tbody>
+</table>

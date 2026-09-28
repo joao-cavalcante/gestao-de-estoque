@@ -2,7 +2,8 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqFiltrosAvancadosComponent } from '../oq-filtros-avancados/oq-filtros-avancados.component';
-import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, TIPOS_SEPARACAO } from '../tarefa.model';
+import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, TIPOS_SEPARACAO, ViewMode } from '../tarefa.model';
+import { OqIconName } from '../../shared/icons/oq-icon.component';
 
 interface PillFiltro {
   valor: FiltroStatus;
@@ -36,6 +37,8 @@ export class OqToolbarComponent {
   /** Conferência por etapa (V29) — chips de tipo de separação só aparecem se true. */
   @Input() temSegmentacao = false;
   @Input() tiposSeparacaoSelecionados: ReadonlySet<number> = new Set();
+  /** Cards (grid atual) ou lista (tabela) — só muda a renderização, não os dados. */
+  @Input() viewMode: ViewMode = 'cards';
 
   @Output() filtroChange = new EventEmitter<FiltroStatus>();
   @Output() tipoSeparacaoToggle = new EventEmitter<number>();
@@ -43,6 +46,12 @@ export class OqToolbarComponent {
   @Output() abrirFiltros = new EventEmitter<void>();
   @Output() aplicarFiltrosAvancados = new EventEmitter<FiltrosAvancados>();
   @Output() fecharFiltrosAvancados = new EventEmitter<void>();
+  @Output() viewModeChange = new EventEmitter<ViewMode>();
+
+  readonly modos: { valor: ViewMode; icone: OqIconName; label: string }[] = [
+    { valor: 'cards', icone: 'grid', label: 'Visualizar em cards' },
+    { valor: 'list', icone: 'list', label: 'Visualizar em lista' },
+  ];
 
   readonly pills: PillFiltro[] = [
     { valor: 'todos', label: 'Todos' },

@@ -5,7 +5,7 @@ export type OqIconName =
   | 'search' | 'filter' | 'sync' | 'barcode' | 'x' | 'arrow-left'
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
   | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
-  | 'sun' | 'moon'
+  | 'sun' | 'moon' | 'grid' | 'list'
   | 'seco' | 'refrigerado' | 'congelado' | 'scissors';
 
 /**
@@ -110,6 +110,18 @@ export type OqIconName =
         @case ('list-check') {
           <path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
           <path d="m3 6 1.3 1.3L7 4.7M3 12l1.3 1.3L7 10.7M3 18l1.3 1.3L7 16.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        }
+        @case ('grid') {
+          <rect x="4" y="4" width="6.5" height="6.5" rx="1" stroke="currentColor" stroke-width="1.6" />
+          <rect x="13.5" y="4" width="6.5" height="6.5" rx="1" stroke="currentColor" stroke-width="1.6" />
+          <rect x="4" y="13.5" width="6.5" height="6.5" rx="1" stroke="currentColor" stroke-width="1.6" />
+          <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1" stroke="currentColor" stroke-width="1.6" />
+        }
+        @case ('list') {
+          <path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="4.5" cy="6" r="1.2" fill="currentColor" />
+          <circle cx="4.5" cy="12" r="1.2" fill="currentColor" />
+          <circle cx="4.5" cy="18" r="1.2" fill="currentColor" />
         }
         @case ('menu') {
           <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />

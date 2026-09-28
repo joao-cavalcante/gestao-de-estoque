@@ -81,6 +81,11 @@
   gap: 5px;
 }
 
+/* Alternador cards/lista — só ícone, mesma altura dos outros pills. */
+.oq-toolbar__pill--view {
+  padding: 5px 8px;
+}
+
 .oq-toolbar__search {
   display: flex;
   align-items: center;
