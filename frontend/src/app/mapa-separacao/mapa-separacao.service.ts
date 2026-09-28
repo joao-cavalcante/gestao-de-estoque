@@ -12,7 +12,7 @@ export class MapaSeparacaoService {
     return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/${ordemCarga}`);
   }
 
-  /** Ordens de Carga abertas (TGFORD.SITUACAO='A'), ainda precisam ser separadas — pra popular o painel. */
+  /** OCs do painel: abertas + fechadas que ainda têm nota na fila de conferência. */
   listarAbertas(): Observable<OrdemCargaResumoDto[]> {
     return this.http.get<OrdemCargaResumoDto[]>(`${this.baseUrl}/abertas`);
   }

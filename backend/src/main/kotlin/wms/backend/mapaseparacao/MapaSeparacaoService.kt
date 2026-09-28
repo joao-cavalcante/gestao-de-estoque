@@ -47,7 +47,7 @@ object MapaSeparacaoService {
     /** + NUMNOTA pro cabeçalho do mapa S/ Ordem de Carga (identificação do pedido impresso). */
     private val FIELDS_NOTA_SEM_OC = FIELDS_NOTA + "NUMNOTA"
     private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODEMP", "PESOMAX", "CODVEICULO", "CODPARCMOTORISTA")
-    private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA")
+    private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO")
     private val FIELDS_VEICULO = listOf("CODVEICULO", "MARCAMODELO", "PLACA")
     private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
     private val FIELDS_ITEM = listOf(
@@ -423,10 +423,11 @@ object MapaSeparacaoService {
     )
 
     /**
-     * Ordens de Carga ABERTAS (TGFORD.SITUACAO='A', domínio confirmado com o
-     * usuário: A=Aberta, F=Fechada) — são as que ainda PRECISAM ser separadas
-     * (conceito corrigido: "fechada" já foi processada/embarcada, não é o que
-     * o painel deve oferecer pra separação). Enriquece placa/motorista em
+     * Ordens de Carga do painel: ABERTAS (TGFORD.SITUACAO='A'; A=Aberta,
+     * F=Fechada) + as FECHADAS que ainda têm nota na fila de conferência —
+     * decisão do usuário (2026-09-28): a OC é fechada no Sankhya antes da
+     * separação terminar, então "fechada" não quer dizer "já separada". A
+     * situação vai no DTO pro card mostrar o badge "Fechada". Enriquece placa/motorista em
      * lote (2 chamadas a mais, não 1 por OC) — mesmo padrão de `montar`.
      *
      * Progresso de conferência (totalNotas/notasConferidas) vem do MIRROR LOCAL
@@ -441,34 +442,25 @@ object MapaSeparacaoService {
      * si — rodam em paralelo (`coroutineScope`/`async`) em vez de sequenciais.
      */
     suspend fun listarAbertas(tenantSlug: String, tenantId: UUID): List<OrdemCargaResumoDto> = coroutineScope {
+        // Abertas no Sankhya + qualquer OC (aberta ou FECHADA) que ainda tenha nota na fila de conferência:
+        // na prática a OC é fechada no Sankhya antes da separação terminar (confirmado: OCs 55–64 todas 'F'
+        // com notas ainda na fila) — só SITUACAO='A' deixava o painel vazio.
+        val naFila = withContext(Dispatchers.IO) { TarefasRepository.ordensCargaNaFila(tenantId) }
+        val criterio = if (naFila.isEmpty()) "SITUACAO = 'A'" else "(SITUACAO = 'A' OR ORDEMCARGA IN (${naFila.joinToString(",")}))"
         val raw = SankhyaLoadRecordsClient.parseRows(
             SankhyaLoadRecordsClient.loadRecords(
                 tenantSlug,
                 LoadRecordsRequest(
                     entityName = "OrdemCarga",
                     fields = FIELDS_ORDEM_LISTA,
-                    criteriaExpression = "SITUACAO = 'A'",
+                    criteriaExpression = criterio,
                     orderByExpression = "ORDEMCARGA DESC",
                 ),
             ),
             FIELDS_ORDEM_LISTA,
         )
-        val ordensCarga = raw.mapNotNull { it["ORDEMCARGA"]?.toLongOrNull() }.distinct()
-        // Diagnóstico de "painel vazio": Sankhya sem OC aberta vs. OC aberta sem nota na fila (0/0, o front esconde).
-        println("MAPA abertas: ${raw.size} linha(s) SITUACAO='A' no Sankhya, OCs=${ordensCarga.take(20)}")
-        if (raw.isEmpty()) {
-            val recentes = runCatching {
-                SankhyaLoadRecordsClient.parseRows(
-                    SankhyaLoadRecordsClient.loadRecords(
-                        tenantSlug,
-                        LoadRecordsRequest(entityName = "OrdemCarga", fields = listOf("ORDEMCARGA", "SITUACAO"), criteriaExpression = "ORDEMCARGA >= 55"),
-                    ),
-                    listOf("ORDEMCARGA", "SITUACAO"),
-                ).map { "${it["ORDEMCARGA"]}=${it["SITUACAO"]}" }
-            }.getOrElse { listOf("erro: ${it.message}") }
-            println("MAPA abertas: situacao das OCs recentes (>=55): $recentes")
-        }
         if (raw.isEmpty()) return@coroutineScope emptyList()
+        val ordensCarga = raw.mapNotNull { it["ORDEMCARGA"]?.toLongOrNull() }.distinct()
 
         val codVeiculos = raw.mapNotNull { it["CODVEICULO"]?.toIntOrNull() }.distinct()
         val codMotoristas = raw.mapNotNull { it["CODPARCMOTORISTA"]?.toIntOrNull() }.distinct()
@@ -481,7 +473,6 @@ object MapaSeparacaoService {
         val statusPorOc = withContext(Dispatchers.IO) {
             TarefasRepository.statusPorOrdemCarga(tenantId, ordensCarga.toSet())
         }.groupBy({ it.first }, { it.second })
-        println("MAPA abertas: notas na fila por OC=${ordensCarga.take(20).associateWith { statusPorOc[it].orEmpty().size }}")
 
         raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -495,6 +486,7 @@ object MapaSeparacaoService {
                 nomeMotorista = codMotorista?.let { nomesPorCodParc[it] },
                 totalNotas = statusDaOc.size,
                 notasConferidas = statusDaOc.count { it in STATUS_CONFERIDA },
+                situacao = r["SITUACAO"]?.trim()?.takeIf { it.isNotEmpty() },
             )
         }
     }

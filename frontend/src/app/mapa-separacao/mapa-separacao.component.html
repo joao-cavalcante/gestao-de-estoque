@@ -10,7 +10,7 @@
             {{ pedidosSemOcFiltrados.length }} pedido(s) •
             <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: null }" />
           } @else {
-            {{ listaFiltrada.length }} ordem(ns) de carga aberta(s) •
+            {{ listaFiltrada.length }} ordem(ns) de carga •
             <span class="ms-badge-oc ms-badge-oc--com">Com Ordem de Carga</span>
           }
         </span>
@@ -152,18 +152,23 @@
         }
       } @else if (listaFiltrada.length === 0) {
         <div class="ms-vazio no-print">
-          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga aberta no momento.' : 'Nenhum resultado para essa busca.' }}
+          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga com nota na fila de conferência no momento.' : 'Nenhum resultado para essa busca.' }}
         </div>
       } @else {
         <div class="ms-painel-grid no-print">
           @for (oc of listaFiltrada; track oc.ordemCarga) {
             <article class="oq-card oq-card--clicavel" (click)="consultar(oc.ordemCarga)">
               <div class="oq-card__header">
-                <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
+                <span class="oq-card__client">
+                  Ordem de Carga {{ oc.ordemCarga }}
+                  @if (oc.situacao === 'F') {
+                    <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
+                  }
+                </span>
                 <div class="oq-card__status-line">
                   <oq-icon [name]="ocConcluida(oc) ? 'check' : 'box'" [size]="13" />
                   <span class="oq-card__status-text">
-                    {{ ocConcluida(oc) ? 'Todas as notas conferidas' : 'Aberta — pronta pra separar' }}
+                    {{ ocConcluida(oc) ? 'Todas as notas conferidas' : 'Pronta pra separar' }}
                   </span>
                 </div>
               </div>

@@ -40,8 +40,8 @@ const CONCORRENCIA_MAPAS = 3;
  * Tarefas) em vez do CSS solto do JSP original.
  *
  * TELA DE CONTROLE, não busca solta: abre já mostrando as Ordens de Carga
- * ABERTAS (SITUACAO='A' — ainda precisam ser separadas; "fechada" já foi
- * processada/embarcada) como cards (mesmo idioma visual de Fila de
+ * ABERTAS (SITUACAO='A') e as FECHADAS no Sankhya que ainda têm nota na
+ * fila de conferência (a OC é fechada antes da separação terminar) como cards (mesmo idioma visual de Fila de
  * Tarefas/Liberação de Corte/Impressão de Etiquetas) — o operador vê de
  * cara quantas tem pra separar, clica na que quer e vai direto pro
  * relatório/impressão. Busca ao vivo, sem cache/mirror.
@@ -228,7 +228,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
       error: (err) => {
         if (!silencioso) this.abertas.set([]);
         this.carregandoAbertas.set(false);
-        this.erroAbertas.set(err?.error?.erro ?? 'Falha ao carregar as Ordens de Carga abertas.');
+        this.erroAbertas.set(err?.error?.erro ?? 'Falha ao carregar as Ordens de Carga.');
       },
     });
   }

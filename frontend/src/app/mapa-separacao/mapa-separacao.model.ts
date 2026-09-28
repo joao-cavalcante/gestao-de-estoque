@@ -49,7 +49,7 @@ export interface ParceiroSeparacaoDto {
   categorias: CategoriaSeparacaoDto[];
 }
 
-/** Item de GET /api/mapa-separacao/abertas — Ordens de Carga ABERTAS (TGFORD.SITUACAO='A'), ainda precisam ser separadas. */
+/** Item de GET /api/mapa-separacao/abertas — OC aberta, ou fechada no Sankhya que ainda tem nota na fila de conferência. */
 export interface OrdemCargaResumoDto {
   ordemCarga: number;
   dataPrevSaida: string;
@@ -58,6 +58,8 @@ export interface OrdemCargaResumoDto {
   /** Total de notas da OC e quantas já estão conferidas no mirror local (ver TarefaSyncService) — barra de progresso do card. */
   totalNotas: number;
   notasConferidas: number;
+  /** TGFORD.SITUACAO: 'A' aberta | 'F' fechada (ainda com nota na fila) — badge "Fechada" no card. */
+  situacao: string | null;
 }
 
 export interface CategoriaSeparacaoDto {

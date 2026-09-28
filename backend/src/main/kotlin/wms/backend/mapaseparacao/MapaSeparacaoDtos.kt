@@ -74,7 +74,7 @@ data class ParceiroSeparacaoDto(
     val categorias: List<CategoriaSeparacaoDto>,
 )
 
-/** Item da lista de Ordens de Carga ABERTAS (TGFORD.SITUACAO='A') pra seleção na tela — ainda precisam ser separadas. */
+/** Item do painel: OC aberta, ou fechada que ainda tem nota na fila de conferência (ver MapaSeparacaoService.listarAbertas). */
 @Serializable
 data class OrdemCargaResumoDto(
     val ordemCarga: Long,
@@ -91,6 +91,8 @@ data class OrdemCargaResumoDto(
      * de conferência (ver CRITERIO_BASE) não entra no mirror — conta como não conferida.
      */
     val notasConferidas: Int,
+    /** TGFORD.SITUACAO: 'A' aberta | 'F' fechada — fechada ainda aparece enquanto tiver nota na fila. */
+    val situacao: String? = null,
 )
 
 @Serializable
