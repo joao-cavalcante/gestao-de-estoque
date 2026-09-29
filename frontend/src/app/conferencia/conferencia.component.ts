@@ -368,6 +368,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       const base = linhas[0];
       const expected = linhas.reduce((acc, l) => acc + l.expected, 0);
       const scanned = linhas.reduce((acc, l) => acc + l.scanned, 0);
+      // Soma da qtd comercial das linhas (mantém a proporção comercial/base do grupo — pop-up de divergência).
+      const quantidadeComercial = linhas.every((l) => l.quantidadeComercial != null)
+        ? linhas.reduce((acc, l) => acc + (l.quantidadeComercial ?? 0), 0)
+        : base.quantidadeComercial;
       const d = this.avaliarDivergencia({ usaConfPeso: base.usaConfPeso, expected }, scanned);
       // Pesável a menor DENTRO da tolerância não é divergência: o backend libera o corte sozinho
       // (autoLiberarPesoDentroTolerancia) — não entra no pop-up nem trava a finalização.
@@ -381,6 +385,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         divergenciaPeso: d.divergenciaPeso,
         desvioPesoPct: d.desvioPesoPct,
         pesoNaTolerancia: d.pesoNaTolerancia,
+        quantidadeComercial,
       });
     }
     return agregados.sort((a, b) => a.name.localeCompare(b.name));
@@ -408,20 +413,45 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       : { tipo: 'Falta', detalhe: 'Conferido abaixo do pedido' };
   }
 
-  /** Diferença conferido − pedido (qtd com sinal + unidade) e % do pedido — pop-up de divergência. */
-  diferencaModal(item: ConferenciaItem): { qtd: string; pct: string | null } {
-    const d = round3(item.scanned - item.expected);
-    const sinal = d > 0 ? '+' : d < 0 ? '−' : '';
-    const qtd = `${sinal}${this.formatarQtdModal(item, Math.abs(d))}`;
-    if (item.expected <= 0) return { qtd, pct: null };
-    const p = Math.abs((d / item.expected) * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-    return { qtd, pct: `${sinal}${p}%` };
-  }
+  /**
+   * SÓ EXIBIÇÃO — linhas do pop-up de divergência. Números na unidade COMERCIALIZADA (a do pedido);
+   * pesável fica em KG (unidade base). Quando a comercial difere da base, a base vai numa linha menor.
+   */
+  readonly linhasDivergenciaModal = computed(() =>
+    this.itensDivergentesSessao().map((item) => {
+      const comercial =
+        !item.usaConfPeso &&
+        !!item.unidadeComercial &&
+        item.unidadeComercial !== item.unidadePadrao &&
+        item.quantidadeComercial != null &&
+        item.expected > 0;
+      const fator = comercial ? item.quantidadeComercial! / item.expected : 1;
+      const un = (comercial ? item.unidadeComercial : item.unidadePadrao) ?? '';
+      const casas = item.usaConfPeso ? 3 : 0;
+      const pedido = item.expected * fator;
+      const conferido = item.scanned * fator;
+      const dif = round3(conferido - pedido);
+      const sinal = dif > 0 ? '+' : dif < 0 ? '−' : '';
+      const pct = item.expected > 0
+        ? `${sinal}${Math.abs((dif / pedido) * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+        : null;
+      return {
+        item,
+        pedido: this.fmtQtdModal(pedido, casas, un),
+        conferido: this.fmtQtdModal(conferido, casas, un),
+        dif: `${sinal}${this.fmtQtdModal(Math.abs(dif), casas, un)}`,
+        pct,
+        base: comercial
+          ? `${this.fmtQtdModal(item.expected, 0, item.unidadePadrao ?? '')} → ${this.fmtQtdModal(item.scanned, 0, item.unidadePadrao ?? '')}`
+          : null,
+      };
+    }),
+  );
 
-  /** Qtd pt-BR com 3 casas + unidade base (pop-up de divergência — antes saía "0.98" cru). */
-  formatarQtdModal(item: ConferenciaItem, n: number): string {
-    const v = (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-    return item.unidadePadrao ? `${v} ${item.unidadePadrao}` : v;
+  /** pt-BR: pesável com 3 casas fixas; unidade inteira sem ",000" (mas mostra fração se houver, até 3 casas). */
+  private fmtQtdModal(n: number, casasMin: number, un: string): string {
+    const v = (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: casasMin, maximumFractionDigits: 3 });
+    return un ? `${v} ${un}` : v;
   }
   readonly mostrarModalDivergencia = signal(false);
   /** Aviso simples (regra 5): divergência de não pesável numa etapa que NÃO é a última — só informa, não corta nem finaliza nada. */

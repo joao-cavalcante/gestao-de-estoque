@@ -751,6 +751,14 @@ body {
     margin-right: 4px;
   }
 
+  .diverg-base {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--oq-font-mono);
+    font-size: 10px;
+    color: var(--oq-text-secondary);
+  }
+
   .diverg-dif {
     font-weight: 700;
     color: var(--oq-critical-foreground);

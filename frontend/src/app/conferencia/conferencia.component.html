@@ -317,20 +317,21 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of itensDivergentesSessao(); track item.code + item.control) {
+              @for (l of linhasDivergenciaModal(); track l.item.code + l.item.control) {
                 <tr>
                   <td>
-                    <span class="diverg-produto"><span class="diverg-produto__cod">{{ item.code }}</span> {{ item.name }}</span>
+                    <span class="diverg-produto"><span class="diverg-produto__cod">{{ l.item.code }}</span> {{ l.item.name }}</span>
                     <span class="diverg-motivo">
-                      <span class="diverg-motivo__tipo">{{ descreverDivergencia(item).tipo }}</span>
-                      {{ descreverDivergencia(item).detalhe }}
+                      <span class="diverg-motivo__tipo">{{ descreverDivergencia(l.item).tipo }}</span>
+                      {{ descreverDivergencia(l.item).detalhe }}
                     </span>
+                    @if (l.base) { <span class="diverg-base">Base: {{ l.base }}</span> }
                   </td>
-                  <td class="num">{{ formatarQtdModal(item, item.expected) }}</td>
-                  <td class="num">{{ formatarQtdModal(item, item.scanned) }}</td>
+                  <td class="num">{{ l.pedido }}</td>
+                  <td class="num">{{ l.conferido }}</td>
                   <td class="num diverg-dif">
-                    {{ diferencaModal(item).qtd }}
-                    @if (diferencaModal(item).pct) { <span class="diverg-dif__pct">{{ diferencaModal(item).pct }}</span> }
+                    {{ l.dif }}
+                    @if (l.pct) { <span class="diverg-dif__pct">{{ l.pct }}</span> }
                   </td>
                 </tr>
               }
