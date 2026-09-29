@@ -190,11 +190,10 @@ export type OqIconName =
           <path d="M18 3.5v7M15 5.25l6 3.5M21 5.25l-6 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         }
         @case ('ajuste') {
-          <!-- controles deslizantes — "ajuste/correção" (Liberação de Corte, botão Ajustar). Substituiu a tesoura. -->
-          <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-          <circle cx="15" cy="6" r="2" stroke="currentColor" stroke-width="1.6" />
-          <circle cx="9" cy="12" r="2" stroke="currentColor" stroke-width="1.6" />
-          <circle cx="17" cy="18" r="2" stroke="currentColor" stroke-width="1.6" />
+          <!-- nota com lápis — "ajuste/correção da nota" (Liberação de Corte, botão Ajustar). Substituiu a tesoura. -->
+          <path d="M13 3.5H6.5A1.5 1.5 0 0 0 5 5v14a1.5 1.5 0 0 0 1.5 1.5H11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+          <path d="M8 8h6M8 12h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+          <path d="M18.5 11.5l2 2-6.5 6.5h-2v-2l6.5-6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
         }
       }
     </svg>
