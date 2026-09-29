@@ -11,7 +11,7 @@ export interface StatusVisual {
   label: string;
   gira: boolean;
   /** Modificador da etiqueta colorida (.oq-status-pin--{tom}, styles.scss). */
-  tom: 'aguardando' | 'andamento' | 'corte' | 'concluido';
+  tom: 'aguardando' | 'andamento' | 'corte' | 'concluido' | 'recontagem';
 }
 
 const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
@@ -27,8 +27,12 @@ export function statusVisual(tarefa: Tarefa): StatusVisual {
   // nunca conferida (ver STATUS_MAP em conferencias.service.ts), mas pro
   // operador são situações bem diferentes — uma já foi conferida antes e
   // voltou por divergência/item negado, a outra nunca foi aberta.
+  // Recontagem tem cor própria (roxo) — antes repetia o azul do aguardando e o âmbar do andamento.
   if (tarefa.statusOperacional === 'aguardando_recontagem') {
-    return { ...visual, label: 'AGUARDANDO RECONTAGEM' };
+    return { ...visual, label: 'AGUARDANDO RECONTAGEM', tom: 'recontagem' };
+  }
+  if (tarefa.statusOperacional === 'recontagem_andamento') {
+    return { ...visual, label: 'RECONTAGEM EM ANDAMENTO', tom: 'recontagem' };
   }
   return visual;
 }

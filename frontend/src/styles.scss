@@ -72,6 +72,13 @@
 
   --oq-warning-foreground: #7A4A08;
   --oq-warning-soft: #FEF3C7;
+  /* Recontagem — cor própria na etiqueta de status (não repete o azul do aguardando nem o âmbar do andamento). */
+  --oq-recontagem: #7C3AED;
+  --oq-recontagem-foreground: #5B21B6;
+  --oq-aguardando: #3D6B94;
+  --oq-aguardando-foreground: #2C5378;
+  --oq-concluido: #2E7D4F;
+  --oq-concluido-foreground: #1F5C39;
 
   --oq-success-foreground: #2F4137;
   --oq-success-soft: #E4EAE6;
@@ -104,6 +111,12 @@
 
   --oq-warning-foreground: #F0C989;
   --oq-warning-soft: #33230A;
+  --oq-recontagem: #A78BFA;
+  --oq-recontagem-foreground: #C4B5FD;
+  --oq-aguardando: #6B9BD1;
+  --oq-aguardando-foreground: #A8C8EC;
+  --oq-concluido: #4CAF7A;
+  --oq-concluido-foreground: #9FD9B6;
 
   --oq-success-foreground: #A9C2B2;
   --oq-success-soft: #1C2620;
@@ -176,10 +189,11 @@ body {
     flex: none;
   }
 
-  &--aguardando { --pin-cor: var(--oq-brand-accent); --pin-texto: var(--oq-brand-accent); }
+  &--aguardando { --pin-cor: var(--oq-aguardando); --pin-texto: var(--oq-aguardando-foreground); }
   &--andamento { --pin-cor: var(--oq-attention); --pin-texto: var(--oq-warning-foreground); }
+  &--recontagem { --pin-cor: var(--oq-recontagem); --pin-texto: var(--oq-recontagem-foreground); }
   &--corte { --pin-cor: var(--oq-critical); --pin-texto: var(--oq-critical-foreground); }
-  &--concluido { --pin-cor: var(--oq-success); --pin-texto: var(--oq-success-foreground); }
+  &--concluido { --pin-cor: var(--oq-concluido); --pin-texto: var(--oq-concluido-foreground); }
 }
 
 @keyframes oq-spin {
