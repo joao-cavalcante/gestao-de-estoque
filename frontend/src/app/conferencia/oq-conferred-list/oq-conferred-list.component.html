@@ -96,8 +96,10 @@
                     {{ formatarQtd(item.scanned) }} {{ item.unidadePadrao }}
                   </span>
                 } @else {
-                  <span class="item-info-sec">
-                    Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
+                  <!-- Pesável (principal = peso em KG) ou sem conversão: pedido na unidade comercial, só referência. -->
+                  <span class="item-base">
+                    <span class="item-base__rot">Pedido</span>
+                    {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
                   </span>
                 }
               </div>

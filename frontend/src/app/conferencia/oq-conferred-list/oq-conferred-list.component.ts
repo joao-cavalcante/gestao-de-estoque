@@ -45,12 +45,14 @@ export class OqConferredListComponent {
   }
 
   /**
-   * SÓ EXIBIÇÃO. Item negociado noutra unidade — conferido na unidade DO PEDIDO (comercial) no
-   * principal e a unidade base na linha "Base". Vale também pro pesável (pedido do usuário, 29/09):
-   * o peso em KG vai pra "Base"; a divergência de PESO continua em KG (é o que a balança mede).
+   * SÓ EXIBIÇÃO. Item NÃO pesável negociado noutra unidade — conferido na unidade DO PEDIDO
+   * (comercial) no principal e a unidade base na linha "Base". Pesável conferido fica no PESO (KG)
+   * no principal, com o pedido em caixa só de referência: a conversão proporcional dava caixa
+   * fracionada ("0,984 CX"), que não é nada físico pro operador (pedido do usuário, 29/09).
    */
   mostraComercial(item: ConferenciaItem): boolean {
     return (
+      !item.usaConfPeso &&
       !!item.unidadeComercial &&
       item.unidadeComercial !== item.unidadePadrao &&
       item.quantidadeComercial != null &&

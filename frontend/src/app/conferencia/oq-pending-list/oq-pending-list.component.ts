@@ -37,6 +37,8 @@ export class OqPendingListComponent {
    * pesável ficava em KG no principal; agora KG vai pra "Base" e o principal é a comercial.
    */
   mostraComercial(item: ConferenciaItem): boolean {
+    // Pesável já pesado em parte: o restante em caixa sairia fracionado ("0,5 CX") — mostra o KG.
+    if (item.usaConfPeso && item.scanned > 0) return false;
     return this.temComercial(item) && item.quantidadeComercial != null && item.expected > 0;
   }
 
