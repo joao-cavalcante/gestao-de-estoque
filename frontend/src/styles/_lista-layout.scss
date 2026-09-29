@@ -552,12 +552,8 @@
 }
 
 /* Tarefa já em andamento — "Continuar" em vez de "Conferir". */
-.oq-card__btn--continuar {
-  background: var(--oq-attention, var(--oq-brand));
-  border-color: var(--oq-attention, var(--oq-brand));
-
-  &:hover { background: var(--oq-warning-foreground, var(--oq-brand-hover)); border-color: var(--oq-warning-foreground, var(--oq-brand-hover)); }
-}
+/* "Continuar" (conferência em andamento) usa o mesmo azul institucional do "Conferir" — o dourado
+   (--oq-attention) destoava do padrão; o status "em andamento" já aparece no pin do card. */
 
 /* Conferência por etapa (V29) — chips clicáveis, linha de altura fixa. */
 .oq-card__etapas-titulo {
