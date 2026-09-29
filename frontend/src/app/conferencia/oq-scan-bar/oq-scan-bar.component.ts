@@ -168,12 +168,39 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Tara manual OPCIONAL (KG) — ex.: palete, que tem peso variável. Debitada do peso lido/digitado
+   * na hora de confirmar: o LÍQUIDO (peso − tara) é que vira a quantidade e vai pro backend.
+   * Zera a cada item (resetarTudo) — cada palete tem a sua.
+   */
+  tara = '';
+  erroTara: string | null = null;
+
+  private lerKg(texto: string): number {
+    return Number((texto || '0').trim().replace(',', '.'));
+  }
+
+  /** Tara válida (> 0) em KG; vazio/0 = sem tara. NaN = digitação inválida. */
+  get taraN(): number {
+    if (!this.tara.trim()) return 0;
+    return this.lerKg(this.tara);
+  }
+
+  /** Peso líquido = peso lido/digitado − tara (3 casas). */
+  get pesoLiquidoN(): number {
+    return Number((this.lerKg(this.peso) - (this.taraN || 0)).toFixed(3));
+  }
+
+  get temTara(): boolean {
+    return this.taraN > 0;
+  }
+
+  /**
    * Fórmula peso→qtd do projeto base (calcularQtdPorPeso):
    * com UMA (peso > 0) → round5(peso / uma.peso) ; sem UMA → peso (1kg = 1un).
-   * NUNCA combina com fator/divideMultiplica.
+   * NUNCA combina com fator/divideMultiplica. Usa o peso LÍQUIDO (descontada a tara, se houver).
    */
   private calcularQtdPorPeso(): number {
-    const p = Number((this.peso || '0').replace(',', '.'));
+    const p = this.pesoLiquidoN;
     const up = this.umaSelecionada?.peso ? Number(this.umaSelecionada.peso) : 0;
     return up > 0 ? Number((p / up).toFixed(5)) : p;
   }
@@ -461,6 +488,16 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
    */
   confirmarPeso(): void {
     if (!this.peso.trim()) return;
+    // Tara opcional: inválida ou >= peso não confirma — o modal fica aberto mostrando o motivo.
+    if (Number.isNaN(this.taraN) || this.taraN < 0) {
+      this.erroTara = 'Tara inválida — informe o peso em KG (ex.: 25,5) ou deixe vazio.';
+      return;
+    }
+    if (this.pesoLiquidoN <= 0) {
+      this.erroTara = `A tara (${this.taraN.toFixed(3)} kg) é maior ou igual ao peso (${this.lerKg(this.peso).toFixed(3)} kg).`;
+      return;
+    }
+    this.erroTara = null;
     this.qtd = String(this.calcularQtdPorPeso());
     this.pararLeituraAoVivo();
     this.mostrarModalPeso = false;
@@ -492,7 +529,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     }
     if (this.carregando) return;
 
-    const pesoN = this.precisaPeso ? Number(this.peso.replace(',', '.')) : undefined;
+    // Peso gravado = LÍQUIDO (já descontada a tara opcional) — o mesmo que virou a quantidade.
+    const pesoN = this.precisaPeso ? this.pesoLiquidoN : undefined;
     // qtdN é o que o operador digitou (na unidade de conferência). O backend
     // sempre recebe a qtd na unidade BASE do produto.
     const qtdBase = this.qtdParaBase(qtdN);
@@ -616,6 +654,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.controle = '';
     this.qtd = '1';
     this.peso = '';
+    this.tara = '';
+    this.erroTara = null;
     this.produtoIdentificado = false;
     this.controleModoLote = false;
     this.controlesDisponiveis = [];

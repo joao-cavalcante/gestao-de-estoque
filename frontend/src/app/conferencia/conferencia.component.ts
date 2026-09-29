@@ -82,9 +82,15 @@ function round3(n: number): number {
   return Math.round((n + Number.EPSILON) * 1000) / 1000;
 }
 
-/** Pesável: qualquer peso > 0 conclui. Não-pesável: só bate o total no arredondamento de 3 casas (ver round3). */
+/**
+ * Conferido = o total bateu (arredondamento de 3 casas — ver round3). Vale também pro PESÁVEL
+ * (29/09, pedido do usuário): antes "qualquer peso > 0 conclui", e um item de 2 caixas saía de
+ * Pendentes na 1ª pesagem. Agora o pesável fica em Pendentes com o KG que falta até o peso chegar
+ * no pedido — qualquer falta, dentro ou fora da tolerância. A tolerância só decide a liberação
+ * silenciosa no corte (LiberacaoCorteService) e o alerta de peso A MAIOR.
+ */
 function estaConferido(item: { usaConfPeso?: boolean; scanned: number; expected: number }): boolean {
-  return item.usaConfPeso ? item.scanned > 0 : round3(item.scanned) >= round3(item.expected);
+  return round3(item.scanned) >= round3(item.expected);
 }
 
 /** Mapeia o item real (vindo de app.separacao_itens) pro modelo visual do painel — mesmo shape do mock anterior. */
@@ -94,9 +100,9 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
   const unidadePadrao = item.unidadePadrao?.trim() || item.codvol?.trim() || undefined;
   const unidadeComercial = item.unidadeComercial?.trim() || unidadePadrao;
   const conferido = estaConferido({ usaConfPeso: item.usaConfPeso, scanned, expected });
-  // Pesável: diverge fora da tolerância da sessão (acima/abaixo). Não-pesável: diverge se passou do
-  // esperado (comparado no arredondamento de 3 casas — ver round3).
-  const divergePeso = item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, expected, tol);
+  // Pesável: só diverge A MAIOR fora da tolerância de cima (a menor fica em Pendentes — ver
+  // estaConferido). Não-pesável: diverge se passou do esperado (arredondamento de 3 casas — ver round3).
+  const divergePeso = item.usaConfPeso && scanned > expected && pesoForaDaTolerancia(scanned, expected, tol);
   const divergeQtd = !item.usaConfPeso && round3(scanned) > round3(expected);
   const divergente = divergePeso || divergeQtd;
   return {
@@ -639,8 +645,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     divergenciaPeso: true | undefined;
     desvioPesoPct: number | undefined;
   } {
-    const conferido = item.usaConfPeso ? scanned > 0 : round3(scanned) >= round3(item.expected);
-    const divergePeso = !!item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, item.expected, this.toleranciaPeso);
+    const conferido = estaConferido({ scanned, expected: item.expected });
+    // A menor fica em Pendentes (parcial); só a maior fora da tolerância de cima vira divergência de peso.
+    const divergePeso = !!item.usaConfPeso && scanned > item.expected && pesoForaDaTolerancia(scanned, item.expected, this.toleranciaPeso);
     const divergeQtd = !item.usaConfPeso && round3(scanned) > round3(item.expected);
     const divergente = divergePeso || divergeQtd;
     return {
@@ -868,9 +875,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
     const item = this.items()[idx];
     const scannedNovo = Number(resultado.qtdConferidaLocal);
-    // Item pesável: QUALQUER peso > 0 conclui o item (o peso raramente bate o
-    // nominal exato). Não-pesável: precisa bater o total pra sair de pendentes.
-    // A divergência do pesável só conta fora da tolerância da sessão (ver avaliarDivergencia).
+    // scannedNovo = soma de todas as leituras (o backend acumula) — pesável pesado em partes vai
+    // somando. Sai de Pendentes quando bate o pedido, pesável ou não (ver estaConferido); o pesável
+    // a maior fora da tolerância de cima vira divergência de peso (ver avaliarDivergencia).
     const d = this.avaliarDivergencia(item, scannedNovo);
     const concluido = d.conferido;
     const atualizado: ConferenciaItem = {

@@ -29,7 +29,7 @@ export class OqConferredListComponent {
     return item.status === 'pending' && item.scanned > 0;
   }
 
-  /** Divergência de PESO (item pesável fora da tolerância da sessão, acima ou abaixo — V50) — indicador visual próprio, diferente da divergência de qtd. */
+  /** Divergência de PESO (pesável A MAIOR fora da tolerância de cima da sessão — a menor fica em Pendentes) — indicador visual próprio. */
   isDivergenciaPeso(item: ConferenciaItem): boolean {
     return !!item.divergenciaPeso;
   }
@@ -93,6 +93,7 @@ export class OqConferredListComponent {
 
   /** Item pesável já conferido, mas dentro da tolerância — mostra observação neutra (sem cor) com o desvio vs. pedido. */
   temObservacaoPeso(item: ConferenciaItem): boolean {
-    return !!item.usaConfPeso && item.scanned > 0 && !item.divergenciaPeso;
+    // Parcial (ainda falta peso) mostra "Parcial — falta X KG", não o desvio em %.
+    return !!item.usaConfPeso && item.scanned > 0 && !item.divergenciaPeso && !this.isParcial(item);
   }
 }

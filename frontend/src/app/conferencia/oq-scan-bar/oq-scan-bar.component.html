@@ -67,7 +67,7 @@
         <label class="oq-label-caps">PESO</label>
         <button type="button" class="oq-scan-bar__peso-chip" (click)="abrirModalPeso()" title="Capturar / editar peso">
           <oq-icon name="scale" [size]="12" />
-          {{ peso ? peso + ' kg' : 'Capturar peso' }}
+          {{ peso ? (temTara ? (pesoLiquidoN | number: '1.3-3') + ' kg líq.' : peso + ' kg') : 'Capturar peso' }}
         </button>
       </div>
     } @else {
@@ -151,6 +151,20 @@
           </div>
         }
 
+        <!-- Tara manual opcional (ex.: palete com peso variável) — vale pro peso digitado e pro da balança. -->
+        <div class="oq-scan-bar__field">
+          <label class="oq-label-caps">TARA (KG) — opcional</label>
+          <input
+            [(ngModel)]="tara"
+            name="taraModal"
+            inputmode="decimal"
+            placeholder="0,000"
+            class="oq-scan-bar__input oq-scan-bar__input--right"
+            (ngModelChange)="erroTara = null"
+            (keydown.enter)="$event.preventDefault(); confirmarPeso()"
+          />
+        </div>
+
         <div class="oq-peso-modal__tabs">
           <button
             type="button"
@@ -173,6 +187,14 @@
 
         @if (erroBalanca && modoEntradaPeso === 'balanca') {
           <span class="oq-form-hint oq-form-hint--erro">{{ erroBalanca }}</span>
+        }
+        @if (erroTara) {
+          <span class="oq-form-hint oq-form-hint--erro">{{ erroTara }}</span>
+        }
+        @if (temTara && peso.trim() && pesoLiquidoN > 0) {
+          <span class="oq-form-hint">
+            Bruto {{ peso }} kg − Tara {{ taraN | number: '1.3-3' }} kg = <strong>Líquido {{ pesoLiquidoN | number: '1.3-3' }} kg</strong>
+          </span>
         }
 
         @if (modoEntradaPeso === 'manual') {
