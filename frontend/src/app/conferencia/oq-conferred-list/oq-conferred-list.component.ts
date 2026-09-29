@@ -29,7 +29,7 @@ export class OqConferredListComponent {
     return item.status === 'pending' && item.scanned > 0;
   }
 
-  /** Divergência de PESO (item pesável pesando >5% menos que o esperado — a maior nunca diverge) — indicador visual próprio, diferente da divergência de qtd. */
+  /** Divergência de PESO (item pesável fora da tolerância da sessão, acima ou abaixo — V50) — indicador visual próprio, diferente da divergência de qtd. */
   isDivergenciaPeso(item: ConferenciaItem): boolean {
     return !!item.divergenciaPeso;
   }
@@ -89,11 +89,6 @@ export class OqConferredListComponent {
   /** % de desvio do peso, em pt-BR (vírgula) — ex.: "7,1" ou "-7,1". */
   formatarPct(n: number | undefined): string {
     return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  }
-
-  /** Mesma formatação, mas sempre positiva — pro alerta vermelho (a menor), onde o sinal já está implícito no texto. */
-  formatarPctAbs(n: number | undefined): string {
-    return this.formatarPct(Math.abs(n ?? 0));
   }
 
   /** Item pesável já conferido, mas dentro da tolerância — mostra observação neutra (sem cor) com o desvio vs. pedido. */

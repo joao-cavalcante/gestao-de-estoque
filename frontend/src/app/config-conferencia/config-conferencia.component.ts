@@ -74,6 +74,59 @@ export class ConfigConferenciaComponent implements OnInit {
       this.detalhe.set(d);
       this.valoresEditados.set({ ...d.campos });
     });
+    this.carregarTolerancia(nucco);
+  }
+
+  // ─── Tolerância de peso (WMS, V50) — salva à parte dos campos do Sankhya ──────────
+  /** Texto dos campos (vazio = sem limite). */
+  tolAcima = '';
+  tolAbaixo = '';
+  readonly tolConfigurada = signal(false);
+  readonly tolSalvando = signal(false);
+  readonly tolMensagem = signal<string | null>(null);
+
+  private carregarTolerancia(nucco: number): void {
+    this.tolMensagem.set(null);
+    this.service.toleranciaPeso(nucco).subscribe({
+      next: (t) => {
+        this.tolAcima = t.acimaPct == null ? '' : String(t.acimaPct);
+        this.tolAbaixo = t.abaixoPct == null ? '' : String(t.abaixoPct);
+        this.tolConfigurada.set(t.configurada);
+      },
+      error: () => this.tolMensagem.set('Não foi possível carregar a tolerância de peso.'),
+    });
+  }
+
+  /** '' = sem limite; número >= 0; qualquer outra coisa = inválido (undefined). */
+  private lerPct(texto: string): number | null | undefined {
+    const t = texto.trim().replace(',', '.');
+    if (t === '') return null;
+    const n = Number(t);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  }
+
+  salvarTolerancia(): void {
+    const nucco = this.nuccoSelecionado();
+    if (nucco == null || this.tolSalvando()) return;
+    const acima = this.lerPct(this.tolAcima);
+    const abaixo = this.lerPct(this.tolAbaixo);
+    if (acima === undefined || abaixo === undefined) {
+      this.tolMensagem.set('Informe um número (%) maior ou igual a 0, ou deixe vazio para sem limite.');
+      return;
+    }
+    this.tolSalvando.set(true);
+    this.tolMensagem.set(null);
+    this.service.salvarToleranciaPeso(nucco, acima, abaixo).subscribe({
+      next: (t) => {
+        this.tolSalvando.set(false);
+        this.tolConfigurada.set(t.configurada);
+        this.tolMensagem.set('Tolerância salva — vale para as próximas conferências abertas.');
+      },
+      error: (err) => {
+        this.tolSalvando.set(false);
+        this.tolMensagem.set(err.error?.erro ?? 'Não foi possível salvar a tolerância.');
+      },
+    });
   }
 
   onCampoAlterado(evento: { nome: string; valor: string }): void {

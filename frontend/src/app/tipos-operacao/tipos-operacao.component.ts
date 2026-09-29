@@ -1,19 +1,19 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqPanelSectionComponent } from '../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqInlineAlertComponent } from '../shared/oq-inline-alert/oq-inline-alert.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { TiposOperacaoService } from './tipos-operacao.service';
-import { FiltroTipmov, TIPMOV_COMPRAS, TIPMOV_VENDAS, TipoOperacao, rotuloTipmov } from './tipos-operacao.model';
+import { TipoOperacao, rotuloTipmov } from './tipos-operacao.model';
 
 /**
  * Espelho local da TGFTOP (V16), filtrado no backend pra só trazer os TOP com
  * Configuração de Conferência vinculada. Tela própria, não mais uma aba dentro de
  * Config Conferência — decisão revertida a pedido do usuário.
  *
- * V49: filtro por TIPMOV (Compras C/O · Vendas V/P) e, por TOP, "Usar conferência
- * por etapa" — conferência de ENTRADA (compra) não usa etapas Secos/Refrigerado/
- * Congelado. Desligado = a nota desse TOP abre em conferência única.
+ * V49: por TOP, "Usar conferência por etapa" — conferência de ENTRADA (compra) não
+ * usa etapas Secos/Refrigerado/Congelado. Desligado = a nota desse TOP abre em
+ * conferência única. O tipo de movimento aparece em cada TOP só como informação.
  */
 @Component({
   selector: 'app-tipos-operacao',
@@ -22,11 +22,6 @@ import { FiltroTipmov, TIPMOV_COMPRAS, TIPMOV_VENDAS, TipoOperacao, rotuloTipmov
   templateUrl: './tipos-operacao.component.html',
   styles: [
     `
-      .top-toolbar {
-        justify-content: space-between;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
       .top-tipmov {
         display: inline-block;
         margin-left: 6px;
@@ -75,20 +70,6 @@ export class TiposOperacaoComponent implements OnInit {
   erro = signal<string | null>(null);
   /** codtop em gravação — evita duplo clique na mesma linha. */
   salvando = signal<number | null>(null);
-
-  readonly filtro = signal<FiltroTipmov>('todos');
-  readonly filtros: { valor: FiltroTipmov; label: string }[] = [
-    { valor: 'todos', label: 'Todos' },
-    { valor: 'compras', label: 'Compras (C/O)' },
-    { valor: 'vendas', label: 'Vendas (V/P)' },
-  ];
-
-  readonly topsFiltrados = computed(() => {
-    const f = this.filtro();
-    if (f === 'todos') return this.tops();
-    const aceitos = f === 'compras' ? TIPMOV_COMPRAS : TIPMOV_VENDAS;
-    return this.tops().filter((t) => !!t.tipmov && aceitos.includes(t.tipmov));
-  });
 
   readonly rotuloTipmov = rotuloTipmov;
 

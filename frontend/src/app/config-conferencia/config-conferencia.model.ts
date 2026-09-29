@@ -42,3 +42,14 @@ export interface SincronizarResponse {
   ok: boolean;
   totalSincronizado: number;
 }
+
+/**
+ * V50 — tolerância de peso do item pesável, regra do WMS (não existe no Sankhya), por NUCCO.
+ * Em %: quanto pode pesar a mais/a menos sem divergir. null = sem limite. configurada=false =
+ * NUCCO sem configuração, valendo o padrão (acima sem limite, abaixo 5%).
+ */
+export interface ToleranciaPeso {
+  acimaPct: number | null;
+  abaixoPct: number | null;
+  configurada: boolean;
+}

@@ -31,6 +31,12 @@ export interface SessaoSeparacao {
   operadorId: string | null;
   /** CCO.FORMACAOVOLUMES cru — 'N'/ausente = não exige volume; 'S'/'T'/'D' = exige quantidade > 0 pra finalizar. */
   formacaoVolumes: string | null;
+  /**
+   * V50 — tolerância de peso (item pesável) da sessão, em %: quanto pode pesar a mais/a menos
+   * sem divergir. null = sem limite naquele sentido. Ausente (backend antigo) = regra de antes.
+   */
+  tolPesoAcimaPct?: number | null;
+  tolPesoAbaixoPct?: number | null;
 }
 
 /** Resposta de POST /sessoes/{id}/identificar-operador. */

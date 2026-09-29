@@ -20,12 +20,6 @@ export interface SincronizarTipoOperacaoResponse {
   totalAtualizado: number;
 }
 
-/** Filtro da tela por TIPMOV: Compras = C (compra) e O (pedido de compra); Vendas = V (venda) e P (pedido de venda). */
-export type FiltroTipmov = 'todos' | 'compras' | 'vendas';
-
-export const TIPMOV_COMPRAS = ['C', 'O'];
-export const TIPMOV_VENDAS = ['V', 'P'];
-
 const ROTULO_TIPMOV: Record<string, string> = {
   C: 'Compra',
   O: 'Pedido de compra',

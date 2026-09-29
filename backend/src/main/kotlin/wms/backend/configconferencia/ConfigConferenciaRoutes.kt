@@ -4,6 +4,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import wms.backend.auth.exigirAdmin
 import wms.backend.auth.exigirAuth
 import wms.backend.tenancy.TenantRepository
 
@@ -41,6 +42,27 @@ fun Route.configConferenciaRoutes() {
                 return@patch
             }
             call.respond(ConfigConferenciaRepository.buscarPorNucco(claims.tenantId, nucco)!!)
+        }
+
+        /** V50 — tolerância de peso do WMS pra este NUCCO (sem linha = padrão: acima sem limite, abaixo 5%). */
+        get("/{nucco}/tolerancia-peso") {
+            val claims = call.exigirAuth() ?: return@get
+            val nucco = call.parameters["nucco"]?.toIntOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
+            call.respond(ConferenciaToleranciaRepository.buscar(claims.tenantId, nucco))
+        }
+
+        put("/{nucco}/tolerancia-peso") {
+            val claims = call.exigirAdmin() ?: return@put
+            val nucco = call.parameters["nucco"]?.toIntOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
+            val body = call.receive<ToleranciaPesoDto>()
+            val invalido = listOfNotNull(body.acimaPct, body.abaixoPct).any { it < 0 || it > 1000 }
+            if (invalido) {
+                return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "tolerância deve ficar entre 0 e 1000%"))
+            }
+            ConferenciaToleranciaRepository.salvar(claims.tenantId, nucco, body.acimaPct, body.abaixoPct)
+            call.respond(ConferenciaToleranciaRepository.buscar(claims.tenantId, nucco))
         }
 
         post("/sincronizar") {

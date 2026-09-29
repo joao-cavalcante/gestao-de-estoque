@@ -41,6 +41,34 @@
     } @else if (lista().length === 0) {
       <div class="oq-empty-row">Nenhuma Configuração de Conferência sincronizada ainda — clique em "Sincronizar agora"</div>
     } @else if (detalhe()) {
+      <!-- Regra do WMS (não existe no Sankhya) — salva à parte do "Salvar alterações". -->
+      <div class="oq-cc__tolerancia">
+        <div class="oq-cc__tolerancia-titulo">
+          Tolerância de peso — item pesável
+          <span class="oq-cc__tolerancia-sub">
+            {{ tolConfigurada() ? 'configurada para este NUCCO' : 'padrão: acima sem limite, abaixo 5%' }}
+          </span>
+        </div>
+        <label class="oq-cc__tolerancia-campo">
+          Acima (%)
+          <input type="text" inputmode="decimal" placeholder="sem limite" [(ngModel)]="tolAcima" />
+        </label>
+        <label class="oq-cc__tolerancia-campo">
+          Abaixo (%)
+          <input type="text" inputmode="decimal" placeholder="sem limite" [(ngModel)]="tolAbaixo" />
+        </label>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="tolSalvando()" (click)="salvarTolerancia()">
+          {{ tolSalvando() ? 'Salvando…' : 'Salvar tolerância' }}
+        </button>
+        <span class="oq-cc__tolerancia-ajuda">
+          Quanto o peso pode ficar acima/abaixo do pedido sem virar divergência (e ser liberado sozinho no corte).
+          Vazio = sem limite · 0 = qualquer diferença diverge.
+        </span>
+        @if (tolMensagem()) {
+          <span class="oq-cc__tolerancia-msg">{{ tolMensagem() }}</span>
+        }
+      </div>
+
       <div class="oq-cc__abas">
         @for (aba of abas; track aba.valor) {
           <button

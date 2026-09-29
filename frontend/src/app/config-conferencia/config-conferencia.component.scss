@@ -42,6 +42,74 @@
   border-radius: var(--oq-radius-input);
 }
 
+/* Tolerância de peso (WMS, V50) — bloco próprio acima das abas do Sankhya. */
+.oq-cc__tolerancia {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  background: var(--oq-surface-2);
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.oq-cc__tolerancia-titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--oq-text-primary);
+}
+
+.oq-cc__tolerancia-sub {
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--oq-text-secondary);
+}
+
+.oq-cc__tolerancia-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--oq-text-secondary);
+
+  input {
+    width: 110px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-input);
+    padding: 7px 9px;
+    font-family: var(--oq-font-mono);
+    font-size: 12px;
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+  }
+}
+
+.oq-cc__tolerancia-ajuda,
+.oq-cc__tolerancia-msg {
+  flex-basis: 100%;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-cc__tolerancia-msg {
+  color: var(--oq-text-primary);
+}
+
 .oq-cc__abas {
   display: flex;
   flex: none;

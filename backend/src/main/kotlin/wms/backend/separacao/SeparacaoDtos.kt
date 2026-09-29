@@ -61,6 +61,12 @@ data class SessaoSeparacaoDto(
      * quantidade > 0 antes de liberar o botão de confirmar/concluir etapa.
      */
     val formacaoVolumes: String? = null,
+    /**
+     * V50 — tolerância de peso (item pesável) desta sessão, em %: quanto pode pesar a mais/a menos
+     * sem virar divergência (e ser liberado sozinho no corte). null = sem limite naquele sentido.
+     */
+    val tolPesoAcimaPct: Double? = null,
+    val tolPesoAbaixoPct: Double? = 5.0,
 )
 
 @Serializable

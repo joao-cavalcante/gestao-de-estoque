@@ -275,17 +275,27 @@ object LiberacaoCorteService {
                 .mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
                 .toMap()
 
+            // V50 — tolerância da SESSÃO (copiada do NUCCO na abertura). null = sem limite naquele
+            // sentido. Padrão (NUCCO sem configuração) = a maior sem limite, a menor 5% — a regra de antes.
+            val sessao = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
+            val tolAcima = sessao?.tolPesoAcimaPct
+            val tolAbaixo = if (sessao != null) sessao.tolPesoAbaixoPct else TOLERANCIA_PESO * 100
+
             val liberaveis = pendentes.filter { linha ->
                 val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
                 val prod = obs.produto?.trim()?.uppercase() ?: return@filter false
                 val conf = obs.qtdConferida ?: return@filter false
                 val ped = obs.qtdPedido ?: return@filter false
                 if (prod !in pesaveisPorDescricao) return@filter false
-                // A MAIOR (pesou mais que o pedido) nunca precisa de liberação — sempre libera.
-                if (conf > ped) return@filter true
-                // A MENOR: só libera sozinho dentro da tolerância de 5%.
                 val base = if (ped != 0.0) ped else conf
-                base != 0.0 && (ped - conf) / base <= TOLERANCIA_PESO
+                if (base == 0.0) return@filter false
+                if (conf > ped) {
+                    // A MAIOR: libera sozinho dentro da tolerância de cima (sem limite = sempre).
+                    tolAcima == null || (conf - ped) / base <= tolAcima / 100
+                } else {
+                    // A MENOR: libera sozinho dentro da tolerância de baixo (sem limite = sempre).
+                    tolAbaixo == null || (ped - conf) / base <= tolAbaixo / 100
+                }
             }
             if (liberaveis.isEmpty()) {
                 println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar — tudo pra liberação manual.")
@@ -295,7 +305,7 @@ object LiberacaoCorteService {
             val codusu = validarLiberador(tenantSlug, usuario, senha)
             chamarLiberarNegar(
                 tenantSlug, liberaveis, codusu, "S",
-                "Liberação automática — peso a maior, ou a menor dentro da tolerância (${(TOLERANCIA_PESO * 100).toInt()}%)",
+                "Liberação automática — peso dentro da tolerância (acima ${tolAcima?.let { "$it%" } ?: "sem limite"}, abaixo ${tolAbaixo?.let { "$it%" } ?: "sem limite"})",
             )
 
             // Registra a decisão localmente (TGFITE não guarda isso — ver V36),

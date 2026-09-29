@@ -1009,8 +1009,19 @@ object SeparacaoRepository {
                     estacaoId = it[SeparacaoSessoesTable.estacaoId]?.toString(),
                     recontagem = it[SeparacaoSessoesTable.recontagem],
                     volumeBase = it[SeparacaoSessoesTable.volumeBase],
+                    tolPesoAcimaPct = it[SeparacaoSessoesTable.tolPesoAcimaPct]?.toDouble(),
+                    tolPesoAbaixoPct = it[SeparacaoSessoesTable.tolPesoAbaixoPct]?.toDouble(),
                 )
             }
+    }
+
+    /** V50 — copia a tolerância de peso do NUCCO pra sessão (null = sem limite naquele sentido). */
+    fun salvarToleranciaPeso(tenantId: UUID, sessaoId: UUID, acimaPct: BigDecimal?, abaixoPct: BigDecimal?): Unit = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
+            it[tolPesoAcimaPct] = acimaPct
+            it[tolPesoAbaixoPct] = abaixoPct
+        }
+        Unit
     }
 
     /**
@@ -1671,6 +1682,8 @@ object SeparacaoRepository {
         operadorId = row[SeparacaoSessoesTable.operadorId]?.toString(),
         estacaoId = row[SeparacaoSessoesTable.estacaoId]?.toString(),
         formacaoVolumes = row[SeparacaoSessoesTable.formacaoVolumes],
+        tolPesoAcimaPct = row[SeparacaoSessoesTable.tolPesoAcimaPct]?.toDouble(),
+        tolPesoAbaixoPct = row[SeparacaoSessoesTable.tolPesoAbaixoPct]?.toDouble(),
     )
 
     // ─── Conferência por etapa (V29) ─────────────────────────────────────────

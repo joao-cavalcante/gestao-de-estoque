@@ -32,14 +32,18 @@ import { ActionFeedbackService } from '../shared/action-feedback/action-feedback
 import { OqFeedbackFlashDirective } from '../shared/action-feedback/oq-feedback-flash.directive';
 
 /**
- * Tolerância de peso — só vale pra divergência A MENOR (conferido < esperado):
- * item pesável só entra em divergência se pesar mais de 5% abaixo do esperado.
- * A MAIOR (conferido > esperado) NUNCA diverge — pesar mais que o negociado
- * não precisa de liberação nem alerta, por maior que seja o excesso. Mesma
- * regra da auto-liberação de corte por peso
- * (LiberacaoCorteService.autoLiberarPesoDentroTolerancia, backend).
+ * Tolerância de peso do item pesável (V50), em FRAÇÃO (0.05 = 5%): quanto pode pesar a
+ * mais / a menos que o pedido sem virar divergência. null = sem limite naquele sentido.
+ * Vem da sessão (copiada do NUCCO na abertura — Configuração de Conferência). Mesma regra
+ * da auto-liberação de corte por peso (LiberacaoCorteService.autoLiberarPesoDentroTolerancia).
  */
-const TOLERANCIA_PESO = 0.05;
+interface ToleranciaPeso {
+  acima: number | null;
+  abaixo: number | null;
+}
+
+/** Regra de antes da V50 (NUCCO sem configuração): a maior sem limite, a menor até 5%. */
+const TOLERANCIA_PADRAO: ToleranciaPeso = { acima: null, abaixo: 0.05 };
 
 /** Desvio |conferido - esperado| / esperado. Retorna 0 quando não há esperado. */
 function desvioPeso(scanned: number, expected: number): number {
@@ -47,10 +51,11 @@ function desvioPeso(scanned: number, expected: number): number {
   return Math.abs(scanned - expected) / expected;
 }
 
-/** Item pesável fora da tolerância — só a menor, além de 5%. A maior nunca diverge. */
-function pesoForaDaTolerancia(scanned: number, expected: number): boolean {
-  if (scanned > expected) return false;
-  return desvioPeso(scanned, expected) > TOLERANCIA_PESO;
+/** Item pesável fora da tolerância da sessão — a maior e a menor com limites próprios (null = sem limite). */
+function pesoForaDaTolerancia(scanned: number, expected: number, tol: ToleranciaPeso): boolean {
+  const limite = scanned > expected ? tol.acima : tol.abaixo;
+  if (limite == null) return false;
+  return desvioPeso(scanned, expected) > limite;
 }
 
 /**
@@ -83,15 +88,15 @@ function estaConferido(item: { usaConfPeso?: boolean; scanned: number; expected:
 }
 
 /** Mapeia o item real (vindo de app.separacao_itens) pro modelo visual do painel — mesmo shape do mock anterior. */
-function mapearItem(item: ItemSeparacao): ConferenciaItem {
+function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
   const expected = Number(item.qtdNeg);
   const scanned = Number(item.qtdConferidaLocal);
   const unidadePadrao = item.unidadePadrao?.trim() || item.codvol?.trim() || undefined;
   const unidadeComercial = item.unidadeComercial?.trim() || unidadePadrao;
   const conferido = estaConferido({ usaConfPeso: item.usaConfPeso, scanned, expected });
-  // Pesável: só diverge acima de ±5% do esperado. Não-pesável: diverge se passou do esperado
-  // (comparado no arredondamento de 3 casas — ver round3).
-  const divergePeso = item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, expected);
+  // Pesável: diverge fora da tolerância da sessão (acima/abaixo). Não-pesável: diverge se passou do
+  // esperado (comparado no arredondamento de 3 casas — ver round3).
+  const divergePeso = item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, expected, tol);
   const divergeQtd = !item.usaConfPeso && round3(scanned) > round3(expected);
   const divergente = divergePeso || divergeQtd;
   return {
@@ -208,6 +213,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   conferenciaSegmentada = false;
   /** CCO.FATAOCONCLUIR — 'S' = oferecer faturamento após finalizar. */
   fatAoConcluir: string | null = null;
+  /** V50 — tolerância de peso da sessão (fração; null = sem limite). Definida ao abrir a sessão. */
+  private toleranciaPeso: ToleranciaPeso = TOLERANCIA_PADRAO;
 
   // ─── Fluxo pós-finalização ───────────────────────────────────────────────
   /** Modal de liberação de corte (quando o cortar deixou a conferência em STATUS='C'). */
@@ -618,9 +625,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * conferido, nunca o resultado da bipagem. Usado ao abrir e ao devolver.
    */
   /**
-   * Status/divergência de um item conferido, aplicando a tolerância de ±5% pro
-   * peso: item pesável só é divergente se o peso conferido sair de ±5% do
-   * esperado; a divergência de peso tem indicador visual próprio (divergenciaPeso).
+   * Status/divergência de um item conferido, aplicando a tolerância de peso da
+   * sessão (acima/abaixo, V50): item pesável só é divergente se o peso conferido
+   * sair dela; a divergência de peso tem indicador visual próprio (divergenciaPeso).
    */
   private avaliarDivergencia(
     item: Pick<ConferenciaItem, 'usaConfPeso' | 'expected'>,
@@ -633,7 +640,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     desvioPesoPct: number | undefined;
   } {
     const conferido = item.usaConfPeso ? scanned > 0 : round3(scanned) >= round3(item.expected);
-    const divergePeso = !!item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, item.expected);
+    const divergePeso = !!item.usaConfPeso && scanned > 0 && pesoForaDaTolerancia(scanned, item.expected, this.toleranciaPeso);
     const divergeQtd = !item.usaConfPeso && round3(scanned) > round3(item.expected);
     const divergente = divergePeso || divergeQtd;
     return {
@@ -650,7 +657,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       next: (itens) => {
         // Fora do pedido sem nada bipado não aparece em lugar nenhum (foi só
         // identificado e não conferido) — a lista de pendentes é o pedido.
-        let mapeados = itens.map(mapearItem).filter((i) => !(i.foraPedido && i.scanned === 0));
+        let mapeados = itens.map((i) => mapearItem(i, this.toleranciaPeso)).filter((i) => !(i.foraPedido && i.scanned === 0));
         this.todosItensMapeados.set(mapeados);
         // Conferência por etapa (V29): a tela só enxerga os itens do tipo de separação da etapa.
         const etapa = this.etapaAtual();
@@ -691,6 +698,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.obterQtdBalanca = sessao.obterQtdBalanca;
           this.conferenciaSegmentada = sessao.conferenciaSegmentada;
           this.fatAoConcluir = sessao.fatAoConcluir;
+          // V50 — tolerância de peso da sessão (%, null = sem limite). Campo ausente = regra de antes.
+          this.toleranciaPeso =
+            sessao.tolPesoAcimaPct === undefined && sessao.tolPesoAbaixoPct === undefined
+              ? TOLERANCIA_PADRAO
+              : {
+                  acima: sessao.tolPesoAcimaPct == null ? null : sessao.tolPesoAcimaPct / 100,
+                  abaixo: sessao.tolPesoAbaixoPct == null ? null : sessao.tolPesoAbaixoPct / 100,
+                };
           this.exibirProd.set(sessao.exibirProd !== 'N');
           this.exibirQtd.set(sessao.exibirQtd !== 'N');
           this.exibirProdConf.set(sessao.exibirProdConf !== 'N');
@@ -855,7 +870,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const scannedNovo = Number(resultado.qtdConferidaLocal);
     // Item pesável: QUALQUER peso > 0 conclui o item (o peso raramente bate o
     // nominal exato). Não-pesável: precisa bater o total pra sair de pendentes.
-    // A divergência do pesável só conta acima de ±5% do esperado (ver avaliarDivergencia).
+    // A divergência do pesável só conta fora da tolerância da sessão (ver avaliarDivergencia).
     const d = this.avaliarDivergencia(item, scannedNovo);
     const concluido = d.conferido;
     const atualizado: ConferenciaItem = {

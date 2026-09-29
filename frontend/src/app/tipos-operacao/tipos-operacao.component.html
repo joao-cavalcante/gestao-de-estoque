@@ -1,19 +1,6 @@
 <div class="oq-admin-page">
-  <oq-panel-section icon="badge" title="TIPOS DE OPERAÇÃO" [count]="topsFiltrados().length">
-    <div class="oq-admin-toolbar top-toolbar">
-      <div class="oq-toolbar__pills" role="group" aria-label="Filtro por tipo de movimento">
-        @for (f of filtros; track f.valor) {
-          <button
-            type="button"
-            class="oq-toolbar__pill"
-            [class.oq-toolbar__pill--active]="filtro() === f.valor"
-            [attr.aria-pressed]="filtro() === f.valor"
-            (click)="filtro.set(f.valor)"
-          >
-            {{ f.label }}
-          </button>
-        }
-      </div>
+  <oq-panel-section icon="badge" title="TIPOS DE OPERAÇÃO" [count]="tops().length">
+    <div class="oq-admin-toolbar">
       <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="sincronizando()" (click)="sincronizarAgora()">
         <oq-icon name="sync" [size]="13" [class.oq-spin]="sincronizando()" />
         {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar agora' }}
@@ -30,11 +17,9 @@
       </ul>
     } @else if (tops().length === 0) {
       <div class="oq-empty-row">Nenhum Tipo de Operação sincronizado ainda — clique em "Sincronizar agora"</div>
-    } @else if (topsFiltrados().length === 0) {
-      <div class="oq-empty-row">Nenhum Tipo de Operação nesse filtro</div>
     } @else {
       <ul class="oq-admin-lista">
-        @for (top of topsFiltrados(); track top.codtop) {
+        @for (top of tops(); track top.codtop) {
           <li class="oq-admin-row">
             <span class="oq-admin-row__avatar">{{ top.codtop }}</span>
             <div class="oq-admin-row__main">

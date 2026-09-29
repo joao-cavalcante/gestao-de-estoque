@@ -251,6 +251,14 @@ object SeparacaoService {
                 if (qtdLiberada != null) item.copy(qtdNeg = qtdLiberada, silencioso = true) else item
             }
             val nucco = withContext(Dispatchers.IO) { TarefasRepository.buscarNuccoLocal(tenantId, nunota) }
+            // V50 — tolerância de peso do NUCCO congelada na sessão (tela + auto-liberação de corte usam
+            // esta cópia). Ex.: venda = a maior sem limite / a menor 5%; compra = 0% nos dois sentidos.
+            withContext(Dispatchers.IO) {
+                val tol = wms.backend.configconferencia.ConferenciaToleranciaRepository.buscar(tenantId, nucco)
+                SeparacaoRepository.salvarToleranciaPeso(
+                    tenantId, sessaoId, tol.acimaPct?.let { BigDecimal.valueOf(it) }, tol.abaixoPct?.let { BigDecimal.valueOf(it) },
+                )
+            }
             val codprods = itens.map { it.codprod }.distinct()
             val voaJob = escopo.async { buscarVoa(tenantSlug, tenantId, codprods) }
             val barJob = escopo.async { buscarBar(tenantSlug, tenantId, codprods) }

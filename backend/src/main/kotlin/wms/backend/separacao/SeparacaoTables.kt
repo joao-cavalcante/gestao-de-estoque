@@ -45,6 +45,12 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     /** V44 — sessão de recontagem; `volumeBase` = volumes já numerados nas conferências anteriores da nota. */
     val recontagem = bool("recontagem").default(false)
     val volumeBase = integer("volume_base").default(0)
+    /**
+     * V50 — tolerância de peso (item pesável) copiada da conferencia_tolerancia do NUCCO na
+     * abertura. NULL = sem limite naquele sentido. Sessões antigas: abaixo 5, acima NULL (regra de antes).
+     */
+    val tolPesoAcimaPct = decimal("tol_peso_acima_pct", 6, 2).nullable()
+    val tolPesoAbaixoPct = decimal("tol_peso_abaixo_pct", 6, 2).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

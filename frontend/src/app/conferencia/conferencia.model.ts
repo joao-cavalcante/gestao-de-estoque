@@ -20,7 +20,7 @@ export interface ConferenciaItem {
   quantidadeComercial?: number;
   /** Produto fora do pedido (qtd_neg=0, só existe porque foi bipado) — ao devolver, some, não volta pra pendentes. */
   foraPedido?: boolean;
-  /** Item pesável cujo peso conferido saiu da tolerância de ±5% do esperado — divergência de PESO (indicador visual próprio). */
+  /** Item pesável cujo peso conferido saiu da tolerância da sessão (acima/abaixo, V50) — divergência de PESO (indicador visual próprio). */
   divergenciaPeso?: boolean;
   /** Desvio SIGNED do peso conferido vs. esperado, em % (+ maior, - menor) — presente pra TODO item pesável já conferido, não só quando diverge. */
   desvioPesoPct?: number;
