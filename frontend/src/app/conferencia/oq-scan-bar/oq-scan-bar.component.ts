@@ -160,7 +160,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   /** UMAs da sessão (carregadas 1x) e as do produto identificado. */
   private umasDaSessao: Uma[] = [];
   umasDoProduto: Uma[] = [];
-  /** null = "Sem UMA — qtd = peso direto" (1kg = 1un). */
+  /** null = sem embalagem (sem tara da UMA). */
   codUmaSelecionada: number | null = null;
 
   get umaSelecionada(): Uma | null {
@@ -200,18 +200,25 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Fórmula peso→qtd do projeto base (calcularQtdPorPeso):
-   * com UMA (peso > 0) → round5(peso / uma.peso) ; sem UMA → peso (1kg = 1un).
-   * NUNCA combina com fator/divideMultiplica. Usa o peso LÍQUIDO (descontada a tara, se houver).
+   * Quantidade do pesável = peso LÍQUIDO em KG (peso lido − tara). NUNCA combina com
+   * fator/divideMultiplica. A UMA NÃO divide mais o peso (29/09): o peso cadastrado na UMA é o
+   * da EMBALAGEM (palete, caixa) — entra como tara (ver aplicarTaraDaUma). O projeto base
+   * dividia (peso ÷ uma.peso), o que dava quantidade errada pra quem cadastra a embalagem.
    */
   private calcularQtdPorPeso(): number {
-    const p = this.pesoLiquidoN;
-    const up = this.umaSelecionada?.peso ? Number(this.umaSelecionada.peso) : 0;
-    return up > 0 ? Number((p / up).toFixed(5)) : p;
+    return this.pesoLiquidoN;
   }
 
-  /** Trocar a UMA com peso já capturado recalcula a quantidade. */
+  /** Peso da UMA (embalagem) escolhida vira a tara — o operador ainda pode editar. Sem UMA = sem tara. */
+  private aplicarTaraDaUma(): void {
+    const pesoUma = this.umaSelecionada?.peso != null ? Number(this.umaSelecionada.peso) : 0;
+    this.tara = pesoUma > 0 ? String(pesoUma).replace('.', ',') : '';
+    this.erroTara = null;
+  }
+
+  /** Trocar a UMA troca a tara e, com peso já capturado, recalcula a quantidade. */
   onUmaChange(): void {
+    this.aplicarTaraDaUma();
     if (this.peso.trim()) this.qtd = String(this.calcularQtdPorPeso());
   }
 
@@ -303,6 +310,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         // UMAs do produto + default na UMA marcada como padrão (casa por CODPROD, igual ao legado).
         this.umasDoProduto = this.umasDaSessao.filter((u) => u.codprod === resultado.codprod);
         this.codUmaSelecionada = (this.umasDoProduto.find((u) => u.padrao) ?? this.umasDoProduto[0])?.coduma ?? null;
+        // Embalagem padrão do produto já entra como tara (editável no pop-up de peso).
+        this.aplicarTaraDaUma();
 
         if (resultado.controleAutoSelecionado != null) {
           this.controle = resultado.controleAutoSelecionado;

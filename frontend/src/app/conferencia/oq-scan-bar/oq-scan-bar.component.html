@@ -119,16 +119,18 @@
 
         @if (umasDoProduto.length > 0) {
           <div class="oq-scan-bar__field">
-            <label class="oq-label-caps">UMA</label>
+            <label class="oq-label-caps">EMBALAGEM (UMA) — desconta como tara</label>
             <select
               [(ngModel)]="codUmaSelecionada"
               name="uma"
               class="oq-scan-bar__input oq-scan-bar__select"
               (ngModelChange)="onUmaChange()"
             >
-              <option [ngValue]="null">Sem UMA — qtd = peso direto</option>
+              <option [ngValue]="null">Sem embalagem — sem tara</option>
               @for (u of umasDoProduto; track u.coduma) {
-                <option [ngValue]="u.coduma">{{ u.coduma }} — {{ u.descricao }} ({{ u.peso }} kg/un)</option>
+                <option [ngValue]="u.coduma">
+                  {{ u.coduma }} — {{ u.descricao }}{{ u.peso != null ? ' (tara ' + (+u.peso | number: '1.3-3') + ' kg)' : '' }}
+                </option>
               }
             </select>
           </div>
