@@ -321,12 +321,16 @@ object SeparacaoService {
             // recontagem), o que também impede semearEtapas() de criar etapas
             // pra ela mais abaixo, e o guard de "há etapas pendentes" em
             // finalizar() nem entra em jogo (conferenciaSegmentada=false).
+            // + por TOP (V49): o TOP da nota pode desligar as etapas (ex.: conferência de ENTRADA/compra).
             val conferenciaSegmentada = if (ehRecontagem) {
                 false
             } else {
                 withContext(Dispatchers.IO) {
                     wms.backend.tenancy.TenantRepository.modulosHabilitados(tenantId)
-                        .contains(wms.backend.tenancy.Modulos.CONFERENCIA_SEGMENTADA)
+                        .contains(wms.backend.tenancy.Modulos.CONFERENCIA_SEGMENTADA) &&
+                        wms.backend.tipooperacao.TipoOperacaoRepository.usaConferenciaPorEtapa(
+                            tenantId, TarefasRepository.codTipOperPorNunota(tenantId, listOf(nunota))[nunota],
+                        )
                 }
             }
 
@@ -836,9 +840,16 @@ object SeparacaoService {
         val emRecontagem = withContext(Dispatchers.IO) {
             SeparacaoRepository.nunotasComSessaoConcluida(tenantId, nunotas)
         }
+        // TOP com conferência por etapa desligada (V49, ex.: entrada/compra): card sem chips de etapa,
+        // igual à sessão que vai abrir (carregarEmBackground aplica a mesma regra).
+        val semEtapa = withContext(Dispatchers.IO) {
+            val topsSemEtapa = wms.backend.tipooperacao.TipoOperacaoRepository.topsSemConferenciaPorEtapa(tenantId)
+            if (topsSemEtapa.isEmpty()) emptySet()
+            else TarefasRepository.codTipOperPorNunota(tenantId, nunotas).filterValues { it in topsSemEtapa }.keys
+        }
         return nunotas.associateWith { nunota ->
             FilaEtapasDto(
-                tipos = if (nunota in emRecontagem) emptyList() else tiposPorNunota[nunota] ?: emptyList(),
+                tipos = if (nunota in emRecontagem || nunota in semEtapa) emptyList() else tiposPorNunota[nunota] ?: emptyList(),
                 concluidos = concluidos[nunota] ?: emptyList(),
                 divergentes = divergentes[nunota] ?: emptyList(),
                 progresso = (progresso[nunota] ?: emptyMap()).mapValues { (_, p) -> EtapaProgressoDto(p.total, p.conferidos) },

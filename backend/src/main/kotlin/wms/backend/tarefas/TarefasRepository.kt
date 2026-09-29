@@ -484,6 +484,21 @@ object TarefasRepository {
             }
     }
 
+    /** CODTIPOPER (TOP) de cada nota, do mirror local — nota fora do mirror ou sem TOP não entra no mapa. */
+    fun codTipOperPorNunota(tenantId: UUID, nunotas: Collection<Long>): Map<Long, Int> = TenantTx.run(tenantId) {
+        val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }
+        if (ints.isEmpty()) return@run emptyMap()
+        TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList ints) }
+            .mapNotNull { row ->
+                val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                val top = dados?.get("CODTIPOPER")?.jsonPrimitive?.contentOrNull?.trim()
+                    ?.let { it.toIntOrNull() ?: it.toDoubleOrNull()?.toInt() } ?: return@mapNotNull null
+                row[TarefasTable.nunota].toLong() to top
+            }
+            .toMap()
+    }
+
     /** TIPMOV da nota (já sincronizado, ver TarefaSyncService.FIELDS) — 'V' venda, 'C' compra, etc. Usado pra listar TOPs de faturamento. */
     fun buscarTipMovLocal(tenantId: UUID, nunota: Long): String? = campoDosDados(tenantId, nunota, "TIPMOV")
 

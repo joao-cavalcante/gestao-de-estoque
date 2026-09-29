@@ -1,8 +1,10 @@
 package wms.backend.tipooperacao
 
 import io.ktor.http.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import wms.backend.auth.exigirAdmin
 import wms.backend.auth.exigirAuth
 
 /** Mesmo padrão de tenant via JWT já usado em configConferenciaRoutes(). */
@@ -12,6 +14,16 @@ fun Route.tipoOperacaoRoutes() {
         get {
             val claims = call.exigirAuth() ?: return@get
             call.respond(TipoOperacaoRepository.listar(claims.tenantId))
+        }
+
+        /** Liga/desliga a conferência por etapa pras notas deste TOP (ex.: entrada/compra não usa). */
+        put("/{codtop}/config") {
+            val claims = call.exigirAdmin() ?: return@put
+            val codtop = call.parameters["codtop"]?.toIntOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "codtop precisa ser um número"))
+            val body = call.receive<TipoOperacaoConfigRequest>()
+            TipoOperacaoRepository.definirConferenciaPorEtapa(claims.tenantId, codtop, body.conferenciaPorEtapa)
+            call.respond(mapOf("ok" to true))
         }
 
         post("/sincronizar") {

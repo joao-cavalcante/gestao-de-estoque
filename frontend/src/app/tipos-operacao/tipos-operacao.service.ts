@@ -14,4 +14,9 @@ export class TiposOperacaoService {
   sincronizar(): Observable<SincronizarTipoOperacaoResponse> {
     return this.http.post<SincronizarTipoOperacaoResponse>('/api/tipos-operacao/sincronizar', {});
   }
+
+  /** Liga/desliga a conferência por etapa pras notas deste TOP (só ADMINISTRADOR). */
+  definirConferenciaPorEtapa(codtop: number, conferenciaPorEtapa: boolean): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`/api/tipos-operacao/${codtop}/config`, { conferenciaPorEtapa });
+  }
 }

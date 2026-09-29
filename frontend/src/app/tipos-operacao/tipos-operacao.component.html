@@ -1,6 +1,19 @@
 <div class="oq-admin-page">
-  <oq-panel-section icon="badge" title="TIPOS DE OPERAÇÃO" [count]="tops().length">
-    <div class="oq-admin-toolbar">
+  <oq-panel-section icon="badge" title="TIPOS DE OPERAÇÃO" [count]="topsFiltrados().length">
+    <div class="oq-admin-toolbar top-toolbar">
+      <div class="oq-toolbar__pills" role="group" aria-label="Filtro por tipo de movimento">
+        @for (f of filtros; track f.valor) {
+          <button
+            type="button"
+            class="oq-toolbar__pill"
+            [class.oq-toolbar__pill--active]="filtro() === f.valor"
+            [attr.aria-pressed]="filtro() === f.valor"
+            (click)="filtro.set(f.valor)"
+          >
+            {{ f.label }}
+          </button>
+        }
+      </div>
       <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="sincronizando()" (click)="sincronizarAgora()">
         <oq-icon name="sync" [size]="13" [class.oq-spin]="sincronizando()" />
         {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar agora' }}
@@ -8,7 +21,7 @@
     </div>
 
     @if (erro()) {
-      <oq-inline-alert tone="critical" title="Não foi possível sincronizar" [detail]="erro()!" />
+      <oq-inline-alert tone="critical" title="Não foi possível concluir" [detail]="erro()!" />
     }
 
     @if (carregando()) {
@@ -17,15 +30,34 @@
       </ul>
     } @else if (tops().length === 0) {
       <div class="oq-empty-row">Nenhum Tipo de Operação sincronizado ainda — clique em "Sincronizar agora"</div>
+    } @else if (topsFiltrados().length === 0) {
+      <div class="oq-empty-row">Nenhum Tipo de Operação nesse filtro</div>
     } @else {
       <ul class="oq-admin-lista">
-        @for (top of tops(); track top.codtop) {
+        @for (top of topsFiltrados(); track top.codtop) {
           <li class="oq-admin-row">
             <span class="oq-admin-row__avatar">{{ top.codtop }}</span>
             <div class="oq-admin-row__main">
-              <span class="oq-admin-row__titulo">{{ top.descricao }}</span>
-              <span class="oq-admin-row__sub">NUCCO {{ top.nucco }}</span>
+              <span class="oq-admin-row__titulo">
+                {{ top.descricao }}
+                <span class="top-tipmov">{{ rotuloTipmov(top.tipmov) }}</span>
+              </span>
+              <span class="oq-admin-row__sub">NUCCO {{ top.nucco ?? '—' }}</span>
             </div>
+            <!-- Desligado = notas deste TOP abrem em conferência única (sem Secos/Refrigerado/Congelado). -->
+            <label
+              class="top-etapa"
+              [class.top-etapa--off]="!top.conferenciaPorEtapa"
+              title="Desligado: as notas deste TOP abrem em conferência única, sem etapas Secos/Refrigerado/Congelado"
+            >
+              <input
+                type="checkbox"
+                [checked]="top.conferenciaPorEtapa"
+                [disabled]="salvando() === top.codtop"
+                (change)="alternarConferenciaPorEtapa(top, $any($event.target).checked)"
+              />
+              Usar conferência por etapa
+            </label>
           </li>
         }
       </ul>

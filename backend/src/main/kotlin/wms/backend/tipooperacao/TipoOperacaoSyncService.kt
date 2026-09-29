@@ -39,7 +39,8 @@ object TipoOperacaoSyncService {
                     val nucco = dados["TipoOperacao.NUCCO"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
                     val descricao = dados["TipoOperacao.DESCROPER"]?.jsonPrimitive?.contentOrNull?.trim()
                         ?.takeIf { it.isNotEmpty() } ?: "Tipo de Operação $codtop"
-                    TopDerivado(codtop, descricao, nucco)
+                    val tipmov = dados["TIPMOV"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+                    TopDerivado(codtop, descricao, nucco, tipmov)
                 }
                 .distinctBy { it.codtop }
         }
