@@ -330,12 +330,12 @@
         </div>
         <div class="oq-modal__footer">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onCancelarDivergencia()">Cancelar</button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente(false)" title="Corta a nota conforme a Configuração de Conferência (pode exigir liberação)">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente(false)" title="Ajusta a nota ao conferido conforme a Configuração de Conferência (pode exigir liberação)">
             @if (finalizando()) {
               <oq-spinner [size]="12" />
               Enviando…
             } @else {
-              Cortar
+              Ajustar
             }
           </button>
           <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente(true)" title="Fecha a conferência como divergente, sem cortar a nota">
