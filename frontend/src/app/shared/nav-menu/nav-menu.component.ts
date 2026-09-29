@@ -29,7 +29,7 @@ const ITENS: ItemMenu[] = [
   { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
   { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
   { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
-  { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'scissors' },
+  { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
   // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
   // { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
   // { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },

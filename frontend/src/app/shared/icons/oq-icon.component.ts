@@ -6,7 +6,7 @@ export type OqIconName =
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
   | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
   | 'sun' | 'moon' | 'grid' | 'list'
-  | 'seco' | 'refrigerado' | 'congelado' | 'scissors';
+  | 'seco' | 'refrigerado' | 'congelado' | 'ajuste';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -189,11 +189,12 @@ export type OqIconName =
           <path d="M9.5 15.5v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
           <path d="M18 3.5v7M15 5.25l6 3.5M21 5.25l-6 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         }
-        @case ('scissors') {
-          <!-- tesoura — Liberação de Corte -->
-          <circle cx="6.5" cy="6.5" r="2.3" stroke="currentColor" stroke-width="1.6" />
-          <circle cx="6.5" cy="17.5" r="2.3" stroke="currentColor" stroke-width="1.6" />
-          <path d="M8.3 8 20 19M8.3 16 20 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        @case ('ajuste') {
+          <!-- controles deslizantes — "ajuste/correção" (Liberação de Corte, botão Ajustar). Substituiu a tesoura. -->
+          <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="15" cy="6" r="2" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="9" cy="12" r="2" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="17" cy="18" r="2" stroke="currentColor" stroke-width="1.6" />
         }
       }
     </svg>
