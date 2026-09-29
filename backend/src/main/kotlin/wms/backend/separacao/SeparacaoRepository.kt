@@ -1457,6 +1457,21 @@ object SeparacaoRepository {
         }
     }
 
+    /**
+     * Inverso de [padraoParaComercial]: unidade COMERCIAL (VOA) → PADRÃO.
+     * 'M' → padrão = comercial * fator ; 'D' → padrão = comercial / fator ; senão 1:1.
+     * Usado na recontagem: a qtd liberada vem da OBSERVACAO da liberação do Sankhya na unidade
+     * comercial da linha ("Qtd. total conf.: 1 CX"), mas QTDNEG/qtd_neg é na unidade padrão (PE).
+     */
+    internal fun comercialParaPadrao(comercial: BigDecimal, divideMultiplica: String?, fator: BigDecimal?): BigDecimal {
+        val f = fator ?: BigDecimal.ONE
+        return when {
+            divideMultiplica == "M" -> (comercial * f).setScale(5, java.math.RoundingMode.HALF_UP)
+            divideMultiplica == "D" && f.signum() != 0 -> comercial.divide(f, 5, java.math.RoundingMode.HALF_UP)
+            else -> comercial
+        }
+    }
+
     data class GrupoConferido(
         val codprod: Int,
         val controle: String,

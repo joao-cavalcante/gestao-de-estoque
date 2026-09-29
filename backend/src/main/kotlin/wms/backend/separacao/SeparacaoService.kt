@@ -392,7 +392,16 @@ object SeparacaoService {
                 val voa = lineCodvol?.let {
                     voaPorChave[Triple(item.codprod, it, ctrl)] ?: voaPorChave[Triple(item.codprod, it, " ")]
                 }
+                // Item liberado (silencioso): a qtd liberada veio na unidade COMERCIAL da linha (OBSERVACAO
+                // da liberação: "1 CX"), mas qtd_neg é na unidade PADRÃO (PE) — converte. Bug real (nota
+                // 58363, óleo 381): 1 CX (=20 PE) subia como 1 PE → 0,05 CX no Sankhya.
+                val qtdNegAjustada = if (item.silencioso) {
+                    SeparacaoRepository.comercialParaPadrao(item.qtdNeg, voa?.first, voa?.second)
+                } else {
+                    item.qtdNeg
+                }
                 item.copy(
+                    qtdNeg = qtdNegAjustada,
                     usaConfPeso = itemUsaConfPeso(item),
                     unidadeComercial = lineCodvol ?: prodCodvol,
                     unidadePadrao = prodCodvol ?: lineCodvol,
@@ -400,6 +409,8 @@ object SeparacaoService {
                     fatorConversao = voa?.second,
                 )
             }
+            // Qtd liberada já na unidade padrão, por (codprod, controle) — usada na auto-conferência abaixo.
+            val qtdLiberadaPadraoPorChave = itensComPeso.filter { it.silencioso }.associate { (it.codprod to it.controle) to it.qtdNeg }
 
             withContext(Dispatchers.IO) {
                 SeparacaoRepository.salvarItens(tenantId, sessaoId, itensComPeso)
@@ -424,7 +435,8 @@ object SeparacaoService {
                     .forEach { decisao ->
                         runCatching {
                             SeparacaoRepository.conferirItem(
-                                tenantId, sessaoId, decisao.codprod, decisao.controle, decisao.qtdLiberada,
+                                tenantId, sessaoId, decisao.codprod, decisao.controle,
+                                qtdLiberadaPadraoPorChave[decisao.codprod to decisao.controle] ?: decisao.qtdLiberada,
                                 permitirQtdMaior = true,
                             )
                         }.onFailure {
