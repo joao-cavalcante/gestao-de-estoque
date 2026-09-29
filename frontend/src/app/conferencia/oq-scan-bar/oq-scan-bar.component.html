@@ -96,18 +96,21 @@
 @if (mostrarModalPeso) {
   <div class="oq-modal-backdrop" (click)="fecharModalPeso()">
     <div class="oq-modal oq-peso-modal" (click)="$event.stopPropagation()">
-      <div class="oq-modal__header">
+      <div class="oq-modal__header oq-peso-modal__header">
         <span class="oq-modal__titulo">Peso do produto</span>
-        <button type="button" class="oq-modal__fechar" (click)="fecharModalPeso()">
+        <button type="button" class="oq-modal__fechar" (click)="fecharModalPeso()" title="Fechar">
           <oq-icon name="x" [size]="12" />
         </button>
       </div>
+
       <div class="oq-modal__body oq-peso-modal__body">
+        <!-- 1. Esperado -->
         @if (itemPendenteAtual) {
           <div class="oq-peso-modal__esperado">
-            <span class="oq-label-caps">Esperado</span>
+            <span class="oq-peso-modal__rotulo">Esperado</span>
             <span class="oq-peso-modal__esperado-val">
-              {{ itemPendenteAtual.expected | number: '1.3-3' }} {{ itemPendenteAtual.unidadePadrao || '' }}
+              {{ itemPendenteAtual.expected | number: '1.3-3' }}
+              <small>{{ itemPendenteAtual.unidadePadrao || '' }}</small>
             </span>
             @if (temUnidadeComercialDistinta) {
               <span class="oq-peso-modal__esperado-comercial">
@@ -117,111 +120,96 @@
           </div>
         }
 
-        @if (umasDoProduto.length > 0) {
-          <div class="oq-scan-bar__field">
-            <label class="oq-label-caps">EMBALAGEM (UMA) — desconta como tara</label>
-            <select
-              [(ngModel)]="codUmaSelecionada"
-              name="uma"
-              class="oq-scan-bar__input oq-scan-bar__select"
-              (ngModelChange)="onUmaChange()"
-            >
-              <option [ngValue]="null">Sem embalagem — sem tara</option>
-              @for (u of umasDoProduto; track u.coduma) {
-                <option [ngValue]="u.coduma">
-                  {{ u.coduma }} — {{ u.descricao }}{{ u.peso != null ? ' (tara ' + (+u.peso | number: '1.3-3') + ' kg)' : '' }}
-                </option>
-              }
-            </select>
-          </div>
-        }
-
-        @if (balancas.length > 0) {
-          <div class="oq-scan-bar__field">
-            <label class="oq-label-caps">BALANÇA</label>
-            <select
-              [(ngModel)]="balancaSelecionadaId"
-              name="balanca"
-              class="oq-scan-bar__input oq-scan-bar__select"
-              (ngModelChange)="onBalancaChange()"
-            >
-              <option [ngValue]="null">Selecione a balança…</option>
-              @for (b of balancas; track b.id) {
-                <option [ngValue]="b.id">{{ b.nome }}{{ b.portaCom ? ' (' + b.portaCom + ')' : '' }}</option>
-              }
-            </select>
-          </div>
-        }
-
-        <!-- Tara manual opcional (ex.: palete com peso variável) — vale pro peso digitado e pro da balança. -->
-        <div class="oq-scan-bar__field">
-          <label class="oq-label-caps">TARA (KG) — opcional</label>
-          <input
-            [(ngModel)]="tara"
-            name="taraModal"
-            inputmode="decimal"
-            placeholder="0,000"
-            class="oq-scan-bar__input oq-scan-bar__input--right"
-            (ngModelChange)="erroTara = null"
-            (keydown.enter)="$event.preventDefault(); confirmarPeso()"
-          />
-        </div>
-
-        <div class="oq-peso-modal__tabs">
+        <!-- 2. Manual / Balança -->
+        <div class="oq-peso-modal__tabs" role="tablist">
           <button
             type="button"
+            role="tab"
             class="oq-peso-modal__tab"
             [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'manual'"
+            [attr.aria-selected]="modoEntradaPeso === 'manual'"
             (click)="alternarModoPeso('manual')"
           >
             Manual
           </button>
           <button
             type="button"
+            role="tab"
             class="oq-peso-modal__tab"
             [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'balanca'"
+            [attr.aria-selected]="modoEntradaPeso === 'balanca'"
             [disabled]="!balancaAtiva"
+            [title]="balancaAtiva ? '' : 'Selecione uma balança'"
             (click)="alternarModoPeso('balanca')"
           >
             Balança
           </button>
         </div>
 
-        @if (erroBalanca && modoEntradaPeso === 'balanca') {
-          <span class="oq-form-hint oq-form-hint--erro">{{ erroBalanca }}</span>
-        }
-        @if (erroTara) {
-          <span class="oq-form-hint oq-form-hint--erro">{{ erroTara }}</span>
-        }
-        @if (temTara && peso.trim() && pesoLiquidoN > 0) {
-          <span class="oq-form-hint">
-            Bruto {{ pesoLidoN | number: '1.3-3' }} kg − Tara {{ taraN | number: '1.3-3' }} kg = <strong>Líquido {{ pesoLiquidoN | number: '1.3-3' }} kg</strong>
-          </span>
-        }
-
+        <!-- 3. Peso informado / capturado -->
         @if (modoEntradaPeso === 'manual') {
-          <div class="oq-scan-bar__field">
-            <label class="oq-label-caps">PESO (KG)</label>
-            <div class="oq-scan-bar__peso-row">
-              <input
-                #inputPeso
-                [(ngModel)]="peso"
-                name="pesoModal"
-                inputmode="decimal"
-                placeholder="0,000"
-                class="oq-scan-bar__input oq-scan-bar__input--right"
-                (keydown.enter)="$event.preventDefault(); confirmarPeso()"
-              />
+          <div class="oq-peso-modal__secao">
+            <label class="oq-peso-modal__rotulo" for="pesoModal">Peso (KG)</label>
+            <div class="oq-peso-modal__peso-row">
+              <div class="oq-peso-modal__peso-box">
+                <input
+                  #inputPeso
+                  id="pesoModal"
+                  [(ngModel)]="peso"
+                  name="pesoModal"
+                  inputmode="decimal"
+                  placeholder="0,000"
+                  autocomplete="off"
+                  class="oq-peso-modal__peso-input"
+                  (keydown.enter)="$event.preventDefault(); confirmarPeso()"
+                />
+                <span class="oq-peso-modal__peso-un">KG</span>
+              </div>
               @if (balancaAtiva?.tipoComunicacao === 'HTTP') {
-                <button type="button" class="oq-scan-bar__peso-btn" [disabled]="capturandoPeso" (click)="obterPeso()" title="Obter da balança">
-                  <oq-icon name="scale" [size]="14" />
+                <button
+                  type="button"
+                  class="oq-peso-modal__obter"
+                  [disabled]="capturandoPeso"
+                  (click)="obterPeso()"
+                  title="Obter da balança"
+                >
+                  <oq-icon name="scale" [size]="18" />
                 </button>
               }
             </div>
+            <!-- Sem balança escolhida (aba Balança desabilitada) ou balança HTTP: a escolha fica aqui, discreta. -->
+            @if (balancas.length > 0 && (!balancaAtiva || balancaAtiva.tipoComunicacao === 'HTTP')) {
+              <div class="oq-peso-modal__linha-sec">
+                <span class="oq-peso-modal__rotulo">Balança</span>
+                <select
+                  [(ngModel)]="balancaSelecionadaId"
+                  name="balanca"
+                  class="oq-peso-modal__select oq-peso-modal__select--sm"
+                  (ngModelChange)="onBalancaChange()"
+                >
+                  <option [ngValue]="null">Selecione a balança…</option>
+                  @for (b of balancas; track b.id) {
+                    <option [ngValue]="b.id">{{ b.nome }}{{ b.portaCom ? ' (' + b.portaCom + ')' : '' }}</option>
+                  }
+                </select>
+              </div>
+            }
           </div>
         } @else {
-          <div class="oq-peso-modal__balanca">
-            <div class="oq-peso-modal__status-row">
+          <div class="oq-peso-modal__secao">
+            <div class="oq-peso-modal__balanca-topo">
+              <select
+                [(ngModel)]="balancaSelecionadaId"
+                name="balanca"
+                class="oq-peso-modal__select"
+                (ngModelChange)="onBalancaChange()"
+                aria-label="Balança"
+              >
+                <option [ngValue]="null">Selecione a balança…</option>
+                @for (b of balancas; track b.id) {
+                  <option [ngValue]="b.id">{{ b.nome }}{{ b.portaCom ? ' (' + b.portaCom + ')' : '' }}</option>
+                }
+              </select>
               <span
                 class="oq-peso-modal__status"
                 [class.oq-peso-modal__status--ok]="statusBalanca === 'conectado'"
@@ -237,23 +225,29 @@
                       : 'Desconectada'
                 }}
               </span>
-              <button
-                type="button"
-                class="oq-peso-modal__icon-btn"
-                (click)="reconectarBalanca()"
-                title="Atualizar / reconectar"
-              >
+              <button type="button" class="oq-peso-modal__icon-btn" (click)="reconectarBalanca()" title="Atualizar / reconectar">
                 <oq-icon name="sync" [size]="14" />
               </button>
             </div>
 
             <div class="oq-peso-modal__live" [class.oq-peso-modal__live--ativo]="statusBalanca === 'conectado'">
               <span class="oq-peso-modal__live-val">{{ pesoAoVivo != null ? (pesoAoVivo | number: '1.3-3') : '—' }}</span>
-              <span class="oq-peso-modal__live-un">kg</span>
+              <span class="oq-peso-modal__live-un">KG</span>
               @if (statusBalanca === 'conectado') {
                 <span class="oq-peso-modal__live-pulse"><span class="oq-peso-modal__pulse-dot"></span>ao vivo</span>
               }
             </div>
+
+            @if (statusBalanca === 'desconectado') {
+              <div class="oq-peso-modal__recuperar">
+                <span>Sem leitura da balança.</span>
+                <button type="button" class="oq-peso-modal__link" (click)="reconectarBalanca()">Reconectar</button>
+                <button type="button" class="oq-peso-modal__link" (click)="alternarModoPeso('manual')">Digitar manual</button>
+              </div>
+            }
+            @if (erroBalanca) {
+              <span class="oq-peso-modal__msg oq-peso-modal__msg--err">{{ erroBalanca }}</span>
+            }
 
             <div class="oq-peso-modal__acoes-balanca">
               <button
@@ -276,30 +270,94 @@
             </div>
 
             <label class="oq-peso-modal__autocap">
-              <span class="oq-peso-modal__autocap-txt">Captura automática ao estabilizar (2 s)</span>
               <input type="checkbox" [(ngModel)]="capturaAutoAtiva" name="capturaAuto" />
               <span class="oq-peso-modal__switch"></span>
+              <span class="oq-peso-modal__autocap-txt">Captura automática ao estabilizar (2 s)</span>
             </label>
 
-            @if (statusBalanca === 'desconectado') {
-              <div class="oq-peso-modal__banner oq-peso-modal__banner--err">
-                <oq-icon name="scale" [size]="14" />
-                <span>Balança desconectada.</span>
-                <button type="button" class="oq-peso-modal__link" (click)="reconectarBalanca()">Reconectar</button>
-                <button type="button" class="oq-peso-modal__link" (click)="alternarModoPeso('manual')">Digitar manual</button>
-              </div>
-            }
-
             @if (peso) {
-              <div class="oq-peso-modal__banner oq-peso-modal__banner--ok">
-                <oq-icon name="check" [size]="14" />
-                <span>Peso capturado: {{ pesoLidoN | number: '1.3-3' }} kg</span>
-              </div>
+              <span class="oq-peso-modal__msg oq-peso-modal__msg--ok">
+                <oq-icon name="check" [size]="12" />
+                Peso capturado: {{ pesoLidoN | number: '1.3-3' }} kg
+              </span>
             }
           </div>
         }
+
+        <!-- 4. Tara (secundária): embalagem (UMA) × qtd + tara variável -->
+        <div class="oq-peso-modal__tara">
+          @if (umasDoProduto.length > 0) {
+            <div class="oq-peso-modal__campo oq-peso-modal__campo--uma">
+              <label class="oq-peso-modal__rotulo" for="umaModal">Embalagem (UMA)</label>
+              <select
+                id="umaModal"
+                [(ngModel)]="codUmaSelecionada"
+                name="uma"
+                class="oq-peso-modal__select oq-peso-modal__select--sm"
+                (ngModelChange)="onUmaChange()"
+              >
+                <option [ngValue]="null">Sem embalagem — sem tara</option>
+                @for (u of umasDoProduto; track u.coduma) {
+                  <option [ngValue]="u.coduma">
+                    {{ u.coduma }} — {{ u.descricao }}{{ u.peso != null ? ' (tara ' + (+u.peso | number: '1.3-3') + ' kg)' : '' }}
+                  </option>
+                }
+              </select>
+            </div>
+            @if (pesoUmaN > 0) {
+              <div class="oq-peso-modal__campo oq-peso-modal__campo--qtd">
+                <label class="oq-peso-modal__rotulo" for="qtdUmaModal">Qtd. emb.</label>
+                <input
+                  id="qtdUmaModal"
+                  [(ngModel)]="qtdUma"
+                  name="qtdUmaModal"
+                  inputmode="numeric"
+                  placeholder="1"
+                  autocomplete="off"
+                  class="oq-peso-modal__mini-input"
+                  (ngModelChange)="onUmaChange()"
+                  (keydown.enter)="$event.preventDefault(); confirmarPeso()"
+                />
+              </div>
+            }
+          }
+          <!-- Tara variável opcional (ex.: palete sem UMA) — somada à tara das embalagens. -->
+          <div class="oq-peso-modal__campo oq-peso-modal__campo--tara">
+            <label class="oq-peso-modal__rotulo" for="taraModal">Tara (KG)</label>
+            <input
+              id="taraModal"
+              [(ngModel)]="tara"
+              name="taraModal"
+              inputmode="decimal"
+              placeholder="0,000"
+              autocomplete="off"
+              class="oq-peso-modal__mini-input"
+              (ngModelChange)="onUmaChange()"
+              (keydown.enter)="$event.preventDefault(); confirmarPeso()"
+            />
+          </div>
+        </div>
+
+        @if (erroTara) {
+          <span class="oq-peso-modal__msg oq-peso-modal__msg--err">{{ erroTara }}</span>
+        }
+        @if (temTara && peso.trim() && pesoLiquidoN > 0) {
+          <div class="oq-peso-modal__conta">
+            <span>
+              Bruto {{ pesoLidoN | number: '1.3-3' }}
+              @if (taraUmaN > 0) {
+                − {{ qtdUmaN }} × {{ pesoUmaN | number: '1.3-3' }}
+              }
+              @if (taraN > 0) {
+                − {{ taraN | number: '1.3-3' }}
+              }
+            </span>
+            <strong>Líquido {{ pesoLiquidoN | number: '1.3-3' }} kg</strong>
+          </div>
+        }
       </div>
-      <div class="oq-modal__footer">
+
+      <div class="oq-modal__footer oq-peso-modal__footer">
         <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModalPeso()">Cancelar</button>
         <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!peso.trim()" (click)="confirmarPeso()">Confirmar</button>
       </div>

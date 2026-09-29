@@ -72,46 +72,114 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   Modal "Peso do produto" — hierarquia: Esperado → Manual/Balança →
+   peso (principal) → tara (secundária) → status/ações. Uma superfície
+   só, sem cards dentro de cards; rodapé fixo (corpo rola se precisar).
+   ───────────────────────────────────────────────────────────────────── */
+
 .oq-peso-modal {
-  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  max-width: 440px;
+  overflow: hidden;
 }
 
-@media (max-width: 639px) {
-  .oq-peso-modal {
-    min-width: 0;
-    width: 100%;
-  }
+.oq-peso-modal__header {
+  flex: none;
+  padding: 10px 16px;
 }
 
 .oq-peso-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   gap: 14px;
 }
 
+.oq-peso-modal__footer {
+  flex: none;
+
+  .oq-admin-btn {
+    min-width: 108px;
+    height: 40px;
+  }
+}
+
+.oq-peso-modal__rotulo {
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--oq-text-secondary);
+}
+
+/* 1. Esperado — referência, sem competir com o peso digitado/lido. */
+.oq-peso-modal__esperado {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+}
+
+.oq-peso-modal__esperado-val {
+  justify-self: end;
+  font-family: var(--oq-font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+
+  small {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--oq-text-secondary);
+  }
+}
+
+.oq-peso-modal__esperado-comercial {
+  grid-column: 1 / -1;
+  justify-self: end;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+/* 2. Seletor segmentado Manual / Balança */
 .oq-peso-modal__tabs {
   display: flex;
-  gap: 4px;
-  border: 1px solid var(--oq-border);
-  border-radius: var(--oq-radius-input);
+  gap: 2px;
   padding: 2px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
 }
 
 .oq-peso-modal__tab {
   flex: 1;
-  padding: 6px 10px;
+  height: 36px;
   border: none;
-  border-radius: calc(var(--oq-radius-input) - 2px);
+  border-radius: var(--oq-radius-input);
   background: transparent;
   color: var(--oq-text-secondary);
   font-family: var(--oq-font-display);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled):not(.oq-peso-modal__tab--ativa) {
+    color: var(--oq-text-primary);
+  }
 
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: 0.45;
   }
 }
 
@@ -120,74 +188,150 @@
   color: var(--oq-brand-ink);
 }
 
-.oq-peso-modal__esperado {
+/* 3. Área do peso (manual ou balança) */
+.oq-peso-modal__secao {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  border: 1px solid var(--oq-border);
-  border-radius: var(--oq-radius-input);
-  background: var(--oq-surface-2);
-}
-
-.oq-peso-modal__esperado-val {
-  font-family: var(--oq-font-mono);
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--oq-text-primary);
-}
-
-.oq-peso-modal__esperado-comercial {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--oq-text-secondary);
-}
-
-.oq-peso-modal__balanca {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--oq-border);
-  border-radius: var(--oq-radius-block);
-  background: var(--oq-surface-2);
-}
-
-.oq-peso-modal__status-row {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.oq-peso-modal__status {
+.oq-peso-modal__peso-row {
+  display: flex;
+  gap: 8px;
+}
+
+.oq-peso-modal__peso-box {
+  position: relative;
   flex: 1;
+  min-width: 0;
+}
+
+.oq-peso-modal__peso-input {
+  width: 100%;
+  height: 56px;
+  box-sizing: border-box;
+  padding: 0 48px 0 12px;
+  border: 2px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  outline: none;
+
+  &::placeholder {
+    color: var(--oq-border-strong);
+  }
+
+  &:focus {
+    border-color: var(--oq-brand);
+  }
+}
+
+.oq-peso-modal__peso-un {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+  pointer-events: none;
+}
+
+.oq-peso-modal__obter {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--oq-brand-accent);
+    border-color: var(--oq-brand-accent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.oq-peso-modal__linha-sec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .oq-peso-modal__select {
+    flex: 1;
+  }
+}
+
+.oq-peso-modal__select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--oq-border-strong);
+  }
+}
+
+.oq-peso-modal__select--sm {
+  height: 30px;
+}
+
+/* Balança: seleção + status + reconectar numa linha só */
+.oq-peso-modal__balanca-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .oq-peso-modal__select {
+    flex: 1;
+  }
+}
+
+.oq-peso-modal__status {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: var(--oq-radius-input);
+  gap: 5px;
   font-family: var(--oq-font-display);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--oq-surface);
+  letter-spacing: 0.05em;
   color: var(--oq-text-secondary);
 
   &--ok {
-    background: var(--oq-success-soft);
     color: var(--oq-success-foreground);
     .oq-peso-modal__status-dot { background: var(--oq-success); }
   }
   &--busy {
-    background: var(--oq-warning-soft);
     color: var(--oq-warning-foreground);
     .oq-peso-modal__status-dot { background: var(--oq-attention); }
   }
   &--err {
-    background: var(--oq-critical-soft);
     color: var(--oq-critical-foreground);
     .oq-peso-modal__status-dot { background: var(--oq-critical); }
   }
@@ -202,54 +346,61 @@
 }
 
 .oq-peso-modal__icon-btn {
-  flex-shrink: 0;
+  flex: none;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--oq-border);
   border-radius: var(--oq-radius-input);
   background: var(--oq-surface);
   color: var(--oq-text-secondary);
   cursor: pointer;
 
-  &:hover { color: var(--oq-brand-accent); }
+  &:hover { color: var(--oq-brand-accent); border-color: var(--oq-brand-accent); }
 }
 
+/* Leitura ao vivo — o elemento principal no modo balança. */
 .oq-peso-modal__live {
   display: flex;
   align-items: baseline;
+  justify-content: flex-end;
   gap: 6px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--oq-border);
-  opacity: 0.35;
-  transition: opacity 0.2s ease;
+  padding: 10px 12px;
+  border: 2px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  color: var(--oq-text-secondary);
+  transition: border-color 0.2s ease, color 0.2s ease;
 
-  &--ativo { opacity: 1; }
+  &--ativo {
+    border-color: var(--oq-border-strong);
+    color: var(--oq-text-primary);
+  }
 }
 
 .oq-peso-modal__live-val {
   font-family: var(--oq-font-mono);
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: var(--oq-text-primary);
 }
 
 .oq-peso-modal__live-un {
   font-family: var(--oq-font-mono);
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--oq-text-secondary);
 }
 
 .oq-peso-modal__live-pulse {
+  order: -1;
+  margin-right: auto;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-left: 6px;
+  align-self: center;
   font-family: var(--oq-font-display);
   font-size: 9px;
   font-weight: 700;
@@ -271,26 +422,56 @@
   to { opacity: 0.25; transform: scale(0.55); }
 }
 
+/* Desconectada: uma linha discreta com as ações de recuperação. */
+.oq-peso-modal__recuperar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-critical-foreground);
+}
+
+.oq-peso-modal__link {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--oq-brand-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
 .oq-peso-modal__acoes-balanca {
   display: flex;
   gap: 8px;
 
   .oq-admin-btn {
+    height: 40px;
+  }
+
+  .oq-admin-btn--primary {
     flex: 1;
   }
 }
 
 .oq-peso-modal__autocap {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
 
   input { position: absolute; opacity: 0; width: 0; height: 0; }
 }
 
 .oq-peso-modal__autocap-txt {
-  flex: 1;
   font-family: var(--oq-font-body);
   font-size: 12px;
   color: var(--oq-text-secondary);
@@ -299,8 +480,8 @@
 .oq-peso-modal__switch {
   position: relative;
   flex-shrink: 0;
-  width: 38px;
-  height: 20px;
+  width: 32px;
+  height: 18px;
   border-radius: 99px;
   background: var(--oq-border-strong);
   transition: background 0.2s ease;
@@ -310,8 +491,8 @@
     position: absolute;
     left: 2px;
     top: 2px;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: var(--oq-surface);
     transition: transform 0.2s ease;
@@ -321,43 +502,100 @@
 .oq-peso-modal__autocap input:checked ~ .oq-peso-modal__switch {
   background: var(--oq-brand);
 
-  &::after { transform: translateX(18px); }
+  &::after { transform: translateX(14px); }
 }
 
-.oq-peso-modal__banner {
+.oq-peso-modal__autocap input:focus-visible ~ .oq-peso-modal__switch {
+  outline: 2px solid var(--oq-brand-accent);
+  outline-offset: 2px;
+}
+
+/* 4. Tara — secundária: campos pequenos numa linha, separada por um fio. */
+.oq-peso-modal__tara {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--oq-border);
+}
+
+.oq-peso-modal__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.oq-peso-modal__campo--uma {
+  flex: 1 1 160px;
+}
+
+.oq-peso-modal__campo--qtd {
+  flex: 0 0 64px;
+}
+
+.oq-peso-modal__campo--tara {
+  flex: 0 0 96px;
+  margin-left: auto;
+}
+
+.oq-peso-modal__mini-input {
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid var(--oq-border);
   border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  outline: none;
+
+  &::placeholder { color: var(--oq-text-secondary); font-weight: 400; }
+  &:focus { border-color: var(--oq-border-strong); }
+}
+
+/* Conta bruto − taras = líquido, mensagens curtas */
+.oq-peso-modal__conta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
   font-family: var(--oq-font-mono);
   font-size: 11px;
+  color: var(--oq-text-secondary);
 
-  &--ok {
-    background: var(--oq-success-soft);
-    color: var(--oq-success-foreground);
-  }
-  &--err {
-    background: var(--oq-critical-soft);
-    color: var(--oq-critical-foreground);
+  strong {
+    font-size: 13px;
+    color: var(--oq-text-primary);
   }
 }
 
-.oq-peso-modal__link {
-  background: none;
-  border: none;
-  padding: 2px 4px;
-  font-family: var(--oq-font-display);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: inherit;
-  text-decoration: underline;
-  cursor: pointer;
+.oq-peso-modal__msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
 
-  &:first-of-type { margin-left: auto; }
+  &--ok { color: var(--oq-success-foreground); }
+  &--err { color: var(--oq-critical-foreground); }
 }
+
+@media (max-width: 639px) {
+  .oq-peso-modal {
+    max-width: none;
+  }
+
+  .oq-peso-modal__footer .oq-admin-btn {
+    flex: 1;
+  }
+}
+
 
 .oq-scan-bar__peso-btn {
   flex: none;

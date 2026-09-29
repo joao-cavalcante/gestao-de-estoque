@@ -168,30 +168,56 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Tara manual OPCIONAL (KG) — ex.: palete, que tem peso variável. Debitada do peso lido/digitado
-   * na hora de confirmar: o LÍQUIDO (peso − tara) é que vira a quantidade e vai pro backend.
-   * Zera a cada item (resetarTudo) — cada palete tem a sua.
+   * Tara, igual à tela nativa do Sankhya ("Integração da balança no Processo de Conferência"):
+   * líquido = bruto − (qtd de embalagens × peso da UMA) − tara variável. O peso da UMA é o da
+   * EMBALAGEM/unitizador (ex.: palete de 45 kg), cadastrado no produto. Tudo zera a cada item.
+   *
+   * `tara` = tara VARIÁVEL manual (opcional, KG) — ex.: palete sem UMA cadastrada.
+   * `qtdUma` = quantas embalagens da UMA escolhida foram pesadas junto (padrão 1).
    */
   tara = '';
+  qtdUma = '1';
   erroTara: string | null = null;
 
   private lerKg(texto: string): number {
     return Number((texto || '0').trim().replace(',', '.'));
   }
 
-  /** Tara válida (> 0) em KG; vazio/0 = sem tara. NaN = digitação inválida. */
+  /** Tara variável (KG); vazio = 0. NaN = digitação inválida. */
   get taraN(): number {
     if (!this.tara.trim()) return 0;
     return this.lerKg(this.tara);
   }
 
-  /** Peso líquido = peso lido/digitado − tara (3 casas). */
+  /** Qtd. de embalagens (UMA); vazio = 0. NaN = inválida. */
+  get qtdUmaN(): number {
+    if (!this.qtdUma.trim()) return 0;
+    return this.lerKg(this.qtdUma);
+  }
+
+  /** Peso de UMA embalagem (KG) — 0 sem UMA escolhida. */
+  get pesoUmaN(): number {
+    const p = this.umaSelecionada?.peso != null ? Number(this.umaSelecionada.peso) : 0;
+    return Number.isFinite(p) && p > 0 ? p : 0;
+  }
+
+  /** Tara das embalagens = qtd × peso da UMA. */
+  get taraUmaN(): number {
+    return this.pesoUmaN > 0 && this.qtdUmaN > 0 ? this.qtdUmaN * this.pesoUmaN : 0;
+  }
+
+  /** Tara total = embalagens + variável. */
+  get taraTotalN(): number {
+    return (this.taraUmaN || 0) + (this.taraN || 0);
+  }
+
+  /** Peso líquido = peso lido/digitado − tara total (3 casas). */
   get pesoLiquidoN(): number {
-    return Number((this.lerKg(this.peso) - (this.taraN || 0)).toFixed(3));
+    return Number((this.lerKg(this.peso) - this.taraTotalN).toFixed(3));
   }
 
   get temTara(): boolean {
-    return this.taraN > 0;
+    return this.taraTotalN > 0;
   }
 
   /** Peso lido/digitado como número — pra exibir formatado em pt-BR (a balança devolve "1980.000"). */
@@ -202,23 +228,16 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   /**
    * Quantidade do pesável = peso LÍQUIDO em KG (peso lido − tara). NUNCA combina com
    * fator/divideMultiplica. A UMA NÃO divide mais o peso (29/09): o peso cadastrado na UMA é o
-   * da EMBALAGEM (palete, caixa) — entra como tara (ver aplicarTaraDaUma). O projeto base
-   * dividia (peso ÷ uma.peso), o que dava quantidade errada pra quem cadastra a embalagem.
+   * da EMBALAGEM (palete, caixa) — entra como tara (qtd × peso da UMA, ver taraUmaN). O projeto
+   * base dividia (peso ÷ uma.peso), o que dava quantidade errada pra quem cadastra a embalagem.
    */
   private calcularQtdPorPeso(): number {
     return this.pesoLiquidoN;
   }
 
-  /** Peso da UMA (embalagem) escolhida vira a tara — o operador ainda pode editar. Sem UMA = sem tara. */
-  private aplicarTaraDaUma(): void {
-    const pesoUma = this.umaSelecionada?.peso != null ? Number(this.umaSelecionada.peso) : 0;
-    this.tara = pesoUma > 0 ? String(pesoUma).replace('.', ',') : '';
-    this.erroTara = null;
-  }
-
-  /** Trocar a UMA troca a tara e, com peso já capturado, recalcula a quantidade. */
+  /** Trocar a UMA / qtd de embalagens muda a tara e, com peso já capturado, recalcula a quantidade. */
   onUmaChange(): void {
-    this.aplicarTaraDaUma();
+    this.erroTara = null;
     if (this.peso.trim()) this.qtd = String(this.calcularQtdPorPeso());
   }
 
@@ -310,8 +329,10 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         // UMAs do produto + default na UMA marcada como padrão (casa por CODPROD, igual ao legado).
         this.umasDoProduto = this.umasDaSessao.filter((u) => u.codprod === resultado.codprod);
         this.codUmaSelecionada = (this.umasDoProduto.find((u) => u.padrao) ?? this.umasDoProduto[0])?.coduma ?? null;
-        // Embalagem padrão do produto já entra como tara (editável no pop-up de peso).
-        this.aplicarTaraDaUma();
+        // Embalagem padrão do produto já vem escolhida (1 unidade) — tara = qtd × peso da UMA.
+        this.qtdUma = '1';
+        this.tara = '';
+        this.erroTara = null;
 
         if (resultado.controleAutoSelecionado != null) {
           this.controle = resultado.controleAutoSelecionado;
@@ -503,12 +524,17 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   confirmarPeso(): void {
     if (!this.peso.trim()) return;
     // Tara opcional: inválida ou >= peso não confirma — o modal fica aberto mostrando o motivo.
+    if (this.pesoUmaN > 0 && (!Number.isInteger(this.qtdUmaN) || this.qtdUmaN < 0)) {
+      this.erroTara = 'Qtd. de embalagens inválida — informe um número inteiro (0 = sem embalagem).';
+      return;
+    }
     if (Number.isNaN(this.taraN) || this.taraN < 0) {
-      this.erroTara = 'Tara inválida — informe o peso em KG (ex.: 25,5) ou deixe vazio.';
+      this.erroTara = 'Tara variável inválida — informe o peso em KG (ex.: 25,5) ou deixe vazio.';
       return;
     }
     if (this.pesoLiquidoN <= 0) {
-      this.erroTara = `A tara (${this.taraN.toFixed(3)} kg) é maior ou igual ao peso (${this.lerKg(this.peso).toFixed(3)} kg).`;
+      const fmt = (n: number) => n.toFixed(3).replace('.', ',');
+      this.erroTara = `A tara (${fmt(this.taraTotalN)} kg) é maior ou igual ao peso (${fmt(this.lerKg(this.peso))} kg).`;
       return;
     }
     this.erroTara = null;
@@ -669,6 +695,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.qtd = '1';
     this.peso = '';
     this.tara = '';
+    this.qtdUma = '1';
     this.erroTara = null;
     this.produtoIdentificado = false;
     this.controleModoLote = false;
