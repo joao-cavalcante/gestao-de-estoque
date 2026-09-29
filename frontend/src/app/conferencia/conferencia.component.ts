@@ -387,6 +387,37 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   });
   readonly temDivergenciaSessao = computed(() => this.itensDivergentesSessao().length > 0);
 
+  /**
+   * SÓ EXIBIÇÃO (pop-up de divergência): tipo + explicação da divergência, em vez do "A MENOR" seco.
+   * Pesável cita a tolerância da sessão que foi estourada; não pesável diz se é falta, sobra ou nada conferido.
+   */
+  descreverDivergencia(item: ConferenciaItem): { tipo: string; detalhe: string } {
+    const pct = (f: number) => (f * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    if (item.foraPedido) return { tipo: 'Fora do pedido', detalhe: 'Produto não consta no pedido' };
+    const aMaior = round3(item.scanned) > round3(item.expected);
+    if (item.usaConfPeso) {
+      if (item.scanned <= 0) return { tipo: 'Não pesado', detalhe: 'Nenhuma pesagem registrada' };
+      const limite = aMaior ? this.toleranciaPeso.acima : this.toleranciaPeso.abaixo;
+      const tol =
+        limite == null ? 'sem limite de tolerância' : limite === 0 ? 'tolerância 0% — não aceita diferença' : `fora da tolerância de ${pct(limite)}%`;
+      return { tipo: aMaior ? 'Peso a maior' : 'Peso a menor', detalhe: tol.charAt(0).toUpperCase() + tol.slice(1) };
+    }
+    if (item.scanned <= 0) return { tipo: 'Não conferido', detalhe: 'Nenhuma unidade conferida' };
+    return aMaior
+      ? { tipo: 'Sobra', detalhe: 'Conferido acima do pedido' }
+      : { tipo: 'Falta', detalhe: 'Conferido abaixo do pedido' };
+  }
+
+  /** Diferença conferido − pedido (qtd com sinal + unidade) e % do pedido — pop-up de divergência. */
+  diferencaModal(item: ConferenciaItem): { qtd: string; pct: string | null } {
+    const d = round3(item.scanned - item.expected);
+    const sinal = d > 0 ? '+' : d < 0 ? '−' : '';
+    const qtd = `${sinal}${this.formatarQtdModal(item, Math.abs(d))}`;
+    if (item.expected <= 0) return { qtd, pct: null };
+    const p = Math.abs((d / item.expected) * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return { qtd, pct: `${sinal}${p}%` };
+  }
+
   /** Qtd pt-BR com 3 casas + unidade base (pop-up de divergência — antes saía "0.98" cru). */
   formatarQtdModal(item: ConferenciaItem, n: number): string {
     const v = (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });

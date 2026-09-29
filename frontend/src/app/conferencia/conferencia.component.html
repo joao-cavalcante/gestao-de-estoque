@@ -295,7 +295,7 @@
 
   @if (mostrarModalDivergencia()) {
     <div class="oq-modal-backdrop" (click)="onCancelarDivergencia()">
-      <div class="oq-modal oq-modal--delete" (click)="$event.stopPropagation()">
+      <div class="oq-modal oq-modal--delete oq-modal--divergencia" (click)="$event.stopPropagation()">
         <div class="oq-modal__header">
           <span class="oq-modal__titulo">Conferência divergente</span>
           <button type="button" class="oq-modal__fechar" (click)="onCancelarDivergencia()">
@@ -310,19 +310,28 @@
           <table class="oq-modal-tabela-divergencia">
             <thead>
               <tr>
-                <th>Produto</th>
-                <th>Pedido</th>
-                <th>Conferido</th>
-                <th>Diverg.</th>
+                <th>Produto / motivo</th>
+                <th class="num">Pedido</th>
+                <th class="num">Conferido</th>
+                <th class="num">Diferença</th>
               </tr>
             </thead>
             <tbody>
               @for (item of itensDivergentesSessao(); track item.code + item.control) {
                 <tr>
-                  <td>{{ item.name }}</td>
+                  <td>
+                    <span class="diverg-produto"><span class="diverg-produto__cod">{{ item.code }}</span> {{ item.name }}</span>
+                    <span class="diverg-motivo">
+                      <span class="diverg-motivo__tipo">{{ descreverDivergencia(item).tipo }}</span>
+                      {{ descreverDivergencia(item).detalhe }}
+                    </span>
+                  </td>
                   <td class="num">{{ formatarQtdModal(item, item.expected) }}</td>
                   <td class="num">{{ formatarQtdModal(item, item.scanned) }}</td>
-                  <td><span class="diverg-tag">{{ item.divergenceReason ?? (item.scanned < item.expected ? 'A MENOR' : 'A MAIOR') }}</span></td>
+                  <td class="num diverg-dif">
+                    {{ diferencaModal(item).qtd }}
+                    @if (diferencaModal(item).pct) { <span class="diverg-dif__pct">{{ diferencaModal(item).pct }}</span> }
+                  </td>
                 </tr>
               }
             </tbody>
