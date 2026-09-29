@@ -1148,7 +1148,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       }
       // Só sobrou pesável na tolerância em Pendentes: segue (manterPendente) sem pop-up — na última
       // etapa o backend corta e libera sozinho (finalizar com semCorte=false).
-      this.concluirEtapaAgora(this.soPendenteNaTolerancia());
+      this.concluirEtapaAgora(this.soPendenteNaTolerancia(), false, false);
       return;
     }
     if (this.temDivergenciaSessao()) {
@@ -1203,7 +1203,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * backend finaliza a nota no Sankhya e devolve a cadeia de corte/faturamento
    * (aposFinalizacao).
    */
-  private concluirEtapaAgora(manterPendente: boolean, finalizarSemCorte = false): void {
+  /** `divergente` = pin vermelho da etapa na fila; omitido = segue manterPendente (false só p/ pesável na tolerância). */
+  private concluirEtapaAgora(manterPendente: boolean, finalizarSemCorte = false, divergente?: boolean): void {
     const tipo = this.etapaAtual();
     if (!this.sessaoIdAtual || tipo == null || this.concluindoEtapa || this.finalizando()) return;
     this.concluindoEtapa = true;
@@ -1219,7 +1220,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.operacaoEmCurso = { tipo: 'etapa', etapa: tipo, info: infoEtapa };
     // Quem conclui vem do JWT no backend (call.exigirAuth()), não daqui.
     this.operacaoSub = this.separacaoService
-      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente, finalizarSemCorte })
+      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente, finalizarSemCorte, divergente })
       .subscribe({
         next: (res: ConcluirEtapaResultado) => this.aoConcluirEtapa(res, infoEtapa),
         error: (err) => {

@@ -419,6 +419,7 @@ fun Route.separacaoRoutes() {
                 val resultado = SeparacaoService.concluirEtapa(
                     slug, tenantId, sessaoId, body.tipoSeparacao, body.manterPendente, operador.nome,
                     finalizarSemCorte = body.finalizarSemCorte,
+                    divergente = body.divergente ?: body.manterPendente,
                 )
                 call.respond(resultado)
             } catch (e: SeparacaoService.EtapaComPendentesException) {

@@ -90,7 +90,7 @@ export class SeparacaoService {
     tenant: string,
     sessaoId: string,
     /** finalizarSemCorte: última etapa com divergência — true = "Finalizar divergente" (sem corte), false = "Cortar". */
-    body: { tipoSeparacao: number; manterPendente: boolean; finalizarSemCorte?: boolean },
+    body: { tipoSeparacao: number; manterPendente: boolean; finalizarSemCorte?: boolean; divergente?: boolean },
   ): Observable<ConcluirEtapaResultado> {
     return this.http.post<ConcluirEtapaResultado>(
       `${this.baseUrl}/sessoes/${sessaoId}/concluir-etapa`,

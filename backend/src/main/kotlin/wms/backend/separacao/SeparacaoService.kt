@@ -763,6 +763,8 @@ object SeparacaoService {
         operador: String,
         /** Última etapa: "Finalizar divergente" (sem corte) em vez de "Cortar" — ver finalizar(semCorte). */
         finalizarSemCorte: Boolean = false,
+        /** Pin vermelho da etapa na fila — false quando só sobrou pesável na tolerância (ver ConcluirEtapaRequest). */
+        divergente: Boolean = manterPendente,
     ): ConcluirEtapaResultadoDto {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw ConcluirEtapaException("sessão não encontrada")
@@ -779,9 +781,9 @@ object SeparacaoService {
         }
 
         val marcou = withContext(Dispatchers.IO) {
-            // manterPendente=true só chega quando o operador confirmou concluir COM
-            // divergência (pop-up de divergência/aviso de etapa) → chip vermelho na fila.
-            SeparacaoRepository.concluirEtapa(tenantId, sessaoId, tipo, operador, divergente = manterPendente)
+            // Concluir COM divergência (pop-up de divergência/aviso de etapa) → chip vermelho na fila.
+            // Pendente que é só pesável a menor dentro da tolerância não pinta de vermelho (divergente=false).
+            SeparacaoRepository.concluirEtapa(tenantId, sessaoId, tipo, operador, divergente = divergente)
         }
         if (!marcou) throw ConcluirEtapaException("etapa $tipoSeparacao não encontrada ou já concluída")
 

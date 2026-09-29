@@ -109,6 +109,11 @@ data class ConcluirEtapaRequest(
     val manterPendente: Boolean = false,
     /** Última etapa com divergência: true = "Finalizar divergente" (sem corte, fica 'D'); false = "Cortar". */
     val finalizarSemCorte: Boolean = false,
+    /**
+     * Pin vermelho (divergente) da etapa na fila. null = segue manterPendente (comportamento antigo).
+     * false com manterPendente=true = só sobrou pesável a menor DENTRO da tolerância — não é divergência.
+     */
+    val divergente: Boolean? = null,
     // Sem campo `operador` aqui de propósito — quem concluiu vem do JWT
     // (call.exigirAuth() na rota), nunca do corpo da requisição, senão
     // dava pra forjar a autoria.
