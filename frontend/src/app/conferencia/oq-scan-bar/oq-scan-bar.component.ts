@@ -194,6 +194,11 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     return this.taraN > 0;
   }
 
+  /** Peso lido/digitado como número — pra exibir formatado em pt-BR (a balança devolve "1980.000"). */
+  get pesoLidoN(): number {
+    return this.lerKg(this.peso);
+  }
+
   /**
    * Fórmula peso→qtd do projeto base (calcularQtdPorPeso):
    * com UMA (peso > 0) → round5(peso / uma.peso) ; sem UMA → peso (1kg = 1un).
