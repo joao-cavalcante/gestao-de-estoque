@@ -1105,11 +1105,16 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Última etapa pendente com divergência (regra 6) — "Cortar" e "Finalizar
-   * divergente" chamam a MESMA ação: quem decide o ajuste é a CCO do Sankhya
-   * (PROCEDCORTE/GERARPEDCOMPL), não o botão escolhido aqui. "Liberar sozinho"
+   * Pop-up de divergência (última etapa / conferência sem etapa) — dois caminhos
+   * DIFERENTES, igual à tela nativa do Sankhya (29/09):
+   * - "Cortar" (semCorte=false): cortar → liberação se a CCO exigir → finaliza; o
+   *   ajuste da nota segue a CCO (PROCEDCORTE/GERARPEDCOMPL).
+   * - "Finalizar divergente" (semCorte=true): SÓ finalizarConferencia com os eventos
+   *   nativos, sem corte — a conferência fica 'D' (Finalizada divergente) e a nota
+   *   não é ajustada. Antes os dois botões faziam o "Cortar".
+   * "Liberar sozinho"
    * (sem um liberador humano logando) só existe pra item PESÁVEL dentro da
-   * tolerância de 5% (ver LiberacaoCorteService.autoLiberarPesoDentroTolerancia)
+   * tolerância da sessão (ver LiberacaoCorteService.autoLiberarPesoDentroTolerancia)
    * — item não pesável divergente SEMPRE precisa da tela de liberação manual
    * (login do liberador), mesmo quando o operador clica em "Cortar" aqui; uma
    * versão anterior fazia "Cortar" liberar não pesável sozinho com a
@@ -1119,12 +1124,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * — fechar na hora do clique deixava o "Enviando para o Sankhya" visível só
    * no rodapé, fora do que o usuário estava olhando.
    */
-  onConfirmarDivergente(): void {
+  onConfirmarDivergente(semCorte: boolean): void {
     if (this.modoEtapa()) {
-      this.concluirEtapaAgora(true);
+      this.concluirEtapaAgora(true, semCorte);
       return;
     }
-    this.executarFinalizacao();
+    this.executarFinalizacao(semCorte);
   }
 
   /**
@@ -1133,7 +1138,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * backend finaliza a nota no Sankhya e devolve a cadeia de corte/faturamento
    * (aposFinalizacao).
    */
-  private concluirEtapaAgora(manterPendente: boolean): void {
+  private concluirEtapaAgora(manterPendente: boolean, finalizarSemCorte = false): void {
     const tipo = this.etapaAtual();
     if (!this.sessaoIdAtual || tipo == null || this.concluindoEtapa || this.finalizando()) return;
     this.concluindoEtapa = true;
@@ -1149,7 +1154,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.operacaoEmCurso = { tipo: 'etapa', etapa: tipo, info: infoEtapa };
     // Quem conclui vem do JWT no backend (call.exigirAuth()), não daqui.
     this.operacaoSub = this.separacaoService
-      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente })
+      .concluirEtapa(this.tenantAtual, this.sessaoIdAtual, { tipoSeparacao: tipo, manterPendente, finalizarSemCorte })
       .subscribe({
         next: (res: ConcluirEtapaResultado) => this.aoConcluirEtapa(res, infoEtapa),
         error: (err) => {
@@ -1242,12 +1247,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.mostrarModalDivergencia.set(false);
   }
 
-  private executarFinalizacao(): void {
+  private executarFinalizacao(semCorte = false): void {
     if (!this.sessaoIdAtual || this.finalizando()) return;
     this.finalizando.set(true);
     this.feedback.trigger('ENVIANDO_SANKHYA');
     this.operacaoEmCurso = { tipo: 'finalizar' };
-    this.operacaoSub = this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual).subscribe({
+    this.operacaoSub = this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual, semCorte).subscribe({
       next: (res) => this.aoFinalizar(res),
       error: (err) => {
         this.verificarConclusaoAntesDoErro(() => {

@@ -72,6 +72,10 @@ data class SessaoSeparacaoDto(
 @Serializable
 data class IdentificarOperadorRequest(val crachaoCodigo: String)
 
+/** POST /sessoes/{id}/finalizar — true = "Finalizar divergente" (sem corte, fica 'D'); false/sem corpo = com corte. */
+@Serializable
+data class FinalizarRequest(val semCorte: Boolean = false)
+
 @Serializable
 data class OperadorIdentificadoDto(val nome: String)
 
@@ -103,6 +107,8 @@ data class ConcluirEtapaRequest(
     val tipoSeparacao: Int,
     /** true = concluir a etapa mesmo com item pendente nela (operador confirmou no modal). */
     val manterPendente: Boolean = false,
+    /** Última etapa com divergência: true = "Finalizar divergente" (sem corte, fica 'D'); false = "Cortar". */
+    val finalizarSemCorte: Boolean = false,
     // Sem campo `operador` aqui de propósito — quem concluiu vem do JWT
     // (call.exigirAuth() na rota), nunca do corpo da requisição, senão
     // dava pra forjar a autoria.

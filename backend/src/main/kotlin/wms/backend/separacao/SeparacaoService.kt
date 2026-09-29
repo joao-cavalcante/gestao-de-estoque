@@ -577,7 +577,7 @@ object SeparacaoService {
      * decisão de permitir ou não já está na configuração do Sankhya, não é
      * escolha nossa aqui.
      */
-    suspend fun finalizar(tenantSlug: String, tenantId: UUID, sessaoId: UUID): FinalizarResultadoDto {
+    suspend fun finalizar(tenantSlug: String, tenantId: UUID, sessaoId: UUID, semCorte: Boolean = false): FinalizarResultadoDto {
         val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão não encontrada")
         if (sessao.status != SeparacaoStatus.PRONTA) {
@@ -618,6 +618,37 @@ object SeparacaoService {
         // conferência segmentada, ou o contador da sessão) vai junto no `cortar`,
         // igual ao legado (ConferenciaSP.cortar recebe { nuNota, peso, qtdVol }).
         val qtdVol = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
+
+        // "Finalizar divergente" (botão do pop-up de divergência) = o MESMO que a tela nativa do
+        // Sankhya: SÓ ConferenciaSP.finalizarConferencia com os eventos de confirmação — sem
+        // `cortar`. A conferência fecha como 'D' (Finalizada divergente) sem ajustar a nota.
+        // Payload nativo capturado pelo usuário (nuConf 622 / nota 58362, 29/09) → ficou 'D'.
+        // Antes os dois botões chamavam cortar → a nota subia "Finalizado OK" com corte.
+        // Aqui a falha É fatal: sem o cortar, é esta chamada que fecha a conferência.
+        if (semCorte) {
+            FinalizacaoProgresso.atualizar(sessaoId, "finalizando")
+            SankhyaSpClient.chamarRaw(
+                tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
+                buildJsonObject {
+                    putJsonObject("params") {
+                        put("nuConf", nuconf.toString())
+                        put("peso", 0)
+                        put("qtdVol", qtdVol)
+                    }
+                    CLIENT_EVENT_FINALIZAR_DIVERGENTE.forEach { (k, v) -> put(k, v) }
+                },
+            )
+            withContext(Dispatchers.IO) {
+                SeparacaoRepository.marcarConcluida(tenantId, sessaoId)
+                SeparacaoLockRepository.liberarTodos(tenantId, sessaoId)
+                TarefasRepository.concluirLocalSemWriteBack(tenantId, sessao.nunota)
+            }
+            FinalizacaoProgresso.registrarConclusao(
+                sessaoId, ConclusaoDto(etapa = null, conferenciaFinalizada = true, aguardandoCorte = false, nuconf = nuconf),
+            )
+            return FinalizarResultadoDto(ok = true, aguardandoCorte = false, nuconf = nuconf)
+        }
+
         FinalizacaoProgresso.atualizar(sessaoId, "corte")
         SankhyaSpClient.chamar(
             tenantSlug,
@@ -730,6 +761,8 @@ object SeparacaoService {
         tipoSeparacao: Int,
         manterPendente: Boolean,
         operador: String,
+        /** Última etapa: "Finalizar divergente" (sem corte) em vez de "Cortar" — ver finalizar(semCorte). */
+        finalizarSemCorte: Boolean = false,
     ): ConcluirEtapaResultadoDto {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw ConcluirEtapaException("sessão não encontrada")
@@ -791,7 +824,7 @@ object SeparacaoService {
         // precisou de UPDATE manual no banco pra destravar. Reverte a etapa
         // pra 'P' se finalizar() falhar, pra um retry pela UI funcionar sozinho.
         val res = try {
-            finalizar(tenantSlug, tenantId, sessaoId)
+            finalizar(tenantSlug, tenantId, sessaoId, semCorte = finalizarSemCorte)
         } catch (e: Exception) {
             withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
             throw e

@@ -302,8 +302,10 @@ fun Route.separacaoRoutes() {
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
             if (!exigirLock(call, tenantId, sessaoId, null)) return@post
 
+            // Corpo opcional (versões antigas do front mandam `{}`): sem campo = com corte.
+            val semCorte = runCatching { call.receive<FinalizarRequest>().semCorte }.getOrDefault(false)
             try {
-                val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId)
+                val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId, semCorte = semCorte)
                 call.respond(resultado)
             } catch (e: SeparacaoService.FinalizarSeparacaoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível finalizar")))
@@ -416,6 +418,7 @@ fun Route.separacaoRoutes() {
             try {
                 val resultado = SeparacaoService.concluirEtapa(
                     slug, tenantId, sessaoId, body.tipoSeparacao, body.manterPendente, operador.nome,
+                    finalizarSemCorte = body.finalizarSemCorte,
                 )
                 call.respond(resultado)
             } catch (e: SeparacaoService.EtapaComPendentesException) {
