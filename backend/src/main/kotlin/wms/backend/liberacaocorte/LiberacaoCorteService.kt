@@ -589,6 +589,13 @@ object LiberacaoCorteService {
             }
         }
 
+        // Resync imediato (mesmo do carregarEmBackground ao abrir conferência): o negar põe a nota
+        // em recontagem ('R') no Sankhya, mas a fila só via isso no próximo ciclo do worker (~20 s)
+        // e o front só relia no tick dele (60 s) — o operador voltava pra Fila, via o card ainda em
+        // "aguardando corte" e tinha que clicar em sincronizar. Falha aqui não desfaz a liberação.
+        runCatching { wms.backend.tarefas.TarefaSyncService.sincronizarTenant(tenantSlug, tenantId) }
+            .onFailure { println("AVISO: resync após liberar/negar corte falhou (nuconf $nuconf): ${it.message}") }
+
         return selecionados.size
     }
 

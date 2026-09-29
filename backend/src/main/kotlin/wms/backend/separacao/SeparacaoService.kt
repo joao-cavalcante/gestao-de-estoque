@@ -170,6 +170,27 @@ object SeparacaoService {
             // recontagem vinha com TODOS os itens da nota como pendentes,
             // não só o que precisava ser reconferido.
             val ehRecontagem = withContext(Dispatchers.IO) { SeparacaoRepository.houveSessaoAnteriorConcluida(tenantId, nunota) }
+            // "Recontagem" só porque houve sessão concluída NÃO basta: confere no Sankhya se a última
+            // conferência da nota está mesmo esperando recontagem. Bug real (nota 58291, 25/09): a nota
+            // foi reaberta 5 s depois de finalizada (toque duplo / tela sem atualizar) e o
+            // salvarCabecalhoConferencia(iniciarRecontagem=true) abaixo criou a conferência 582 SEM
+            // item nenhum, que ficou "em andamento" no Sankhya e prendeu a nota na fila.
+            if (ehRecontagem) {
+                // Falha na consulta NÃO bloqueia (segue como antes) — só não dá pra proteger desta vez.
+                val (ultimoNuconf, statusUltima) = runCatching {
+                    val n = buscarNuconf(tenantSlug, nunota)
+                    n to n?.let { statusConferencia(tenantSlug, it)?.trim() }
+                }.onFailure { println("AVISO: não deu pra conferir o status da última conferência (nunota $nunota): ${it.message}") }
+                    .getOrDefault(null to null)
+                when (statusUltima) {
+                    "F", "D", "RF", "RD" -> throw IllegalStateException(
+                        "Conferência já finalizada no Sankhya (NUCONF $ultimoNuconf) — não há o que recontar. Volte à fila.",
+                    )
+                    "C" -> throw IllegalStateException(
+                        "Conferência aguardando liberação de corte (NUCONF $ultimoNuconf) — resolva na tela Liberação de Corte.",
+                    )
+                }
+            }
             // Recontagem continua a numeração de volumes da conferência anterior (V44). Tem que ser
             // calculado ANTES do salvarCabecalhoConferencia: ele cria o NUCONF novo e o sync passa a
             // apontar pra ele, e a base sai da sessão que a tarefa ainda aponta.
