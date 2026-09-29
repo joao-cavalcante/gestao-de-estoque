@@ -93,6 +93,14 @@ function estaConferido(item: { usaConfPeso?: boolean; scanned: number; expected:
   return round3(item.scanned) >= round3(item.expected);
 }
 
+/**
+ * Pesável com peso A MENOR (já pesado, ainda não bateu o pedido) mas dentro da tolerância de
+ * baixo — não é divergência: não abre o pop-up; o backend libera o corte sozinho (autoLiberarPesoDentroTolerancia).
+ */
+function pesoNaToleranciaAbaixo(usaConfPeso: boolean | undefined, scanned: number, expected: number, tol: ToleranciaPeso): boolean {
+  return !!usaConfPeso && scanned > 0 && round3(scanned) < round3(expected) && !pesoForaDaTolerancia(scanned, expected, tol);
+}
+
 /** Mapeia o item real (vindo de app.separacao_itens) pro modelo visual do painel — mesmo shape do mock anterior. */
 function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
   const expected = Number(item.qtdNeg);
@@ -124,6 +132,7 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
     // Observação de peso: SEMPRE presente pra item pesável já conferido (não só
     // quando diverge) — vira alerta vermelho só quando divergenciaPeso é true.
     desvioPesoPct: item.usaConfPeso && scanned > 0 ? desvioPesoPctSigned(scanned, expected) : undefined,
+    pesoNaTolerancia: pesoNaToleranciaAbaixo(item.usaConfPeso, scanned, expected, tol) || undefined,
     usaConfPeso: item.usaConfPeso,
     foraPedido: item.foraPedido,
     tipoSeparacao: item.tipoSeparacao,
@@ -304,7 +313,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    */
   readonly canConfirm = computed(() => !this.finalizando() && (!this.exigeVolume() || this.volume() > 0));
   /** Falta (pendente) ou sobra (crítico) — nos dois casos o Sankhya decide o ajuste via CCO (PROCEDCORTE/GERARPEDCOMPL), mas o operador precisa confirmar ciente disso. */
-  readonly temDivergencia = computed(() => this.pendingCount() > 0 || this.divergenceCount() > 0);
+  readonly temDivergencia = computed(() => this.items().some((i) => !i.pesoNaTolerancia) || this.divergenceCount() > 0);
+  /** Pendente que é só pesável a menor dentro da tolerância — conclui sem aviso, com o corte liberado sozinho. */
+  readonly soPendenteNaTolerancia = computed(() => this.items().length > 0 && this.items().every((i) => !!i.pesoNaTolerancia));
   /**
    * Itens divergentes da SESSÃO INTEIRA (todas as etapas, não só a atual) —
    * usado pra decidir se a ÚLTIMA etapa deve abrir o pop-up de finalização
@@ -358,7 +369,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       const expected = linhas.reduce((acc, l) => acc + l.expected, 0);
       const scanned = linhas.reduce((acc, l) => acc + l.scanned, 0);
       const d = this.avaliarDivergencia({ usaConfPeso: base.usaConfPeso, expected }, scanned);
-      if (d.status === 'ok') continue;
+      // Pesável a menor DENTRO da tolerância não é divergência: o backend libera o corte sozinho
+      // (autoLiberarPesoDentroTolerancia) — não entra no pop-up nem trava a finalização.
+      if (d.status === 'ok' || d.pesoNaTolerancia) continue;
       agregados.push({
         ...base,
         expected,
@@ -367,11 +380,18 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         divergenceReason: base.foraPedido ? 'FORA DO PEDIDO' : d.divergenceReason,
         divergenciaPeso: d.divergenciaPeso,
         desvioPesoPct: d.desvioPesoPct,
+        pesoNaTolerancia: d.pesoNaTolerancia,
       });
     }
     return agregados.sort((a, b) => a.name.localeCompare(b.name));
   });
   readonly temDivergenciaSessao = computed(() => this.itensDivergentesSessao().length > 0);
+
+  /** Qtd pt-BR com 3 casas + unidade base (pop-up de divergência — antes saía "0.98" cru). */
+  formatarQtdModal(item: ConferenciaItem, n: number): string {
+    const v = (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    return item.unidadePadrao ? `${v} ${item.unidadePadrao}` : v;
+  }
   readonly mostrarModalDivergencia = signal(false);
   /** Aviso simples (regra 5): divergência de não pesável numa etapa que NÃO é a última — só informa, não corta nem finaliza nada. */
   readonly mostrarModalAvisoEtapa = signal(false);
@@ -644,6 +664,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     divergenceReason: string | undefined;
     divergenciaPeso: true | undefined;
     desvioPesoPct: number | undefined;
+    pesoNaTolerancia: true | undefined;
   } {
     const conferido = estaConferido({ scanned, expected: item.expected });
     // A menor fica em Pendentes (parcial); só a maior fora da tolerância de cima vira divergência de peso.
@@ -656,6 +677,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       divergenceReason: divergePeso ? 'PESO FORA DA TOLERÂNCIA' : divergeQtd ? 'QTD. DIVERGENTE' : undefined,
       divergenciaPeso: divergePeso || undefined,
       desvioPesoPct: item.usaConfPeso && scanned > 0 ? desvioPesoPctSigned(scanned, item.expected) : undefined,
+      pesoNaTolerancia: pesoNaToleranciaAbaixo(item.usaConfPeso, scanned, item.expected, this.toleranciaPeso) || undefined,
     };
   }
 
@@ -844,6 +866,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
                   divergenceReason: d.divergenceReason,
                   divergenciaPeso: d.divergenciaPeso,
                   desvioPesoPct: d.desvioPesoPct,
+                  pesoNaTolerancia: d.pesoNaTolerancia,
                 }
               : it,
           ),
@@ -887,6 +910,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       divergenceReason: d.divergenceReason,
       divergenciaPeso: d.divergenciaPeso,
       desvioPesoPct: d.desvioPesoPct,
+      pesoNaTolerancia: d.pesoNaTolerancia,
       imagemUrl: this.ultimaImagemIdentificada,
     };
 
@@ -949,6 +973,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       divergenceReason: d.divergenceReason,
       divergenciaPeso: d.divergenciaPeso,
       desvioPesoPct: d.desvioPesoPct,
+      pesoNaTolerancia: d.pesoNaTolerancia,
     };
 
     if (d.conferido) {
@@ -1090,7 +1115,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         }
         return;
       }
-      this.concluirEtapaAgora(false);
+      // Só sobrou pesável na tolerância em Pendentes: segue (manterPendente) sem pop-up — na última
+      // etapa o backend corta e libera sozinho (finalizar com semCorte=false).
+      this.concluirEtapaAgora(this.soPendenteNaTolerancia());
       return;
     }
     if (this.temDivergenciaSessao()) {

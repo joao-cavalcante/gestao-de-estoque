@@ -320,9 +320,9 @@
               @for (item of itensDivergentesSessao(); track item.code + item.control) {
                 <tr>
                   <td>{{ item.name }}</td>
-                  <td>{{ item.expected }}</td>
-                  <td>{{ item.scanned }}</td>
-                  <td>{{ item.divergenceReason ?? (item.scanned < item.expected ? 'A MENOR' : 'A MAIOR') }}</td>
+                  <td class="num">{{ formatarQtdModal(item, item.expected) }}</td>
+                  <td class="num">{{ formatarQtdModal(item, item.scanned) }}</td>
+                  <td><span class="diverg-tag">{{ item.divergenceReason ?? (item.scanned < item.expected ? 'A MENOR' : 'A MAIOR') }}</span></td>
                 </tr>
               }
             </tbody>

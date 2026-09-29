@@ -24,6 +24,9 @@ export interface ConferenciaItem {
   divergenciaPeso?: boolean;
   /** Desvio SIGNED do peso conferido vs. esperado, em % (+ maior, - menor) — presente pra TODO item pesável já conferido, não só quando diverge. */
   desvioPesoPct?: number;
+  /** Pesável pesado A MENOR mas dentro da tolerância de baixo da sessão — continua em Pendentes
+   *  (regra de 29/09), mas não é divergência: o corte é liberado sozinho no backend (autoLiberarPesoDentroTolerancia). */
+  pesoNaTolerancia?: boolean;
   /** TGFPRO.AD_TIPOSEPARACAO — 1 Secos | 2 Resfriados | 3 Congelados. Conferência por etapa (V29). */
   tipoSeparacao?: number;
 }
