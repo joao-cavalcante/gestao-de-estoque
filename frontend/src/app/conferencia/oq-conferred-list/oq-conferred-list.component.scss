@@ -217,6 +217,36 @@
   text-overflow: ellipsis;
 }
 
+/* Linha "Base" (qtd na unidade base, ex.: KG pesado) — legível: rótulo em etiqueta + valor em destaque. */
+.item-base {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+
+  &__rot {
+    padding: 1px 5px;
+    border: 1px solid var(--oq-border);
+    border-radius: 3px;
+    background: var(--oq-surface-2);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--oq-text-secondary);
+  }
+
+  // Pesável fora da tolerância: o peso (base) em vermelho, igual à linha de divergência de peso.
+  &--peso {
+    color: var(--oq-critical-foreground);
+  }
+}
+
 .btn-desfazer {
   flex-shrink: 0;
   display: grid;

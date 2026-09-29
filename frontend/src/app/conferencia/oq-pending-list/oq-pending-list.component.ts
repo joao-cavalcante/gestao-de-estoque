@@ -32,16 +32,21 @@ export class OqPendingListComponent {
   }
 
   /**
-   * Item NÃO pesável negociado noutra unidade — mostra a qtd DO PEDIDO como
-   * número principal. Pesável NÃO entra: o operador pesa e registra em KG
-   * (unidade padrão); o Sankhya corrige pra unidade comercial na nota.
+   * SÓ EXIBIÇÃO. Item negociado noutra unidade — mostra a qtd DO PEDIDO (comercial) como número principal e
+   * a unidade base na linha "Base". Vale também pro pesável (pedido do usuário, 29/09): antes o
+   * pesável ficava em KG no principal; agora KG vai pra "Base" e o principal é a comercial.
    */
   mostraComercial(item: ConferenciaItem): boolean {
-    return !item.usaConfPeso && this.temComercial(item) && item.quantidadeComercial != null;
+    return this.temComercial(item) && item.quantidadeComercial != null && item.expected > 0;
+  }
+
+  /** Converte uma qtd na unidade base pra comercial (proporção do pedido — mesma de padraoParaComercial). */
+  paraComercial(item: ConferenciaItem, valorBase: number): number {
+    return (valorBase * item.quantidadeComercial!) / item.expected;
   }
 
   /** Quanto falta bipar (pedido - já conferido), nunca negativo — mesma unidade base do item. */
-  private restanteBase(item: ConferenciaItem): number {
+  restanteBase(item: ConferenciaItem): number {
     return Math.max(0, item.expected - item.scanned);
   }
 
@@ -53,7 +58,7 @@ export class OqPendingListComponent {
   qtdPrincipal(item: ConferenciaItem): number {
     if (!this.mostraComercial(item)) return this.restanteBase(item);
     // Comercial: restante proporcional (mesma conversão de padraoParaComercial, ver oq-conferred-list).
-    return item.expected > 0 ? (this.restanteBase(item) * item.quantidadeComercial!) / item.expected : 0;
+    return this.paraComercial(item, this.restanteBase(item));
   }
 
   unidadePrincipal(item: ConferenciaItem): string {

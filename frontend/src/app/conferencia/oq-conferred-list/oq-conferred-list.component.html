@@ -78,19 +78,28 @@
               <div class="item-linha">
                 <span class="item-observacao item-observacao--parcial">
                   <oq-icon name="clock" [size]="12" />
-                  Parcial — falta {{ formatarQtd(item.expected - item.scanned) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
+                  @if (mostraComercial(item)) {
+                    Parcial — falta {{ formatarQtd(paraComercial(item, item.expected - item.scanned)) }} {{ item.unidadeComercial }}
+                    · {{ formatarQtd(item.expected - item.scanned) }} {{ item.unidadePadrao }}
+                  } @else {
+                    Parcial — falta {{ formatarQtd(item.expected - item.scanned) }}{{ item.unidadePadrao ? ' ' + item.unidadePadrao : '' }}
+                  }
                 </span>
               </div>
             }
             @if (item.unidadeComercial && item.unidadeComercial !== item.unidadePadrao) {
               <div class="item-linha">
-                <span class="item-info-sec">
-                  @if (mostraComercial(item)) {
-                    Base: {{ formatarQtd(item.scanned) }} {{ item.unidadePadrao }}
-                  } @else {
+                @if (mostraComercial(item)) {
+                  <!-- Base = conferido na unidade base (KG pesado no pesável). -->
+                  <span class="item-base" [class.item-base--peso]="isDivergenciaPeso(item)">
+                    <span class="item-base__rot">Base</span>
+                    {{ formatarQtd(item.scanned) }} {{ item.unidadePadrao }}
+                  </span>
+                } @else {
+                  <span class="item-info-sec">
                     Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
-                  }
-                </span>
+                  </span>
+                }
               </div>
             }
             @if (item.control && item.control !== '—') {

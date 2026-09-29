@@ -34,19 +34,28 @@
             @if (exibirQtd && ehParcial(item)) {
               <div class="item-linha">
                 <span class="item-info-sec item-info-sec--parcial">
-                  Já conferido: {{ formatarQtd(item.scanned) }} de {{ formatarQtd(item.expected) }} {{ item.unidadePadrao }}
+                  @if (mostraComercial(item)) {
+                    Já conferido: {{ formatarQtd(paraComercial(item, item.scanned)) }} de {{ formatarQtd(item.quantidadeComercial!) }} {{ item.unidadeComercial }}
+                    · {{ formatarQtd(item.scanned) }} de {{ formatarQtd(item.expected) }} {{ item.unidadePadrao }}
+                  } @else {
+                    Já conferido: {{ formatarQtd(item.scanned) }} de {{ formatarQtd(item.expected) }} {{ item.unidadePadrao }}
+                  }
                 </span>
               </div>
             }
             @if (exibirQtd && temComercial(item)) {
               <div class="item-linha">
-                <span class="item-info-sec">
-                  @if (mostraComercial(item)) {
-                    Base: {{ formatarQtd(item.expected) }} {{ item.unidadePadrao }}
-                  } @else {
+                @if (mostraComercial(item)) {
+                  <!-- Base = o que falta na unidade base (KG no pesável) — bate com o número principal. -->
+                  <span class="item-base">
+                    <span class="item-base__rot">Base</span>
+                    {{ formatarQtd(restanteBase(item)) }} {{ item.unidadePadrao }}
+                  </span>
+                } @else {
+                  <span class="item-info-sec">
                     Pedido: {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
-                  }
-                </span>
+                  </span>
+                }
               </div>
             }
             @if (item.control && item.control !== '—') {
