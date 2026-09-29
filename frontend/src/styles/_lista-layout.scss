@@ -551,7 +551,6 @@
   }
 }
 
-/* Tarefa já em andamento — "Continuar" em vez de "Conferir". */
 /* "Continuar" (conferência em andamento) usa o mesmo azul institucional do "Conferir" — o dourado
    (--oq-attention) destoava do padrão; o status "em andamento" já aparece no pin do card. */
 
@@ -738,16 +737,6 @@
   &:hover {
     background: var(--oq-brand-hover);
     border-color: var(--oq-brand-hover);
-  }
-
-  &--continuar {
-    background: var(--oq-attention, var(--oq-brand));
-    border-color: var(--oq-attention, var(--oq-brand));
-
-    &:hover {
-      background: var(--oq-warning-foreground, var(--oq-brand-hover));
-      border-color: var(--oq-warning-foreground, var(--oq-brand-hover));
-    }
   }
 }
 
