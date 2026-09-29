@@ -27,7 +27,20 @@
         }
         <span class="oq-label-caps">VOLUMES{{ faltaVolume ? ' *' : '' }}</span>
         <button type="button" class="oq-cf-footer__volume-btn" (click)="soPonteiro($event) && onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
-        <span class="oq-cf-footer__volume-valor">{{ volume }}</span>
+        <!-- Digitável além do +/−: grava no Enter ou ao sair do campo. -->
+        <input
+          class="oq-cf-footer__volume-input"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          max="999"
+          step="1"
+          [value]="volume"
+          aria-label="Quantidade de volumes"
+          (focus)="selecionarTudo($event)"
+          (keydown.enter)="confirmarVolumeDigitado($event, true)"
+          (blur)="confirmarVolumeDigitado($event, false)"
+        />
         <button type="button" class="oq-cf-footer__volume-btn" (click)="soPonteiro($event) && onVolumeMais()" aria-label="Aumentar volumes">+</button>
       </div>
 

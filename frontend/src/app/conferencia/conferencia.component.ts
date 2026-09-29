@@ -735,7 +735,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    */
   private carregarVolume(sessaoId: string): void {
     this.separacaoService.buscarVolume(this.tenantAtual, sessaoId, this.etapaAtual()).subscribe({
-      next: (v) => this.volume.set(v.quantidade),
+      next: (v) => {
+        this.volume.set(v.quantidade);
+        // Padrão 1 volume (pedido do usuário): contador zerado ao abrir já grava 1 — o operador só
+        // mexe quando tem mais de um. Na segmentada vale por etapa (cada etapa sai com ao menos 1).
+        if (v.quantidade === 0) this.onVolumeChange(1);
+      },
       error: () => {
         /* não bloqueia a conferência */
       },

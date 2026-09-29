@@ -85,7 +85,7 @@
 
   &--exige {
     .oq-label-caps { color: var(--oq-critical-foreground); font-weight: 600; }
-    .oq-cf-footer__volume-valor { color: var(--oq-critical-foreground); }
+    .oq-cf-footer__volume-input { color: var(--oq-critical-foreground); border-color: var(--oq-critical); }
   }
 }
 
@@ -136,13 +136,13 @@
 .oq-cf-footer__volume-btn {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border: 1px solid var(--oq-border);
   border-radius: 4px;
   background: var(--oq-surface);
   color: var(--oq-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1;
   cursor: pointer;
 
@@ -156,14 +156,31 @@
   }
 }
 
-.oq-cf-footer__volume-valor {
-  min-width: 16px;
+.oq-cf-footer__volume-input {
+  width: 46px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--oq-border);
+  border-radius: 4px;
+  background: var(--oq-surface);
   text-align: center;
   font-family: var(--oq-font-mono);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--oq-text-primary);
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--oq-brand-accent);
+  }
 }
 
 .oq-cf-footer__progress {

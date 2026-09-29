@@ -55,6 +55,31 @@ export class OqConferenciaFooterComponent {
     this.volumeChange.emit(this.volume + 1);
   }
 
+  selecionarTudo(event: FocusEvent): void {
+    (event.target as HTMLInputElement).select();
+  }
+
+  /**
+   * Valor digitado no campo de volumes. Inteiro de 0 a 999; qualquer outra coisa volta pro
+   * valor atual. Enter confirma e tira o foco — o próximo bipe do leitor volta pro campo de
+   * código de barras, não cai aqui.
+   */
+  confirmarVolumeDigitado(event: Event, enter: boolean): void {
+    const campo = event.target as HTMLInputElement;
+    const digitado = Number(campo.value);
+    const valido = campo.value.trim() !== '' && Number.isInteger(digitado) && digitado >= 0 && digitado <= 999;
+    if (!valido) {
+      campo.value = String(this.volume);
+    } else if (digitado !== this.volume) {
+      this.volumeChange.emit(digitado);
+    }
+    if (enter) {
+      event.preventDefault();
+      event.stopPropagation();
+      campo.blur();
+    }
+  }
+
   /** true = CCO exige volume mas o contador ainda está zerado — destaca e explica o botão desabilitado. */
   get faltaVolume(): boolean {
     return this.exigeVolume && this.volume === 0;
