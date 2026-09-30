@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { OqSpinnerComponent } from '../icons/oq-spinner.component';
 import { OqIconComponent } from '../icons/oq-icon.component';
 import { NavMenuService } from '../nav-menu/nav-menu.service';
 import { ThemeService } from '../theme/theme.service';
@@ -15,7 +16,7 @@ import { SyncTickService } from './sync-tick.service';
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [OqIconComponent],
+  imports: [OqIconComponent, OqSpinnerComponent],
   templateUrl: './app-header.component.html',
   styleUrl: './app-header.component.scss',
 })
