@@ -5,10 +5,8 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import wms.backend.auth.exigirAdmin
-import wms.backend.auth.ClaimsToken
 import wms.backend.auth.exigirAuth
 import wms.backend.permissoes.PermissoesRecurso
-import wms.backend.separacao.SeparacaoRepository
 import java.util.UUID
 
 fun Route.balancasRoutes() {
@@ -24,13 +22,10 @@ fun Route.balancasRoutes() {
             call.respond(BalancasRepository.listarAtivas(claims.tenantId))
         }
 
-        /**
-         * Balanças que o usuário pode usar na conferência (PermissoesRecurso). `?sessao=` = sessão de
-         * conferência aberta: em conta de estação, vale o operador que bipou o crachá nela.
-         */
+        /** Balanças que a conta logada pode usar na conferência (PermissoesRecurso; admin vê todas). */
         get("/minhas") {
             val claims = call.exigirAuth() ?: return@get
-            call.respond(BalancasRepository.listarParaUsuario(claims.tenantId, usuarioDaBalanca(call, claims)))
+            call.respond(BalancasRepository.listarParaUsuario(claims))
         }
 
         /** Usuários autorizados da balança (admin). Lista vazia = sem restrição. */
@@ -78,9 +73,7 @@ fun Route.balancasRoutes() {
 
             val balanca = BalancasRepository.buscarPorId(claims.tenantId, id)
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "balança não encontrada"))
-            // Teste de leitura na tela de Balanças (admin, sem sessão de conferência) não é uso na conferência.
-            val testeDeConfiguracao = claims.perfil == "ADMINISTRADOR" && call.request.queryParameters["sessao"] == null
-            if (!testeDeConfiguracao && !PermissoesRecurso.podeUsarBalanca(claims.tenantId, usuarioDaBalanca(call, claims), id)) {
+            if (!PermissoesRecurso.podeUsarBalanca(claims, id)) {
                 return@get call.respond(
                     HttpStatusCode.Forbidden,
                     mapOf("codigo" to "BALANCA_NAO_AUTORIZADA", "erro" to "Você não tem permissão para usar esta balança."),
@@ -113,9 +106,3 @@ fun Route.balancasRoutes() {
     }
 }
 
-/** Usuário efetivo p/ permissão de balança: o logado; em conta de estação, o operador (crachá) da `?sessao=`. */
-private fun usuarioDaBalanca(call: io.ktor.server.application.ApplicationCall, claims: ClaimsToken): UUID? {
-    val sessaoId = call.request.queryParameters["sessao"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-    val operador = sessaoId?.let { SeparacaoRepository.buscarSessao(claims.tenantId, it)?.operadorId }
-    return PermissoesRecurso.usuarioEfetivo(claims, operador)
-}

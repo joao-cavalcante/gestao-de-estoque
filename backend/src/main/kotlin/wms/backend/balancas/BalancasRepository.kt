@@ -36,10 +36,10 @@ object BalancasRepository {
      * usuário vinculado é de todos; com vínculo, só dos vinculados. Antes era por usuário (usuário sem
      * vínculo via todas) — a tabela estava vazia, então nada muda pra quem não configurou.
      */
-    fun listarParaUsuario(tenantId: UUID, usuarioId: UUID?): List<BalancaDto> {
-        val restritas = wms.backend.permissoes.PermissoesRecurso.balancasRestritas(tenantId)
-        return listarAtivas(tenantId).filter {
-            wms.backend.permissoes.PermissoesRecurso.podeUsarBalanca(restritas, usuarioId, UUID.fromString(it.id))
+    fun listarParaUsuario(claims: wms.backend.auth.ClaimsToken): List<BalancaDto> {
+        val restritas = wms.backend.permissoes.PermissoesRecurso.balancasRestritas(claims.tenantId)
+        return listarAtivas(claims.tenantId).filter {
+            wms.backend.permissoes.PermissoesRecurso.podeUsarBalanca(claims, restritas, UUID.fromString(it.id))
         }
     }
 

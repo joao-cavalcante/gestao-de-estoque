@@ -3,9 +3,7 @@ package wms.backend.permissoes
 import wms.backend.auth.ClaimsToken
 import java.util.UUID
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Regra pura de PermissoesRecurso — cenários do pedido (TOP X / Balança 01, usuários A, B, C). */
@@ -48,9 +46,11 @@ class PermissoesRecursoTest {
     }
 
     @Test
-    fun `usuario efetivo - login pessoal e o logado, estacao e o operador do cracha`() {
-        assertEquals(a, PermissoesRecurso.usuarioEfetivo(ClaimsToken(a, UUID.randomUUID(), "OPERADOR"), b.toString()))
-        assertEquals(b, PermissoesRecurso.usuarioEfetivo(ClaimsToken(a, UUID.randomUUID(), "ESTACAO"), b.toString()))
-        assertNull(PermissoesRecurso.usuarioEfetivo(ClaimsToken(a, UUID.randomUUID(), "ESTACAO"), null))
+    fun `admin acessa tudo, estacao conta pela propria conta`() {
+        val tenant = UUID.randomUUID()
+        assertTrue(PermissoesRecurso.podeUsarTop(ClaimsToken(b, tenant, "ADMINISTRADOR"), tops, topX))
+        assertTrue(PermissoesRecurso.podeUsarBalanca(ClaimsToken(c, tenant, "ADMINISTRADOR"), balancas, balanca01))
+        assertFalse(PermissoesRecurso.podeUsarTop(ClaimsToken(b, tenant, "ESTACAO"), tops, topX))
+        assertTrue(PermissoesRecurso.podeUsarTop(ClaimsToken(a, tenant, "ESTACAO"), tops, topX))
     }
 }

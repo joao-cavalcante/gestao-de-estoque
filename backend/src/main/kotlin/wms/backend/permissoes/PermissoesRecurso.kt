@@ -20,15 +20,25 @@ import java.util.UUID
  *   recurso SEM nenhum usuário vinculado = sem restrição (todos usam — comportamento de antes);
  *   recurso COM usuários vinculados      = só eles usam.
  *
- * Usuário efetivo: login pessoal = quem está logado; conta de ESTAÇÃO (tablet compartilhado) = o
- * operador que bipou o crachá na sessão (antes do crachá não há pessoa — a estação não é barrada,
- * e as escritas já exigem o crachá; ver exigirOperadorSeEstacao).
+ * Quem conta é a CONTA LOGADA — inclusive conta de ESTAÇÃO (a balança fica fisicamente na
+ * estação; libera-se a estação na lista do recurso). ADMINISTRADOR acessa tudo, sempre.
  */
 object PermissoesRecurso {
 
-    fun usuarioEfetivo(claims: ClaimsToken, operadorIdDaSessao: String?): UUID? =
-        if (claims.perfil == "ESTACAO") operadorIdDaSessao?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-        else claims.userId
+    /** Administrador não sofre restrição de TOP nem de balança. */
+    fun acessoTotal(claims: ClaimsToken): Boolean = claims.perfil == "ADMINISTRADOR"
+
+    fun podeUsarTop(claims: ClaimsToken, restritas: Map<Int, Set<UUID>>, codtop: Int?): Boolean =
+        acessoTotal(claims) || podeUsarTop(restritas, claims.userId, codtop)
+
+    fun podeUsarTop(claims: ClaimsToken, codtop: Int?): Boolean =
+        acessoTotal(claims) || podeUsarTop(claims.tenantId, claims.userId, codtop)
+
+    fun podeUsarBalanca(claims: ClaimsToken, restritas: Map<UUID, Set<UUID>>, balancaId: UUID): Boolean =
+        acessoTotal(claims) || podeUsarBalanca(restritas, claims.userId, balancaId)
+
+    fun podeUsarBalanca(claims: ClaimsToken, balancaId: UUID): Boolean =
+        acessoTotal(claims) || podeUsarBalanca(claims.tenantId, claims.userId, balancaId)
 
     // ─── TOP ────────────────────────────────────────────────────────────────
 

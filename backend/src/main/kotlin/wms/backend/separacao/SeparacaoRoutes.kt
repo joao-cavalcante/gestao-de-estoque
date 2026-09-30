@@ -40,13 +40,10 @@ fun Route.separacaoRoutes() {
             }
 
             val body = call.receive<IniciarSeparacaoRequest>()
-            // TOP da nota restrita a outros usuários (PermissoesRecurso) — conta de estação passa aqui e é
-            // barrada no crachá (identificar-operador), quando a pessoa é conhecida.
-            if (claims.perfil != "ESTACAO") {
-                val codtop = TarefasRepository.codTipOperPorNunota(tenantId, listOf(body.nunota))[body.nunota]
-                if (!PermissoesRecurso.podeUsarTop(tenantId, claims.userId, codtop)) {
-                    return@post responderTopNaoAutorizada(call)
-                }
+            // TOP da nota restrita a outras contas (PermissoesRecurso; admin passa sempre).
+            val codtopNota = TarefasRepository.codTipOperPorNunota(tenantId, listOf(body.nunota))[body.nunota]
+            if (!PermissoesRecurso.podeUsarTop(claims, codtopNota)) {
+                return@post responderTopNaoAutorizada(call)
             }
             val resultado = SeparacaoService.iniciar(slug, tenantId, body.nunota)
             call.respond(HttpStatusCode.Accepted, mapOf("sessaoId" to resultado.sessaoId.toString(), "status" to resultado.status))
@@ -389,16 +386,6 @@ fun Route.separacaoRoutes() {
                 return@post
             }
 
-            val sessaoOp = SeparacaoRepository.buscarSessao(claims.tenantId, sessaoId)
-            if (sessaoOp != null) {
-                val codtop = TarefasRepository.codTipOperPorNunota(claims.tenantId, listOf(sessaoOp.nunota))[sessaoOp.nunota]
-                if (!PermissoesRecurso.podeUsarTop(claims.tenantId, usuario.userId, codtop)) {
-                    return@post call.respond(
-                        HttpStatusCode.Forbidden,
-                        mapOf("codigo" to "TOP_NAO_AUTORIZADA", "erro" to "${usuario.nome} não tem permissão para conferir notas deste Tipo de Operação."),
-                    )
-                }
-            }
             if (!SeparacaoRepository.definirOperador(claims.tenantId, sessaoId, usuario.userId, claims.userId)) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
                 return@post
@@ -954,18 +941,16 @@ private suspend fun resolverSessao(call: io.ktor.server.application.ApplicationC
 }
 
 /**
- * Toda rota da sessão de conferência passa aqui: a TOP da nota precisa estar liberada pro usuário
- * efetivo (PermissoesRecurso — login pessoal = logado; estação = operador do crachá). Estação antes
- * do crachá passa (ainda não há pessoa; as escritas já exigem o crachá). Sessão inexistente passa
- * (a rota responde 404 do jeito dela).
+ * Toda rota da sessão de conferência passa aqui: a TOP da nota precisa estar liberada pra conta
+ * logada (PermissoesRecurso — inclusive conta de estação; admin passa sempre). Sessão inexistente
+ * passa (a rota responde 404 do jeito dela).
  */
 private suspend fun exigirTopPermitida(call: io.ktor.server.application.ApplicationCall, tenantId: UUID, sessaoId: UUID): Boolean {
     val claims = call.exigirAuth() ?: return false
+    if (PermissoesRecurso.acessoTotal(claims)) return true
     val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId) ?: return true
-    if (claims.perfil == "ESTACAO" && sessao.operadorId == null) return true
-    val usuario = PermissoesRecurso.usuarioEfetivo(claims, sessao.operadorId)
     val codtop = TarefasRepository.codTipOperPorNunota(tenantId, listOf(sessao.nunota))[sessao.nunota]
-    if (PermissoesRecurso.podeUsarTop(tenantId, usuario, codtop)) return true
+    if (PermissoesRecurso.podeUsarTop(claims, codtop)) return true
     responderTopNaoAutorizada(call)
     return false
 }

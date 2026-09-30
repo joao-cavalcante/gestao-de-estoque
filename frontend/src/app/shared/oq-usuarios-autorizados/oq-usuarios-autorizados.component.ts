@@ -6,7 +6,7 @@ import { Usuario } from '../../usuarios/usuario.model';
 /**
  * Pop-up "Usuários autorizados" de um recurso da conferência (TOP ou Balança) — mesma estrutura nas
  * duas telas. Regra do backend (PermissoesRecurso): lista vazia = sem restrição (todos usam).
- * Conta de estação não entra na lista: quem confere na estação é o operador do crachá.
+ * Conta de estação entra (vale a própria conta logada). Administrador acessa tudo — aparece marcado.
  */
 @Component({
   selector: 'oq-usuarios-autorizados',
@@ -35,7 +35,7 @@ export class OqUsuariosAutorizadosComponent implements OnChanges {
     // Pessoas ativas + quem já estava vinculado (mesmo inativo, pra poder remover).
     this.todos.set(
       this.usuarios
-        .filter((u) => u.perfil !== 'ESTACAO' && (u.ativo || iniciais.has(u.id)))
+        .filter((u) => u.ativo || iniciais.has(u.id))
         .sort((a, b) => a.nome.localeCompare(b.nome)),
     );
   }

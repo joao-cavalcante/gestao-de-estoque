@@ -107,13 +107,10 @@ fun Route.tarefasRoutes() {
 private fun resolverTenantId(slug: String): UUID? =
     TenantRepository.buscarPorSlug(slug)?.id?.let { UUID.fromString(it) }
 
-/**
- * Fila só com as notas cuja TOP o usuário pode conferir (PermissoesRecurso). Conta de estação vê a
- * fila inteira — a pessoa só é conhecida no crachá, e a sessão barra ali (identificar-operador).
- */
+/** Fila só com as notas cuja TOP a conta logada pode conferir (PermissoesRecurso; admin vê tudo). */
 private fun filtrarPorTop(claims: ClaimsToken, tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
-    if (claims.perfil == "ESTACAO") return tarefas
+    if (PermissoesRecurso.acessoTotal(claims)) return tarefas
     val restritas = PermissoesRecurso.topsRestritas(tenantId)
     if (restritas.isEmpty()) return tarefas
-    return tarefas.filter { PermissoesRecurso.podeUsarTop(restritas, claims.userId, it.codigoTipoOperacao?.trim()?.toIntOrNull()) }
+    return tarefas.filter { PermissoesRecurso.podeUsarTop(claims, restritas, it.codigoTipoOperacao?.trim()?.toIntOrNull()) }
 }

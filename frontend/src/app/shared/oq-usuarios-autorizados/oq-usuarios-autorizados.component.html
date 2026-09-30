@@ -22,7 +22,7 @@
           </span>
         </div>
         @if (listaSelecionados().length === 0) {
-          <span class="ua-livre">Sem restrição — qualquer usuário pode usar. Selecione abaixo para restringir.</span>
+          <span class="ua-livre">Sem restrição — qualquer usuário pode usar. Selecione abaixo para restringir (administradores sempre têm acesso).</span>
         } @else {
           <div class="ua-chips">
             @for (u of listaSelecionados(); track u.id) {
@@ -62,7 +62,9 @@
               <label class="ua-item" [class.ua-item--on]="selecionados().has(u.id)">
                 <input type="checkbox" [checked]="selecionados().has(u.id)" (change)="alternar(u.id)" />
                 <span class="ua-item__nome">{{ u.nome }}</span>
-                <span class="ua-item__sub">{{ u.perfil }}{{ u.ativo ? '' : ' · inativo' }}</span>
+                <span class="ua-item__sub">
+                  {{ u.perfil === 'ESTACAO' ? 'Estação' : u.perfil }}{{ u.perfil === 'ADMINISTRADOR' ? ' · acesso total' : '' }}{{ u.ativo ? '' : ' · inativo' }}
+                </span>
               </label>
             </li>
           } @empty {
