@@ -33,6 +33,7 @@ function formVazio(): FormUsuario {
   standalone: true,
   imports: [FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent, OqSkeletonComponent, OqSpinnerComponent, CrachaComponent],
   templateUrl: './usuario-list.component.html',
+  styles: ['.us-snk { display: flex; gap: 8px; align-items: center; } .us-snk input { flex: 1; min-width: 0; }'],
 })
 export class UsuarioListComponent implements OnInit {
   private readonly service = inject(UsuarioService);
@@ -299,6 +300,26 @@ export class UsuarioListComponent implements OnInit {
       error: (err) => {
         this.criandoSankhya.set(null);
         this.avisoLista.set({ tom: 'erro', texto: `${u.nome}: ${err.error?.erro ?? 'não foi possível criar no Sankhya.'}` });
+      },
+    });
+  }
+
+  /** Botão dentro do modal de edição: cria no Sankhya, preenche o CODUSU no form e já grava o vínculo. */
+  criarNoSankhyaModal(): void {
+    const id = this.editandoId();
+    if (!id || this.criandoSankhya()) return;
+    this.criandoSankhya.set(id);
+    this.modalErro.set(null);
+    this.service.criarNoSankhya(id).subscribe({
+      next: (r) => {
+        this.criandoSankhya.set(null);
+        this.form.codusuSankhya = r.codusu;
+        this.avisoLista.set({ tom: 'info', texto: `${this.form.nome}: ${r.mensagem}` });
+        this.carregar();
+      },
+      error: (err) => {
+        this.criandoSankhya.set(null);
+        this.modalErro.set(err.error?.erro ?? 'Não foi possível criar no Sankhya.');
       },
     });
   }

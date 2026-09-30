@@ -32,9 +32,12 @@
             <span class="oq-admin-row__avatar">{{ iniciais(u.nome) }}</span>
             <div class="oq-admin-row__main">
               <span class="oq-admin-row__titulo">{{ u.nome }}</span>
-              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã' : 'Noite') : '' }} · {{ u.codusuSankhya ? 'Sankhya ' + u.codusuSankhya : 'sem usuário Sankhya' }}</span>
+              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã' : 'Noite') : '' }}{{ u.codusuSankhya ? '' : ' · sem usuário Sankhya' }}</span>
             </div>
             <oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip>
+            @if (u.codusuSankhya) {
+              <oq-status-chip tone="success" title="Vinculado ao usuário {{ u.codusuSankhya }} do Sankhya — vira o conferente ao finalizar">SANKHYA {{ u.codusuSankhya }}</oq-status-chip>
+            }
             @if (u.crachaoCodigo) {
               <oq-status-chip tone="success" title="Código do crachá: {{ u.crachaoCodigo }}">CRACHÁ</oq-status-chip>
             }
@@ -97,14 +100,37 @@
         </div>
         <div class="oq-form-field">
           <span class="oq-form-field__label">Usuário Sankhya (CODUSU)</span>
-          <input
-            name="codusuSankhya"
-            type="text"
-            inputmode="numeric"
-            placeholder="Ex.: 31 — vazio = sem vínculo"
-            [(ngModel)]="form.codusuSankhya"
-            title="Código do usuário no Sankhya (TSIUSU.CODUSU). Ao finalizar, a conferência fica em nome dele no Sankhya."
-          />
+          <div class="us-snk">
+            <input
+              name="codusuSankhya"
+              type="text"
+              inputmode="numeric"
+              placeholder="Vazio = sem vínculo"
+              [(ngModel)]="form.codusuSankhya"
+              title="Código do usuário no Sankhya (TSIUSU.CODUSU). Ao finalizar, a conferência fica em nome dele no Sankhya."
+            />
+            @if (editandoId() && !form.codusuSankhya.trim()) {
+              <button
+                type="button"
+                class="oq-admin-btn oq-admin-btn--outline"
+                [disabled]="criandoSankhya() !== null"
+                (click)="criarNoSankhyaModal()"
+                title="Cria o usuário no Sankhya (grupo 32 Logística/Separação) e preenche o CODUSU"
+              >
+                @if (criandoSankhya()) {
+                  <oq-spinner [size]="12" />
+                  Criando…
+                } @else {
+                  Criar no Sankhya e vincular
+                }
+              </button>
+            }
+          </div>
+          @if (form.codusuSankhya.trim()) {
+            <span class="oq-form-hint">Vinculado ao usuário {{ form.codusuSankhya.trim() }} do Sankhya — é quem aparece como conferente ao finalizar.</span>
+          } @else {
+            <span class="oq-form-hint">Sem vínculo: a conferência fica com o usuário da integração no Sankhya.</span>
+          }
         </div>
         <div class="oq-form-field">
           <span class="oq-form-field__label">Turno</span>
