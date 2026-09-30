@@ -359,6 +359,8 @@ object TarefasRepository {
         TarefasTable.selectAll()
             .where { TarefasTable.tenantId eq tenantId }
             .orderBy(TarefasTable.sankhyaAtualizadoEm to SortOrder.DESC)
+            // Cliente retira sem Ordem de Carga não aparece na Fila (ver retiraSemOrdemCarga).
+            .filterNot { row -> retiraSemOrdemCarga(runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()) }
             .map { row ->
                 val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }
                     .getOrNull()
@@ -514,6 +516,25 @@ object TarefasRepository {
      * loadRecords; NULL, vazio ou 0 = sem OC (null aqui). Usada também pelo Mapa de Separação
      * S/ Ordem de Carga, pra não haver duas definições de "sem vínculo".
      */
+    /**
+     * Regra da Negri (30/09/2026): pedido CLIENTE RETIRA (TGFCAB.AD_RETIRA = 'S') só fica disponível
+     * (Fila de Conferência, conferência, Mapa de Separação, TV) quando tem Ordem de Carga vinculada.
+     * Não muda estado nenhum — só esconde/bloqueia enquanto não houver OC.
+     */
+    fun retiraSemOrdemCarga(dados: JsonObject?): Boolean {
+        fun campo(nome: String) = dados?.get(nome)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+        return campo("AD_RETIRA")?.uppercase() == "S" && normalizarOrdemCarga(campo("ORDEMCARGA")) == null
+    }
+
+    /** Mesma regra, por NUNOTA (mirror local) — nota fora do mirror = não bloqueia. */
+    fun retiraSemOrdemCarga(tenantId: UUID, nunota: Long): Boolean = TenantTx.run(tenantId) {
+        TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota eq nunota.toInt()) }
+            .singleOrNull()
+            ?.let { row -> retiraSemOrdemCarga(runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()) }
+            ?: false
+    }
+
     fun normalizarOrdemCarga(bruto: String?): Long? =
         bruto?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }
@@ -544,6 +565,8 @@ object TarefasRepository {
                 val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
                 fun campo(nome: String) = dados?.get(nome)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
                 if (normalizarOrdemCarga(campo("ORDEMCARGA")) != null) return@mapNotNull null
+                // Cliente retira só entra no Mapa quando tiver OC (e aí vai pelo mapa da OC).
+                if (retiraSemOrdemCarga(dados)) return@mapNotNull null
                 PedidoSemOrdemCarga(
                     nunota = row[TarefasTable.nunota].toLong(),
                     numNota = campo("NUMNOTA")?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },

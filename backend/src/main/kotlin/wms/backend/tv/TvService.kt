@@ -123,7 +123,9 @@ object TvService {
                 )
             }
             // Entrada (compra) x saída (venda): o filtro vale pra TUDO abaixo (contadores, cartões, etapas, médias).
-            val notas = if (filtro == null) todasNotas else todasNotas.filter { it.movimento == filtro }
+            // Cliente retira sem Ordem de Carga não conta na TV (TarefasRepository.retiraSemOrdemCarga).
+            val visiveis = todasNotas.filterNot { TarefasRepository.retiraSemOrdemCarga(it.dados) }
+            val notas = if (filtro == null) visiveis else visiveis.filter { it.movimento == filtro }
             val nunotasFiltradas = notas.map { it.nunota }.toSet()
             val emConf = notas.filter { it.status in EM_CONFERENCIA }
             val prontas = notas.filter { it.status in PRONTO }

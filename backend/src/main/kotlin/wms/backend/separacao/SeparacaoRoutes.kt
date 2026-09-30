@@ -45,6 +45,13 @@ fun Route.separacaoRoutes() {
             if (!PermissoesRecurso.podeUsarTop(claims, codtopNota)) {
                 return@post responderTopNaoAutorizada(call)
             }
+            // Cliente retira só pode ser conferido com Ordem de Carga vinculada (regra da Negri).
+            if (TarefasRepository.retiraSemOrdemCarga(tenantId, body.nunota)) {
+                return@post call.respond(
+                    HttpStatusCode.Conflict,
+                    mapOf("codigo" to "RETIRA_SEM_OC", "erro" to "Pedido de cliente retira só pode ser conferido depois de vinculado a uma Ordem de Carga."),
+                )
+            }
             val resultado = SeparacaoService.iniciar(slug, tenantId, body.nunota)
             call.respond(HttpStatusCode.Accepted, mapOf("sessaoId" to resultado.sessaoId.toString(), "status" to resultado.status))
         }
