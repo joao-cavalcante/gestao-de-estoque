@@ -1,6 +1,7 @@
 package wms.backend.mapaseparacao
 
 import kotlinx.serialization.Serializable
+import wms.backend.tarefas.ModalidadePedido
 
 /**
  * Mapa de Separação por Ordem de Carga — porte do componente HTML5/JSP que
@@ -47,6 +48,8 @@ data class MapaSeparacaoDto(
     val numNota: Long? = null,
     val codParc: Int? = null,
     val nomeParceiro: String? = null,
+    /** Mapa S/ OC: modalidade do pedido (AD_EXPRESS / AD_RETIRA / AD_ENTREGA). */
+    val modalidade: ModalidadePedido = ModalidadePedido(),
 )
 
 /** Pedido do painel "S/ Ordem de Carga" (mirror local, mesmo universo da Fila de Tarefas). */
@@ -61,6 +64,7 @@ data class PedidoSemOrdemCargaDto(
     val dataMovimento: String?,
     /** Conferência já concluída (mesma regra da barra de progresso das OCs). */
     val conferido: Boolean,
+    val modalidade: ModalidadePedido = ModalidadePedido(),
 )
 
 /** Refrigerados de UM pedido (NUNOTA) da OC — bloco próprio por pedido, com o cliente dele; `nunotas` tem só esse NUNOTA. */
@@ -72,6 +76,8 @@ data class ParceiroSeparacaoDto(
     val quantidadeTotal: String,
     val pesoTotal: String,
     val categorias: List<CategoriaSeparacaoDto>,
+    /** Modalidade do pedido deste bloco (AD_EXPRESS / AD_RETIRA / AD_ENTREGA). */
+    val modalidade: ModalidadePedido = ModalidadePedido(),
 )
 
 /** Item do painel: OC (aberta ou fechada) com pedido de conferência ainda não concluída (ver MapaSeparacaoService.listarAbertas). */
@@ -93,6 +99,10 @@ data class OrdemCargaResumoDto(
     val notasConferidas: Int,
     /** TGFORD.SITUACAO: 'A' aberta | 'F' fechada — fechada ainda aparece enquanto tiver nota na fila. */
     val situacao: String? = null,
+    /** Quantas notas da OC são Express / Retira / Entrega (mirror local) — pins do card da OC. */
+    val qtdExpress: Int = 0,
+    val qtdRetira: Int = 0,
+    val qtdEntrega: Int = 0,
 )
 
 @Serializable

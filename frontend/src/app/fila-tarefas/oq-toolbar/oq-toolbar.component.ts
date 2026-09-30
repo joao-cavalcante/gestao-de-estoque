@@ -42,6 +42,14 @@ export class OqToolbarComponent {
 
   @Output() filtroChange = new EventEmitter<FiltroStatus>();
   @Output() tipoSeparacaoToggle = new EventEmitter<number>();
+  /** Filtro rápido de modalidade do pedido (AD_EXPRESS / AD_RETIRA / AD_ENTREGA). */
+  @Input() modalidadesSelecionadas: ReadonlySet<string> = new Set();
+  @Output() modalidadeToggle = new EventEmitter<'express' | 'retira' | 'entrega'>();
+  readonly modalidades = [
+    { id: 'express', label: 'Express', icone: 'express' },
+    { id: 'retira', label: 'Retira', icone: 'retira' },
+    { id: 'entrega', label: 'Entrega', icone: 'entrega' },
+  ] as const;
   @Output() termoBuscaChange = new EventEmitter<string>();
   @Output() abrirFiltros = new EventEmitter<void>();
   @Output() aplicarFiltrosAvancados = new EventEmitter<FiltrosAvancados>();

@@ -213,12 +213,16 @@ object MapaSeparacaoService {
             numNota = raw["NUMNOTA"]?.trim()?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
             codParc = nota.codParc,
             nomeParceiro = nota.nomeParceiro,
+            modalidade = withContext(Dispatchers.IO) { TarefasRepository.modalidadePorNunota(tenantId, listOf(nunota)) }[nunota]
+                ?: wms.backend.tarefas.ModalidadePedido(),
         )
     }
 
     /** Pedidos sem Ordem de Carga com conferência AINDA NÃO CONCLUÍDA (mirror local), pro painel "S/ Ordem de Carga". */
-    fun listarSemOrdemCarga(tenantId: UUID): List<PedidoSemOrdemCargaDto> =
-        TarefasRepository.listarSemOrdemCarga(tenantId).filter { it.statusOperacional !in STATUS_CONFERIDA }.map {
+    fun listarSemOrdemCarga(tenantId: UUID): List<PedidoSemOrdemCargaDto> {
+        val pedidos = TarefasRepository.listarSemOrdemCarga(tenantId).filter { it.statusOperacional !in STATUS_CONFERIDA }
+        val modalidades = TarefasRepository.modalidadePorNunota(tenantId, pedidos.map { it.nunota })
+        return pedidos.map {
             PedidoSemOrdemCargaDto(
                 nunota = it.nunota,
                 numNota = it.numNota,
@@ -226,8 +230,10 @@ object MapaSeparacaoService {
                 nomeParceiro = it.nomeParceiro,
                 dataMovimento = it.dataMovimento,
                 conferido = it.statusOperacional in STATUS_CONFERIDA,
+                modalidade = modalidades[it.nunota] ?: wms.backend.tarefas.ModalidadePedido(),
             )
         }
+    }
 
     /**
      * Itens das [notas] classificados por TGFPRO.AD_TIPOSEPARACAO — a soma cruza SÓ as notas
@@ -327,6 +333,7 @@ object MapaSeparacaoService {
         // NUNOTA + cliente, em página corrida). Nunca soma entre pedidos.
         val segregadoPorParceiro = linhasSegregadas.groupBy { it.nunota }
             .mapValues { (_, linhasPedido) -> linhasPedido to agregar(linhasPedido, { it.pesavel() }, { l, q -> l.exibicao(q) }) { it.qtdComSinal() } }
+        val modalidades = withContext(Dispatchers.IO) { TarefasRepository.modalidadePorNunota(tenantId, segregadoPorParceiro.keys) }
         val porParceiro = segregadoPorParceiro.map { (nunota, par) ->
             val (_, itens) = par
             val nota = notaPorNunota.getValue(nunota)
@@ -337,6 +344,7 @@ object MapaSeparacaoService {
                 quantidadeTotal = itens.sumOf { it.quantidade }.formatar(),
                 pesoTotal = itens.sumOf { it.pesoTotal }.formatar(),
                 categorias = categorias(itens),
+                modalidade = modalidades[nunota] ?: wms.backend.tarefas.ModalidadePedido(),
             )
         }.sortedWith(compareBy({ it.nomeParceiro }, { it.nunotas.first() }))
 
@@ -464,6 +472,9 @@ object MapaSeparacaoService {
         val statusPorOc = withContext(Dispatchers.IO) {
             TarefasRepository.statusPorOrdemCarga(tenantId, ordensCarga.toSet())
         }.groupBy({ it.first }, { it.second })
+        val modalidadesPorOc = withContext(Dispatchers.IO) {
+            TarefasRepository.modalidadePorOrdemCarga(tenantId, ordensCarga.toSet())
+        }
 
         raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -478,6 +489,9 @@ object MapaSeparacaoService {
                 totalNotas = statusDaOc.size,
                 notasConferidas = statusDaOc.count { it in STATUS_CONFERIDA },
                 situacao = r["SITUACAO"]?.trim()?.takeIf { it.isNotEmpty() },
+                qtdExpress = modalidadesPorOc[ordemCarga].orEmpty().count { it.express },
+                qtdRetira = modalidadesPorOc[ordemCarga].orEmpty().count { it.retira },
+                qtdEntrega = modalidadesPorOc[ordemCarga].orEmpty().count { it.entrega },
             )
         }
     }

@@ -382,6 +382,9 @@ object TarefasRepository {
                         ?.trim()?.takeIf { it.isNotEmpty() }
                         // normaliza "1"/"1.0" -> "1" (mesma razão do ordemCarga acima)
                         ?.let { (it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong())?.toString() },
+                    express = modalidadeDe(dados).express,
+                    retira = modalidadeDe(dados).retira,
+                    entrega = modalidadeDe(dados).entrega,
                     segundosDesdeSync = Instant.now().epochSecond - sankhyaAtualizadoEm.epochSecond,
                     pendenteWriteBack = row[TarefasTable.pendenteWriteBack],
                 )
@@ -568,6 +571,38 @@ object TarefasRepository {
      * mirror local (app.tarefas). Usado pelo Mapa de Separação pra ignorar nota da OC
      * que nunca vai ser conferida — mesmo universo de [statusPorOrdemCarga].
      */
+    /** AD_EXPRESS / AD_RETIRA / AD_ENTREGA do cabeçalho (dados da tarefa) — só 'S' liga. */
+    fun modalidadeDe(dados: JsonObject?): ModalidadePedido {
+        fun sim(campo: String) = dados?.get(campo)?.jsonPrimitive?.contentOrNull?.trim()?.uppercase() == "S"
+        return ModalidadePedido(express = sim("AD_EXPRESS"), retira = sim("AD_RETIRA"), entrega = sim("AD_ENTREGA"))
+    }
+
+    /** Modalidade por NUNOTA (mirror local) — nota fora do mirror não entra no mapa. */
+    fun modalidadePorNunota(tenantId: UUID, nunotas: Collection<Long>): Map<Long, ModalidadePedido> = TenantTx.run(tenantId) {
+        val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }
+        if (ints.isEmpty()) return@run emptyMap()
+        TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList ints) }
+            .associate { row ->
+                val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                row[TarefasTable.nunota].toLong() to modalidadeDe(dados)
+            }
+    }
+
+    /** Modalidade de cada nota das OCs (mirror local) — pra somar os pins no card da OC do Mapa. */
+    fun modalidadePorOrdemCarga(tenantId: UUID, ordensCarga: Set<Long>): Map<Long, List<ModalidadePedido>> = TenantTx.run(tenantId) {
+        if (ordensCarga.isEmpty()) return@run emptyMap()
+        TarefasTable.selectAll()
+            .where { TarefasTable.tenantId eq tenantId }
+            .mapNotNull { row ->
+                val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                val oc = normalizarOrdemCarga(dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull) ?: return@mapNotNull null
+                if (oc !in ordensCarga) return@mapNotNull null
+                oc to modalidadeDe(dados)
+            }
+            .groupBy({ it.first }, { it.second })
+    }
+
     fun nunotasComConferencia(tenantId: UUID, nunotas: Collection<Long>): Set<Long> = TenantTx.run(tenantId) {
         val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }
         if (ints.isEmpty()) return@run emptySet()

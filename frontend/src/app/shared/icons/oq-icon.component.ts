@@ -6,7 +6,8 @@ export type OqIconName =
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
   | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
   | 'sun' | 'moon' | 'grid' | 'list'
-  | 'seco' | 'refrigerado' | 'congelado' | 'ajuste';
+  | 'seco' | 'refrigerado' | 'congelado' | 'ajuste'
+  | 'express' | 'retira' | 'entrega';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -193,6 +194,22 @@ export type OqIconName =
           <!-- check com lápis — "ajuste/correção" (Liberação de Corte, botão Ajustar). Escolhido pelo usuário; substituiu a tesoura. -->
           <path d="M4 12.5 8.5 17 15 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           <path d="M17.5 4.5l2 2-5 5h-2v-2l5-5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        }
+        @case ('express') {
+          <!-- raio — pedido EXPRESS (TGFCAB.AD_EXPRESS) -->
+          <path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        }
+        @case ('retira') {
+          <!-- loja/balcão — cliente RETIRA (TGFCAB.AD_RETIRA) -->
+          <path d="M4 9.5 5.5 4.5h13L20 9.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+          <path d="M4 9.5c0 1.4 1.1 2.5 2.7 2.5s2.6-1.1 2.6-2.5c0 1.4 1.1 2.5 2.7 2.5s2.7-1.1 2.7-2.5c0 1.4 1 2.5 2.6 2.5S20 10.9 20 9.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+          <path d="M5.5 12v7.5h13V12M10 19.5v-4.5h4v4.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        }
+        @case ('entrega') {
+          <!-- caminhão — ENTREGA (TGFCAB.AD_ENTREGA) -->
+          <path d="M3 6.5h11v10H3zM14 10h3.5l3.5 3.5v3H14" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+          <circle cx="7" cy="17.5" r="1.8" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="17" cy="17.5" r="1.8" stroke="currentColor" stroke-width="1.6" />
         }
       }
     </svg>

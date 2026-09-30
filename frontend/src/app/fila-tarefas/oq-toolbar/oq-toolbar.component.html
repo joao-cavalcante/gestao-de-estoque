@@ -34,6 +34,21 @@
       </div>
     }
 
+    <div class="oq-toolbar__pills oq-toolbar__pills--modalidade" role="group" aria-label="Filtro por modalidade do pedido">
+      @for (m of modalidades; track m.id) {
+        <button
+          type="button"
+          class="oq-toolbar__pill oq-toolbar__pill--icon"
+          [class]="'oq-toolbar__pill oq-toolbar__pill--icon oq-toolbar__pill--' + m.id"
+          [class.oq-toolbar__pill--active]="modalidadesSelecionadas.has(m.id)"
+          (click)="modalidadeToggle.emit(m.id)"
+        >
+          <oq-icon [name]="m.icone" [size]="12" />
+          {{ m.label }}
+        </button>
+      }
+    </div>
+
     <label class="oq-toolbar__search">
       <oq-icon name="search" [size]="12" />
       <input

@@ -46,6 +46,7 @@
         </td>
         <td class="oq-lista__principal" data-label="Cliente">
           <span class="oq-lista__destaque" [title]="linha.t.cliente">{{ linha.t.cliente }}</span>
+          <oq-modalidade-pins [modalidade]="linha.t" [compacto]="true" />
         </td>
         <td data-label="Nº Único">{{ linha.t.numeroUnico }}</td>
         <td data-label="NF">{{ linha.t.nf }}</td>

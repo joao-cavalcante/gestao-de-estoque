@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { OqModalidadePinsComponent } from '../../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { CommonModule } from '@angular/common';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { Tarefa } from '../tarefa.model';
@@ -16,7 +17,7 @@ import { OqEtapaChipsComponent } from '../oq-etapa-chips/oq-etapa-chips.componen
   // com etapa na mesma linha. Mesmo problema de propagação já visto na tela
   // de Conferência.
   host: { style: 'display: flex; min-width: 0;' },
-  imports: [CommonModule, OqIconComponent, OqEtapaChipsComponent],
+  imports: [CommonModule, OqIconComponent, OqEtapaChipsComponent, OqModalidadePinsComponent],
   templateUrl: './oq-task-card.component.html',
   styleUrl: './oq-task-card.component.scss',
 })

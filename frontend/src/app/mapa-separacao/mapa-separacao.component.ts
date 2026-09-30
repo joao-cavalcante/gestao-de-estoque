@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription, from } from 'rxjs';
@@ -62,7 +63,7 @@ const CHAVE_VIEW_MODE = 'mapa-separacao-view-mode';
 @Component({
   selector: 'app-mapa-separacao',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent, OqModalidadePinsComponent],
   templateUrl: './mapa-separacao.component.html',
   styleUrl: './mapa-separacao.component.scss',
 })

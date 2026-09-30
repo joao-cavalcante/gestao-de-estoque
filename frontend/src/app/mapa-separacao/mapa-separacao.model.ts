@@ -1,3 +1,4 @@
+import { Modalidade } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 /**
  * DTO cru devolvido por GET /api/mapa-separacao/{ordemCarga} (MapaSeparacaoRoutes.kt) —
  * consulta AO VIVO no Sankhya a cada chamada, sem mirror local (ver MapaSeparacaoService).
@@ -26,6 +27,8 @@ export interface MapaSeparacaoDto {
   numNota?: number | null;
   codParc?: number | null;
   nomeParceiro?: string | null;
+  /** Mapa S/ OC: modalidade do pedido (AD_EXPRESS / AD_RETIRA / AD_ENTREGA). */
+  modalidade?: Modalidade;
 }
 
 /** Item de GET /api/mapa-separacao/sem-ordem-carga — pedido da fila de conferência sem Ordem de Carga. */
@@ -38,6 +41,7 @@ export interface PedidoSemOrdemCargaDto {
   nomeParceiro: string | null;
   dataMovimento: string | null;
   conferido: boolean;
+  modalidade?: Modalidade;
 }
 
 export interface ParceiroSeparacaoDto {
@@ -47,6 +51,7 @@ export interface ParceiroSeparacaoDto {
   quantidadeTotal: string;
   pesoTotal: string;
   categorias: CategoriaSeparacaoDto[];
+  modalidade?: Modalidade;
 }
 
 /** Item de GET /api/mapa-separacao/abertas — OC aberta, ou fechada no Sankhya que ainda tem nota na fila de conferência. */
@@ -60,6 +65,10 @@ export interface OrdemCargaResumoDto {
   notasConferidas: number;
   /** TGFORD.SITUACAO: 'A' aberta | 'F' fechada (ainda com nota na fila) — badge "Fechada" no card. */
   situacao: string | null;
+  /** Quantas notas da OC são Express / Retira / Entrega — pins do card da OC. */
+  qtdExpress?: number;
+  qtdRetira?: number;
+  qtdEntrega?: number;
 }
 
 export interface CategoriaSeparacaoDto {

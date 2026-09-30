@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { OqModalidadePinsComponent } from '../../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { CampoOrdenacao, Ordenacao, Tarefa } from '../tarefa.model';
 import { EtapaVisual, StatusVisual, etapasVisiveis, statusVisual } from '../tarefa-visual';
@@ -28,7 +29,7 @@ interface Coluna {
 @Component({
   selector: 'oq-task-list',
   standalone: true,
-  imports: [OqIconComponent, OqEtapaChipsComponent],
+  imports: [OqIconComponent, OqEtapaChipsComponent, OqModalidadePinsComponent],
   templateUrl: './oq-task-list.component.html',
   styleUrl: './oq-task-list.component.scss',
 })

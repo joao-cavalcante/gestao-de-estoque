@@ -135,6 +135,7 @@
                     </label>
                     <div class="ms-card-badge">
                       <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
+                      <oq-modalidade-pins [modalidade]="p.modalidade" />
                     </div>
                     <div class="oq-card__status-line">
                       <span class="oq-status-pin oq-status-pin--aguardando">
@@ -197,6 +198,7 @@
                           <span class="oq-lista__destaque">Nro. Único {{ p.nunota }}</span>
                         </label>
                         <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
+                        <oq-modalidade-pins [modalidade]="p.modalidade" [compacto]="true" />
                       </td>
                       <td data-label="Nota">{{ p.numNota ?? '—' }}</td>
                       <td data-label="Data">{{ p.dataMovimento ?? '—' }}</td>
@@ -231,6 +233,7 @@
               <article class="oq-card">
                 <header class="oq-card__header">
                   <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
+                  <oq-modalidade-pins [contagem]="{ express: oc.qtdExpress ?? 0, retira: oc.qtdRetira ?? 0, entrega: oc.qtdEntrega ?? 0 }" />
                   <div class="oq-card__status-line">
                     <span class="oq-status-pin oq-status-pin--aguardando">
                       <oq-icon name="box" [size]="12" />
@@ -304,6 +307,7 @@
                     <td class="oq-lista__principal" data-label="Ordem de Carga">
                       <span class="oq-lista__destaque">
                         Ordem de Carga {{ oc.ordemCarga }}
+                        <oq-modalidade-pins [contagem]="{ express: oc.qtdExpress ?? 0, retira: oc.qtdRetira ?? 0, entrega: oc.qtdEntrega ?? 0 }" [compacto]="true" />
                         @if (oc.situacao === 'F') {
                           <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
                         }
@@ -369,6 +373,7 @@
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Número Único</span>
             <span class="ms-valor ms-valor--destaque">{{ mapa.nunota }}</span>
+            <oq-modalidade-pins [modalidade]="mapa.modalidade" />
           </div>
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Nota</span>
@@ -526,6 +531,7 @@
                   <td colspan="4">
                     <strong>Nro. Único {{ parceiro.nunotas.join(', ') }}</strong>
                     <span class="ms-cliente__nome">{{ parceiro.codParc }} - {{ parceiro.nomeParceiro }}</span>
+                    <oq-modalidade-pins [modalidade]="parceiro.modalidade" />
                   </td>
                 </tr>
                 @for (categoria of parceiro.categorias; track trackCategoria($index, categoria)) {

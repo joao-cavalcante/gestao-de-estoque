@@ -58,6 +58,10 @@ export interface TarefaApiDto {
   ordemCarga: number | null;
   /** TGFCAB.AD_TURNOENTREGA — "1" Diurno | "2" Noturno | "9" Qualquer. */
   turnoEntrega: string | null;
+  /** TGFCAB.AD_EXPRESS / AD_RETIRA / AD_ENTREGA = 'S'. */
+  express?: boolean;
+  retira?: boolean;
+  entrega?: boolean;
   /** Base pro indicador de sincronização da UI ("dados de Xs atrás"). */
   segundosDesdeSync: number;
   pendenteWriteBack: boolean;
@@ -140,6 +144,9 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     itens: 0, // preenchido depois por mergeItens (POST /api/separacao/itens-fila)
     valor: 0, // não faz parte do fieldset base da fila
     periodoEntrega: (p.turnoEntrega && ROTULO_TURNO_ENTREGA[p.turnoEntrega]) || '—',
+    express: !!p.express,
+    retira: !!p.retira,
+    entrega: !!p.entrega,
   };
 }
 

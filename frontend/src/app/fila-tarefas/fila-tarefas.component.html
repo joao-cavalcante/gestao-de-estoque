@@ -23,6 +23,8 @@
       [opcoesTiposOperacao]="opcoesTiposOperacao()"
       [temSegmentacao]="temSegmentacao()"
       [tiposSeparacaoSelecionados]="filtroTipoSeparacao()"
+      [modalidadesSelecionadas]="filtroModalidade()"
+      (modalidadeToggle)="onModalidadeToggle($event)"
       [viewMode]="viewMode()"
       (filtroChange)="onFiltroChange($event)"
       (tipoSeparacaoToggle)="onTipoSeparacaoToggle($event)"

@@ -20,6 +20,7 @@ import { ITENS_POR_PAGINA, itensValidosPara, lerViewMode, salvarViewMode } from 
 interface FiltrosFilaSalvos {
   status: FiltroStatus;
   tiposSeparacao: number[];
+  modalidades?: string[];
   avancados: FiltrosAvancados;
   itensPorPagina: number;
 }
@@ -85,6 +86,8 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
 
   /** Filtro de tipo de separação (V29) — só aparece quando há tarefas segmentadas. Multi-select. */
   filtroTipoSeparacao = signal<ReadonlySet<number>>(new Set());
+  /** Filtro rápido de modalidade (AD_EXPRESS / AD_RETIRA / AD_ENTREGA) — passa se tiver QUALQUER uma selecionada. */
+  filtroModalidade = signal<ReadonlySet<string>>(new Set());
   dropdownFiltrosAberto = signal(false);
   filtrosAvancados = signal<FiltrosAvancados>({
     codigoParceiro: null,
@@ -105,6 +108,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.filtrosSalvos.salvar<FiltrosFilaSalvos>(TELA_FILTROS, {
       status: this.filtroAtivo(),
       tiposSeparacao: [...this.filtroTipoSeparacao()],
+      modalidades: [...this.filtroModalidade()],
       avancados: this.filtrosAvancados(),
       itensPorPagina: this.itensPorPagina(),
     });
@@ -115,6 +119,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     if (!f) return false;
     if (f.status && (FILTROS_STATUS as readonly string[]).includes(f.status)) this.filtroAtivo.set(f.status);
     if (Array.isArray(f.tiposSeparacao)) this.filtroTipoSeparacao.set(new Set(f.tiposSeparacao.filter((t) => typeof t === 'number')));
+    if (Array.isArray(f.modalidades)) this.filtroModalidade.set(new Set(f.modalidades.filter((m) => ['express', 'retira', 'entrega'].includes(m))));
     if (f.avancados) {
       // Filtro salvo antes do Com/Sem OC: a caixa "Somente com Ordem de Carga" marcada vira 'com'.
       const { somenteComOrdemCarga, ...resto } = f.avancados as FiltrosAvancados & { somenteComOrdemCarga?: boolean };
@@ -206,6 +211,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const termo = this.termoBusca().trim().toLowerCase();
     const avancados = this.filtrosAvancados();
     const tipos = this.filtroTipoSeparacao();
+    const modalidades = this.filtroModalidade();
 
     return this.tarefasAtivas().filter((t) => {
       const passaFiltro = filtro === 'todos' || t.status === filtro;
@@ -229,7 +235,13 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       const passaTipoSeparacao =
         tipos.size === 0 || (t.etapas ?? []).some((e) => e.status === 'P' && tipos.has(e.tipo));
 
-      return passaFiltro && passaBusca && passaAvancados && passaTipoSeparacao;
+      const passaModalidade =
+        modalidades.size === 0 ||
+        (modalidades.has('express') && t.express) ||
+        (modalidades.has('retira') && t.retira) ||
+        (modalidades.has('entrega') && t.entrega);
+
+      return passaFiltro && passaBusca && passaAvancados && passaTipoSeparacao && passaModalidade;
     });
   });
 
@@ -286,6 +298,15 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     if (atual.has(tipo)) atual.delete(tipo);
     else atual.add(tipo);
     this.filtroTipoSeparacao.set(atual);
+    this.paginaAtual.set(1);
+  }
+
+  /** Alterna uma modalidade no filtro rápido (Express / Retira / Entrega). */
+  onModalidadeToggle(modalidade: string): void {
+    const atual = new Set(this.filtroModalidade());
+    if (atual.has(modalidade)) atual.delete(modalidade);
+    else atual.add(modalidade);
+    this.filtroModalidade.set(atual);
     this.paginaAtual.set(1);
   }
 
