@@ -88,9 +88,13 @@
         @if (d.emConferencia.length === 0) {
           <!-- Estado vazio intencional: só dados que já vêm no resumo -->
           <div class="tv-livre">
-            <span class="tv-livre__icone">✓</span>
-            <span class="tv-livre__titulo">OPERAÇÃO LIVRE</span>
-            <span class="tv-livre__texto">Nenhuma conferência em andamento neste momento.</span>
+            <div class="tv-livre__cabeca">
+              <span class="tv-livre__icone">✓</span>
+              <div class="tv-livre__textos">
+                <span class="tv-livre__titulo">OPERAÇÃO LIVRE</span>
+                <span class="tv-livre__texto">Nenhuma conferência em andamento neste momento.</span>
+              </div>
+            </div>
             <div class="tv-livre__tiles">
               <div class="tv-livre__tile">
                 <span class="tv-livre__num">{{ numero(d.resumo.disponivel) }}</span>
