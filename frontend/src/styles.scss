@@ -90,13 +90,14 @@
 
 /* ---------- Tema escuro ---------- */
 [data-theme="dark"] {
-  --oq-bg-page: #0F1114;
-  --oq-surface: #17191D;
-  --oq-surface-2: #1D2025;
-  --oq-border: #2E3138;
-  --oq-border-strong: #565B64;
-  --oq-header-border: #33363D;
-  --oq-kpi-strip-bg: #1A1C21;
+  /* Fundo com leve tom de roxo (30/09/2026 — combina com a marca roxa; antes cinza neutro #0F1114/#17191D). */
+  --oq-bg-page: #110E18;
+  --oq-surface: #19151F;
+  --oq-surface-2: #201B28;
+  --oq-border: #2F2839;
+  --oq-border-strong: #5A5068;
+  --oq-header-border: #352D40;
+  --oq-kpi-strip-bg: #1C1723;
 
   --oq-text-primary: #F2F2F3;
   --oq-text-secondary: #A3A6AD;
