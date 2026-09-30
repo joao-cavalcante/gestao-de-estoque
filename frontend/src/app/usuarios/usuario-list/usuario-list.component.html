@@ -32,7 +32,7 @@
             <span class="oq-admin-row__avatar">{{ iniciais(u.nome) }}</span>
             <div class="oq-admin-row__main">
               <span class="oq-admin-row__titulo">{{ u.nome }}</span>
-              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã' : 'Noite') : '' }}</span>
+              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã' : 'Noite') : '' }} · {{ u.codusuSankhya ? 'Sankhya ' + u.codusuSankhya : 'sem usuário Sankhya' }}</span>
             </div>
             <oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip>
             @if (u.crachaoCodigo) {
@@ -78,6 +78,17 @@
             <option value="ADMINISTRADOR">Administrador</option>
             <option value="ESTACAO">Estação</option>
           </select>
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Usuário Sankhya (CODUSU)</span>
+          <input
+            name="codusuSankhya"
+            type="text"
+            inputmode="numeric"
+            placeholder="Ex.: 31 — vazio = sem vínculo"
+            [(ngModel)]="form.codusuSankhya"
+            title="Código do usuário no Sankhya (TSIUSU.CODUSU). Ao finalizar, a conferência fica em nome dele no Sankhya."
+          />
         </div>
         <div class="oq-form-field">
           <span class="oq-form-field__label">Turno</span>

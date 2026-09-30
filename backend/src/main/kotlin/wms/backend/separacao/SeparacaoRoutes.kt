@@ -319,7 +319,11 @@ fun Route.separacaoRoutes() {
             // Corpo opcional (versões antigas do front mandam `{}`): sem campo = com corte.
             val semCorte = runCatching { call.receive<FinalizarRequest>().semCorte }.getOrDefault(false)
             try {
-                val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId, semCorte = semCorte)
+                // Quem finalizou: operador do crachá (estação) ou o próprio login.
+                val finalizador = SeparacaoRepository.buscarSessao(tenantId, sessaoId)?.operadorId
+                    ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                    ?: claims.userId.takeIf { claims.perfil != "ESTACAO" }
+                val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId, semCorte = semCorte, usuarioFinalizadorId = finalizador)
                 call.respond(resultado)
             } catch (e: SeparacaoService.FinalizarSeparacaoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível finalizar")))
@@ -435,6 +439,7 @@ fun Route.separacaoRoutes() {
                 val resultado = SeparacaoService.concluirEtapa(
                     slug, tenantId, sessaoId, body.tipoSeparacao, body.manterPendente, operador.nome,
                     finalizarSemCorte = body.finalizarSemCorte,
+                    usuarioFinalizadorId = operadorId,
                     divergente = body.divergente ?: body.manterPendente,
                 )
                 call.respond(resultado)

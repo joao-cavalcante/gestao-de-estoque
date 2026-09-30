@@ -20,10 +20,12 @@ interface FormUsuario {
   crachaoCodigo: string;
   /** '' = sem turno fixo | 'MANHA' | 'NOITE'. */
   turno: string;
+  /** CODUSU do Sankhya — '' = sem vínculo. */
+  codusuSankhya: string;
 }
 
 function formVazio(): FormUsuario {
-  return { nome: '', email: '', senha: '', perfil: 'OPERADOR', crachaoCodigo: '', turno: '' };
+  return { nome: '', email: '', senha: '', perfil: 'OPERADOR', crachaoCodigo: '', turno: '', codusuSankhya: '' };
 }
 
 @Component({
@@ -167,6 +169,7 @@ export class UsuarioListComponent implements OnInit {
       perfil: usuario.perfil,
       crachaoCodigo: usuario.crachaoCodigo ?? '',
       turno: usuario.turno ?? '',
+      codusuSankhya: usuario.codusuSankhya != null ? String(usuario.codusuSankhya) : '',
     };
     this.modalErro.set(null);
     this.modalAberto.set(true);
@@ -189,6 +192,7 @@ export class UsuarioListComponent implements OnInit {
           senha: this.form.senha,
           perfil: this.form.perfil,
           turno: this.form.turno || null,
+          codusuSankhya: this.codusuDoForm(),
         })
         .subscribe({
           next: (criado) => this.salvarCracha(criado.id, 'Usuário criado, mas falha ao atribuir o crachá.'),
@@ -201,7 +205,15 @@ export class UsuarioListComponent implements OnInit {
     }
 
     this.modalCarregando.set(true);
-    this.service.atualizar(id, { nome: this.form.nome, perfil: this.form.perfil, turno: this.form.turno || null }).subscribe({
+    this.service
+      .atualizar(id, {
+        nome: this.form.nome,
+        perfil: this.form.perfil,
+        turno: this.form.turno || null,
+        alterarCodusuSankhya: true,
+        codusuSankhya: this.codusuDoForm(),
+      })
+      .subscribe({
       next: () => {
         if (!this.form.senha) {
           this.salvarCracha(id, 'Dados salvos, mas falha ao atribuir o crachá.');
@@ -268,6 +280,11 @@ export class UsuarioListComponent implements OnInit {
         this.avisoLista.set({ tom: 'erro', texto: err.error?.erro ?? `Não foi possível excluir ${usuario.nome}.` });
       },
     });
+  }
+
+  private codusuDoForm(): number | null {
+    const n = Number(String(this.form.codusuSankhya ?? '').trim());
+    return Number.isInteger(n) && n > 0 ? n : null;
   }
 
   iniciais(nome: string): string {

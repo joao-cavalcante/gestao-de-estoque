@@ -72,6 +72,7 @@ object UsuariosRepository {
                     it[perfil] = req.perfil
                     it[ativo] = true
                     it[turno] = req.turno
+                    it[codigoErp] = req.codusuSankhya
                     it[criadoEm] = agora
                     it[atualizadoEm] = agora
                 }
@@ -83,7 +84,7 @@ object UsuariosRepository {
             throw e
         }
 
-        return UsuarioDto(userId.toString(), NomeUsuario.padronizar(req.nome), email, req.perfil, true, turno = req.turno)
+        return UsuarioDto(userId.toString(), NomeUsuario.padronizar(req.nome), email, req.perfil, true, turno = req.turno, codusuSankhya = req.codusuSankhya)
     }
 
     fun buscarPorId(tenantId: UUID, userId: UUID): UsuarioDto? = TenantTx.run(tenantId) {
@@ -153,6 +154,7 @@ object UsuariosRepository {
             req.perfil?.let { v -> it[perfil] = v }
             req.ativo?.let { v -> it[ativo] = v }
             req.turno?.let { v -> it[turno] = v }
+            if (req.alterarCodusuSankhya) it[codigoErp] = req.codusuSankhya
             it[atualizadoEm] = Instant.now()
         }
         linhas > 0
@@ -297,5 +299,14 @@ object UsuariosRepository {
         ativo = this[UsersTable.ativo],
         crachaoCodigo = this[UsersTable.crachaoCodigo],
         turno = this[UsersTable.turno],
+        codusuSankhya = this[UsersTable.codigoErp],
     )
+
+    /** TSIUSU.CODUSU vinculado ao usuário do WMS (codigo_erp) — null sem vínculo. */
+    fun codusuSankhya(tenantId: UUID, userId: UUID): Int? = TenantTx.run(tenantId) {
+        UsersTable.selectAll()
+            .where { (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }
+            .singleOrNull()
+            ?.get(UsersTable.codigoErp)
+    }
 }

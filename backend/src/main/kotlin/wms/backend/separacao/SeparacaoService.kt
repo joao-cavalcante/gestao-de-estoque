@@ -589,7 +589,14 @@ object SeparacaoService {
      * decisão de permitir ou não já está na configuração do Sankhya, não é
      * escolha nossa aqui.
      */
-    suspend fun finalizar(tenantSlug: String, tenantId: UUID, sessaoId: UUID, semCorte: Boolean = false): FinalizarResultadoDto {
+    suspend fun finalizar(
+        tenantSlug: String,
+        tenantId: UUID,
+        sessaoId: UUID,
+        semCorte: Boolean = false,
+        /** Quem finalizou (login pessoal, ou operador do crachá na estação) — vira TGFCON2.CODUSUCONF. */
+        usuarioFinalizadorId: UUID? = null,
+    ): FinalizarResultadoDto {
         val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão não encontrada")
         if (sessao.status != SeparacaoStatus.PRONTA) {
@@ -630,6 +637,10 @@ object SeparacaoService {
         // conferência segmentada, ou o contador da sessão) vai junto no `cortar`,
         // igual ao legado (ConferenciaSP.cortar recebe { nuNota, peso, qtdVol }).
         val qtdVol = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
+
+        // Conferente no Sankhya = quem finalizou no WMS (vínculo CODUSU no cadastro de usuários).
+        // Antes do corte/finalização (depois a conferência fecha). Falha aqui NÃO trava a finalização.
+        registrarConferenteSankhya(tenantSlug, tenantId, nuconf, usuarioFinalizadorId)
 
         // "Finalizar divergente" (botão do pop-up de divergência) = o MESMO que a tela nativa do
         // Sankhya: SÓ ConferenciaSP.finalizarConferencia com os eventos de confirmação — sem
@@ -766,6 +777,35 @@ object SeparacaoService {
      * pendente, dispara `finalizar` (push real pro Sankhya). Espelha
      * `postConcluirEtapa` do fila-de-conferencia.
      */
+    /**
+     * TGFCON2.CODUSUCONF = CODUSU (TSIUSU) do usuário do WMS que finalizou, via CRUDServiceProvider.saveRecord
+     * na CabecalhoConferencia. Sem vínculo no cadastro = não mexe (fica o usuário da integração).
+     */
+    private suspend fun registrarConferenteSankhya(tenantSlug: String, tenantId: UUID, nuconf: Int, usuarioId: UUID?) {
+        if (usuarioId == null) return
+        val codusu = withContext(Dispatchers.IO) { wms.backend.usuarios.UsuariosRepository.codusuSankhya(tenantId, usuarioId) } ?: return
+        runCatching {
+            SankhyaSpClient.chamarRaw(
+                tenantSlug, "CRUDServiceProvider.saveRecord", "mge",
+                buildJsonObject {
+                    putJsonObject("dataSet") {
+                        put("rootEntity", "CabecalhoConferencia")
+                        put("includePresentationFields", "N")
+                        putJsonObject("dataRow") {
+                            putJsonObject("localFields") { putJsonObject("CODUSUCONF") { put("\$", codusu.toString()) } }
+                            putJsonObject("key") { putJsonObject("NUCONF") { put("\$", nuconf.toString()) } }
+                        }
+                        putJsonObject("entity") { putJsonObject("fieldset") { put("list", "NUCONF,CODUSUCONF") } }
+                    }
+                },
+            )
+        }.onSuccess {
+            println("INFO: conferência $nuconf — CODUSUCONF=$codusu gravado")
+        }.onFailure {
+            println("AVISO: conferência $nuconf — falha ao gravar CODUSUCONF=$codusu: ${it.message}")
+        }
+    }
+
     suspend fun concluirEtapa(
         tenantSlug: String,
         tenantId: UUID,
@@ -775,6 +815,8 @@ object SeparacaoService {
         operador: String,
         /** Última etapa: "Finalizar divergente" (sem corte) em vez de "Cortar" — ver finalizar(semCorte). */
         finalizarSemCorte: Boolean = false,
+        /** Quem concluiu (vira o conferente no Sankhya se esta for a última etapa). */
+        usuarioFinalizadorId: UUID? = null,
         /** Pin vermelho da etapa na fila — false quando só sobrou pesável na tolerância (ver ConcluirEtapaRequest). */
         divergente: Boolean = manterPendente,
     ): ConcluirEtapaResultadoDto {
@@ -838,7 +880,7 @@ object SeparacaoService {
         // precisou de UPDATE manual no banco pra destravar. Reverte a etapa
         // pra 'P' se finalizar() falhar, pra um retry pela UI funcionar sozinho.
         val res = try {
-            finalizar(tenantSlug, tenantId, sessaoId, semCorte = finalizarSemCorte)
+            finalizar(tenantSlug, tenantId, sessaoId, semCorte = finalizarSemCorte, usuarioFinalizadorId = usuarioFinalizadorId)
         } catch (e: Exception) {
             withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
             throw e

@@ -12,6 +12,8 @@ data class UsuarioDto(
     val crachaoCodigo: String? = null,
     /** MANHA | NOITE | null — exibido no header global ("Unidade / Turno"). */
     val turno: String? = null,
+    /** TSIUSU.CODUSU do usuário no Sankhya (app.users.codigo_erp) — vira TGFCON2.CODUSUCONF ao finalizar. */
+    val codusuSankhya: Int? = null,
 )
 
 @Serializable
@@ -21,6 +23,7 @@ data class CriarUsuarioRequest(
     val senha: String,
     val perfil: String = "OPERADOR",
     val turno: String? = null,
+    val codusuSankhya: Int? = null,
 )
 
 @Serializable
@@ -30,6 +33,9 @@ data class AtualizarUsuarioRequest(
     val ativo: Boolean? = null,
     /** Mesma convenção dos campos acima: null = não mexe (não dá pra "limpar" o turno por aqui, só trocar). */
     val turno: String? = null,
+    /** true = grava [codusuSankhya] (inclusive null, pra limpar o vínculo); false = não mexe. */
+    val alterarCodusuSankhya: Boolean = false,
+    val codusuSankhya: Int? = null,
 )
 
 @Serializable
