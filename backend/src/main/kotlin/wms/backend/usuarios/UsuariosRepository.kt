@@ -66,7 +66,7 @@ object UsuariosRepository {
                 UsersTable.insert {
                     it[id] = userId
                     it[UsersTable.tenantId] = tenantId
-                    it[nome] = req.nome
+                    it[nome] = NomeUsuario.padronizar(req.nome)
                     it[UsersTable.email] = email
                     it[senhaHash] = hash
                     it[perfil] = req.perfil
@@ -83,7 +83,7 @@ object UsuariosRepository {
             throw e
         }
 
-        return UsuarioDto(userId.toString(), req.nome, email, req.perfil, true, turno = req.turno)
+        return UsuarioDto(userId.toString(), NomeUsuario.padronizar(req.nome), email, req.perfil, true, turno = req.turno)
     }
 
     fun buscarPorId(tenantId: UUID, userId: UUID): UsuarioDto? = TenantTx.run(tenantId) {
@@ -149,7 +149,7 @@ object UsuariosRepository {
 
     fun atualizar(tenantId: UUID, userId: UUID, req: AtualizarUsuarioRequest): Boolean = TenantTx.run(tenantId) {
         val linhas = UsersTable.update({ (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }) {
-            req.nome?.let { v -> it[nome] = v }
+            req.nome?.let { v -> it[nome] = NomeUsuario.padronizar(v) }
             req.perfil?.let { v -> it[perfil] = v }
             req.ativo?.let { v -> it[ativo] = v }
             req.turno?.let { v -> it[turno] = v }
