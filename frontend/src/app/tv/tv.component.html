@@ -17,7 +17,12 @@
         </span>
       </div>
     </div>
-    <span class="tv__hora">{{ agora() | date: 'HH:mm:ss' }}</span>
+    <div class="tv__relogio">
+      <span class="tv__hora">{{ agora() | date: 'HH:mm:ss' }}</span>
+      @if (dados(); as d0) {
+        <span class="tv__turno" [class.tv__turno--fora]="!d0.turno.codigo">{{ d0.turno.codigo ? 'TURNO ' : '' }}{{ d0.turno.rotulo }}</span>
+      }
+    </div>
   </header>
 
   @if (dados(); as d) {
@@ -37,19 +42,27 @@
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('aguardandoLiberacao')">{{ numero(d.resumo.aguardandoLiberacao) }}</span>
       </div>
       <div class="tv-kpi tv-kpi--ok">
-        <span class="tv-kpi__rot">Pronto hoje</span>
-        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('prontoHoje')">{{ numero(d.resumo.prontoHoje) }}</span>
+        <span class="tv-kpi__rot">{{ d.turno.codigo ? 'Pronto no turno' : 'Pronto hoje' }}</span>
+        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('prontoTurno')">{{ numero(d.resumo.prontoTurno) }}</span>
       </div>
       <div class="tv-kpi">
-        <span class="tv-kpi__rot">Tempo médio hoje</span>
-        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('tempoMedioHojeMin')">
-          @if (d.resumo.tempoMedioHojeMin != null) {
-            {{ d.resumo.tempoMedioHojeMin }}<small>min</small>
+        <span class="tv-kpi__rot">{{ d.turno.codigo ? 'Tempo médio no turno' : 'Tempo médio hoje' }}</span>
+        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('tempoMedioTurnoMin')">
+          @if (d.resumo.tempoMedioTurnoMin != null) {
+            {{ d.resumo.tempoMedioTurnoMin }}<small>min</small>
           } @else {
             —
           }
         </span>
       </div>
+    </section>
+
+    <!-- Pedidos pendentes por modalidade (AD_EXPRESS / AD_RETIRA / AD_ENTREGA) -->
+    <section class="tv__modalidades">
+      <span class="tv__modalidades-rot">Pendentes por modalidade</span>
+      <span class="tv-mod tv-mod--express"><oq-icon name="express" [size]="22" />Express<strong>{{ numero(d.modalidades.express) }}</strong></span>
+      <span class="tv-mod tv-mod--retira"><oq-icon name="retira" [size]="22" />Cliente retira<strong>{{ numero(d.modalidades.retira) }}</strong></span>
+      <span class="tv-mod tv-mod--entrega"><oq-icon name="entrega" [size]="22" />Entrega<strong>{{ numero(d.modalidades.entrega) }}</strong></span>
     </section>
 
     <section class="tv__meio">

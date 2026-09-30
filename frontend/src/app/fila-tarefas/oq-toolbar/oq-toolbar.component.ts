@@ -47,7 +47,7 @@ export class OqToolbarComponent {
   @Output() modalidadeToggle = new EventEmitter<'express' | 'retira' | 'entrega'>();
   readonly modalidades = [
     { id: 'express', label: 'Express', icone: 'express' },
-    { id: 'retira', label: 'Retira', icone: 'retira' },
+    { id: 'retira', label: 'Cliente retira', icone: 'retira' },
     { id: 'entrega', label: 'Entrega', icone: 'entrega' },
   ] as const;
   @Output() termoBuscaChange = new EventEmitter<string>();

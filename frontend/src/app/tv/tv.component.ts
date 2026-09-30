@@ -22,7 +22,7 @@ const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
  * agregado (GET /api/tv/resumo, só banco local) a cada 15 s via switchMap (requisição anterior é
  * cancelada; sem polling duplicado). Relógio, "há X min" e PARADO andam por um tick local de 1 s.
  * Erro de rede mantém os últimos dados e mostra "ATUALIZAÇÃO PENDENTE". Listas longas rotacionam
- * em páginas a cada 10 s (sem rolagem). Tema escuro próprio, independente do tema do app.
+ * em páginas a cada 10 s (sem rolagem). Tema claro próprio, independente do tema do app.
  */
 @Component({
   selector: 'app-tv',
@@ -30,7 +30,7 @@ const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
   imports: [OqIconComponent, OqModalidadePinsComponent, DatePipe],
   templateUrl: './tv.component.html',
   styleUrl: './tv.component.scss',
-  host: { 'data-theme': 'dark' },
+  host: { 'data-theme': 'light' },
 })
 export class TvComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);

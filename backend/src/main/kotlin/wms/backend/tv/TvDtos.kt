@@ -15,6 +15,10 @@ data class TvResumoDto(
     /** Tenant com conferência por etapa (faixa Secos/Refrigerado/Congelado). */
     val segmentado: Boolean,
     val resumo: TvContadoresDto,
+    /** Turno atual (Manhã 08–18, Noite 22–07); fora de turno = contagem desde 00:00. */
+    val turno: TvTurnoDto,
+    /** Pedidos pendentes (disponível + em conferência + aguardando liberação) por modalidade. */
+    val modalidades: TvModalidadesDto,
     val emConferencia: List<TvConferenciaDto>,
     val recemFinalizados: List<TvFinalizadoDto>,
     val porEtapa: List<TvEtapaResumoDto>,
@@ -32,6 +36,27 @@ data class TvContadoresDto(
     val prontoHoje: Int,
     /** Média (min) conclusão − início, só conferências feitas pelo WMS e concluídas hoje. null = sem dados. */
     val tempoMedioHojeMin: Int?,
+    /** Mesmo critério do prontoHoje, contado desde o início do turno atual. */
+    val prontoTurno: Int = 0,
+    /** Mesmo critério do tempoMedioHojeMin, só conclusões do turno atual. */
+    val tempoMedioTurnoMin: Int? = null,
+)
+
+@Serializable
+data class TvTurnoDto(
+    /** MANHA | NOITE | null (fora de turno). */
+    val codigo: String?,
+    /** "Manhã · 08:00–18:00" / "Noite · 22:00–07:00" / "Fora de turno". */
+    val rotulo: String,
+    /** Início da janela de contagem (turno, ou 00:00 fora de turno) — ISO. */
+    val inicioEm: String,
+)
+
+@Serializable
+data class TvModalidadesDto(
+    val express: Int,
+    val retira: Int,
+    val entrega: Int,
 )
 
 @Serializable

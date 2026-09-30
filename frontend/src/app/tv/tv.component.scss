@@ -13,16 +13,16 @@
   overflow: hidden;
   cursor: none;
 
-  /* Identidade sutil das etapas (dessaturadas) */
-  --tv-secos: #B89A68;
-  --tv-refrigerado: #5FA3A8;
-  --tv-congelado: #7EA3D6;
-  --tv-painel: color-mix(in srgb, var(--oq-surface) 88%, transparent);
+  /* Identidade sutil das etapas (dessaturadas, tons pra fundo claro) */
+  --tv-secos: #8A6A36;
+  --tv-refrigerado: #2F7C80;
+  --tv-congelado: #3F6FB0;
+  --tv-painel: var(--oq-surface);
 }
 
 .tv {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: 1.6vh;
   height: 100vh;
   padding: 2vh 1.8vw 1.8vh;
@@ -96,6 +96,67 @@
   }
 }
 
+.tv__relogio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6vh;
+}
+
+.tv__turno {
+  font-family: var(--oq-font-display);
+  font-size: 0.95vw;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--oq-brand-text);
+
+  &--fora { color: var(--oq-text-secondary); }
+}
+
+/* Faixa de modalidades */
+.tv__modalidades {
+  display: flex;
+  align-items: center;
+  gap: 1.4vw;
+  padding: 1vh 1.3vw;
+  border-radius: var(--oq-radius-block);
+  background: var(--tv-painel);
+}
+
+.tv__modalidades-rot {
+  margin-right: auto;
+  font-family: var(--oq-font-display);
+  font-size: 0.95vw;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--oq-text-secondary);
+}
+
+.tv-mod {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6vw;
+  font-family: var(--oq-font-display);
+  font-size: 1.1vw;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+
+  strong {
+    margin-left: 0.3vw;
+    font-family: var(--oq-font-mono);
+    font-size: 2.2vw;
+    line-height: 1;
+    color: var(--oq-text-primary);
+  }
+
+  &--express { color: var(--oq-critical-foreground); }
+  &--retira { color: var(--oq-brand-accent); }
+  &--entrega { color: var(--oq-success-foreground); }
+}
+
 .tv__hora {
   font-family: var(--oq-font-mono);
   font-weight: 600;
@@ -124,11 +185,11 @@
   transition: background 0.4s ease;
 
   &--principal {
-    background: color-mix(in srgb, var(--oq-brand) 32%, var(--oq-surface));
+    background: color-mix(in srgb, var(--oq-brand) 10%, var(--oq-surface));
     box-shadow: inset 0 0.3vh 0 var(--oq-brand-accent);
   }
   &--atencao {
-    background: color-mix(in srgb, var(--oq-attention) 16%, var(--oq-surface));
+    background: color-mix(in srgb, var(--oq-attention) 12%, var(--oq-surface));
     box-shadow: inset 0 0.3vh 0 var(--oq-attention);
     .tv-kpi__val { color: var(--oq-warning-foreground); }
   }
@@ -249,7 +310,7 @@
   transition: background 0.5s ease, box-shadow 0.5s ease;
 
   &--parado {
-    background: color-mix(in srgb, var(--oq-critical) 14%, var(--oq-surface-2));
+    background: color-mix(in srgb, var(--oq-critical) 9%, var(--oq-surface-2));
     box-shadow: inset 0.35vw 0 0 var(--oq-critical);
   }
   &--recontagem { box-shadow: inset 0.35vw 0 0 var(--oq-attention); }

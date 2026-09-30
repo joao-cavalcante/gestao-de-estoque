@@ -92,7 +92,7 @@ export class OqModalidadePinsComponent {
     const m = this.modalidade;
     const lista: Pin[] = [
       { chave: 'express', icone: 'express', label: 'Express', qtd: c ? c.express : null },
-      { chave: 'retira', icone: 'retira', label: 'Retira', qtd: c ? c.retira : null },
+      { chave: 'retira', icone: 'retira', label: 'Cliente retira', qtd: c ? c.retira : null },
       { chave: 'entrega', icone: 'entrega', label: 'Entrega', qtd: c ? c.entrega : null },
     ];
     return lista.filter((p) => (c ? (p.qtd ?? 0) > 0 : !!m?.[p.chave]));

@@ -32,7 +32,7 @@
             <span class="oq-admin-row__avatar">{{ iniciais(u.nome) }}</span>
             <div class="oq-admin-row__main">
               <span class="oq-admin-row__titulo">{{ u.nome }}</span>
-              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã' : 'Noite') : '' }}{{ u.codusuSankhya ? '' : ' · sem usuário Sankhya' }}</span>
+              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã 08–18h' : 'Noite 22–07h') : '' }}{{ u.codusuSankhya ? '' : ' · sem usuário Sankhya' }}</span>
             </div>
             <oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip>
             @if (u.codusuSankhya) {
@@ -132,8 +132,8 @@
           <span class="oq-form-field__label">Turno</span>
           <select name="turno" [(ngModel)]="form.turno">
             <option value="">Sem turno fixo</option>
-            <option value="MANHA">Manhã</option>
-            <option value="NOITE">Noite</option>
+            <option value="MANHA">Manhã · 08:00–18:00</option>
+            <option value="NOITE">Noite · 22:00–07:00</option>
           </select>
         </div>
         <div class="oq-form-field">

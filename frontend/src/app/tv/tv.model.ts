@@ -9,7 +9,13 @@ export interface TvResumo {
     aguardandoLiberacao: number;
     prontoHoje: number;
     tempoMedioHojeMin: number | null;
+    prontoTurno: number;
+    tempoMedioTurnoMin: number | null;
   };
+  /** Turno atual (Manhã 08–18, Noite 22–07); fora de turno = desde 00:00. */
+  turno: { codigo: string | null; rotulo: string; inicioEm: string };
+  /** Pedidos pendentes por modalidade (Express / Cliente retira / Entrega). */
+  modalidades: { express: number; retira: number; entrega: number };
   emConferencia: TvConferencia[];
   recemFinalizados: TvFinalizado[];
   porEtapa: TvEtapaResumo[];

@@ -59,6 +59,22 @@ object TvService {
 
     private fun Set<StatusOperacional>.codigos() = map { it.codigo }.toSet()
 
+    /**
+     * Turnos da expedição (mesmos códigos de app.users.turno): Manhã 08:00–18:00, Noite 22:00–07:00
+     * (atravessa a meia-noite). Fora das janelas = sem turno → conta desde 00:00.
+     */
+    private fun turnoAtual(agora: Instant): Triple<String?, String, Instant> {
+        val local = agora.atZone(ZONA)
+        val hoje = local.toLocalDate()
+        val h = local.hour
+        return when {
+            h in 8..17 -> Triple("MANHA", "Manhã · 08:00–18:00", hoje.atTime(8, 0).atZone(ZONA).toInstant())
+            h >= 22 -> Triple("NOITE", "Noite · 22:00–07:00", hoje.atTime(22, 0).atZone(ZONA).toInstant())
+            h < 7 -> Triple("NOITE", "Noite · 22:00–07:00", hoje.minusDays(1).atTime(22, 0).atZone(ZONA).toInstant())
+            else -> Triple(null, "Fora de turno", hoje.atStartOfDay(ZONA).toInstant())
+        }
+    }
+
     private data class Nota(
         val nunota: Long,
         val status: String,
@@ -80,6 +96,9 @@ object TvService {
         val inicioDoDia = LocalDate.now(ZONA).atStartOfDay(ZONA).toInstant()
         val limiteLock = agora.minusSeconds(LIMITE_PARADO_MIN * 60L)
         val segmentado = TenantRepository.modulosHabilitados(tenantId).contains(Modulos.CONFERENCIA_SEGMENTADA)
+        val (turnoCodigo, turnoRotulo, inicioTurno) = turnoAtual(agora)
+        // A auditoria precisa cobrir o turno da noite que começou ontem 22:00.
+        val inicioBusca = minOf(inicioDoDia, inicioTurno)
 
         val composto = TenantTx.run(tenantId) {
             // 1) Todas as notas do espelho (mesmo universo da Fila).
@@ -100,7 +119,7 @@ object TvService {
             if (prontas.isNotEmpty()) {
                 TarefasAuditoriaTable.selectAll().where {
                     (TarefasAuditoriaTable.tenantId eq tenantId) and
-                        (TarefasAuditoriaTable.criadoEm greaterEq inicioDoDia) and
+                        (TarefasAuditoriaTable.criadoEm greaterEq inicioBusca) and
                         (TarefasAuditoriaTable.statusNovo inList PRONTO)
                 }.forEach { r ->
                     val n = r[TarefasAuditoriaTable.nunota].toLong()
@@ -109,10 +128,12 @@ object TvService {
                 }
             }
             fun conclusaoDe(n: Nota): Instant? = listOfNotNull(conclusaoAuditoria[n.nunota], n.concluidoEm).maxOrNull()
-            val prontasHoje = prontas.mapNotNull { n -> conclusaoDe(n)?.takeIf { it >= inicioDoDia }?.let { n to it } }
+            val prontasJanela = prontas.mapNotNull { n -> conclusaoDe(n)?.takeIf { it >= inicioBusca }?.let { n to it } }
+            val prontasHoje = prontasJanela.filter { it.second >= inicioDoDia }
+            val prontasTurno = prontasJanela.filter { it.second >= inicioTurno }
 
             // 3) Sessões das notas em conferência e das prontas hoje (uma consulta).
-            val nunotasSessao = (emConf.map { it.nunota } + prontasHoje.map { it.first.nunota }).map { it.toInt() }.distinct()
+            val nunotasSessao = (emConf.map { it.nunota } + prontasJanela.map { it.first.nunota }).map { it.toInt() }.distinct()
             val sessoes = if (nunotasSessao.isEmpty()) emptyList() else SeparacaoSessoesTable.selectAll().where {
                 (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota inList nunotasSessao)
             }.map { r ->
@@ -230,12 +251,16 @@ object TvService {
                     recontagem = n.status in RECONTAGEM,
                 )
             }
-            val duracoes = prontasHoje.mapNotNull { (n, fim) ->
-                val inicio = concluidaPorNunota[n.nunota]?.criadoEm ?: return@mapNotNull null
-                val seg = fim.epochSecond - inicio.epochSecond
-                seg.takeIf { it > 0 }
+            fun tempoMedioMin(lista: List<Pair<Nota, Instant>>): Int? {
+                val duracoes = lista.mapNotNull { (n, fim) ->
+                    val inicio = concluidaPorNunota[n.nunota]?.criadoEm ?: return@mapNotNull null
+                    (fim.epochSecond - inicio.epochSecond).takeIf { it > 0 }
+                }
+                return if (duracoes.isEmpty()) null else Math.round(duracoes.average() / 60.0).toInt()
             }
-            val tempoMedio = if (duracoes.isEmpty()) null else Math.round(duracoes.average() / 60.0).toInt()
+            val tempoMedio = tempoMedioMin(prontasHoje)
+            val pendentes = notas.filter { it.status in DISPONIVEL || it.status in EM_CONFERENCIA || it.status in AGUARDANDO_LIBERACAO }
+            fun sim(n: Nota, campo: String) = n.campo(campo)?.uppercase() == "S"
 
             // ---- Faixa por etapa (etapas reais das conferências abertas + concluídas hoje) ----
             val locksAtivos = locks.filter { it.third[SeparacaoLocksTable.ultimaAtividade] >= limiteLock }
@@ -261,6 +286,14 @@ object TvService {
                     aguardandoLiberacao = notas.count { it.status in AGUARDANDO_LIBERACAO },
                     prontoHoje = prontasHoje.size,
                     tempoMedioHojeMin = tempoMedio,
+                    prontoTurno = prontasTurno.size,
+                    tempoMedioTurnoMin = tempoMedioMin(prontasTurno),
+                ),
+                turno = TvTurnoDto(codigo = turnoCodigo, rotulo = turnoRotulo, inicioEm = iso(inicioTurno)),
+                modalidades = TvModalidadesDto(
+                    express = pendentes.count { sim(it, "AD_EXPRESS") },
+                    retira = pendentes.count { sim(it, "AD_RETIRA") },
+                    entrega = pendentes.count { sim(it, "AD_ENTREGA") },
                 ),
                 emConferencia = cards,
                 recemFinalizados = finalizados,
