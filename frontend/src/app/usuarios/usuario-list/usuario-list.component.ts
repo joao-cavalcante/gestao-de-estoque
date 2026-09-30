@@ -282,6 +282,27 @@ export class UsuarioListComponent implements OnInit {
     });
   }
 
+  /** id do usuário sendo criado no Sankhya (spinner no botão da linha). */
+  criandoSankhya = signal<string | null>(null);
+
+  /** Botão "Criar no Sankhya": cria na TSIUSU pelo modelo e já vincula o CODUSU. */
+  criarNoSankhya(u: Usuario): void {
+    if (this.criandoSankhya()) return;
+    this.criandoSankhya.set(u.id);
+    this.avisoLista.set(null);
+    this.service.criarNoSankhya(u.id).subscribe({
+      next: (r) => {
+        this.criandoSankhya.set(null);
+        this.avisoLista.set({ tom: 'info', texto: `${u.nome}: ${r.mensagem}` });
+        this.carregar();
+      },
+      error: (err) => {
+        this.criandoSankhya.set(null);
+        this.avisoLista.set({ tom: 'erro', texto: `${u.nome}: ${err.error?.erro ?? 'não foi possível criar no Sankhya.'}` });
+      },
+    });
+  }
+
   private codusuDoForm(): number | null {
     const n = Number(String(this.form.codusuSankhya ?? '').trim());
     return Number.isInteger(n) && n > 0 ? n : null;

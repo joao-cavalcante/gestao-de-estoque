@@ -33,4 +33,9 @@ export class UsuarioService {
   remover(id: string): Observable<{ desativado?: string; mensagem?: string } | null> {
     return this.http.delete<{ desativado?: string; mensagem?: string } | null>(`${this.baseUrl}/${id}`);
   }
+
+  /** Cria o usuário no Sankhya (TSIUSU, modelo do grupo 32) e grava o CODUSU no vínculo. */
+  criarNoSankhya(id: string): Observable<{ codusu: string; nomeUsu: string; mensagem: string }> {
+    return this.http.post<{ codusu: string; nomeUsu: string; mensagem: string }>(`${this.baseUrl}/${id}/criar-no-sankhya`, {});
+  }
 }

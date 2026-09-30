@@ -38,6 +38,22 @@
             @if (u.crachaoCodigo) {
               <oq-status-chip tone="success" title="Código do crachá: {{ u.crachaoCodigo }}">CRACHÁ</oq-status-chip>
             }
+            @if (!u.codusuSankhya && u.perfil === 'OPERADOR') {
+              <button
+                type="button"
+                class="oq-admin-btn oq-admin-btn--outline"
+                [disabled]="criandoSankhya() !== null"
+                (click)="criarNoSankhya(u)"
+                title="Cria o usuário no Sankhya (grupo 32 Logística/Separação) e já vincula o CODUSU"
+              >
+                @if (criandoSankhya() === u.id) {
+                  <oq-spinner [size]="12" />
+                  Criando…
+                } @else {
+                  Criar no Sankhya
+                }
+              </button>
+            }
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="alternarAtivo(u)">
               {{ u.ativo ? 'Desativar' : 'Ativar' }}
             </button>

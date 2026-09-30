@@ -61,6 +61,35 @@ fun Route.usuariosRoutes() {
             }
         }
 
+        /**
+         * "Criar no Sankhya": cria o usuário na TSIUSU pela entidade Usuario (modelo do 194, grupo 32) e
+         * grava o CODUSU no vínculo (codigo_erp). Nome que já existe no Sankhya = só vincula.
+         */
+        post("/{id}/criar-no-sankhya") {
+            val claims = call.exigirAdmin() ?: return@post
+            val userId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "id inválido"))
+            val usuario = UsuariosRepository.buscarPorId(claims.tenantId, userId)
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "usuário não encontrado"))
+            val tenant = wms.backend.tenancy.TenantRepository.buscarPorId(claims.tenantId)
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+            try {
+                val r = SankhyaUsuarioService.criar(tenant.slug, usuario.nome)
+                UsuariosRepository.atualizar(
+                    claims.tenantId, userId, AtualizarUsuarioRequest(alterarCodusuSankhya = true, codusuSankhya = r.codusu),
+                )
+                call.respond(
+                    mapOf(
+                        "codusu" to r.codusu.toString(),
+                        "nomeUsu" to r.nomeUsu,
+                        "mensagem" to if (r.jaExistia) "Já existia no Sankhya (${r.codusu} ${r.nomeUsu}) — vinculado." else "Criado no Sankhya: ${r.codusu} ${r.nomeUsu} — vinculado.",
+                    ),
+                )
+            } catch (e: SankhyaUsuarioService.SankhyaUsuarioException) {
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to "Sankhya: ${e.message}"))
+            }
+        }
+
         post("/{id}/crachao") {
             val claims = call.exigirAdmin() ?: return@post
             val userId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
