@@ -221,10 +221,11 @@ body {
   animation: oq-skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
+/* "Reduzir movimento" do aparelho (comum em tablet/Windows com animações desligadas) só corta o que é
+   decorativo. O spinner de carregamento (.oq-spin) continua girando — parado, parecia travado. */
 @media (prefers-reduced-motion: reduce) {
   .oq-gear-spin,
   .oq-alert-pulse,
-  .oq-spin,
   .oq-skeleton {
     animation: none !important;
   }
