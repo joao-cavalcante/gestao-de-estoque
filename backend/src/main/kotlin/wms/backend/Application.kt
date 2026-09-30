@@ -79,6 +79,11 @@ fun Application.module() {
         get("/health") {
             call.respond(mapOf("status" to "ok"))
         }
+        // Mesmo /health, mas dentro de /api (o nginx do front só repassa /api/) — o indicador de
+        // conexão do frontend (ConexaoService) testa o servidor por aqui. Sem auth, sem banco.
+        get("/api/health") {
+            call.respond(mapOf("status" to "ok"))
+        }
         tenantRoutes()
         tarefasRoutes()
         authRoutes()

@@ -7,6 +7,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
 import { authInterceptor } from './auth/auth.interceptor';
 import { lockInterceptor } from './separacao/lock.interceptor';
+import { conexaoInterceptor } from './shared/conexao/conexao.interceptor';
 
 // pt-BR no app inteiro: sem isto o pipe `number` formatava no padrão americano
 // ("1,980.000" em vez de "1.980,000") — confundia o operador no pop-up de peso.
@@ -15,7 +16,7 @@ registerLocaleData(localePt, 'pt-BR');
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor, lockInterceptor])),
+    provideHttpClient(withInterceptors([conexaoInterceptor, authInterceptor, lockInterceptor])),
     { provide: LOCALE_ID, useValue: 'pt-BR' },
   ],
 };
