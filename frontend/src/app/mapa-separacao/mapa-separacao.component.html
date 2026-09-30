@@ -124,9 +124,6 @@
                       <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
                       <span class="oq-card__client">Nro. Único {{ p.nunota }}</span>
                     </label>
-                    <div class="ms-card-badge">
-                      <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
-                    </div>
                     <div class="oq-card__status-line">
                       <span class="oq-status-pin oq-status-pin--aguardando">
                         <oq-icon name="box" [size]="12" />
@@ -188,7 +185,6 @@
                           <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
                           <span class="oq-lista__destaque">Nro. Único {{ p.nunota }}</span>
                         </label>
-                        <ng-container [ngTemplateOutlet]="badgeOc" [ngTemplateOutletContext]="{ oc: p.ordemCarga }" />
                         <oq-modalidade-pins class="ms-pins" [modalidade]="p.modalidade" [compacto]="true" />
                       </td>
                       <td data-label="Nota">{{ p.numNota ?? '—' }}</td>
