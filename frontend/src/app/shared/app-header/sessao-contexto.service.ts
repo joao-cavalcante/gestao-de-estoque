@@ -19,7 +19,7 @@ export interface UnidadeInfo {
 }
 
 const ROTULO_TURNO: Record<string, string> = { MANHA: 'Manhã', NOITE: 'Noite' };
-const ROTULO_PERFIL: Record<string, string> = { ADMINISTRADOR: 'Administrador', OPERADOR: 'Operador', ESTACAO: 'Estação' };
+const ROTULO_PERFIL: Record<string, string> = { ADMINISTRADOR: 'Administrador', OPERADOR: 'Operador', ESTACAO: 'Estação', TV: 'TV' };
 
 function iniciaisDe(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);

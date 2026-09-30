@@ -16,6 +16,6 @@ export const adminGuard: CanActivateFn = () => {
   }
   if (auth.usuario()?.perfil === 'ADMINISTRADOR') return true;
 
-  router.navigate(['/fila-tarefas']);
+  router.navigate([auth.usuario()?.perfil === 'TV' ? '/tv' : '/fila-tarefas']);
   return false;
 };

@@ -13,6 +13,8 @@ import { TiposOperacaoComponent } from './tipos-operacao/tipos-operacao.componen
 import { LoginComponent } from './auth/login/login.component';
 import { authGuard } from './auth/auth.guard';
 import { adminGuard } from './auth/admin.guard';
+import { tvGuard } from './auth/tv.guard';
+import { TvComponent } from './tv/tv.component';
 import { UsuarioListComponent } from './usuarios/usuario-list/usuario-list.component';
 import { BalancaListComponent } from './balancas/balanca-list/balanca-list.component';
 import { DownloadsComponent } from './downloads/downloads.component';
@@ -27,6 +29,8 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: '', redirectTo: 'fila-tarefas', pathMatch: 'full' },
   { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard] },
+  // TV de acompanhamento da conferência (painel de parede) — perfil TV ou admin.
+  { path: 'tv', component: TvComponent, canActivate: [tvGuard] },
   { path: 'conferencia/:nunota', component: ConferenciaComponent, canActivate: [authGuard] },
   { path: 'transferencia', component: TransferenciaComponent, canActivate: [authGuard] },
   { path: 'transferencias', component: TransferenciasDesktopComponent, canActivate: [authGuard] },

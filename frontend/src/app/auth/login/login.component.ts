@@ -55,7 +55,7 @@ export class LoginComponent implements AfterViewInit {
     this.auth.login(this.email, this.senha).subscribe({
       next: () => {
         this.carregando.set(false);
-        this.router.navigate(['/fila-tarefas']);
+        this.router.navigate([this.auth.usuario()?.perfil === 'TV' ? '/tv' : '/fila-tarefas']);
       },
       error: (err) => {
         this.carregando.set(false);
@@ -74,7 +74,7 @@ export class LoginComponent implements AfterViewInit {
       next: () => {
         this.crachaoCodigo = '';
         this.carregando.set(false);
-        this.router.navigate(['/fila-tarefas']);
+        this.router.navigate([this.auth.usuario()?.perfil === 'TV' ? '/tv' : '/fila-tarefas']);
       },
       error: (err) => {
         this.crachaoCodigo = '';

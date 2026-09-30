@@ -135,7 +135,7 @@ object UsuariosRepository {
     }
 
     /** Ordem de exibição da tela de Usuários — pedido explícito: Admin primeiro, depois Estação, depois Operador. */
-    private val ORDEM_PERFIL = listOf("ADMINISTRADOR", "ESTACAO", "OPERADOR")
+    private val ORDEM_PERFIL = listOf("ADMINISTRADOR", "ESTACAO", "TV", "OPERADOR")
 
     fun listar(tenantId: UUID): List<UsuarioDto> = TenantTx.run(tenantId) {
         UsersTable.selectAll()

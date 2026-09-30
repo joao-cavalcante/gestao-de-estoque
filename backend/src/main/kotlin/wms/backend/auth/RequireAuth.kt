@@ -21,9 +21,22 @@ suspend fun ApplicationCall.exigirAuth(): ClaimsToken? {
     val claims = autenticado()
     if (claims == null) {
         respond(HttpStatusCode.Unauthorized, mapOf("erro" to "token ausente ou inválido"))
+        return null
+    }
+    // Conta de TV (perfil TV, ex.: "TV Expedição") só enxerga a TV — qualquer outra rota é barrada aqui,
+    // num ponto só (toda rota protegida passa por exigirAuth/exigirAdmin).
+    if (claims.perfil == PERFIL_TV && !request.local.uri.startsWith("/api/tv") && !request.local.uri.startsWith("/api/auth")) {
+        respond(HttpStatusCode.Forbidden, mapOf("erro" to "conta de TV só acessa a TV de conferência"))
+        return null
     }
     return claims
 }
+
+/** Perfil de conta de dispositivo da TV de expedição (tratada como estação: não é pessoa). */
+const val PERFIL_TV = "TV"
+
+/** Permissão TV_CONFERENCIA: perfil TV ou ADMINISTRADOR (sistema de permissão atual é por perfil). */
+fun podeVerTv(claims: ClaimsToken): Boolean = claims.perfil == PERFIL_TV || claims.perfil == "ADMINISTRADOR"
 
 /** Mesma coisa, mas também exige perfil ADMINISTRADOR. */
 suspend fun ApplicationCall.exigirAdmin(): ClaimsToken? {

@@ -1,0 +1,136 @@
+import { HttpClient } from '@angular/common/http';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { Subscription, catchError, of, switchMap, timer } from 'rxjs';
+import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
+import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
+import { TvConferencia, TvResumo } from './tv.model';
+
+const INTERVALO_API_MS = 15_000;
+const INTERVALO_PAGINA_MS = 10_000;
+const CARDS_POR_PAGINA = 6;
+const FINALIZADOS_POR_PAGINA = 10;
+
+const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
+  1: { label: 'Secos', icone: 'seco' },
+  2: { label: 'Refrigerado', icone: 'refrigerado' },
+  3: { label: 'Congelado', icone: 'congelado' },
+};
+
+/**
+ * TV de acompanhamento da conferência (/tv) — painel de parede, sem interação. Um único endpoint
+ * agregado (GET /api/tv/resumo, só banco local) a cada 15 s via switchMap (requisição anterior é
+ * cancelada; sem polling duplicado). Relógio, "há X min" e PARADO andam por um tick local de 1 s.
+ * Erro de rede mantém os últimos dados e mostra "ATUALIZAÇÃO PENDENTE". Listas longas rotacionam
+ * em páginas a cada 10 s (sem rolagem). Tema escuro próprio, independente do tema do app.
+ */
+@Component({
+  selector: 'app-tv',
+  standalone: true,
+  imports: [OqIconComponent, OqModalidadePinsComponent, DatePipe],
+  templateUrl: './tv.component.html',
+  styleUrl: './tv.component.scss',
+  host: { 'data-theme': 'dark' },
+})
+export class TvComponent implements OnInit, OnDestroy {
+  private readonly http = inject(HttpClient);
+
+  readonly dados = signal<TvResumo | null>(null);
+  readonly ultimaOkEm = signal<number | null>(null);
+  readonly pendente = signal(false);
+  readonly agora = signal(Date.now());
+  readonly pagCards = signal(0);
+  readonly pagFinalizados = signal(0);
+  readonly telaCheia = signal(!!document.fullscreenElement);
+
+  readonly etapas = ETAPAS;
+
+  private assinatura?: Subscription;
+  private relogio?: ReturnType<typeof setInterval>;
+  private rotacao?: ReturnType<typeof setInterval>;
+  private readonly aoMudarTelaCheia = () => this.telaCheia.set(!!document.fullscreenElement);
+
+  readonly totalPagCards = computed(() => Math.max(1, Math.ceil((this.dados()?.emConferencia.length ?? 0) / CARDS_POR_PAGINA)));
+  readonly totalPagFinalizados = computed(() =>
+    Math.max(1, Math.ceil((this.dados()?.recemFinalizados.length ?? 0) / FINALIZADOS_POR_PAGINA)),
+  );
+  readonly cardsVisiveis = computed(() => {
+    const lista = this.dados()?.emConferencia ?? [];
+    const p = this.pagCards() % this.totalPagCards();
+    return lista.slice(p * CARDS_POR_PAGINA, (p + 1) * CARDS_POR_PAGINA);
+  });
+  readonly finalizadosVisiveis = computed(() => {
+    const lista = this.dados()?.recemFinalizados ?? [];
+    const p = this.pagFinalizados() % this.totalPagFinalizados();
+    return lista.slice(p * FINALIZADOS_POR_PAGINA, (p + 1) * FINALIZADOS_POR_PAGINA);
+  });
+  readonly paradosCount = computed(() => (this.dados()?.emConferencia ?? []).filter((c) => this.minutosParado(c) != null).length);
+
+  ngOnInit(): void {
+    this.assinatura = timer(0, INTERVALO_API_MS)
+      .pipe(
+        switchMap(() =>
+          this.http.get<TvResumo>('/api/tv/resumo').pipe(
+            catchError(() => {
+              this.pendente.set(true);
+              return of(null);
+            }),
+          ),
+        ),
+      )
+      .subscribe((r) => {
+        if (!r) return; // mantém a última informação válida
+        this.dados.set(r);
+        this.ultimaOkEm.set(Date.now());
+        this.pendente.set(false);
+      });
+    this.relogio = setInterval(() => this.agora.set(Date.now()), 1000);
+    this.rotacao = setInterval(() => {
+      this.pagCards.update((p) => (p + 1) % this.totalPagCards());
+      this.pagFinalizados.update((p) => (p + 1) % this.totalPagFinalizados());
+    }, INTERVALO_PAGINA_MS);
+    document.addEventListener('fullscreenchange', this.aoMudarTelaCheia);
+  }
+
+  ngOnDestroy(): void {
+    this.assinatura?.unsubscribe();
+    if (this.relogio) clearInterval(this.relogio);
+    if (this.rotacao) clearInterval(this.rotacao);
+    document.removeEventListener('fullscreenchange', this.aoMudarTelaCheia);
+  }
+
+  entrarTelaCheia(): void {
+    document.documentElement.requestFullscreen?.().catch(() => undefined);
+  }
+
+  segundosDesdeAtualizacao(): number {
+    const ok = this.ultimaOkEm();
+    return ok ? Math.max(0, Math.round((this.agora() - ok) / 1000)) : 0;
+  }
+
+  /** "há 8 min" / "há 1 h 05" a partir de um ISO; null = sem horário confiável. */
+  ha(iso: string | null): string | null {
+    if (!iso) return null;
+    const min = Math.max(0, Math.floor((this.agora() - Date.parse(iso)) / 60000));
+    if (min < 60) return `há ${String(min).padStart(2, '0')} min`;
+    return `há ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
+  }
+
+  /** Minutos parado (sem bipe/atividade além do limite) — null = não está parado. Só visual. */
+  minutosParado(c: TvConferencia): number | null {
+    const d = this.dados();
+    const ref = c.ultimaAtividadeEm ?? c.inicioEm;
+    if (!d || !ref) return null;
+    const min = Math.floor((this.agora() - Date.parse(ref)) / 60000);
+    return min >= d.limiteParadoMin ? min : null;
+  }
+
+  progressoPct(c: TvConferencia): number | null {
+    if (c.itensTotal == null || c.itensConferidos == null || c.itensTotal <= 0) return null;
+    return Math.round((c.itensConferidos / c.itensTotal) * 100);
+  }
+
+  numero(n: number): string {
+    return String(n).padStart(2, '0');
+  }
+}

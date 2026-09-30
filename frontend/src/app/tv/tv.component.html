@@ -1,0 +1,156 @@
+<div class="tv" (click)="!telaCheia() && entrarTelaCheia()">
+  <!-- Topo: título, relógio e estado da atualização -->
+  <header class="tv__topo">
+    <div class="tv__marca">
+      <span class="tv__logo">LG</span>
+      <span class="tv__titulo">CONFERÊNCIA AO VIVO</span>
+    </div>
+    <div class="tv__relogio">
+      <span class="tv__hora">{{ agora() | date: 'HH:mm:ss' }}</span>
+      @if (pendente()) {
+        <span class="tv__sync tv__sync--pendente">ATUALIZAÇÃO PENDENTE · última há {{ segundosDesdeAtualizacao() }}s</span>
+      } @else if (dados()) {
+        <span class="tv__sync">atualizado há {{ segundosDesdeAtualizacao() }}s</span>
+      } @else {
+        <span class="tv__sync">carregando…</span>
+      }
+    </div>
+  </header>
+
+  @if (dados(); as d) {
+    <!-- KPIs -->
+    <section class="tv__kpis">
+      <div class="tv-kpi">
+        <span class="tv-kpi__rot">Disponível</span>
+        <span class="tv-kpi__val">{{ numero(d.resumo.disponivel) }}</span>
+      </div>
+      <div class="tv-kpi tv-kpi--principal">
+        <span class="tv-kpi__rot">Em conferência</span>
+        <span class="tv-kpi__val">{{ numero(d.resumo.emConferencia) }}</span>
+        @if (paradosCount() > 0) { <span class="tv-kpi__extra tv-kpi__extra--parado">{{ paradosCount() }} parado(s)</span> }
+      </div>
+      <div class="tv-kpi" [class.tv-kpi--atencao]="d.resumo.aguardandoLiberacao > 0">
+        <span class="tv-kpi__rot">Aguard. liberação</span>
+        <span class="tv-kpi__val">{{ numero(d.resumo.aguardandoLiberacao) }}</span>
+      </div>
+      <div class="tv-kpi tv-kpi--ok">
+        <span class="tv-kpi__rot">Pronto hoje</span>
+        <span class="tv-kpi__val">{{ numero(d.resumo.prontoHoje) }}</span>
+      </div>
+      <div class="tv-kpi">
+        <span class="tv-kpi__rot">Tempo médio hoje</span>
+        <span class="tv-kpi__val">{{ d.resumo.tempoMedioHojeMin != null ? d.resumo.tempoMedioHojeMin + ' min' : '—' }}</span>
+      </div>
+    </section>
+
+    <section class="tv__meio">
+      <!-- Em conferência agora -->
+      <div class="tv-painel tv-painel--conf">
+        <div class="tv-painel__topo">
+          <span class="tv-painel__titulo">EM CONFERÊNCIA AGORA</span>
+          @if (totalPagCards() > 1) { <span class="tv-painel__pag">{{ (pagCards() % totalPagCards()) + 1 }}/{{ totalPagCards() }}</span> }
+        </div>
+        @if (d.emConferencia.length === 0) {
+          <div class="tv-vazio">Nenhuma conferência em andamento.</div>
+        } @else {
+          <div class="tv-cards">
+            @for (c of cardsVisiveis(); track c.nunota) {
+              <article
+                class="tv-card"
+                [class.tv-card--parado]="minutosParado(c) != null"
+                [class.tv-card--recontagem]="c.recontagem && minutosParado(c) == null"
+              >
+                <div class="tv-card__linha">
+                  @if (c.etapaAtual && etapas[c.etapaAtual]) {
+                    <span class="tv-card__etapa"><oq-icon [name]="etapas[c.etapaAtual].icone" [size]="18" />{{ etapas[c.etapaAtual].label }}</span>
+                  } @else if (c.etapasPendentes.length > 0) {
+                    <span class="tv-card__etapa tv-card__etapa--sec">
+                      @for (t of c.etapasPendentes; track t) { <oq-icon [name]="etapas[t].icone" [size]="16" /> }
+                    </span>
+                  }
+                  @if (c.recontagem) { <span class="tv-selo tv-selo--recontagem">RECONTAGEM</span> }
+                  @if (c.status === 'aguardando_finalizacao') { <span class="tv-selo">FINALIZANDO</span> }
+                  @if (minutosParado(c); as p) { <span class="tv-selo tv-selo--parado">PARADO {{ p }} min</span> }
+                </div>
+                <div class="tv-card__pedido">
+                  <strong>{{ c.nunota }}</strong>
+                  <span class="tv-card__cliente">{{ c.cliente ?? '—' }}</span>
+                </div>
+                <div class="tv-card__quem">
+                  <span>{{ c.conferente ?? 'Sem conferente identificado' }}</span>
+                  @if (ha(c.inicioEm); as h) { <span class="tv-card__tempo">{{ h }}</span> }
+                </div>
+                @if (progressoPct(c); as pct) {
+                  <div class="tv-card__prog">
+                    <span class="tv-barra"><span class="tv-barra__fill" [style.width.%]="pct"></span></span>
+                    <span class="tv-card__itens">{{ c.itensConferidos }}/{{ c.itensTotal }} itens</span>
+                  </div>
+                } @else if (c.itensTotal != null) {
+                  <div class="tv-card__prog">
+                    <span class="tv-barra"><span class="tv-barra__fill" [style.width.%]="0"></span></span>
+                    <span class="tv-card__itens">{{ c.itensConferidos }}/{{ c.itensTotal }} itens</span>
+                  </div>
+                }
+                <div class="tv-card__rodape">
+                  @if (c.ordemCarga) { <span>OC {{ c.ordemCarga }}</span> }
+                  <oq-modalidade-pins [modalidade]="c" />
+                  @if (c.volumes) { <span>{{ c.volumes }} vol</span> }
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Recém finalizados -->
+      <div class="tv-painel tv-painel--fin">
+        <div class="tv-painel__topo">
+          <span class="tv-painel__titulo">RECÉM FINALIZADOS</span>
+          @if (totalPagFinalizados() > 1) { <span class="tv-painel__pag">{{ (pagFinalizados() % totalPagFinalizados()) + 1 }}/{{ totalPagFinalizados() }}</span> }
+        </div>
+        @if (d.recemFinalizados.length === 0) {
+          <div class="tv-vazio">Nenhum pedido finalizado hoje.</div>
+        } @else {
+          <ul class="tv-fin">
+            @for (f of finalizadosVisiveis(); track f.nunota) {
+              <li class="tv-fin__item">
+                <span class="tv-fin__hora">{{ f.concluidoEm | date: 'HH:mm' }}</span>
+                <span class="tv-fin__pedido"><strong>{{ f.nunota }}</strong> · {{ f.cliente ?? '—' }}</span>
+                @if (f.recontagem) { <span class="tv-selo tv-selo--recontagem">RECONT.</span> }
+                @if (f.divergente) {
+                  <span class="tv-fin__icone tv-fin__icone--div" title="Divergente">⚠</span>
+                } @else {
+                  <span class="tv-fin__icone tv-fin__icone--ok" title="Concluído">✓</span>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </section>
+
+    <!-- Faixa por etapa -->
+    @if (d.segmentado && d.porEtapa.length > 0) {
+      <footer class="tv__etapas">
+        @for (e of d.porEtapa; track e.tipo) {
+          <div class="tv-etapa">
+            <span class="tv-etapa__nome"><oq-icon [name]="etapas[e.tipo].icone" [size]="20" />{{ etapas[e.tipo].label }}</span>
+            <span class="tv-etapa__nums">
+              <span>Disp. <strong>{{ e.disponivel }}</strong></span>
+              <span>Conf. <strong>{{ e.emConferencia }}</strong></span>
+              <span class="tv-etapa__ok">Pronto <strong>{{ e.prontoHoje }}</strong></span>
+            </span>
+          </div>
+        }
+      </footer>
+    }
+  } @else if (!pendente()) {
+    <div class="tv-vazio tv-vazio--grande">Carregando…</div>
+  } @else {
+    <div class="tv-vazio tv-vazio--grande">Sem conexão com o servidor — tentando novamente.</div>
+  }
+
+  @if (!telaCheia()) {
+    <span class="tv__dica">toque para tela cheia</span>
+  }
+</div>

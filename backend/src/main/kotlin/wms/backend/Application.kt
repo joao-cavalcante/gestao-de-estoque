@@ -24,6 +24,7 @@ import wms.backend.produtos.ProdutoCatalogoSyncWorker
 import wms.backend.separacao.separacaoRoutes
 import wms.backend.tarefas.SyncWorkerPool
 import wms.backend.tarefas.tarefasRoutes
+import wms.backend.tv.tvRoutes
 import wms.backend.tenancy.tenantRoutes
 import wms.backend.tipooperacao.TipoOperacaoSyncWorker
 import wms.backend.tipooperacao.tipoOperacaoRoutes
@@ -86,6 +87,7 @@ fun Application.module() {
         }
         tenantRoutes()
         tarefasRoutes()
+        tvRoutes()
         authRoutes()
         usuariosRoutes()
         balancasRoutes()

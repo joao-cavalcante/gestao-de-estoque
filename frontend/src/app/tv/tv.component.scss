@@ -1,0 +1,405 @@
+/* TV de parede (16:9): tudo em vw/vh pra escalar com o monitor, sem rolagem. Tokens do design system. */
+:host {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--oq-bg-page);
+  color: var(--oq-text-primary);
+  overflow: hidden;
+  cursor: none;
+}
+
+.tv {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 1.2vh;
+  height: 100vh;
+  padding: 1.6vh 1.6vw;
+  box-sizing: border-box;
+}
+
+.tv__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tv__marca {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+}
+
+.tv__logo {
+  display: grid;
+  place-items: center;
+  width: 3.2vw;
+  height: 3.2vw;
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 1.3vw;
+}
+
+.tv__titulo {
+  font-family: var(--oq-font-display);
+  font-weight: 700;
+  font-size: 1.9vw;
+  letter-spacing: 0.08em;
+}
+
+.tv__relogio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.tv__hora {
+  font-family: var(--oq-font-mono);
+  font-weight: 600;
+  font-size: 2.2vw;
+  font-variant-numeric: tabular-nums;
+}
+
+.tv__sync {
+  font-family: var(--oq-font-mono);
+  font-size: 0.9vw;
+  color: var(--oq-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+
+  &--pendente { color: var(--oq-warning-foreground); }
+}
+
+/* KPIs */
+.tv__kpis {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1vw;
+}
+
+.tv-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4vh;
+  padding: 1.4vh 1.2vw;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+
+  &--principal { border-color: var(--oq-brand-accent); }
+  &--atencao { border-color: var(--oq-attention); .tv-kpi__val { color: var(--oq-warning-foreground); } }
+  &--ok .tv-kpi__val { color: var(--oq-concluido-foreground); }
+}
+
+.tv-kpi__rot {
+  font-family: var(--oq-font-display);
+  font-size: 1vw;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--oq-text-secondary);
+}
+
+.tv-kpi__val {
+  font-family: var(--oq-font-mono);
+  font-size: 4.2vw;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-kpi__extra {
+  font-family: var(--oq-font-display);
+  font-size: 0.95vw;
+  font-weight: 700;
+  text-transform: uppercase;
+
+  &--parado { color: var(--oq-critical-foreground); }
+}
+
+/* Meio: em conferência (2/3) + recém finalizados (1/3) */
+.tv__meio {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1vw;
+  min-height: 0;
+}
+
+.tv-painel {
+  display: flex;
+  flex-direction: column;
+  gap: 1vh;
+  min-height: 0;
+  padding: 1.4vh 1.2vw;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+}
+
+.tv-painel__topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.tv-painel__titulo {
+  font-family: var(--oq-font-display);
+  font-size: 1.15vw;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+.tv-painel__pag {
+  font-family: var(--oq-font-mono);
+  font-size: 0.9vw;
+  color: var(--oq-text-secondary);
+}
+
+.tv-vazio {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  font-family: var(--oq-font-body);
+  font-size: 1.4vw;
+  color: var(--oq-text-secondary);
+
+  &--grande { font-size: 2vw; }
+}
+
+.tv-cards {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 1vh 1vw;
+  min-height: 0;
+}
+
+.tv-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5vh;
+  padding: 1vh 1vw;
+  border: 1px solid var(--oq-border);
+  border-left: 0.4vw solid var(--oq-brand-accent);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  min-height: 0;
+  overflow: hidden;
+
+  &--parado { border-left-color: var(--oq-critical); }
+  &--recontagem { border-left-color: var(--oq-attention); }
+}
+
+.tv-card__linha {
+  display: flex;
+  align-items: center;
+  gap: 0.6vw;
+  flex-wrap: wrap;
+}
+
+.tv-card__etapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4vw;
+  font-family: var(--oq-font-display);
+  font-size: 1.05vw;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--oq-brand-text);
+
+  &--sec { color: var(--oq-text-secondary); }
+}
+
+.tv-selo {
+  padding: 0.1vh 0.5vw;
+  border: 1px solid currentColor;
+  border-radius: var(--oq-radius-input);
+  font-family: var(--oq-font-display);
+  font-size: 0.85vw;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--oq-text-secondary);
+
+  &--recontagem { color: var(--oq-warning-foreground); }
+  &--parado { color: #fff; background: var(--oq-critical); border-color: var(--oq-critical); }
+}
+
+.tv-card__pedido {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8vw;
+  min-width: 0;
+
+  strong {
+    font-family: var(--oq-font-mono);
+    font-size: 1.7vw;
+  }
+}
+
+.tv-card__cliente {
+  font-family: var(--oq-font-body);
+  font-size: 1.25vw;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-card__quem {
+  display: flex;
+  justify-content: space-between;
+  gap: 1vw;
+  font-family: var(--oq-font-body);
+  font-size: 1.05vw;
+  color: var(--oq-text-secondary);
+}
+
+.tv-card__tempo {
+  font-family: var(--oq-font-mono);
+  color: var(--oq-text-primary);
+}
+
+.tv-card__prog {
+  display: flex;
+  align-items: center;
+  gap: 0.8vw;
+}
+
+.tv-barra {
+  flex: 1;
+  height: 0.9vh;
+  border-radius: 99px;
+  background: var(--oq-border);
+  overflow: hidden;
+}
+
+.tv-barra__fill {
+  display: block;
+  height: 100%;
+  background: var(--oq-brand-accent);
+  transition: width 0.6s ease;
+}
+
+.tv-card__itens {
+  font-family: var(--oq-font-mono);
+  font-size: 1vw;
+  white-space: nowrap;
+}
+
+.tv-card__rodape {
+  display: flex;
+  align-items: center;
+  gap: 0.8vw;
+  font-family: var(--oq-font-mono);
+  font-size: 0.95vw;
+  color: var(--oq-text-secondary);
+}
+
+/* Recém finalizados */
+.tv-fin {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vh;
+}
+
+.tv-fin__item {
+  display: flex;
+  align-items: center;
+  gap: 0.8vw;
+  padding: 0.7vh 0.6vw;
+  border-bottom: 1px solid var(--oq-border);
+  font-size: 1.1vw;
+}
+
+.tv-fin__hora {
+  font-family: var(--oq-font-mono);
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+}
+
+.tv-fin__pedido {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--oq-font-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  strong { font-family: var(--oq-font-mono); }
+}
+
+.tv-fin__icone {
+  font-size: 1.3vw;
+  font-weight: 700;
+
+  &--ok { color: var(--oq-concluido); }
+  &--div { color: var(--oq-attention); }
+}
+
+/* Faixa por etapa */
+.tv__etapas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1vw;
+}
+
+.tv-etapa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1vw;
+  padding: 1.1vh 1.2vw;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+}
+
+.tv-etapa__nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5vw;
+  font-family: var(--oq-font-display);
+  font-size: 1.15vw;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tv-etapa__nums {
+  display: flex;
+  gap: 1.2vw;
+  font-family: var(--oq-font-body);
+  font-size: 1vw;
+  color: var(--oq-text-secondary);
+
+  strong {
+    font-family: var(--oq-font-mono);
+    font-size: 1.5vw;
+    color: var(--oq-text-primary);
+  }
+}
+
+.tv-etapa__ok strong { color: var(--oq-concluido-foreground); }
+
+.tv__dica {
+  position: fixed;
+  bottom: 1vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--oq-font-mono);
+  font-size: 0.8vw;
+  color: var(--oq-text-secondary);
+  opacity: 0.6;
+  pointer-events: none;
+}
