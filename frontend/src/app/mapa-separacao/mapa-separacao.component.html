@@ -30,32 +30,20 @@
             S/ Ordem de Carga
           </label>
 
-          <label class="oq-toolbar__search">
+          <!-- Busca única: filtra a lista; número + Enter abre o mapa direto (mesmo fora da lista, ex.: reimprimir já conferido). -->
+          <label
+            class="oq-toolbar__search"
+            [title]="semOrdemCarga ? 'Filtra a lista. Nº Único + Enter abre o mapa do pedido, mesmo fora da lista.' : 'Filtra a lista. Nº da OC + Enter abre o mapa, mesmo fora da lista.'"
+          >
             <oq-icon name="search" [size]="12" />
             <input
               type="text"
               [placeholder]="semOrdemCarga ? 'BUSCAR Nº ÚNICO / NOTA / PARCEIRO' : 'BUSCAR OC / PLACA / MOTORISTA'"
               [(ngModel)]="filtroLista"
               (ngModelChange)="onBuscaChange()"
-            />
-          </label>
-
-          <!-- Sempre no mesmo lugar (trocar o filtro S/ OC não desloca a barra): abre direto o mapa de
-               uma OC que não está no painel — ou, no modo S/ OC, de um Nº Único (ex.: reimprimir já conferido). -->
-          <label
-            class="oq-toolbar__search oq-toolbar__search--curto"
-            [title]="semOrdemCarga ? 'Abrir o mapa de um pedido (Nº Único) que não está na lista' : 'Abrir o mapa de uma Ordem de Carga que não está na lista'"
-          >
-            <oq-icon name="hash" [size]="12" />
-            <input
-              type="number"
-              inputmode="numeric"
-              [placeholder]="semOrdemCarga ? 'Nº ÚNICO' : 'OC FORA DA LISTA'"
-              [(ngModel)]="ordemCargaManual"
               (keyup.enter)="consultarManual()"
             />
           </label>
-          <button type="button" class="oq-toolbar__filters-btn" [disabled]="!ordemCargaManual" (click)="consultarManual()">Consultar</button>
 
           <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
 
@@ -106,6 +94,9 @@
         @if (pedidosSemOcFiltrados.length === 0) {
           <div class="oq-page__status">
             {{ pedidosSemOc().length === 0 ? 'Nenhum pedido sem Ordem de Carga com conferência pendente.' : 'Nenhum resultado para essa busca.' }}
+            @if (numeroBusca) {
+              <button type="button" class="oq-toolbar__filters-btn" (click)="consultarManual()">Abrir mapa do Nº Único {{ numeroBusca }}</button>
+            }
           </div>
         } @else {
           <div class="ms-selecao">
@@ -225,6 +216,9 @@
       } @else if (listaFiltrada.length === 0) {
         <div class="oq-page__status">
           {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga com conferência pendente no momento.' : 'Nenhum resultado para essa busca.' }}
+          @if (numeroBusca) {
+            <button type="button" class="oq-toolbar__filters-btn" (click)="consultarManual()">Abrir mapa da OC {{ numeroBusca }}</button>
+          }
         </div>
       } @else {
         @if (viewMode() === 'cards') {

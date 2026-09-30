@@ -85,7 +85,6 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     this.salvarFiltros();
     this.selecionados.set(new Set());
     this.pagina.set(1);
-    this.ordemCargaManual = null; // o campo muda de sentido (OC ↔ Nº Único)
     this.erro.set(null);
     this.carregarPainel();
   }
@@ -112,7 +111,16 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
    * Campo "fora da lista": OC (modo normal) ou Nº Único (modo S/ OC) que não aparece no painel —
    * ex.: já toda conferida (reimpressão), acabou de abrir no Sankhya, ou a lista falhou ao carregar.
    */
-  ordemCargaManual: number | null = null;
+  /**
+   * Busca única (antes eram 2 campos: busca + "OC fora da lista"): texto filtra a lista; um NÚMERO com
+   * Enter abre direto o mapa daquela OC (ou Nº Único no modo S/ OC), mesmo fora da lista.
+   */
+  get numeroBusca(): number | null {
+    const t = this.filtroLista.trim();
+    if (!/^\d+$/.test(t)) return null;
+    const n = Number(t);
+    return n > 0 ? n : null;
+  }
 
   readonly formatarQtd = formatarQtd;
   readonly formatarPeso = formatarPeso;
@@ -297,13 +305,10 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Campo da barra: número de OC (modo normal) ou Nº Único (modo S/ OC) fora da lista. */
+  /** Enter na busca / botão "Abrir mapa": número de OC (modo normal) ou Nº Único (modo S/ OC), mesmo fora da lista. */
   consultarManual(): void {
-    const n = this.ordemCargaManual;
-    if (!n || n <= 0) {
-      this.erro.set(this.semOrdemCarga ? 'Informe um Nº Único numérico válido.' : 'Informe uma Ordem de Carga numérica válida.');
-      return;
-    }
+    const n = this.numeroBusca;
+    if (!n) return;
     if (this.semOrdemCarga) this.consultarSemOrdemCarga([n]);
     else this.consultar(n);
   }
@@ -364,7 +369,6 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   voltar(): void {
     this.mapas.set([]);
     this.erro.set(null);
-    this.ordemCargaManual = null;
   }
 
   tituloRelatorio(): string {
