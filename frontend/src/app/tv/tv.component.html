@@ -1,57 +1,96 @@
 <div class="tv" (click)="!telaCheia() && entrarTelaCheia()">
-  <!-- Topo: título, relógio e estado da atualização -->
+  <!-- ═══ Topo: título (principal), AO VIVO, relógio grande ═══ -->
   <header class="tv__topo">
     <div class="tv__marca">
       <span class="tv__logo">LG</span>
-      <span class="tv__titulo">CONFERÊNCIA AO VIVO</span>
+      <div class="tv__titulos">
+        <span class="tv__titulo">CONFERÊNCIA AO VIVO</span>
+        <span class="tv__vivo" [class.tv__vivo--pendente]="pendente()" [class.tv__vivo--pulso]="pulso()">
+          <span class="tv__vivo-dot"></span>
+          @if (pendente()) {
+            ATUALIZAÇÃO PENDENTE · última há {{ segundosDesdeAtualizacao() }}s
+          } @else if (dados()) {
+            AO VIVO · atualizado há {{ segundosDesdeAtualizacao() }}s
+          } @else {
+            CONECTANDO…
+          }
+        </span>
+      </div>
     </div>
-    <div class="tv__relogio">
-      <span class="tv__hora">{{ agora() | date: 'HH:mm:ss' }}</span>
-      @if (pendente()) {
-        <span class="tv__sync tv__sync--pendente">ATUALIZAÇÃO PENDENTE · última há {{ segundosDesdeAtualizacao() }}s</span>
-      } @else if (dados()) {
-        <span class="tv__sync">atualizado há {{ segundosDesdeAtualizacao() }}s</span>
-      } @else {
-        <span class="tv__sync">carregando…</span>
-      }
-    </div>
+    <span class="tv__hora">{{ agora() | date: 'HH:mm:ss' }}</span>
   </header>
 
   @if (dados(); as d) {
-    <!-- KPIs -->
+    <!-- ═══ Nível 2: situação da operação ═══ -->
     <section class="tv__kpis">
       <div class="tv-kpi">
         <span class="tv-kpi__rot">Disponível</span>
-        <span class="tv-kpi__val">{{ numero(d.resumo.disponivel) }}</span>
+        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('disponivel')">{{ numero(d.resumo.disponivel) }}</span>
       </div>
       <div class="tv-kpi tv-kpi--principal">
         <span class="tv-kpi__rot">Em conferência</span>
-        <span class="tv-kpi__val">{{ numero(d.resumo.emConferencia) }}</span>
-        @if (paradosCount() > 0) { <span class="tv-kpi__extra tv-kpi__extra--parado">{{ paradosCount() }} parado(s)</span> }
+        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('emConferencia')">{{ numero(d.resumo.emConferencia) }}</span>
+        @if (paradosCount() > 0) { <span class="tv-kpi__extra tv-kpi__extra--parado">⚠ {{ paradosCount() }} parado(s)</span> }
       </div>
       <div class="tv-kpi" [class.tv-kpi--atencao]="d.resumo.aguardandoLiberacao > 0">
         <span class="tv-kpi__rot">Aguard. liberação</span>
-        <span class="tv-kpi__val">{{ numero(d.resumo.aguardandoLiberacao) }}</span>
+        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('aguardandoLiberacao')">{{ numero(d.resumo.aguardandoLiberacao) }}</span>
       </div>
       <div class="tv-kpi tv-kpi--ok">
         <span class="tv-kpi__rot">Pronto hoje</span>
-        <span class="tv-kpi__val">{{ numero(d.resumo.prontoHoje) }}</span>
+        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('prontoHoje')">{{ numero(d.resumo.prontoHoje) }}</span>
       </div>
       <div class="tv-kpi">
         <span class="tv-kpi__rot">Tempo médio hoje</span>
-        <span class="tv-kpi__val">{{ d.resumo.tempoMedioHojeMin != null ? d.resumo.tempoMedioHojeMin + ' min' : '—' }}</span>
+        <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('tempoMedioHojeMin')">
+          @if (d.resumo.tempoMedioHojeMin != null) {
+            {{ d.resumo.tempoMedioHojeMin }}<small>min</small>
+          } @else {
+            —
+          }
+        </span>
       </div>
     </section>
 
     <section class="tv__meio">
-      <!-- Em conferência agora -->
+      <!-- ═══ Nível 1: o que está acontecendo agora ═══ -->
       <div class="tv-painel tv-painel--conf">
         <div class="tv-painel__topo">
           <span class="tv-painel__titulo">EM CONFERÊNCIA AGORA</span>
-          @if (totalPagCards() > 1) { <span class="tv-painel__pag">{{ (pagCards() % totalPagCards()) + 1 }}/{{ totalPagCards() }}</span> }
+          @if (totalPagCards() > 1) {
+            <span class="tv-pags">
+              @for (x of [].constructor(totalPagCards()); track $index) {
+                <span class="tv-pags__dot" [class.tv-pags__dot--on]="$index === pagCards() % totalPagCards()"></span>
+              }
+            </span>
+          }
         </div>
+
         @if (d.emConferencia.length === 0) {
-          <div class="tv-vazio">Nenhuma conferência em andamento.</div>
+          <!-- Estado vazio intencional: só dados que já vêm no resumo -->
+          <div class="tv-livre">
+            <span class="tv-livre__icone">✓</span>
+            <span class="tv-livre__titulo">OPERAÇÃO LIVRE</span>
+            <span class="tv-livre__texto">Nenhuma conferência em andamento neste momento.</span>
+            <div class="tv-livre__tiles">
+              <div class="tv-livre__tile">
+                <span class="tv-livre__num">{{ numero(d.resumo.disponivel) }}</span>
+                <span class="tv-livre__rot">pedidos disponíveis</span>
+              </div>
+              @if (d.resumo.aguardandoLiberacao > 0) {
+                <div class="tv-livre__tile tv-livre__tile--atencao">
+                  <span class="tv-livre__num">{{ numero(d.resumo.aguardandoLiberacao) }}</span>
+                  <span class="tv-livre__rot">aguardando liberação</span>
+                </div>
+              }
+              @if (d.segmentado && etapasAguardando(d) > 0) {
+                <div class="tv-livre__tile">
+                  <span class="tv-livre__num">{{ numero(etapasAguardando(d)) }}</span>
+                  <span class="tv-livre__rot">etapas aguardando início</span>
+                </div>
+              }
+            </div>
+          </div>
         } @else {
           <div class="tv-cards">
             @for (c of cardsVisiveis(); track c.nunota) {
@@ -59,42 +98,47 @@
                 class="tv-card"
                 [class.tv-card--parado]="minutosParado(c) != null"
                 [class.tv-card--recontagem]="c.recontagem && minutosParado(c) == null"
+                [class.tv-card--novo]="novosConf().has(c.nunota)"
               >
-                <div class="tv-card__linha">
+                <div class="tv-card__topo">
                   @if (c.etapaAtual && etapas[c.etapaAtual]) {
-                    <span class="tv-card__etapa"><oq-icon [name]="etapas[c.etapaAtual].icone" [size]="18" />{{ etapas[c.etapaAtual].label }}</span>
+                    <span class="tv-card__etapa" [attr.data-etapa]="c.etapaAtual">
+                      <oq-icon [name]="etapas[c.etapaAtual].icone" [size]="20" />{{ etapas[c.etapaAtual].label }}
+                    </span>
                   } @else if (c.etapasPendentes.length > 0) {
                     <span class="tv-card__etapa tv-card__etapa--sec">
-                      @for (t of c.etapasPendentes; track t) { <oq-icon [name]="etapas[t].icone" [size]="16" /> }
+                      @for (t of c.etapasPendentes; track t) { <oq-icon [name]="etapas[t].icone" [size]="18" /> }
                     </span>
+                  } @else {
+                    <span class="tv-card__etapa tv-card__etapa--sec">Conferência</span>
                   }
-                  @if (c.recontagem) { <span class="tv-selo tv-selo--recontagem">RECONTAGEM</span> }
-                  @if (c.status === 'aguardando_finalizacao') { <span class="tv-selo">FINALIZANDO</span> }
-                  @if (minutosParado(c); as p) { <span class="tv-selo tv-selo--parado">PARADO {{ p }} min</span> }
+                  <span class="tv-card__selos">
+                    @if (c.recontagem) { <span class="tv-selo tv-selo--recontagem">RECONTAGEM</span> }
+                    @if (c.status === 'aguardando_finalizacao') { <span class="tv-selo">FINALIZANDO</span> }
+                    @if (minutosParado(c); as p) { <span class="tv-selo tv-selo--parado">⚠ PARADO · {{ p }} MIN</span> }
+                  </span>
                 </div>
+
                 <div class="tv-card__pedido">
                   <strong>{{ c.nunota }}</strong>
                   <span class="tv-card__cliente">{{ c.cliente ?? '—' }}</span>
                 </div>
-                <div class="tv-card__quem">
-                  <span>{{ c.conferente ?? 'Sem conferente identificado' }}</span>
+                <span class="tv-card__conferente">{{ c.conferente ?? 'Sem conferente identificado' }}</span>
+
+                <div class="tv-card__prog">
+                  @if (c.itensTotal != null) {
+                    <span class="tv-card__itens"><strong>{{ c.itensConferidos }}</strong>/{{ c.itensTotal }} <small>itens</small></span>
+                  }
                   @if (ha(c.inicioEm); as h) { <span class="tv-card__tempo">{{ h }}</span> }
                 </div>
-                @if (progressoPct(c); as pct) {
-                  <div class="tv-card__prog">
-                    <span class="tv-barra"><span class="tv-barra__fill" [style.width.%]="pct"></span></span>
-                    <span class="tv-card__itens">{{ c.itensConferidos }}/{{ c.itensTotal }} itens</span>
-                  </div>
-                } @else if (c.itensTotal != null) {
-                  <div class="tv-card__prog">
-                    <span class="tv-barra"><span class="tv-barra__fill" [style.width.%]="0"></span></span>
-                    <span class="tv-card__itens">{{ c.itensConferidos }}/{{ c.itensTotal }} itens</span>
-                  </div>
+                @if (c.itensTotal != null) {
+                  <span class="tv-barra"><span class="tv-barra__fill" [style.width.%]="progressoPct(c) ?? 0"></span></span>
                 }
+
                 <div class="tv-card__rodape">
-                  @if (c.ordemCarga) { <span>OC {{ c.ordemCarga }}</span> }
+                  @if (c.ordemCarga) { <span class="tv-card__oc">OC {{ c.ordemCarga }}</span> }
                   <oq-modalidade-pins [modalidade]="c" />
-                  @if (c.volumes) { <span>{{ c.volumes }} vol</span> }
+                  @if (c.volumes) { <span class="tv-card__vol">{{ c.volumes }} VOL</span> }
                 </div>
               </article>
             }
@@ -102,23 +146,33 @@
         }
       </div>
 
-      <!-- Recém finalizados -->
+      <!-- ═══ Feed: recém finalizados ═══ -->
       <div class="tv-painel tv-painel--fin">
         <div class="tv-painel__topo">
           <span class="tv-painel__titulo">RECÉM FINALIZADOS</span>
-          @if (totalPagFinalizados() > 1) { <span class="tv-painel__pag">{{ (pagFinalizados() % totalPagFinalizados()) + 1 }}/{{ totalPagFinalizados() }}</span> }
+          @if (totalPagFinalizados() > 1) {
+            <span class="tv-pags">
+              @for (x of [].constructor(totalPagFinalizados()); track $index) {
+                <span class="tv-pags__dot" [class.tv-pags__dot--on]="$index === pagFinalizados() % totalPagFinalizados()"></span>
+              }
+            </span>
+          }
         </div>
         @if (d.recemFinalizados.length === 0) {
-          <div class="tv-vazio">Nenhum pedido finalizado hoje.</div>
+          <div class="tv-fin-vazio">
+            <span class="tv-fin-vazio__icone">⏱</span>
+            <span>Nenhum pedido finalizado hoje.</span>
+          </div>
         } @else {
           <ul class="tv-fin">
             @for (f of finalizadosVisiveis(); track f.nunota) {
-              <li class="tv-fin__item">
+              <li class="tv-fin__item" [class.tv-fin__item--novo]="novosFin().has(f.nunota)">
                 <span class="tv-fin__hora">{{ f.concluidoEm | date: 'HH:mm' }}</span>
-                <span class="tv-fin__pedido"><strong>{{ f.nunota }}</strong> · {{ f.cliente ?? '—' }}</span>
-                @if (f.recontagem) { <span class="tv-selo tv-selo--recontagem">RECONT.</span> }
+                <span class="tv-fin__pedido">{{ f.nunota }}</span>
+                <span class="tv-fin__cliente">{{ f.cliente ?? '—' }}</span>
+                @if (f.recontagem) { <span class="tv-selo tv-selo--recontagem tv-selo--mini">RECONT.</span> }
                 @if (f.divergente) {
-                  <span class="tv-fin__icone tv-fin__icone--div" title="Divergente">⚠</span>
+                  <span class="tv-fin__icone tv-fin__icone--div" title="Concluído divergente">⚠</span>
                 } @else {
                   <span class="tv-fin__icone tv-fin__icone--ok" title="Concluído">✓</span>
                 }
@@ -129,25 +183,34 @@
       </div>
     </section>
 
-    <!-- Faixa por etapa -->
+    <!-- ═══ Faixa operacional por etapa ═══ -->
     @if (d.segmentado && d.porEtapa.length > 0) {
       <footer class="tv__etapas">
         @for (e of d.porEtapa; track e.tipo) {
-          <div class="tv-etapa">
-            <span class="tv-etapa__nome"><oq-icon [name]="etapas[e.tipo].icone" [size]="20" />{{ etapas[e.tipo].label }}</span>
-            <span class="tv-etapa__nums">
-              <span>Disp. <strong>{{ e.disponivel }}</strong></span>
-              <span>Conf. <strong>{{ e.emConferencia }}</strong></span>
-              <span class="tv-etapa__ok">Pronto <strong>{{ e.prontoHoje }}</strong></span>
-            </span>
+          <div class="tv-etapa" [attr.data-etapa]="e.tipo">
+            <span class="tv-etapa__nome"><oq-icon [name]="etapas[e.tipo].icone" [size]="22" />{{ etapas[e.tipo].label }}</span>
+            <div class="tv-etapa__nums">
+              <div class="tv-etapa__col">
+                <span class="tv-etapa__rot">Disp.</span>
+                <span class="tv-etapa__val">{{ numero(e.disponivel) }}</span>
+              </div>
+              <div class="tv-etapa__col tv-etapa__col--conf">
+                <span class="tv-etapa__rot">Conf.</span>
+                <span class="tv-etapa__val">{{ numero(e.emConferencia) }}</span>
+              </div>
+              <div class="tv-etapa__col tv-etapa__col--ok">
+                <span class="tv-etapa__rot">Pronto</span>
+                <span class="tv-etapa__val">{{ numero(e.prontoHoje) }}</span>
+              </div>
+            </div>
           </div>
         }
       </footer>
     }
   } @else if (!pendente()) {
-    <div class="tv-vazio tv-vazio--grande">Carregando…</div>
+    <div class="tv-carregando">Carregando…</div>
   } @else {
-    <div class="tv-vazio tv-vazio--grande">Sem conexão com o servidor — tentando novamente.</div>
+    <div class="tv-carregando">Sem conexão com o servidor — tentando novamente.</div>
   }
 
   @if (!telaCheia()) {

@@ -45,6 +45,16 @@ export class TvComponent implements OnInit, OnDestroy {
 
   readonly etapas = ETAPAS;
 
+  // ─── Só visual: realce do que acabou de mudar (entra, finaliza, contador muda, chegou dado novo) ───
+  /** nunotas que entraram agora em "Em conferência" / "Recém finalizados" (realce de ~4 s). */
+  readonly novosConf = signal<ReadonlySet<number>>(new Set());
+  readonly novosFin = signal<ReadonlySet<number>>(new Set());
+  /** KPIs cujo valor mudou na última resposta (realce de ~1,5 s). */
+  readonly kpiMudou = signal<ReadonlySet<string>>(new Set());
+  /** Piscada do "AO VIVO" quando chega resposta nova. */
+  readonly pulso = signal(false);
+  private timersRealce: ReturnType<typeof setTimeout>[] = [];
+
   private assinatura?: Subscription;
   private relogio?: ReturnType<typeof setInterval>;
   private rotacao?: ReturnType<typeof setInterval>;
@@ -80,6 +90,7 @@ export class TvComponent implements OnInit, OnDestroy {
       )
       .subscribe((r) => {
         if (!r) return; // mantém a última informação válida
+        this.marcarNovidades(this.dados(), r);
         this.dados.set(r);
         this.ultimaOkEm.set(Date.now());
         this.pendente.set(false);
@@ -97,6 +108,36 @@ export class TvComponent implements OnInit, OnDestroy {
     if (this.relogio) clearInterval(this.relogio);
     if (this.rotacao) clearInterval(this.rotacao);
     document.removeEventListener('fullscreenchange', this.aoMudarTelaCheia);
+    this.timersRealce.forEach(clearTimeout);
+  }
+
+  /** Compara a resposta nova com a anterior só pra animar o que mudou — não altera dado nenhum. */
+  private marcarNovidades(antes: TvResumo | null, depois: TvResumo): void {
+    this.realcar(this.pulso, true, false, 900);
+    if (!antes) return; // primeira carga: sem animação de "novo"
+    const idsConfAntes = new Set(antes.emConferencia.map((c) => c.nunota));
+    const idsFinAntes = new Set(antes.recemFinalizados.map((f) => f.nunota));
+    const novosConf = depois.emConferencia.filter((c) => !idsConfAntes.has(c.nunota)).map((c) => c.nunota);
+    const novosFin = depois.recemFinalizados.filter((f) => !idsFinAntes.has(f.nunota)).map((f) => f.nunota);
+    if (novosConf.length) this.realcar(this.novosConf, new Set(novosConf), new Set(), 4000);
+    if (novosFin.length) this.realcar(this.novosFin, new Set(novosFin), new Set(), 4000);
+    const chaves = Object.keys(depois.resumo) as (keyof TvResumo['resumo'])[];
+    const mudou = chaves.filter((k) => antes.resumo[k] !== depois.resumo[k]);
+    if (mudou.length) this.realcar(this.kpiMudou, new Set<string>(mudou), new Set<string>(), 1500);
+  }
+
+  private realcar<T>(alvo: { set(v: T): void }, valor: T, depois: T, ms: number): void {
+    alvo.set(valor);
+    const t = setTimeout(() => {
+      alvo.set(depois);
+      this.timersRealce = this.timersRealce.filter((x) => x !== t);
+    }, ms);
+    this.timersRealce.push(t);
+  }
+
+  /** Etapas aguardando início nas conferências abertas (soma do "Disp." da faixa) — dado já existente. */
+  etapasAguardando(d: TvResumo): number {
+    return d.porEtapa.reduce((acc, e) => acc + e.disponivel, 0);
   }
 
   entrarTelaCheia(): void {
