@@ -52,13 +52,14 @@
 /* ---------- Tema claro (padrão) ---------- */
 :root,
 [data-theme="light"] {
-  --oq-bg-page: #E4E4E7;
-  --oq-surface: #FAFAFA;       /* única superfície "clara" do sistema — header, card, botões, inputs */
-  --oq-surface-2: #F4F4F5;     /* superfície secundária (barra de bipagem, cabeçalho de painel/tabela) */
-  --oq-border: #D4D4D8;
-  --oq-border-strong: #71717A; /* ênfase em input crítico (campo de código de barras) */
-  --oq-header-border: #A1A1AA; /* só a borda inferior do header (Fila de Tarefas) usa esse cinza mais escuro */
-  --oq-kpi-strip-bg: #EFEFF2;  /* fundo da faixa de KPI (blocos neutros ficam transparentes sobre isso) */
+  /* Branco/cinzas com leve tom de lavanda (30/09/2026 — combina com a marca roxa; antes cinza neutro). */
+  --oq-bg-page: #E7E4EE;
+  --oq-surface: #FCFBFE;       /* única superfície "clara" do sistema — header, card, botões, inputs */
+  --oq-surface-2: #F5F3F9;     /* superfície secundária (barra de bipagem, cabeçalho de painel/tabela) */
+  --oq-border: #D9D4E3;
+  --oq-border-strong: #756E82; /* ênfase em input crítico (campo de código de barras) */
+  --oq-header-border: #A7A0B4; /* só a borda inferior do header (Fila de Tarefas) usa esse cinza mais escuro */
+  --oq-kpi-strip-bg: #EFECF4;  /* fundo da faixa de KPI (blocos neutros ficam transparentes sobre isso) */
 
   --oq-text-primary: #18181B;
   --oq-text-secondary: #6B6B76; /* única cor "muted" do sistema — não existe um 3º tom mais claro */
