@@ -48,6 +48,8 @@ export class UsuarioListComponent implements OnInit {
   // Modal confirmação de exclusão
   removendoUsuario = signal<Usuario | null>(null);
   removendoCarregando = signal(false);
+  /** Resultado da última exclusão (aviso de "desativado em vez de excluído" ou erro) — faixa acima da lista. */
+  avisoLista = signal<{ tom: 'info' | 'erro'; texto: string } | null>(null);
 
   // ─── Crachá ────────────────────────────────────────────────────────────
   private readonly logoService = inject(CrachaLogoService);
@@ -252,15 +254,18 @@ export class UsuarioListComponent implements OnInit {
     const usuario = this.removendoUsuario();
     if (!usuario) return;
     this.removendoCarregando.set(true);
+    this.avisoLista.set(null);
     this.service.remover(usuario.id).subscribe({
-      next: () => {
+      next: (res) => {
         this.removendoCarregando.set(false);
         this.removendoUsuario.set(null);
+        if (res?.desativado) this.avisoLista.set({ tom: 'info', texto: `${usuario.nome}: ${res.mensagem}` });
         this.carregar();
       },
-      error: () => {
+      error: (err) => {
         this.removendoCarregando.set(false);
         this.removendoUsuario.set(null);
+        this.avisoLista.set({ tom: 'erro', texto: err.error?.erro ?? `Não foi possível excluir ${usuario.nome}.` });
       },
     });
   }

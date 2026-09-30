@@ -46,11 +46,19 @@ fun Route.usuariosRoutes() {
             val userId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "id inválido"))
 
-            if (!UsuariosRepository.remover(claims.tenantId, userId)) {
-                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "usuário não encontrado"))
-                return@delete
+            when (UsuariosRepository.remover(claims.tenantId, userId)) {
+                UsuariosRepository.ResultadoRemocao.NAO_ENCONTRADO ->
+                    call.respond(HttpStatusCode.NotFound, mapOf("erro" to "usuário não encontrado"))
+                UsuariosRepository.ResultadoRemocao.DESATIVADO ->
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "desativado" to "true",
+                            "mensagem" to "O usuário tem conferências no histórico, por isso foi desativado em vez de excluído.",
+                        ),
+                    )
+                UsuariosRepository.ResultadoRemocao.EXCLUIDO -> call.respond(HttpStatusCode.NoContent)
             }
-            call.respond(HttpStatusCode.NoContent)
         }
 
         post("/{id}/crachao") {

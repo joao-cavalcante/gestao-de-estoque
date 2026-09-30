@@ -181,18 +181,36 @@ object UsuariosRepository {
     }
 
     /** Remove o usuário e libera o e-mail no lookup global (outro tenant pode usá-lo depois). */
-    fun remover(tenantId: UUID, userId: UUID): Boolean {
+    enum class ResultadoRemocao { EXCLUIDO, DESATIVADO, NAO_ENCONTRADO }
+
+    /**
+     * Exclui o usuário. Quem já conferiu (separacao_sessoes / separacao_operador_historico apontam pra
+     * ele, FK sem cascade — o histórico não pode perder o operador) não é apagado: vira INATIVO (não
+     * entra mais nem aparece pra seleção). Antes a exclusão estourava a FK e a tela fechava sem aviso.
+     */
+    fun remover(tenantId: UUID, userId: UUID): ResultadoRemocao {
         val row = TenantTx.run(tenantId) {
             UsersTable.selectAll().where { (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }.singleOrNull()
-        } ?: return false
+        } ?: return ResultadoRemocao.NAO_ENCONTRADO
 
-        TenantTx.run(tenantId) {
-            UsersTable.deleteWhere { (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }
+        val excluiu = runCatching {
+            TenantTx.run(tenantId) {
+                UsersTable.deleteWhere { (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }
+            }
+        }.isSuccess
+        if (!excluiu) {
+            TenantTx.run(tenantId) {
+                UsersTable.update({ (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }) {
+                    it[ativo] = false
+                    it[atualizadoEm] = Instant.now()
+                }
+            }
+            return ResultadoRemocao.DESATIVADO
         }
         transaction(SharedDatabase.shared) {
             UserLoginLookupTable.deleteWhere { UserLoginLookupTable.email eq row[UsersTable.email] }
         }
-        return true
+        return ResultadoRemocao.EXCLUIDO
     }
 
     /** Resolve tenant a partir do e-mail (banco central), depois busca o usuário no banco certo. */

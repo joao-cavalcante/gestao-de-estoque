@@ -30,7 +30,7 @@ export class UsuarioService {
     return this.http.post(`${this.baseUrl}/${id}/crachao`, { crachaoCodigo });
   }
 
-  remover(id: string): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/${id}`);
+  remover(id: string): Observable<{ desativado?: string; mensagem?: string } | null> {
+    return this.http.delete<{ desativado?: string; mensagem?: string } | null>(`${this.baseUrl}/${id}`);
   }
 }

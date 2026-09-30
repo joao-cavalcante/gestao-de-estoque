@@ -257,15 +257,17 @@ export class BalancaListComponent implements OnInit, OnDestroy {
     const b = this.removendoBalanca();
     if (!b) return;
     this.removendoCarregando.set(true);
+    this.erroLista.set(null);
     this.service.remover(b.id).subscribe({
       next: () => {
         this.removendoCarregando.set(false);
         this.removendoBalanca.set(null);
         this.carregar();
       },
-      error: () => {
+      error: (err) => {
         this.removendoCarregando.set(false);
         this.removendoBalanca.set(null);
+        this.erroLista.set(err.error?.erro ?? `Não foi possível excluir a balança ${b.nome}.`);
       },
     });
   }

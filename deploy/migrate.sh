@@ -39,11 +39,20 @@ if [ -n "${WMS_DB_PASSWORD:-}" ]; then
   $PSQL -c "alter role wms_app with password '${WMS_DB_PASSWORD}'"
 fi
 
-# Seeds — tenants/usuários preservados + balanças. Idempotentes (ON CONFLICT DO NOTHING).
+# Seeds — carga inicial (tenants/usuários + balanças). Rodam UMA VEZ cada (registrados em
+# schema_migrations como 'seed/<arquivo>'), igual às migrações. Antes rodavam em TODO deploy e
+# recriavam o que o usuário excluía pela tela (balanças/usuários "voltavam" a cada deploy).
 if ls /seed/*.sql >/dev/null 2>&1; then
   for f in $(ls /seed/*.sql | sort -V); do
-    echo "[migrate] seed $(basename "$f")"
+    s="seed/$(basename "$f")"
+    ja="$($PSQL -tA -c "select 1 from public.schema_migrations where version = '${s}'")"
+    if [ -n "$ja" ]; then
+      echo "[migrate] $s — já aplicado, pulando"
+      continue
+    fi
+    echo "[migrate] $s — aplicando..."
     $PSQL -f "$f"
+    $PSQL -c "insert into public.schema_migrations (version) values ('${s}')"
   done
 else
   echo "[migrate] nenhum seed em /seed/"
