@@ -31,6 +31,8 @@ export const routes: Routes = [
   { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard] },
   // TV de acompanhamento da conferência (painel de parede) — perfil TV ou admin.
   { path: 'tv', component: TvComponent, canActivate: [tvGuard] },
+  // /tv/saida = só vendas (expedição) | /tv/entrada = só compras (recebimento)
+  { path: 'tv/:movimento', component: TvComponent, canActivate: [tvGuard] },
   { path: 'conferencia/:nunota', component: ConferenciaComponent, canActivate: [authGuard] },
   { path: 'transferencia', component: TransferenciaComponent, canActivate: [authGuard] },
   { path: 'transferencias', component: TransferenciasDesktopComponent, canActivate: [authGuard] },

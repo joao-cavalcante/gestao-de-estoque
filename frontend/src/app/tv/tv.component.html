@@ -4,7 +4,7 @@
     <div class="tv__marca">
       <span class="tv__logo">LG</span>
       <div class="tv__titulos">
-        <span class="tv__titulo">CONFERÊNCIA AO VIVO</span>
+        <span class="tv__titulo">CONFERÊNCIA AO VIVO <span class="tv__mov" [attr.data-mov]="movimento">{{ rotuloMovimento }}</span></span>
         <span class="tv__vivo" [class.tv__vivo--pendente]="pendente()" [class.tv__vivo--pulso]="pulso()">
           <span class="tv__vivo-dot"></span>
           @if (pendente()) {
@@ -31,19 +31,23 @@
       <div class="tv-kpi">
         <span class="tv-kpi__rot">Disponível</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('disponivel')">{{ numero(d.resumo.disponivel) }}</span>
+        @if (d.porMovimento; as pm) { <span class="tv-kpi__mov">Saída {{ pm.saida.disponivel }} · Entrada {{ pm.entrada.disponivel }}</span> }
       </div>
       <div class="tv-kpi tv-kpi--principal">
         <span class="tv-kpi__rot">Em conferência</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('emConferencia')">{{ numero(d.resumo.emConferencia) }}</span>
         @if (paradosCount() > 0) { <span class="tv-kpi__extra tv-kpi__extra--parado">⚠ {{ paradosCount() }} parado(s)</span> }
+        @if (d.porMovimento; as pm) { <span class="tv-kpi__mov">Saída {{ pm.saida.emConferencia }} · Entrada {{ pm.entrada.emConferencia }}</span> }
       </div>
       <div class="tv-kpi" [class.tv-kpi--atencao]="d.resumo.aguardandoLiberacao > 0">
         <span class="tv-kpi__rot">Aguard. liberação</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('aguardandoLiberacao')">{{ numero(d.resumo.aguardandoLiberacao) }}</span>
+        @if (d.porMovimento; as pm) { <span class="tv-kpi__mov">Saída {{ pm.saida.aguardandoLiberacao }} · Entrada {{ pm.entrada.aguardandoLiberacao }}</span> }
       </div>
       <div class="tv-kpi tv-kpi--ok">
         <span class="tv-kpi__rot">{{ d.turno.codigo ? 'Pronto no turno' : 'Pronto hoje' }}</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('prontoTurno')">{{ numero(d.resumo.prontoTurno) }}</span>
+        @if (d.porMovimento; as pm) { <span class="tv-kpi__mov">Saída {{ pm.saida.prontoTurno }} · Entrada {{ pm.entrada.prontoTurno }}</span> }
       </div>
       <div class="tv-kpi">
         <span class="tv-kpi__rot">{{ d.turno.codigo ? 'Tempo médio no turno' : 'Tempo médio hoje' }}</span>
@@ -57,13 +61,15 @@
       </div>
     </section>
 
-    <!-- Pedidos pendentes por modalidade (AD_EXPRESS / AD_RETIRA / AD_ENTREGA) -->
+    <!-- Pedidos pendentes por modalidade (AD_EXPRESS / AD_RETIRA / AD_ENTREGA) — só saídas (venda) -->
+    @if (d.movimento !== 'entrada') {
     <section class="tv__modalidades">
       <span class="tv__modalidades-rot">Pendentes por modalidade</span>
       <span class="tv-mod tv-mod--express"><oq-icon name="express" [size]="22" />Express<strong>{{ numero(d.modalidades.express) }}</strong></span>
       <span class="tv-mod tv-mod--retira"><oq-icon name="retira" [size]="22" />Cliente retira<strong>{{ numero(d.modalidades.retira) }}</strong></span>
       <span class="tv-mod tv-mod--entrega"><oq-icon name="entrega" [size]="22" />Entrega<strong>{{ numero(d.modalidades.entrega) }}</strong></span>
     </section>
+    }
 
     <section class="tv__meio">
       <!-- ═══ Nível 1: o que está acontecendo agora ═══ -->
@@ -126,6 +132,9 @@
                     <span class="tv-card__etapa tv-card__etapa--sec">Conferência</span>
                   }
                   <span class="tv-card__selos">
+                    @if (d.movimento === 'todos' && c.movimento) {
+                      <span class="tv-selo tv-selo--mov" [attr.data-mov]="c.movimento">{{ c.movimento === 'SAIDA' ? 'SAÍDA' : 'ENTRADA' }}</span>
+                    }
                     @if (c.recontagem) { <span class="tv-selo tv-selo--recontagem">RECONTAGEM</span> }
                     @if (c.status === 'aguardando_finalizacao') { <span class="tv-selo">FINALIZANDO</span> }
                     @if (minutosParado(c); as p) { <span class="tv-selo tv-selo--parado">⚠ PARADO · {{ p }} MIN</span> }
@@ -183,6 +192,9 @@
                 <span class="tv-fin__hora">{{ f.concluidoEm | date: 'HH:mm' }}</span>
                 <span class="tv-fin__pedido">{{ f.nunota }}</span>
                 <span class="tv-fin__cliente">{{ f.cliente ?? '—' }}</span>
+                @if (d.movimento === 'todos' && f.movimento) {
+                  <span class="tv-selo tv-selo--mov tv-selo--mini" [attr.data-mov]="f.movimento">{{ f.movimento === 'SAIDA' ? 'SAÍDA' : 'ENTRADA' }}</span>
+                }
                 @if (f.recontagem) { <span class="tv-selo tv-selo--recontagem tv-selo--mini">RECONT.</span> }
                 @if (f.divergente) {
                   <span class="tv-fin__icone tv-fin__icone--div" title="Concluído divergente">⚠</span>

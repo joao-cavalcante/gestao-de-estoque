@@ -3,6 +3,10 @@ export interface TvResumo {
   atualizadoEm: string;
   limiteParadoMin: number;
   segmentado: boolean;
+  /** "saida" (vendas) | "entrada" (compras) | "todos". */
+  movimento: string;
+  /** Só no modo "todos": contadores divididos entre saída e entrada. */
+  porMovimento: { saida: TvMovimentoContadores; entrada: TvMovimentoContadores } | null;
   resumo: {
     disponivel: number;
     emConferencia: number;
@@ -29,6 +33,8 @@ export interface TvConferencia {
   express: boolean;
   retira: boolean;
   entrega: boolean;
+  /** "SAIDA" | "ENTRADA" | null. */
+  movimento: string | null;
   status: string;
   recontagem: boolean;
   etapaAtual: number | null;
@@ -48,6 +54,14 @@ export interface TvFinalizado {
   concluidoEm: string;
   divergente: boolean;
   recontagem: boolean;
+  movimento: string | null;
+}
+
+export interface TvMovimentoContadores {
+  disponivel: number;
+  emConferencia: number;
+  aguardandoLiberacao: number;
+  prontoTurno: number;
 }
 
 export interface TvEtapaResumo {

@@ -14,6 +14,10 @@ data class TvResumoDto(
     val limiteParadoMin: Int,
     /** Tenant com conferência por etapa (faixa Secos/Refrigerado/Congelado). */
     val segmentado: Boolean,
+    /** Filtro aplicado: "saida" (vendas V/P) | "entrada" (compras C/O) | "todos". */
+    val movimento: String,
+    /** Só no modo "todos": os contadores divididos entre saída e entrada. */
+    val porMovimento: TvPorMovimentoDto? = null,
     val resumo: TvContadoresDto,
     /** Turno atual (Manhã 08–18, Noite 22–07); fora de turno = contagem desde 00:00. */
     val turno: TvTurnoDto,
@@ -68,6 +72,8 @@ data class TvConferenciaDto(
     val express: Boolean,
     val retira: Boolean,
     val entrega: Boolean,
+    /** "SAIDA" (TIPMOV V/P) | "ENTRADA" (C/O) | null (outro TIPMOV). */
+    val movimento: String? = null,
     /** Status real da nota (StatusOperacional.codigo). */
     val status: String,
     val recontagem: Boolean,
@@ -94,6 +100,7 @@ data class TvFinalizadoDto(
     val concluidoEm: String,
     val divergente: Boolean,
     val recontagem: Boolean,
+    val movimento: String? = null,
 )
 
 @Serializable
@@ -106,4 +113,18 @@ data class TvEtapaResumoDto(
     val emConferencia: Int,
     /** Etapas concluídas desde 00:00. */
     val prontoHoje: Int,
+)
+
+@Serializable
+data class TvPorMovimentoDto(
+    val saida: TvMovimentoContadoresDto,
+    val entrada: TvMovimentoContadoresDto,
+)
+
+@Serializable
+data class TvMovimentoContadoresDto(
+    val disponivel: Int,
+    val emConferencia: Int,
+    val aguardandoLiberacao: Int,
+    val prontoTurno: Int,
 )

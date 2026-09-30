@@ -14,7 +14,8 @@ fun Route.tvRoutes() {
             if (!podeVerTv(claims)) {
                 return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "sem permissão para a TV de conferência"))
             }
-            call.respond(TvService.resumo(claims.tenantId))
+            // ?movimento=saida (vendas) | entrada (compras) | ausente = todos
+            call.respond(TvService.resumo(claims.tenantId, call.request.queryParameters["movimento"]))
         }
     }
 }

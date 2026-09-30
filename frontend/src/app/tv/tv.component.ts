@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { Subscription, catchError, of, switchMap, timer } from 'rxjs';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
 import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
@@ -34,6 +35,13 @@ const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
 })
 export class TvComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
+
+  /** /tv = entradas e saídas | /tv/saida = só vendas (V/P) | /tv/entrada = só compras (C/O). */
+  readonly movimento: 'saida' | 'entrada' | 'todos' = ((): 'saida' | 'entrada' | 'todos' => {
+    const m = inject(ActivatedRoute).snapshot.paramMap.get('movimento');
+    return m === 'saida' || m === 'entrada' ? m : 'todos';
+  })();
+  readonly rotuloMovimento = { saida: 'SAÍDAS · VENDAS', entrada: 'ENTRADAS · COMPRAS', todos: 'ENTRADAS E SAÍDAS' }[this.movimento];
 
   readonly dados = signal<TvResumo | null>(null);
   readonly ultimaOkEm = signal<number | null>(null);
@@ -80,7 +88,7 @@ export class TvComponent implements OnInit, OnDestroy {
     this.assinatura = timer(0, INTERVALO_API_MS)
       .pipe(
         switchMap(() =>
-          this.http.get<TvResumo>('/api/tv/resumo').pipe(
+          this.http.get<TvResumo>('/api/tv/resumo', { params: this.movimento === 'todos' ? {} : { movimento: this.movimento } }).pipe(
             catchError(() => {
               this.pendente.set(true);
               return of(null);

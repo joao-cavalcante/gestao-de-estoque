@@ -82,6 +82,12 @@ object TvService {
         val concluidoEm: Instant?,
     ) {
         fun campo(nome: String) = dados?.get(nome)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+        /** TGFCAB.TIPMOV: V/P = saída (venda) | C/O = entrada (compra) | outro = null. */
+        val movimento: String? get() = when (campo("TIPMOV")?.uppercase()) {
+            "V", "P" -> "SAIDA"
+            "C", "O" -> "ENTRADA"
+            else -> null
+        }
         val numNota get() = campo("NUMNOTA")?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }
         val cliente get() = campo("Parceiro.NOMEPARC")
     }
@@ -91,7 +97,13 @@ object TvService {
         val qtdVol: Int, val recontagem: Boolean, val segmentada: Boolean,
     )
 
-    fun resumo(tenantId: UUID): TvResumoDto {
+    /** [movimento]: "saida" | "entrada" | qualquer outro = todos. Filtra TODAS as contagens da TV pelo TIPMOV. */
+    fun resumo(tenantId: UUID, movimento: String? = null): TvResumoDto {
+        val filtro = when (movimento?.lowercase()) {
+            "saida" -> "SAIDA"
+            "entrada" -> "ENTRADA"
+            else -> null
+        }
         val agora = Instant.now()
         val inicioDoDia = LocalDate.now(ZONA).atStartOfDay(ZONA).toInstant()
         val limiteLock = agora.minusSeconds(LIMITE_PARADO_MIN * 60L)
@@ -102,7 +114,7 @@ object TvService {
 
         val composto = TenantTx.run(tenantId) {
             // 1) Todas as notas do espelho (mesmo universo da Fila).
-            val notas = TarefasTable.selectAll().where { TarefasTable.tenantId eq tenantId }.map { r ->
+            val todasNotas = TarefasTable.selectAll().where { TarefasTable.tenantId eq tenantId }.map { r ->
                 Nota(
                     nunota = r[TarefasTable.nunota].toLong(),
                     status = r[TarefasTable.statusOperacional],
@@ -110,6 +122,9 @@ object TvService {
                     concluidoEm = r[TarefasTable.concluidoEm],
                 )
             }
+            // Entrada (compra) x saída (venda): o filtro vale pra TUDO abaixo (contadores, cartões, etapas, médias).
+            val notas = if (filtro == null) todasNotas else todasNotas.filter { it.movimento == filtro }
+            val nunotasFiltradas = notas.map { it.nunota }.toSet()
             val emConf = notas.filter { it.status in EM_CONFERENCIA }
             val prontas = notas.filter { it.status in PRONTO }
 
@@ -167,6 +182,17 @@ object TvService {
                     (if (idsEtapas.isEmpty()) org.jetbrains.exposed.sql.Op.FALSE else (SeparacaoEtapasTable.sessaoId inList idsEtapas)) or
                         (SeparacaoEtapasTable.concluidaEm greaterEq inicioDoDia)
                     )
+            }.toList().let { linhas ->
+                // Etapas concluídas hoje de sessões fora do universo filtrado (outro movimento) saem da conta.
+                val idsConhecidos = sessoes.map { it.id }.toSet()
+                val desconhecidas = linhas.map { it[SeparacaoEtapasTable.sessaoId] }.filter { it !in idsConhecidos }.distinct()
+                val nunotaPorSessao = if (desconhecidas.isEmpty()) emptyMap() else SeparacaoSessoesTable.selectAll().where {
+                    (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id inList desconhecidas)
+                }.associate { it[SeparacaoSessoesTable.id] to it[SeparacaoSessoesTable.nunota].toLong() }
+                linhas.filter { r ->
+                    val sid = r[SeparacaoEtapasTable.sessaoId]
+                    sid in idsConhecidos || nunotaPorSessao[sid] in nunotasFiltradas
+                }
             }.map { r ->
                 object {
                     val sessaoId = r[SeparacaoEtapasTable.sessaoId]
@@ -228,6 +254,7 @@ object TvService {
                     express = n.campo("AD_EXPRESS")?.uppercase() == "S",
                     retira = n.campo("AD_RETIRA")?.uppercase() == "S",
                     entrega = n.campo("AD_ENTREGA")?.uppercase() == "S",
+                    movimento = n.movimento,
                     status = n.status,
                     recontagem = n.status in RECONTAGEM || s?.recontagem == true,
                     etapaAtual = etapaAtual,
@@ -249,6 +276,7 @@ object TvService {
                     nunota = n.nunota, numNota = n.numNota, cliente = n.cliente, concluidoEm = iso(fim),
                     divergente = n.status in DIVERGENTE || etapaDivergente,
                     recontagem = n.status in RECONTAGEM,
+                    movimento = n.movimento,
                 )
             }
             fun tempoMedioMin(lista: List<Pair<Nota, Instant>>): Int? {
@@ -280,6 +308,16 @@ object TvService {
                 atualizadoEm = iso(agora),
                 limiteParadoMin = LIMITE_PARADO_MIN,
                 segmentado = segmentado,
+                movimento = filtro?.lowercase() ?: "todos",
+                porMovimento = if (filtro != null) null else {
+                    fun contar(mov: String) = TvMovimentoContadoresDto(
+                        disponivel = notas.count { it.movimento == mov && it.status in DISPONIVEL },
+                        emConferencia = notas.count { it.movimento == mov && it.status in EM_CONFERENCIA },
+                        aguardandoLiberacao = notas.count { it.movimento == mov && it.status in AGUARDANDO_LIBERACAO },
+                        prontoTurno = prontasTurno.count { it.first.movimento == mov },
+                    )
+                    TvPorMovimentoDto(saida = contar("SAIDA"), entrada = contar("ENTRADA"))
+                },
                 resumo = TvContadoresDto(
                     disponivel = notas.count { it.status in DISPONIVEL },
                     emConferencia = emConf.size,
