@@ -14,6 +14,7 @@
     } @else if (balancas().length === 0) {
       <div class="oq-empty-row">Nenhuma balança cadastrada</div>
     } @else {
+      @if (erroLista()) { <span class="oq-form-hint oq-form-hint--erro">{{ erroLista() }}</span> }
       <ul class="oq-admin-lista">
         @for (b of balancas(); track b.id) {
           <li class="oq-admin-row">
@@ -23,6 +24,15 @@
               <span class="oq-admin-row__sub">{{ b.tipoComunicacao }} · {{ endereco(b) }}</span>
             </div>
             <oq-status-chip [tone]="b.ativo ? 'success' : 'neutral'">{{ b.ativo ? 'ATIVA' : 'INATIVA' }}</oq-status-chip>
+            <button
+              type="button"
+              class="oq-admin-btn oq-admin-btn--outline"
+              (click)="abrirUsuarios(b)"
+              title="Usuários autorizados a usar esta balança na conferência (nenhum = todos)"
+            >
+              <oq-icon name="user" [size]="12" />
+              {{ b.usuariosAutorizados ? b.usuariosAutorizados + ' usuário(s)' : 'Todos' }}
+            </button>
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirEdicao(b)">Configurar</button>
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="pedirExclusao(b)">
               <oq-icon name="x" [size]="12" />
@@ -259,4 +269,17 @@
       </div>
     </div>
   </div>
+}
+
+@if (usuariosBalanca(); as ua) {
+  <oq-usuarios-autorizados
+    [titulo]="ua.balanca.nome"
+    subtitulo="Só os usuários selecionados usam esta balança na conferência. Nenhum selecionado = todos."
+    [usuarios]="usuarios()"
+    [selecionadosIniciais]="ua.selecionados"
+    [salvando]="salvandoUsuarios()"
+    [erro]="erroUsuarios()"
+    (salvar)="salvarUsuarios($event)"
+    (fechar)="usuariosBalanca.set(null)"
+  />
 }

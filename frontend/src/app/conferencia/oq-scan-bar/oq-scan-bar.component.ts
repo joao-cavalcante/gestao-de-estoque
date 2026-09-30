@@ -250,7 +250,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.focarIdentificador();
     // Busca 1x, fica em memória — evita round-trip a cada bipe. Só importa
     // quando alguma sessão realmente pedir peso (usaConfPesoAtual).
-    this.balancaService.listarMinhas().subscribe({
+    this.balancaService.listarMinhas(this.sessaoId).subscribe({
       next: (balancas) => {
         this.balancas = balancas;
         let lembrada: string | null = null;
@@ -502,7 +502,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   obterPeso(): void {
     if (!this.balancaAtiva || this.balancaAtiva.tipoComunicacao !== 'HTTP' || this.capturandoPeso) return;
     this.capturandoPeso = true;
-    this.balancaService.capturarPeso(this.balancaAtiva.id).subscribe({
+    this.balancaService.capturarPeso(this.balancaAtiva.id, this.sessaoId).subscribe({
       next: (r) => {
         this.capturandoPeso = false;
         this.peso = String(r.peso);

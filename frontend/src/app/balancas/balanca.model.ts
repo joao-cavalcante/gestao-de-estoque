@@ -15,6 +15,8 @@ export interface Balanca {
   porta: number | null;
   rota: string | null;
   ativo: boolean;
+  /** Qtd. de usuários autorizados (tela de balanças) — 0 = sem restrição, todos usam. */
+  usuariosAutorizados?: number;
 }
 
 export type SalvarBalancaRequest = Omit<Balanca, 'id'>;

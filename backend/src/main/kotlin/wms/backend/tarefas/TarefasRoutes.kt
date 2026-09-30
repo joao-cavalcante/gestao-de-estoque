@@ -4,7 +4,9 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import wms.backend.auth.ClaimsToken
 import wms.backend.auth.exigirAuth
+import wms.backend.permissoes.PermissoesRecurso
 import wms.backend.tenancy.TenantRepository
 import java.util.UUID
 
@@ -33,7 +35,7 @@ fun Route.tarefasRoutes() {
                 return@get
             }
 
-            call.respond(TarefasRepository.listar(tenantId))
+            call.respond(filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))
         }
 
         // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
@@ -57,7 +59,7 @@ fun Route.tarefasRoutes() {
             }
             try {
                 TarefaSyncService.sincronizarTenant(slug, tenantId)
-                call.respond(TarefasRepository.listar(tenantId))
+                call.respond(filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadGateway,
@@ -104,3 +106,14 @@ fun Route.tarefasRoutes() {
 
 private fun resolverTenantId(slug: String): UUID? =
     TenantRepository.buscarPorSlug(slug)?.id?.let { UUID.fromString(it) }
+
+/**
+ * Fila só com as notas cuja TOP o usuário pode conferir (PermissoesRecurso). Conta de estação vê a
+ * fila inteira — a pessoa só é conhecida no crachá, e a sessão barra ali (identificar-operador).
+ */
+private fun filtrarPorTop(claims: ClaimsToken, tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    if (claims.perfil == "ESTACAO") return tarefas
+    val restritas = PermissoesRecurso.topsRestritas(tenantId)
+    if (restritas.isEmpty()) return tarefas
+    return tarefas.filter { PermissoesRecurso.podeUsarTop(restritas, claims.userId, it.codigoTipoOperacao?.trim()?.toIntOrNull()) }
+}

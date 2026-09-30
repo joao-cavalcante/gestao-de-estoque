@@ -18,6 +18,8 @@ data class BalancaDto(
     val porta: Int? = null,
     val rota: String? = null,
     val ativo: Boolean,
+    /** Qtd. de usuários autorizados (só na listagem da tela de balanças) — 0 = sem restrição. */
+    val usuariosAutorizados: Int = 0,
 )
 
 @Serializable
@@ -39,3 +41,7 @@ data class SalvarBalancaRequest(
 
 @Serializable
 data class PesoCapturadoDto(val peso: Double)
+
+/** Usuários autorizados de um recurso (balança/TOP) — lista vazia = sem restrição. */
+@Serializable
+data class UsuariosAutorizadosDto(val usuarioIds: List<String> = emptyList())

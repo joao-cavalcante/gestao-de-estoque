@@ -12,9 +12,21 @@ export class BalancaService {
     return this.http.get<Balanca[]>(this.baseUrl);
   }
 
-  /** Balanças vinculadas ao usuário logado (fallback: todas as ativas, se sem vínculo). */
-  listarMinhas(): Observable<Balanca[]> {
-    return this.http.get<Balanca[]>(`${this.baseUrl}/minhas`);
+  /**
+   * Balanças que o usuário pode usar (sem usuário vinculado = de todos). `sessaoId` = conferência aberta:
+   * em conta de estação o backend considera o operador do crachá dessa sessão.
+   */
+  listarMinhas(sessaoId?: string | null): Observable<Balanca[]> {
+    return this.http.get<Balanca[]>(`${this.baseUrl}/minhas`, { params: sessaoId ? { sessao: sessaoId } : {} });
+  }
+
+  /** Usuários autorizados da balança (admin) — lista vazia = sem restrição. */
+  listarUsuarios(id: string): Observable<{ usuarioIds: string[] }> {
+    return this.http.get<{ usuarioIds: string[] }>(`${this.baseUrl}/${id}/usuarios`);
+  }
+
+  definirUsuarios(id: string, usuarioIds: string[]): Observable<{ usuarioIds: string[] }> {
+    return this.http.put<{ usuarioIds: string[] }>(`${this.baseUrl}/${id}/usuarios`, { usuarioIds });
   }
 
   criar(req: SalvarBalancaRequest): Observable<Balanca> {
@@ -30,7 +42,7 @@ export class BalancaService {
   }
 
   /** Só funciona para tipoComunicacao='HTTP' — as demais são lidas pelo LocalScaleService, no navegador. */
-  capturarPeso(id: string): Observable<{ peso: number }> {
-    return this.http.get<{ peso: number }>(`${this.baseUrl}/${id}/capturar-peso`);
+  capturarPeso(id: string, sessaoId?: string | null): Observable<{ peso: number }> {
+    return this.http.get<{ peso: number }>(`${this.baseUrl}/${id}/capturar-peso`, { params: sessaoId ? { sessao: sessaoId } : {} });
   }
 }

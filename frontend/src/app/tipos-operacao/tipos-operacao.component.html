@@ -43,9 +43,31 @@
               />
               Usar conferência por etapa
             </label>
+            <button
+              type="button"
+              class="oq-admin-btn oq-admin-btn--outline top-usuarios"
+              (click)="abrirUsuarios(top)"
+              title="Usuários autorizados a conferir notas deste TOP (nenhum = todos)"
+            >
+              <oq-icon name="user" [size]="12" />
+              {{ top.usuariosAutorizados ? top.usuariosAutorizados + ' usuário(s)' : 'Todos' }}
+            </button>
           </li>
         }
       </ul>
     }
   </oq-panel-section>
+
+  @if (usuariosTop(); as ua) {
+    <oq-usuarios-autorizados
+      [titulo]="ua.top.codtop + ' — ' + ua.top.descricao"
+      subtitulo="Só os usuários selecionados conferem notas deste TOP. Nenhum selecionado = todos."
+      [usuarios]="usuarios()"
+      [selecionadosIniciais]="ua.selecionados"
+      [salvando]="salvandoUsuarios()"
+      [erro]="erroUsuarios()"
+      (salvar)="salvarUsuarios($event)"
+      (fechar)="usuariosTop.set(null)"
+    />
+  }
 </div>

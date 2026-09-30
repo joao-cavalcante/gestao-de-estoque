@@ -1,0 +1,84 @@
+<div class="oq-modal-backdrop" (click)="fechar.emit()">
+  <div class="oq-modal ua-modal" (click)="$event.stopPropagation()">
+    <div class="oq-modal__header">
+      <span class="oq-modal__titulo">Usuários autorizados</span>
+      <button type="button" class="oq-modal__fechar" (click)="fechar.emit()" title="Fechar">
+        <oq-icon name="x" [size]="12" />
+      </button>
+    </div>
+
+    <div class="oq-modal__body ua-body">
+      <div class="ua-recurso">
+        <span class="ua-recurso__titulo">{{ titulo }}</span>
+        @if (subtitulo) { <span class="ua-recurso__sub">{{ subtitulo }}</span> }
+      </div>
+
+      <!-- Selecionados + contador -->
+      <div class="ua-secao">
+        <div class="ua-secao__topo">
+          <span class="ua-rotulo">Selecionados</span>
+          <span class="ua-contador" [class.ua-contador--livre]="listaSelecionados().length === 0">
+            {{ listaSelecionados().length === 0 ? 'Todos os usuários' : listaSelecionados().length + ' usuário(s)' }}
+          </span>
+        </div>
+        @if (listaSelecionados().length === 0) {
+          <span class="ua-livre">Sem restrição — qualquer usuário pode usar. Selecione abaixo para restringir.</span>
+        } @else {
+          <div class="ua-chips">
+            @for (u of listaSelecionados(); track u.id) {
+              <span class="ua-chip" [class.ua-chip--inativo]="!u.ativo">
+                {{ u.nome }}
+                <button type="button" class="ua-chip__x" (click)="remover(u.id)" [title]="'Remover ' + u.nome">
+                  <oq-icon name="x" [size]="10" />
+                </button>
+              </span>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Pesquisa + seleção múltipla -->
+      <div class="ua-secao">
+        <div class="ua-busca">
+          <oq-icon name="search" [size]="14" />
+          <input
+            type="text"
+            placeholder="Pesquisar por nome, e-mail ou crachá"
+            autocomplete="off"
+            [ngModel]="busca()"
+            (ngModelChange)="busca.set($event)"
+            name="buscaUsuarios"
+          />
+        </div>
+        <div class="ua-acoes">
+          <button type="button" class="ua-link" (click)="selecionarFiltrados()" [disabled]="filtrados().length === 0">
+            Selecionar {{ busca() ? 'filtrados' : 'todos' }}
+          </button>
+          <button type="button" class="ua-link" (click)="limpar()" [disabled]="listaSelecionados().length === 0">Limpar</button>
+        </div>
+        <ul class="ua-lista">
+          @for (u of filtrados(); track u.id) {
+            <li>
+              <label class="ua-item" [class.ua-item--on]="selecionados().has(u.id)">
+                <input type="checkbox" [checked]="selecionados().has(u.id)" (change)="alternar(u.id)" />
+                <span class="ua-item__nome">{{ u.nome }}</span>
+                <span class="ua-item__sub">{{ u.perfil }}{{ u.ativo ? '' : ' · inativo' }}</span>
+              </label>
+            </li>
+          } @empty {
+            <li class="ua-vazio">Nenhum usuário encontrado</li>
+          }
+        </ul>
+      </div>
+
+      @if (erro) { <span class="oq-form-hint oq-form-hint--erro">{{ erro }}</span> }
+    </div>
+
+    <div class="oq-modal__footer">
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="salvando" (click)="fechar.emit()">Cancelar</button>
+      <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="salvando" (click)="confirmar()">
+        {{ salvando ? 'Salvando…' : 'Salvar' }}
+      </button>
+    </div>
+  </div>
+</div>

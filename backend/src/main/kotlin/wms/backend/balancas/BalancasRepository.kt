@@ -14,10 +14,14 @@ import java.util.UUID
 object BalancasRepository {
 
     fun listar(tenantId: UUID): List<BalancaDto> = TenantTx.run(tenantId) {
+        val autorizados = BalancaUsuariosTable.selectAll()
+            .where { BalancaUsuariosTable.tenantId eq tenantId }
+            .groupingBy { it[BalancaUsuariosTable.balancaId] }
+            .eachCount()
         BalancasTable.selectAll()
             .where { BalancasTable.tenantId eq tenantId }
             .orderBy(BalancasTable.nome)
-            .map { it.toDto() }
+            .map { it.toDto().copy(usuariosAutorizados = autorizados[it[BalancasTable.id]] ?: 0) }
     }
 
     fun listarAtivas(tenantId: UUID): List<BalancaDto> = TenantTx.run(tenantId) {
@@ -27,22 +31,15 @@ object BalancasRepository {
             .map { it.toDto() }
     }
 
-    /** Balanças vinculadas ao usuário; sem nenhum vínculo cadastrado, cai pra todas as ativas (nunca deixa o operador sem opção). */
-    fun listarParaUsuario(tenantId: UUID, usuarioId: UUID): List<BalancaDto> = TenantTx.run(tenantId) {
-        val idsVinculados = BalancaUsuariosTable.selectAll()
-            .where { (BalancaUsuariosTable.tenantId eq tenantId) and (BalancaUsuariosTable.usuarioId eq usuarioId) }
-            .map { it[BalancaUsuariosTable.balancaId] }
-
-        if (idsVinculados.isEmpty()) {
-            BalancasTable.selectAll()
-                .where { (BalancasTable.tenantId eq tenantId) and (BalancasTable.ativo eq true) }
-                .orderBy(BalancasTable.nome)
-                .map { it.toDto() }
-        } else {
-            BalancasTable.selectAll()
-                .where { (BalancasTable.tenantId eq tenantId) and (BalancasTable.ativo eq true) and (BalancasTable.id inList idsVinculados) }
-                .orderBy(BalancasTable.nome)
-                .map { it.toDto() }
+    /**
+     * Balanças ATIVAS que o usuário pode usar — regra por recurso (PermissoesRecurso): balança sem
+     * usuário vinculado é de todos; com vínculo, só dos vinculados. Antes era por usuário (usuário sem
+     * vínculo via todas) — a tabela estava vazia, então nada muda pra quem não configurou.
+     */
+    fun listarParaUsuario(tenantId: UUID, usuarioId: UUID?): List<BalancaDto> {
+        val restritas = wms.backend.permissoes.PermissoesRecurso.balancasRestritas(tenantId)
+        return listarAtivas(tenantId).filter {
+            wms.backend.permissoes.PermissoesRecurso.podeUsarBalanca(restritas, usuarioId, UUID.fromString(it.id))
         }
     }
 

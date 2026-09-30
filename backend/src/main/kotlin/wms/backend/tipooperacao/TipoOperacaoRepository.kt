@@ -16,6 +16,10 @@ object TipoOperacaoRepository {
 
     fun listar(tenantId: UUID): List<TipoOperacaoDto> = TenantTx.run(tenantId) {
         val semEtapa = topsSemConferenciaPorEtapaTx(tenantId)
+        val autorizadosPorTop = TipoOperacaoUsuariosTable.selectAll()
+            .where { TipoOperacaoUsuariosTable.tenantId eq tenantId }
+            .groupingBy { it[TipoOperacaoUsuariosTable.codtop] }
+            .eachCount()
         TipoOperacaoTable.selectAll()
             .where { TipoOperacaoTable.tenantId eq tenantId }
             .orderBy(TipoOperacaoTable.codtop, SortOrder.ASC)
@@ -28,6 +32,7 @@ object TipoOperacaoRepository {
                     tipmov = it[TipoOperacaoTable.tipmov],
                     conferenciaPorEtapa = it[TipoOperacaoTable.codtop] !in semEtapa,
                     localAtualizadoEm = DateTimeFormatter.ISO_INSTANT.format(it[TipoOperacaoTable.localAtualizadoEm]),
+                    usuariosAutorizados = autorizadosPorTop[it[TipoOperacaoTable.codtop]] ?: 0,
                 )
             }
     }

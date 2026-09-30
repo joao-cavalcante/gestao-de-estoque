@@ -5,6 +5,9 @@ import { OqInlineAlertComponent } from '../shared/oq-inline-alert/oq-inline-aler
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { TiposOperacaoService } from './tipos-operacao.service';
 import { TipoOperacao, rotuloTipmov } from './tipos-operacao.model';
+import { OqUsuariosAutorizadosComponent } from '../shared/oq-usuarios-autorizados/oq-usuarios-autorizados.component';
+import { UsuarioService } from '../usuarios/usuario.service';
+import { Usuario } from '../usuarios/usuario.model';
 
 /**
  * Espelho local da TGFTOP (V16), filtrado no backend pra só trazer os TOP com
@@ -18,7 +21,7 @@ import { TipoOperacao, rotuloTipmov } from './tipos-operacao.model';
 @Component({
   selector: 'app-tipos-operacao',
   standalone: true,
-  imports: [OqIconComponent, OqPanelSectionComponent, OqInlineAlertComponent, OqSkeletonComponent],
+  imports: [OqIconComponent, OqPanelSectionComponent, OqInlineAlertComponent, OqSkeletonComponent, OqUsuariosAutorizadosComponent],
   templateUrl: './tipos-operacao.component.html',
   styles: [
     `
@@ -58,6 +61,12 @@ import { TipoOperacao, rotuloTipmov } from './tipos-operacao.model';
       .top-etapa--off {
         color: var(--oq-text-secondary);
       }
+      .top-usuarios {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
     `,
   ],
 })
@@ -72,6 +81,50 @@ export class TiposOperacaoComponent implements OnInit {
   salvando = signal<number | null>(null);
 
   readonly rotuloTipmov = rotuloTipmov;
+
+  // ─── Usuários autorizados (V51) — TOP sem usuário = todos conferem ───────
+  private readonly usuarioService = inject(UsuarioService);
+  usuarios = signal<Usuario[]>([]);
+  usuariosTop = signal<{ top: TipoOperacao; selecionados: string[] } | null>(null);
+  salvandoUsuarios = signal(false);
+  erroUsuarios = signal<string | null>(null);
+
+  abrirUsuarios(top: TipoOperacao): void {
+    this.erro.set(null);
+    this.erroUsuarios.set(null);
+    this.service.listarUsuarios(top.codtop).subscribe({
+      next: ({ usuarioIds }) => {
+        const abrir = () => this.usuariosTop.set({ top, selecionados: usuarioIds });
+        if (this.usuarios().length) return abrir();
+        this.usuarioService.listar().subscribe({
+          next: (lista) => {
+            this.usuarios.set(lista);
+            abrir();
+          },
+          error: (err) => this.erro.set(err.error?.erro ?? 'Não foi possível carregar os usuários'),
+        });
+      },
+      error: (err) => this.erro.set(err.error?.erro ?? `Não foi possível carregar os usuários do TOP ${top.codtop}`),
+    });
+  }
+
+  salvarUsuarios(ids: string[]): void {
+    const atual = this.usuariosTop();
+    if (!atual || this.salvandoUsuarios()) return;
+    this.salvandoUsuarios.set(true);
+    this.erroUsuarios.set(null);
+    this.service.definirUsuarios(atual.top.codtop, ids).subscribe({
+      next: ({ usuarioIds }) => {
+        this.tops.update((l) => l.map((t) => (t.codtop === atual.top.codtop ? { ...t, usuariosAutorizados: usuarioIds.length } : t)));
+        this.salvandoUsuarios.set(false);
+        this.usuariosTop.set(null);
+      },
+      error: (err) => {
+        this.salvandoUsuarios.set(false);
+        this.erroUsuarios.set(err.error?.erro ?? 'Não foi possível salvar os usuários autorizados');
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.carregar();

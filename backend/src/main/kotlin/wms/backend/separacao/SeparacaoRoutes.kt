@@ -5,6 +5,8 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import wms.backend.auth.exigirAuth
+import wms.backend.permissoes.PermissoesRecurso
+import wms.backend.tarefas.TarefasRepository
 import wms.backend.produtos.ProdutoImagemService
 import wms.backend.tenancy.TenantRepository
 import wms.backend.usuarios.UsuariosRepository
@@ -38,6 +40,14 @@ fun Route.separacaoRoutes() {
             }
 
             val body = call.receive<IniciarSeparacaoRequest>()
+            // TOP da nota restrita a outros usuários (PermissoesRecurso) — conta de estação passa aqui e é
+            // barrada no crachá (identificar-operador), quando a pessoa é conhecida.
+            if (claims.perfil != "ESTACAO") {
+                val codtop = TarefasRepository.codTipOperPorNunota(tenantId, listOf(body.nunota))[body.nunota]
+                if (!PermissoesRecurso.podeUsarTop(tenantId, claims.userId, codtop)) {
+                    return@post responderTopNaoAutorizada(call)
+                }
+            }
             val resultado = SeparacaoService.iniciar(slug, tenantId, body.nunota)
             call.respond(HttpStatusCode.Accepted, mapOf("sessaoId" to resultado.sessaoId.toString(), "status" to resultado.status))
         }
@@ -59,6 +69,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@get
 
             // Revalida a cada poll — leitura 100% local (compara contra o que
             // o sync já sabe da tarefa), nunca chama o Sankhya aqui.
@@ -87,6 +98,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@get
 
             val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
             if (sessao == null) {
@@ -118,6 +130,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@get
 
             val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
             if (sessao == null) {
@@ -149,6 +162,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<ResolverCodigoBarraRequest>()
             val resolvido = SeparacaoRepository.resolverCodigoBarras(tenantId, sessaoId, body.codigoBarra)
@@ -182,6 +196,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<IdentificarProdutoRequest>()
@@ -248,6 +263,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<ConferirItemRequest>()
@@ -299,6 +315,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
             if (!exigirLock(call, tenantId, sessaoId, null)) return@post
 
@@ -330,6 +347,7 @@ fun Route.separacaoRoutes() {
             if (tenantId != claims.tenantId) {
                 return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@get
             val meuToken = tokenDoLock(call)
             val emUso = SeparacaoLockRepository.ativos(tenantId, sessaoId).filter { it.token != meuToken }
             call.respond(
@@ -371,6 +389,16 @@ fun Route.separacaoRoutes() {
                 return@post
             }
 
+            val sessaoOp = SeparacaoRepository.buscarSessao(claims.tenantId, sessaoId)
+            if (sessaoOp != null) {
+                val codtop = TarefasRepository.codTipOperPorNunota(claims.tenantId, listOf(sessaoOp.nunota))[sessaoOp.nunota]
+                if (!PermissoesRecurso.podeUsarTop(claims.tenantId, usuario.userId, codtop)) {
+                    return@post call.respond(
+                        HttpStatusCode.Forbidden,
+                        mapOf("codigo" to "TOP_NAO_AUTORIZADA", "erro" to "${usuario.nome} não tem permissão para conferir notas deste Tipo de Operação."),
+                    )
+                }
+            }
             if (!SeparacaoRepository.definirOperador(claims.tenantId, sessaoId, usuario.userId, claims.userId)) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
                 return@post
@@ -405,6 +433,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
             val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
             val operadorId = sessao.operadorId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
@@ -497,6 +526,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
 
             try {
                 SeparacaoService.cancelar(slug, tenantId, sessaoId)
@@ -526,6 +556,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
 
             try {
                 SeparacaoService.iniciarRecontagem(slug, tenantId, sessaoId)
@@ -555,6 +586,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@get
             call.respond(SeparacaoRepository.listarUma(tenantId, sessaoId))
         }
 
@@ -576,6 +608,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@get
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@get
 
             // ?etapa=N → contador dessa etapa (conferência segmentada); sem etapa → contador da sessão.
             val etapa = call.request.queryParameters["etapa"]?.toShortOrNull()
@@ -604,6 +637,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@put
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@put
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@put
 
             val body = call.receive<DefinirVolumeRequest>()
@@ -643,6 +677,7 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
                 return@post
             }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@post
             if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
 
             val body = call.receive<DevolverItemRequest>()
@@ -880,6 +915,7 @@ private suspend fun nomeDoDono(tenantId: UUID, sessaoId: UUID, lock: SeparacaoLo
  * Rejeita com 409 LOCK_INVALIDO — o front mostra "sua sessão não é mais válida".
  */
 private suspend fun exigirLock(call: io.ktor.server.application.ApplicationCall, tenantId: UUID, sessaoId: UUID, etapa: Int?): Boolean {
+    if (!exigirTopPermitida(call, tenantId, sessaoId)) return false
     val token = tokenDoLock(call)
     val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
     val tipo: Short? = if (sessao?.conferenciaSegmentada == true) etapa?.toShort() else 0
@@ -913,7 +949,32 @@ private suspend fun resolverSessao(call: io.ktor.server.application.ApplicationC
         call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
         return null
     }
+    if (!exigirTopPermitida(call, tenantId, sessaoId)) return null
     return Triple(slug, sessaoId, tenantId)
+}
+
+/**
+ * Toda rota da sessão de conferência passa aqui: a TOP da nota precisa estar liberada pro usuário
+ * efetivo (PermissoesRecurso — login pessoal = logado; estação = operador do crachá). Estação antes
+ * do crachá passa (ainda não há pessoa; as escritas já exigem o crachá). Sessão inexistente passa
+ * (a rota responde 404 do jeito dela).
+ */
+private suspend fun exigirTopPermitida(call: io.ktor.server.application.ApplicationCall, tenantId: UUID, sessaoId: UUID): Boolean {
+    val claims = call.exigirAuth() ?: return false
+    val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId) ?: return true
+    if (claims.perfil == "ESTACAO" && sessao.operadorId == null) return true
+    val usuario = PermissoesRecurso.usuarioEfetivo(claims, sessao.operadorId)
+    val codtop = TarefasRepository.codTipOperPorNunota(tenantId, listOf(sessao.nunota))[sessao.nunota]
+    if (PermissoesRecurso.podeUsarTop(tenantId, usuario, codtop)) return true
+    responderTopNaoAutorizada(call)
+    return false
+}
+
+private suspend fun responderTopNaoAutorizada(call: io.ktor.server.application.ApplicationCall) {
+    call.respond(
+        HttpStatusCode.Forbidden,
+        mapOf("codigo" to "TOP_NAO_AUTORIZADA", "erro" to "Você não tem permissão para conferir notas deste Tipo de Operação."),
+    )
 }
 
 private fun resolverTenantId(slug: String): UUID? =

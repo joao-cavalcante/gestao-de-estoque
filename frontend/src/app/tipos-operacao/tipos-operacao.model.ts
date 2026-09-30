@@ -13,6 +13,8 @@ export interface TipoOperacao {
   /** Conferência por etapa (Secos/Refrigerado/Congelado) pras notas deste TOP — V49. */
   conferenciaPorEtapa: boolean;
   localAtualizadoEm: string;
+  /** Qtd. de usuários autorizados (V51) — 0 = sem restrição, todos conferem. */
+  usuariosAutorizados: number;
 }
 
 export interface SincronizarTipoOperacaoResponse {

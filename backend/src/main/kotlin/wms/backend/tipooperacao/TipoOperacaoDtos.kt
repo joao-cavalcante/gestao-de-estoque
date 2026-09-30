@@ -13,6 +13,8 @@ data class TipoOperacaoDto(
     /** Conferência por etapa (Secos/Refrigerado/Congelado) pra notas deste TOP — V49, padrão true. */
     val conferenciaPorEtapa: Boolean = true,
     val localAtualizadoEm: String,
+    /** Qtd. de usuários autorizados (V51) — 0 = sem restrição, todos usam. */
+    val usuariosAutorizados: Int = 0,
 )
 
 @Serializable

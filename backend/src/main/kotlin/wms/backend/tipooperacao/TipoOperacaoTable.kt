@@ -29,3 +29,13 @@ object TipoOperacaoConfigTable : Table("app.tipo_operacao_config") {
 
     override val primaryKey = PrimaryKey(tenantId, codtop)
 }
+
+/** app.tipo_operacao_usuarios (V51) — usuários autorizados por TOP. TOP sem linha = sem restrição (ver PermissoesRecurso). */
+object TipoOperacaoUsuariosTable : Table("app.tipo_operacao_usuarios") {
+    val tenantId = uuid("tenant_id")
+    val codtop = integer("codtop")
+    val usuarioId = uuid("usuario_id")
+    val criadoEm = timestamp("criado_em")
+
+    override val primaryKey = PrimaryKey(tenantId, codtop, usuarioId)
+}

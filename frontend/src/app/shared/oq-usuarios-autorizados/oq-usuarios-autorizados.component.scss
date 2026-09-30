@@ -1,0 +1,210 @@
+.ua-modal {
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  overflow: hidden;
+}
+
+.ua-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  gap: 14px;
+}
+
+.ua-recurso {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+}
+
+.ua-recurso__titulo {
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.ua-recurso__sub {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.ua-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ua-secao__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ua-rotulo {
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--oq-text-secondary);
+}
+
+.ua-contador {
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--oq-brand);
+
+  &--livre { color: var(--oq-text-secondary); }
+}
+
+.ua-livre {
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.ua-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ua-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-text-primary);
+
+  &--inativo { color: var(--oq-text-secondary); text-decoration: line-through; }
+}
+
+.ua-chip__x {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover { color: var(--oq-critical-foreground); background: var(--oq-surface); }
+}
+
+.ua-busca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+
+  &:focus-within { border-color: var(--oq-border-strong); }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    color: var(--oq-text-primary);
+  }
+}
+
+.ua-acoes {
+  display: flex;
+  gap: 12px;
+}
+
+.ua-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--oq-brand-accent);
+  cursor: pointer;
+
+  &:disabled { color: var(--oq-text-secondary); opacity: 0.5; cursor: not-allowed; }
+}
+
+.ua-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+}
+
+.ua-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--oq-border);
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--oq-brand);
+    cursor: pointer;
+  }
+
+  &:hover { background: var(--oq-surface-2); }
+  &--on { background: var(--oq-surface-2); }
+}
+
+li:last-child .ua-item { border-bottom: none; }
+
+.ua-item__nome {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  color: var(--oq-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ua-item__sub {
+  flex: none;
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--oq-text-secondary);
+}
+
+.ua-vazio {
+  padding: 12px;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+  text-align: center;
+}

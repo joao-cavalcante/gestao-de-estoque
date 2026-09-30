@@ -6,6 +6,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import wms.backend.auth.exigirAdmin
 import wms.backend.auth.exigirAuth
+import wms.backend.balancas.UsuariosAutorizadosDto
+import wms.backend.permissoes.PermissoesRecurso
 
 /** Mesmo padrão de tenant via JWT já usado em configConferenciaRoutes(). */
 fun Route.tipoOperacaoRoutes() {
@@ -24,6 +26,24 @@ fun Route.tipoOperacaoRoutes() {
             val body = call.receive<TipoOperacaoConfigRequest>()
             TipoOperacaoRepository.definirConferenciaPorEtapa(claims.tenantId, codtop, body.conferenciaPorEtapa)
             call.respond(mapOf("ok" to true))
+        }
+
+        /** Usuários autorizados da TOP (admin). Lista vazia = sem restrição (PermissoesRecurso). */
+        get("/{codtop}/usuarios") {
+            val claims = call.exigirAdmin() ?: return@get
+            val codtop = call.parameters["codtop"]?.toIntOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "codtop precisa ser um número"))
+            call.respond(UsuariosAutorizadosDto(PermissoesRecurso.usuariosDaTop(claims.tenantId, codtop)))
+        }
+
+        put("/{codtop}/usuarios") {
+            val claims = call.exigirAdmin() ?: return@put
+            val codtop = call.parameters["codtop"]?.toIntOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "codtop precisa ser um número"))
+            val req = call.receive<UsuariosAutorizadosDto>()
+            val ids = req.usuarioIds.mapNotNull { runCatching { java.util.UUID.fromString(it) }.getOrNull() }.distinct()
+            PermissoesRecurso.definirUsuariosDaTop(claims.tenantId, codtop, ids)
+            call.respond(UsuariosAutorizadosDto(ids.map { it.toString() }))
         }
 
         post("/sincronizar") {

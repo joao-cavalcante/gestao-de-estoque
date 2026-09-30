@@ -10,6 +10,9 @@ import { OqStatusChipComponent } from '../../conferencia/oq-status-chip/oq-statu
 import { OqIconComponent, OqIconName } from '../../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { OqSkeletonComponent } from '../../shared/oq-skeleton/oq-skeleton.component';
+import { OqUsuariosAutorizadosComponent } from '../../shared/oq-usuarios-autorizados/oq-usuarios-autorizados.component';
+import { UsuarioService } from '../../usuarios/usuario.service';
+import { Usuario } from '../../usuarios/usuario.model';
 
 /** Form usado tanto pra criar quanto editar — mesmos campos do sistema atual (balanca.dto.ts). */
 interface FormBalanca {
@@ -43,7 +46,7 @@ function formVazio(): FormBalanca {
 @Component({
   selector: 'app-balanca-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent],
+  imports: [CommonModule, FormsModule, OqPanelSectionComponent, OqStatusChipComponent, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, OqUsuariosAutorizadosComponent],
   templateUrl: './balanca-list.component.html',
 })
 export class BalancaListComponent implements OnInit, OnDestroy {
@@ -76,6 +79,51 @@ export class BalancaListComponent implements OnInit, OnDestroy {
   buscandoPortas = signal(false);
 
   private subPortas: Subscription | null = null;
+
+  // ─── Usuários autorizados — balança sem usuário = todos usam ─────────────
+  private readonly usuarioService = inject(UsuarioService);
+  usuarios = signal<Usuario[]>([]);
+  usuariosBalanca = signal<{ balanca: Balanca; selecionados: string[] } | null>(null);
+  salvandoUsuarios = signal(false);
+  erroUsuarios = signal<string | null>(null);
+  erroLista = signal<string | null>(null);
+
+  abrirUsuarios(balanca: Balanca): void {
+    this.erroLista.set(null);
+    this.erroUsuarios.set(null);
+    this.service.listarUsuarios(balanca.id).subscribe({
+      next: ({ usuarioIds }) => {
+        const abrir = () => this.usuariosBalanca.set({ balanca, selecionados: usuarioIds });
+        if (this.usuarios().length) return abrir();
+        this.usuarioService.listar().subscribe({
+          next: (lista) => {
+            this.usuarios.set(lista);
+            abrir();
+          },
+          error: (err) => this.erroLista.set(err.error?.erro ?? 'Não foi possível carregar os usuários'),
+        });
+      },
+      error: (err) => this.erroLista.set(err.error?.erro ?? 'Não foi possível carregar os usuários da balança'),
+    });
+  }
+
+  salvarUsuarios(ids: string[]): void {
+    const atual = this.usuariosBalanca();
+    if (!atual || this.salvandoUsuarios()) return;
+    this.salvandoUsuarios.set(true);
+    this.erroUsuarios.set(null);
+    this.service.definirUsuarios(atual.balanca.id, ids).subscribe({
+      next: ({ usuarioIds }) => {
+        this.balancas.update((l) => l.map((b) => (b.id === atual.balanca.id ? { ...b, usuariosAutorizados: usuarioIds.length } : b)));
+        this.salvandoUsuarios.set(false);
+        this.usuariosBalanca.set(null);
+      },
+      error: (err) => {
+        this.salvandoUsuarios.set(false);
+        this.erroUsuarios.set(err.error?.erro ?? 'Não foi possível salvar os usuários autorizados');
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.carregar();
