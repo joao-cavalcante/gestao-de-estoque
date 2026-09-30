@@ -193,8 +193,8 @@ object MapaSeparacaoService {
         val nota = parseNotas(listOf(raw)).firstOrNull() ?: throw MapaSeparacaoException("Pedido (Nro. Único) $nunota sem parceiro")
         val comConferencia = withContext(Dispatchers.IO) { TarefasRepository.nunotasComConferencia(tenantId, listOf(nunota)) }
         if (nunota !in comConferencia) throw MapaSeparacaoException("O pedido $nunota não está na fila de conferência")
-        if (withContext(Dispatchers.IO) { TarefasRepository.retiraSemOrdemCarga(tenantId, nunota) }) {
-            throw MapaSeparacaoException("O pedido $nunota é de cliente retira e ainda não tem Ordem de Carga — só entra no mapa depois de vinculado a uma OC")
+        if (withContext(Dispatchers.IO) { TarefasRepository.entregaSemOrdemCarga(tenantId, nunota) }) {
+            throw MapaSeparacaoException("O pedido $nunota é de entrega e ainda não tem Ordem de Carga — só entra no mapa depois de vinculado a uma OC")
         }
 
         val corpo = montarCorpo(tenantSlug, tenantId, listOf(nota), "o pedido $nunota")
