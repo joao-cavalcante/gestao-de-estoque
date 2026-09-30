@@ -31,6 +31,8 @@ const ITENS: ItemMenu[] = [
   { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
   { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
   { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
+  // TV de acompanhamento (painel de parede) — permissão TV: admin (a conta de TV já cai direto nela).
+  { rota: '/tv', label: 'TV de Conferência', icone: 'tv', somenteAdmin: true },
   // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
   // { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
   // { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },

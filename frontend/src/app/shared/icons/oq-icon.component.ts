@@ -7,7 +7,7 @@ export type OqIconName =
   | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
   | 'sun' | 'moon' | 'grid' | 'list'
   | 'seco' | 'refrigerado' | 'congelado' | 'ajuste'
-  | 'express' | 'retira' | 'entrega';
+  | 'express' | 'retira' | 'entrega' | 'tv';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -194,6 +194,11 @@ export type OqIconName =
           <!-- check com lápis — "ajuste/correção" (Liberação de Corte, botão Ajustar). Escolhido pelo usuário; substituiu a tesoura. -->
           <path d="M4 12.5 8.5 17 15 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           <path d="M17.5 4.5l2 2-5 5h-2v-2l5-5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        }
+        @case ('tv') {
+          <!-- monitor/TV — TV de acompanhamento da conferência -->
+          <rect x="3" y="5" width="18" height="12" rx="1.5" stroke="currentColor" stroke-width="1.6" />
+          <path d="M8 20.5h8M12 17v3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         }
         @case ('express') {
           <!-- raio — pedido EXPRESS (TGFCAB.AD_EXPRESS) -->
