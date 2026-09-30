@@ -586,3 +586,21 @@
     print-color-adjust: exact;
   }
 }
+
+/* Pins Express / Cliente retira / Entrega: sempre na mesma linha do que acompanham, com respiro. */
+.ms-pins {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.oq-card__status-line .ms-pins {
+  margin-left: 0;
+}
+
+@media print {
+  .ms-pins,
+  .ms-cabecalho oq-modalidade-pins {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
