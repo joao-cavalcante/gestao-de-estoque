@@ -42,7 +42,7 @@
     } @else {
       <form class="oq-login-form" (ngSubmit)="entrarComCracha()">
         <label class="oq-login-field">
-          <span class="oq-label-caps">Bipe o crachá</span>
+          <!-- Leitor ou teclado (físico/virtual) — sem inputmode="none", que escondia o teclado do tablet. -->
           <input
             #inputCracha
             type="password"
@@ -50,7 +50,7 @@
             [(ngModel)]="crachaoCodigo"
             [disabled]="carregando()"
             autocomplete="off"
-            inputmode="none"
+            aria-label="Crachá"
             (keydown.enter)="$event.preventDefault(); entrarComCracha()"
             (keydown.tab)="$event.preventDefault(); entrarComCracha()"
           />
