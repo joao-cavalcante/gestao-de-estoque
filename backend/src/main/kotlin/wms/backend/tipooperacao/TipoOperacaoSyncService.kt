@@ -1,58 +1,47 @@
 package wms.backend.tipooperacao
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import org.jetbrains.exposed.sql.selectAll
-import wms.backend.tarefas.TarefasTable
+import wms.backend.erp.SankhyaDbExplorerClient
 import wms.backend.tenancy.TenantRepository
-import wms.backend.tenancy.TenantTx
 import java.util.UUID
 
 /**
- * NÃO consulta o Sankhya diretamente — deriva o espelho local de Tipos de
- * Operação a partir do que TarefaSyncService já sincroniza em app.tarefas
- * (CODTIPOPER, TipoOperacao.DESCROPER, TipoOperacao.NUCCO fazem parte do
- * FIELDS de lá desde que este módulo passou a existir).
+ * Espelho local de Tipos de Operação lido DIRETO do Sankhya (TGFTOP via DbExplorerSP): só TOPs
+ * ATIVOS com NUCCO preenchido (os que têm Configuração de Conferência), na versão mais recente
+ * (TGFTOP guarda uma linha por DHALTER).
  *
- * Motivo: a entidade "TipoOperacao" isolada (via CRUDServiceProvider, único
- * jeito de consultá-la fora de um relacionamento) é comprovadamente
- * INCOMPLETA — confirmado ao vivo que uma varredura paginada inteira nela
- * nunca lista CODTIPOPER 1011 (CUBAGEM DE PEDIDO), apesar de ser um TOP real,
- * ativo, corretamente vinculado a NUCCO=1 quando resolvido via
- * CabecalhoNota->TipoOperacao.NUCCO — o mesmo caminho que a Fila de Tarefas
- * já usa e comprovadamente funciona. Como consequência, este módulo também
- * não tem mais um DHALTER próprio pra sincronização incremental (V17): a
- * "atualização" dele é instantânea porque só lê dados locais já frescos,
- * sem chamada de rede.
+ * Antes a lista era derivada de app.tarefas (CODTIPOPER dos pedidos da Fila) — sumia inteira quando
+ * a Fila esvaziava (caso real: limpeza dos pedidos da Negri em 30/09, base do Sankhya zerada). A
+ * entidade TipoOperacao via loadRecords era incompleta (não listava o 1011), por isso SQL direto.
  */
 object TipoOperacaoSyncService {
 
-    fun sincronizarTenant(tenantId: UUID): Int {
-        val derivados = TenantTx.run(tenantId) {
-            TarefasTable.selectAll()
-                .where { TarefasTable.tenantId eq tenantId }
-                .mapNotNull { row ->
-                    val dados = Json.parseToJsonElement(row[TarefasTable.dados]).jsonObject
-                    val codtop = dados["CODTIPOPER"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: return@mapNotNull null
-                    val nucco = dados["TipoOperacao.NUCCO"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
-                    val descricao = dados["TipoOperacao.DESCROPER"]?.jsonPrimitive?.contentOrNull?.trim()
-                        ?.takeIf { it.isNotEmpty() } ?: "Tipo de Operação $codtop"
-                    val tipmov = dados["TIPMOV"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
-                    TopDerivado(codtop, descricao, nucco, tipmov)
-                }
-                .distinctBy { it.codtop }
-        }
-        return TipoOperacaoRepository.substituirDerivado(tenantId, derivados)
+    private const val SQL_TOPS_COM_NUCCO =
+        "SELECT T.CODTIPOPER, T.DESCROPER, T.NUCCO, T.TIPMOV FROM TGFTOP T " +
+            "WHERE T.NUCCO IS NOT NULL AND T.ATIVO = 'S' " +
+            "AND T.DHALTER = (SELECT MAX(T2.DHALTER) FROM TGFTOP T2 WHERE T2.CODTIPOPER = T.CODTIPOPER)"
+
+    suspend fun sincronizarTenant(tenantSlug: String, tenantId: UUID): Int {
+        val linhas = SankhyaDbExplorerClient.executarQuery(tenantSlug, SQL_TOPS_COM_NUCCO)
+        val tops = linhas.mapNotNull { r ->
+            val codtop = r["CODTIPOPER"]?.trim()?.toIntOrNull() ?: return@mapNotNull null
+            TopDerivado(
+                codtop = codtop,
+                descricao = r["DESCROPER"]?.trim()?.takeIf { it.isNotEmpty() } ?: "Tipo de Operação $codtop",
+                nucco = r["NUCCO"]?.trim()?.toIntOrNull(),
+                tipmov = r["TIPMOV"]?.trim()?.takeIf { it.isNotEmpty() },
+            )
+        }.distinctBy { it.codtop }
+        // Sankhya respondeu vazio (ex.: conexão ok mas consulta sem retorno) — não apaga a lista local.
+        if (tops.isEmpty()) return 0
+        return TipoOperacaoRepository.substituirDerivado(tenantId, tops)
     }
 
-    /** Chamado pelo worker periódico. */
-    fun sincronizarTodosOsTenants() {
+    /** Chamado pelo worker periódico — tenant sem Sankhya/fora do ar é ignorado até o próximo ciclo. */
+    suspend fun sincronizarTodosOsTenants() {
         TenantRepository.listar().forEach { tenant ->
             val tenantId = tenant.id?.let { UUID.fromString(it) } ?: return@forEach
             try {
-                sincronizarTenant(tenantId)
+                sincronizarTenant(tenant.slug, tenantId)
             } catch (e: Exception) {
                 // próximo ciclo tenta de novo
             }

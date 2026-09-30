@@ -33,25 +33,37 @@ object TipoOperacaoRepository {
     }
 
     /**
-     * Full refresh — apaga e regrava a partir do que já foi derivado de
-     * app.tarefas (ver TipoOperacaoSyncService). Volume baixo (só os TOP
-     * distintos em uso), sem custo de chamada ao Sankhya nesta etapa.
+     * Upsert a partir do que foi derivado de app.tarefas (ver TipoOperacaoSyncService): TOP novo entra,
+     * TOP já conhecido tem descrição/NUCCO/TIPMOV atualizados. NÃO apaga TOP que sumiu das tarefas —
+     * antes era full refresh (delete + insert) e a lista inteira sumia quando a Fila esvaziava
+     * (caso real: limpeza dos pedidos da Negri em 30/09, base do Sankhya zerada).
      * NÃO toca app.tipo_operacao_config — a escolha do usuário sobrevive à sync.
      */
     fun substituirDerivado(tenantId: UUID, linhas: List<TopDerivado>): Int = TenantTx.run(tenantId) {
         val agora = Instant.now()
-
-        TipoOperacaoTable.deleteWhere { TipoOperacaoTable.tenantId eq tenantId }
+        val existentes = TipoOperacaoTable.selectAll()
+            .where { TipoOperacaoTable.tenantId eq tenantId }
+            .map { it[TipoOperacaoTable.codtop] }
+            .toSet()
 
         linhas.forEach { linha ->
-            TipoOperacaoTable.insert {
-                it[id] = UUID.randomUUID()
-                it[TipoOperacaoTable.tenantId] = tenantId
-                it[codtop] = linha.codtop
-                it[descricao] = linha.descricao
-                it[nucco] = linha.nucco
-                it[tipmov] = linha.tipmov
-                it[localAtualizadoEm] = agora
+            if (linha.codtop in existentes) {
+                TipoOperacaoTable.update({ (TipoOperacaoTable.tenantId eq tenantId) and (TipoOperacaoTable.codtop eq linha.codtop) }) {
+                    it[descricao] = linha.descricao
+                    it[nucco] = linha.nucco
+                    it[tipmov] = linha.tipmov
+                    it[localAtualizadoEm] = agora
+                }
+            } else {
+                TipoOperacaoTable.insert {
+                    it[id] = UUID.randomUUID()
+                    it[TipoOperacaoTable.tenantId] = tenantId
+                    it[codtop] = linha.codtop
+                    it[descricao] = linha.descricao
+                    it[nucco] = linha.nucco
+                    it[tipmov] = linha.tipmov
+                    it[localAtualizadoEm] = agora
+                }
             }
         }
         linhas.size

@@ -28,8 +28,10 @@ fun Route.tipoOperacaoRoutes() {
 
         post("/sincronizar") {
             val claims = call.exigirAuth() ?: return@post
+            val tenant = wms.backend.tenancy.TenantRepository.buscarPorId(claims.tenantId)
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Tenant não encontrado"))
             try {
-                val total = TipoOperacaoSyncService.sincronizarTenant(claims.tenantId)
+                val total = TipoOperacaoSyncService.sincronizarTenant(tenant.slug, claims.tenantId)
                 call.respond(SincronizarTipoOperacaoResponse(ok = true, totalAtualizado = total))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, mapOf("erro" to (e.message ?: "Falha ao sincronizar")))
