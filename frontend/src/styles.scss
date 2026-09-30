@@ -21,10 +21,11 @@
    ============================================================ */
 :root {
   /* Marca (uso restrito: logo, avatar, botão primário, pill ativo, hover de botão outline) */
-  --oq-brand: #1E3A5F;
-  --oq-brand-hover: #14283F;
-  --oq-brand-accent: #3D6B94; /* mais claro — ícones, foco */
-  --oq-brand-ink: #FAFAFA; /* texto/ícone sobre fundo de marca — fixo: marca é sempre navy escuro
+  /* Roxo profundo (30/09/2026, escolha do usuário — antes azul-marinho #1E3A5F). Nenhum status usa roxo. */
+  --oq-brand: #3D2C6B;
+  --oq-brand-hover: #2C1F50;
+  --oq-brand-accent: #5B47A0; /* mais claro — ícones, foco */
+  --oq-brand-ink: #FAFAFA; /* texto/ícone sobre fundo de marca — fixo: marca é sempre roxo escuro
                               nos dois temas, então precisa sempre de texto claro, nunca var(--oq-surface)
                               (que inverte no tema escuro e quebraria o contraste) */
 
@@ -72,9 +73,10 @@
 
   --oq-warning-foreground: #7A4A08;
   --oq-warning-soft: #FEF3C7;
-  /* Recontagem — cor própria na etiqueta de status (não repete o azul do aguardando nem o âmbar do andamento). */
-  --oq-recontagem: #7C3AED;
-  --oq-recontagem-foreground: #5B21B6;
+  /* Recontagem — cor própria na etiqueta de status (não repete o azul do aguardando, o âmbar do andamento
+     nem o roxo da marca — era violeta até a marca virar roxa). */
+  --oq-recontagem: #0E7490;
+  --oq-recontagem-foreground: #155E75;
   --oq-aguardando: #3D6B94;
   --oq-aguardando-foreground: #2C5378;
   --oq-concluido: #2E7D4F;
@@ -111,8 +113,8 @@
 
   --oq-warning-foreground: #F0C989;
   --oq-warning-soft: #33230A;
-  --oq-recontagem: #A78BFA;
-  --oq-recontagem-foreground: #C4B5FD;
+  --oq-recontagem: #22A5C4;
+  --oq-recontagem-foreground: #A5E4F3;
   --oq-aguardando: #6B9BD1;
   --oq-aguardando-foreground: #A8C8EC;
   --oq-concluido: #4CAF7A;
@@ -121,9 +123,9 @@
   --oq-success-foreground: #A9C2B2;
   --oq-success-soft: #1C2620;
 
-  /* --oq-brand (#1E3A5F) como texto direto sobre superfície escura só dá ~1.5:1 —
-     precisa de um tom mais claro da mesma família azul pra continuar legível (~6:1). */
-  --oq-brand-text: #6E9CC6;
+  /* --oq-brand (#3D2C6B) como texto direto sobre superfície escura some —
+     precisa de um tom mais claro da mesma família roxa pra continuar legível. */
+  --oq-brand-text: #B3A4E6;
 }
 
 * {
