@@ -12,6 +12,7 @@ import { ConfigConferenciaComponent } from './config-conferencia/config-conferen
 import { TiposOperacaoComponent } from './tipos-operacao/tipos-operacao.component';
 import { LoginComponent } from './auth/login/login.component';
 import { authGuard } from './auth/auth.guard';
+import { adminGuard } from './auth/admin.guard';
 import { UsuarioListComponent } from './usuarios/usuario-list/usuario-list.component';
 import { BalancaListComponent } from './balancas/balanca-list/balanca-list.component';
 import { DownloadsComponent } from './downloads/downloads.component';
@@ -32,19 +33,19 @@ export const routes: Routes = [
   { path: 'inventario', component: InventarioComponent, canActivate: [authGuard] },
   { path: 'inventarios', component: InventariosDesktopComponent, canActivate: [authGuard] },
   { path: 'inventarios/:id', component: InventarioDetalheComponent, canActivate: [authGuard] },
-  { path: 'config-conferencia', component: ConfigConferenciaComponent, canActivate: [authGuard] },
+  { path: 'config-conferencia', component: ConfigConferenciaComponent, canActivate: [adminGuard] },
   { path: 'liberacao-corte', component: LiberacaoCorteComponent, canActivate: [authGuard] },
   { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
   { path: 'mapa-separacao', component: MapaSeparacaoComponent, canActivate: [authGuard] },
   { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas/:sessaoId', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas-peso/:sessaoId', component: EtiquetaPesoComponent, canActivate: [authGuard] },
-  { path: 'tipos-operacao', component: TiposOperacaoComponent, canActivate: [authGuard] },
-  { path: 'usuarios', component: UsuarioListComponent, canActivate: [authGuard] },
-  { path: 'crachas', component: CrachasImpressaoComponent, canActivate: [authGuard] },
-  { path: 'balancas', component: BalancaListComponent, canActivate: [authGuard] },
-  { path: 'downloads', component: DownloadsComponent },
-  { path: 'tenants', component: TenantListComponent, canActivate: [authGuard] },
-  { path: 'tenants/novo', component: TenantFormComponent, canActivate: [authGuard] },
-  { path: 'tenants/:slug', component: TenantFormComponent, canActivate: [authGuard] },
+  { path: 'tipos-operacao', component: TiposOperacaoComponent, canActivate: [adminGuard] },
+  { path: 'usuarios', component: UsuarioListComponent, canActivate: [adminGuard] },
+  { path: 'crachas', component: CrachasImpressaoComponent, canActivate: [adminGuard] },
+  { path: 'balancas', component: BalancaListComponent, canActivate: [adminGuard] },
+  { path: 'downloads', component: DownloadsComponent, canActivate: [adminGuard] },
+  { path: 'tenants', component: TenantListComponent, canActivate: [adminGuard] },
+  { path: 'tenants/novo', component: TenantFormComponent, canActivate: [adminGuard] },
+  { path: 'tenants/:slug', component: TenantFormComponent, canActivate: [adminGuard] },
 ];

@@ -12,7 +12,7 @@ fun Route.usuariosRoutes() {
     route("/api/usuarios") {
 
         get {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAdmin() ?: return@get
             call.respond(UsuariosRepository.listar(claims.tenantId))
         }
 

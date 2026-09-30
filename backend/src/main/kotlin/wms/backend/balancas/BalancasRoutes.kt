@@ -13,12 +13,12 @@ fun Route.balancasRoutes() {
     route("/api/balancas") {
 
         get {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAdmin() ?: return@get
             call.respond(BalancasRepository.listar(claims.tenantId))
         }
 
         get("/ativas") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAdmin() ?: return@get
             call.respond(BalancasRepository.listarAtivas(claims.tenantId))
         }
 

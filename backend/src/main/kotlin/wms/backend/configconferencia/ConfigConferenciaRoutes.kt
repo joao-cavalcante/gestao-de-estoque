@@ -13,12 +13,12 @@ fun Route.configConferenciaRoutes() {
     route("/api/config-conferencia") {
 
         get {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAdmin() ?: return@get
             call.respond(ConfigConferenciaRepository.listar(claims.tenantId))
         }
 
         get("/{nucco}") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAdmin() ?: return@get
             val nucco = call.parameters["nucco"]?.toIntOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
 
@@ -31,7 +31,7 @@ fun Route.configConferenciaRoutes() {
         }
 
         patch("/{nucco}") {
-            val claims = call.exigirAuth() ?: return@patch
+            val claims = call.exigirAdmin() ?: return@patch
             val nucco = call.parameters["nucco"]?.toIntOrNull()
                 ?: return@patch call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
             val body = call.receive<AtualizarConfigConferenciaRequest>()
@@ -46,7 +46,7 @@ fun Route.configConferenciaRoutes() {
 
         /** V50 — tolerância de peso do WMS pra este NUCCO (sem linha = padrão: acima sem limite, abaixo 5%). */
         get("/{nucco}/tolerancia-peso") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAdmin() ?: return@get
             val nucco = call.parameters["nucco"]?.toIntOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
             call.respond(ConferenciaToleranciaRepository.buscar(claims.tenantId, nucco))
@@ -66,7 +66,7 @@ fun Route.configConferenciaRoutes() {
         }
 
         post("/sincronizar") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAdmin() ?: return@post
             val tenant = TenantRepository.buscarPorId(claims.tenantId)
             if (tenant == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Tenant não encontrado"))

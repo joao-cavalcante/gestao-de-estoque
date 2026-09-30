@@ -10,6 +10,7 @@ interface ItemMenu {
   label: string;
   icone: OqIconName;
   subItens?: ItemMenu[];
+  somenteAdmin?: boolean;
 }
 
 /**
@@ -45,6 +46,8 @@ const ITENS: ItemMenu[] = [
   {
     label: 'Administração',
     icone: 'building',
+    // Só ADMINISTRADOR vê (as rotas também têm adminGuard e o backend exigirAdmin).
+    somenteAdmin: true,
     subItens: [
       { rota: '/usuarios', label: 'Usuários', icone: 'user' },
       { rota: '/balancas', label: 'Balanças', icone: 'scale' },
@@ -74,7 +77,11 @@ export class NavMenuComponent {
   private readonly router = inject(Router);
   private readonly nav = inject(NavMenuService);
 
-  readonly itens = ITENS;
+  /** Menu do usuário logado — grupo Administração só pra ADMINISTRADOR. */
+  get itens(): ItemMenu[] {
+    const admin = this.auth.usuario()?.perfil === 'ADMINISTRADOR';
+    return ITENS.filter((i) => admin || !i.somenteAdmin);
+  }
   readonly aberto = this.nav.aberto;
   escondido = false;
 

@@ -14,7 +14,7 @@ fun Route.tipoOperacaoRoutes() {
     route("/api/tipos-operacao") {
 
         get {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAdmin() ?: return@get
             call.respond(TipoOperacaoRepository.listar(claims.tenantId))
         }
 
@@ -47,7 +47,7 @@ fun Route.tipoOperacaoRoutes() {
         }
 
         post("/sincronizar") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAdmin() ?: return@post
             val tenant = wms.backend.tenancy.TenantRepository.buscarPorId(claims.tenantId)
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Tenant não encontrado"))
             try {
