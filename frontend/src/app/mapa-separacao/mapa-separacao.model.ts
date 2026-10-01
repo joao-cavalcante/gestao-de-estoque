@@ -29,6 +29,10 @@ export interface MapaSeparacaoDto {
   nomeParceiro?: string | null;
   /** Mapa S/ OC: modalidade do pedido (AD_EXPRESS / AD_RETIRA / AD_ENTREGA). */
   modalidade?: Modalidade;
+  /** Produtos distintos do mapa inteiro. */
+  totalItens?: number;
+  /** Peso total por etapa (Frio / Refrigerado / Seco). */
+  pesoPorEtapa?: PesoEtapaDto[];
 }
 
 /** Item de GET /api/mapa-separacao/sem-ordem-carga — pedido da fila de conferência sem Ordem de Carga. */
@@ -47,6 +51,13 @@ export interface PedidoSemOrdemCargaDto {
   impressoPor?: string | null;
 }
 
+export interface PesoEtapaDto {
+  /** "1" SECO | "2" REFRIGERADO | "3" CONGELADO | "0" SEM CLASSIFICAÇÃO. */
+  codigo: string;
+  descricao: string;
+  pesoTotal: string;
+}
+
 export interface ParceiroSeparacaoDto {
   codParc: number;
   nomeParceiro: string;
@@ -54,6 +65,8 @@ export interface ParceiroSeparacaoDto {
   quantidadeTotal: string;
   pesoTotal: string;
   categorias: CategoriaSeparacaoDto[];
+  /** Produtos distintos do pedido inteiro (todas as etapas). */
+  totalItensPedido?: number;
   modalidade?: Modalidade;
 }
 
@@ -95,6 +108,9 @@ export interface ItemSeparacaoDto {
   pesoTotal: string;
   /** Exige pesagem (backend RegraPesavel) — ícone de balança antes da descrição. */
   pesavel: boolean;
+  /** Vendido em unidade alternativa: a mesma qtd na unidade padrão ("5 CX = 60 UN"). */
+  quantidadePadrao?: string | null;
+  unidadePadrao?: string | null;
 }
 
 /** Cor por categoria — mesma paleta de tarefa.model.ts (rotuloTipoSeparacao), reaproveitada aqui pro banner. */

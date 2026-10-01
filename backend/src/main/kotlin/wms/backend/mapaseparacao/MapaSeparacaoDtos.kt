@@ -39,6 +39,10 @@ data class MapaSeparacaoDto(
     val pesoTotal: String,
     val consolidado: List<CategoriaSeparacaoDto>,
     val porParceiro: List<ParceiroSeparacaoDto>,
+    /** Produtos DISTINTOS do mapa inteiro (OC ou pedido S/ OC) — não é soma de quantidades. */
+    val totalItens: Int = 0,
+    /** Peso total quebrado por etapa (AD_TIPOSEPARACAO) — mesmo peso que soma o pesoTotal. */
+    val pesoPorEtapa: List<PesoEtapaDto> = emptyList(),
     /**
      * Mapa S/ ORDEM DE CARGA: um mapa por Número Único, nunca consolidado com outro pedido.
      * Os campos abaixo só vêm preenchidos nesse modo (identificação do cabeçalho impresso).
@@ -79,6 +83,8 @@ data class ParceiroSeparacaoDto(
     val quantidadeTotal: String,
     val pesoTotal: String,
     val categorias: List<CategoriaSeparacaoDto>,
+    /** Produtos DISTINTOS do pedido inteiro (todas as etapas, não só deste bloco) — rodapé do pedido. */
+    val totalItensPedido: Int = 0,
     /** Modalidade do pedido deste bloco (AD_EXPRESS / AD_RETIRA / AD_ENTREGA). */
     val modalidade: ModalidadePedido = ModalidadePedido(),
 )
@@ -132,10 +138,21 @@ data class ItemSeparacaoDto(
     val pesoTotal: String,
     /** Exige pesagem (RegraPesavel: unidade, ou TGFPRO.AD_PESAVEL com o módulo) — o front mostra o ícone de balança. */
     val pesavel: Boolean,
+    /** Só quando vendido em unidade alternativa com fator cadastrado (TGFVOA): a mesma qtd na unidade padrão — "5 CX = 60 UN". */
+    val quantidadePadrao: String? = null,
+    val unidadePadrao: String? = null,
 )
 
 @Serializable
 data class RegistrarImpressaoRequest(
     val ordensCarga: List<Long> = emptyList(),
     val nunotas: List<Long> = emptyList(),
+)
+
+@Serializable
+data class PesoEtapaDto(
+    /** "1" SECO | "2" REFRIGERADO | "3" CONGELADO | "0" SEM CLASSIFICAÇÃO. */
+    val codigo: String,
+    val descricao: String,
+    val pesoTotal: String,
 )

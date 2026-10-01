@@ -87,6 +87,8 @@ object MapaSeparacaoService {
         val pesoTotal: String,
         val consolidado: List<CategoriaSeparacaoDto>,
         val porParceiro: List<ParceiroSeparacaoDto>,
+        val totalItens: Int,
+        val pesoPorEtapa: List<PesoEtapaDto>,
     )
 
     /**
@@ -169,6 +171,8 @@ object MapaSeparacaoService {
             pesoTotal = corpo.pesoTotal,
             consolidado = corpo.consolidado,
             porParceiro = corpo.porParceiro,
+            totalItens = corpo.totalItens,
+            pesoPorEtapa = corpo.pesoPorEtapa,
         )
     }
 
@@ -211,6 +215,8 @@ object MapaSeparacaoService {
             pesoTotal = corpo.pesoTotal,
             consolidado = corpo.consolidado,
             porParceiro = corpo.porParceiro,
+            totalItens = corpo.totalItens,
+            pesoPorEtapa = corpo.pesoPorEtapa,
             semOrdemCarga = true,
             nunota = nunota,
             numNota = raw["NUMNOTA"]?.trim()?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
@@ -350,6 +356,7 @@ object MapaSeparacaoService {
                 quantidadeTotal = itens.sumOf { it.quantidade }.formatar(),
                 pesoTotal = itens.sumOf { it.pesoTotal }.formatar(),
                 categorias = categorias(itens),
+                totalItensPedido = linhas.filter { it.nunota == nunota }.map { it.codProd }.distinct().size,
                 modalidade = modalidades[nunota] ?: wms.backend.tarefas.ModalidadePedido(),
             )
         }.sortedWith(compareBy({ it.nomeParceiro }, { it.nunotas.first() }))
@@ -361,6 +368,10 @@ object MapaSeparacaoService {
             pesoTotal = todos.sumOf { it.pesoTotal }.formatar(),
             consolidado = categorias(consolidado),
             porParceiro = porParceiro,
+            totalItens = linhas.map { it.codProd }.distinct().size,
+            pesoPorEtapa = todos.groupBy { it.tipoSeparacao }
+                .map { (codigo, itens) -> PesoEtapaDto(codigo, descricaoCategoria(codigo), itens.sumOf { it.pesoTotal }.formatar()) }
+                .sortedBy { listOf("3", "2", "1", "0").indexOf(it.codigo).let { i -> if (i < 0) 9 else i } },
         )
     }
 
@@ -390,6 +401,9 @@ object MapaSeparacaoService {
                     tipoSeparacao = amostra.tipoSeparacao,
                     // Mesmo produto+unidade → mesma resposta (depende só do CODVOL).
                     pesavel = pesavel(amostra),
+                    // Convertida (unidade exibida = alternativa, com fator do VOA): mostra também na padrão.
+                    quantidadePadrao = totalPadrao.takeIf { amostra.codVolProduto != null && unidadeExibida != amostra.codVolProduto },
+                    unidadePadrao = amostra.codVolProduto?.takeIf { unidadeExibida != it },
                 )
             }
     }
@@ -413,6 +427,8 @@ object MapaSeparacaoService {
                         pesoUnitario = i.pesoUnitario.formatar(),
                         pesoTotal = i.pesoTotal.formatar(),
                         pesavel = i.pesavel,
+                        quantidadePadrao = i.quantidadePadrao?.formatar(),
+                        unidadePadrao = i.unidadePadrao,
                     )
                 },
             )
@@ -549,6 +565,8 @@ object MapaSeparacaoService {
         val pesoTotal: BigDecimal,
         val tipoSeparacao: String,
         val pesavel: Boolean,
+        val quantidadePadrao: BigDecimal? = null,
+        val unidadePadrao: String? = null,
     )
 
     private fun descricaoCategoria(codigo: String): String = when (codigo) {

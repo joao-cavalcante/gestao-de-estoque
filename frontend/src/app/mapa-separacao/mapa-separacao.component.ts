@@ -463,6 +463,11 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Rótulo da etapa no peso por etapa: Frio / Refrigerado / Seco (mesma classificação do sistema). */
+  rotuloEtapaPeso(codigo: string): string {
+    return codigo === '3' ? 'Frio' : codigo === '2' ? 'Refrigerado' : codigo === '1' ? 'Seco' : 'Sem classificação';
+  }
+
   /** "14:32" (hoje) ou "29/09 14:32" — selo IMPRESSO. */
   horaImpressao(iso: string | null | undefined): string {
     if (!iso) return '';

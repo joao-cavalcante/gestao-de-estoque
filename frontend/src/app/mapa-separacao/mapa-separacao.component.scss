@@ -635,3 +635,30 @@
 .oq-card__status-line .ms-impresso {
   margin-left: 0;
 }
+
+/* Peso por etapa, compacto, logo abaixo do peso total */
+.ms-peso-etapas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--oq-text-secondary);
+
+  strong { color: var(--oq-text-primary); font-weight: 600; }
+}
+
+/* Conversão da unidade alternativa: "5 CX = 60 UN" (secundária) */
+.ms-conv {
+  display: block;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+/* Total de produtos distintos no rodapé do pedido */
+.ms-total-itens {
+  margin-left: 12px;
+  font-weight: 600;
+}

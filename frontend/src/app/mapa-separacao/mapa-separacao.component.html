@@ -436,6 +436,13 @@
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Peso Total do Pedido</span>
             <span class="ms-valor">{{ formatarPeso(mapa.pesoTotal) }}</span>
+            @if (mapa.pesoPorEtapa?.length) {
+              <span class="ms-peso-etapas">
+                @for (e of mapa.pesoPorEtapa; track e.codigo) {
+                  <span>{{ rotuloEtapaPeso(e.codigo) }}: <strong>{{ formatarPeso(e.pesoTotal) }}</strong></span>
+                }
+              </span>
+            }
           </div>
         </div>
       } @else {
@@ -468,6 +475,13 @@
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Peso Total da OC</span>
             <span class="ms-valor">{{ formatarPeso(mapa.pesoTotal) }}</span>
+            @if (mapa.pesoPorEtapa?.length) {
+              <span class="ms-peso-etapas">
+                @for (e of mapa.pesoPorEtapa; track e.codigo) {
+                  <span>{{ rotuloEtapaPeso(e.codigo) }}: <strong>{{ formatarPeso(e.pesoTotal) }}</strong></span>
+                }
+              </span>
+            }
           </div>
         </div>
       }
@@ -526,7 +540,10 @@
                   <td>{{ item.codProd }}</td>
                   <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
                   <td class="ms-center">{{ item.unidade }}</td>
-                  <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
+                  <td class="ms-num">{{ formatarQtd(item.quantidade) }}
+                    @if (item.quantidadePadrao && item.unidadePadrao) {
+                      <span class="ms-conv">= {{ formatarQtd(item.quantidadePadrao) }} {{ item.unidadePadrao }}</span>
+                    }</td>
                 </tr>
               }
             </tbody>
@@ -590,12 +607,18 @@
                       <td>{{ item.codProd }}</td>
                       <td><ng-container [ngTemplateOutlet]="descricaoItem" [ngTemplateOutletContext]="{ $implicit: item }" /></td>
                       <td class="ms-center">{{ item.unidade }}</td>
-                      <td class="ms-num">{{ formatarQtd(item.quantidade) }}</td>
+                      <td class="ms-num">{{ formatarQtd(item.quantidade) }}
+                    @if (item.quantidadePadrao && item.unidadePadrao) {
+                      <span class="ms-conv">= {{ formatarQtd(item.quantidadePadrao) }} {{ item.unidadePadrao }}</span>
+                    }</td>
                     </tr>
                   }
                 }
                 <tr class="ms-cliente__subtotal">
-                  <td colspan="3">Subtotal pedido {{ parceiro.nunotas.join(', ') }}</td>
+                  <td colspan="3">
+                    Subtotal pedido {{ parceiro.nunotas.join(', ') }}
+                    @if (parceiro.totalItensPedido) { <span class="ms-total-itens">Total de itens: {{ parceiro.totalItensPedido }}</span> }
+                  </td>
                   <td class="ms-num">{{ formatarQtd(parceiro.quantidadeTotal) }}</td>
                 </tr>
               </tbody>
@@ -609,6 +632,7 @@
           {{ mapa.semOrdemCarga ? 'TOTAL DO PEDIDO ' + mapa.nunota : 'TOTAL DA OC' }} — Quantidade:
           <strong>{{ formatarQtd(mapa.quantidadeTotal) }}</strong>
         </span>
+        @if (mapa.totalItens) { <span>Total de itens: <strong>{{ mapa.totalItens }}</strong></span> }
         <span>Peso Total: <strong>{{ formatarPeso(mapa.pesoTotal) }}</strong></span>
       </div>
       <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação{{ mapa.semOrdemCarga ? ' S/ Ordem de Carga' : '' }}</div>
