@@ -119,8 +119,19 @@ object UsuariosRepository {
     }
 
     /** Define (ou remove, se null) o crachá do usuário. Único por tenant — ver índice parcial em V32. */
+    /**
+     * Grava o crachá. Operador SEMPRE tem crachá: vazio mantém o que já tem, ou gera um número
+     * aleatório de 6 dígitos único no tenant (mesmo padrão dos crachás atuais).
+     */
     fun definirCracha(tenantId: UUID, userId: UUID, crachaoCodigo: String?): Boolean {
-        val codigo = crachaoCodigo?.trim()?.takeIf { it.isNotBlank() }
+        val informado = crachaoCodigo?.trim()?.takeIf { it.isNotBlank() }
+        val codigo = informado ?: TenantTx.run(tenantId) {
+            val row = UsersTable.selectAll()
+                .where { (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }
+                .singleOrNull() ?: return@run null
+            if (row[UsersTable.perfil] != "OPERADOR") return@run null
+            row[UsersTable.crachaoCodigo] ?: gerarCrachaUnico(tenantId)
+        }
         try {
             return TenantTx.run(tenantId) {
                 val linhas = UsersTable.update({ (UsersTable.tenantId eq tenantId) and (UsersTable.id eq userId) }) {
@@ -132,6 +143,20 @@ object UsuariosRepository {
         } catch (e: Exception) {
             throw CrachaoJaExisteException(codigo ?: "")
         }
+    }
+
+    /** Número aleatório de 6 dígitos (100000–999999) que ainda não é crachá de ninguém no tenant. */
+    private fun gerarCrachaUnico(tenantId: UUID): String {
+        val usados = UsersTable.selectAll()
+            .where { UsersTable.tenantId eq tenantId }
+            .mapNotNull { it[UsersTable.crachaoCodigo] }
+            .toSet()
+        val rnd = java.security.SecureRandom()
+        repeat(1000) {
+            val c = (100000 + rnd.nextInt(900000)).toString()
+            if (c !in usados) return c
+        }
+        throw IllegalStateException("não foi possível gerar um crachá único")
     }
 
     /** Ordem de exibição da tela de Usuários — pedido explícito: Admin primeiro, depois Estação, depois Operador. */

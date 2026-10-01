@@ -143,7 +143,7 @@
         <div class="oq-form-field">
           <span class="oq-form-field__label">Código do crachá (login nas estações — opcional)</span>
           <div style="display: flex; gap: 8px; align-items: stretch;">
-            <input name="crachaoCodigo" [(ngModel)]="form.crachaoCodigo" placeholder="bipe o crachá aqui ou digite o código" autocomplete="off" style="flex: 1; min-width: 0;" />
+            <input name="crachaoCodigo" [(ngModel)]="form.crachaoCodigo" [placeholder]="form.perfil === 'OPERADOR' ? 'vazio = gera número automático' : 'bipe o crachá aqui ou digite o código'" autocomplete="off" style="flex: 1; min-width: 0;" />
             <!-- span segura o tooltip: botão desabilitado não dispara hover em alguns navegadores -->
             <span [title]="bloqueioCracha ?? 'Imprimir crachá'">
               <button type="button" class="oq-admin-btn oq-admin-btn--outline" style="height: 100%;"
