@@ -30,6 +30,7 @@ const ITENS: ItemMenu[] = [
   { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
   { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
   { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
+  { rota: '/carregamento', label: 'Carregamento', icone: 'entrega' },
   { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
   // TV de acompanhamento (painel de parede) — permissão TV: admin (a conta de TV já cai direto nela).
   {

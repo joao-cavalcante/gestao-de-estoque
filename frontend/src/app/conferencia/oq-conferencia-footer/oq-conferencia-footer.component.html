@@ -12,6 +12,12 @@
         <oq-icon name="arrow-left" [size]="14" />
         {{ voltarLabel }}
       </button>
+      @if (mostrarVerConferidos) {
+        <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--outline" title="Tudo o que já foi conferido na nota, com check de reconferência" (click)="verConferidos.emit()">
+          <oq-icon name="entrega" [size]="14" />
+          Ver conferidos
+        </button>
+      }
       <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--critico" (click)="cancelar.emit()">
         Cancelar Pedido
       </button>

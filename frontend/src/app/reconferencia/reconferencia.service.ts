@@ -1,0 +1,63 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+
+/** Item conferido de uma sessão (GET /api/reconferencia/{sessaoId}) — quantidades na unidade base. */
+export interface ReconferenciaItem {
+  codprod: number;
+  controle: string;
+  descricao: string;
+  /** 1 Secos | 2 Refrigerado | 3 Congelado | 0 sem etapa. */
+  tipoSeparacao: number;
+  unidade: string | null;
+  qtdPedido: string;
+  qtdConferida: string;
+  pesavel: boolean;
+  checado: boolean;
+  checadoPor?: string | null;
+  checadoEm?: string | null;
+}
+
+export interface ReconferenciaDetalhe {
+  sessaoId: string;
+  nunota: number;
+  numNota: number | null;
+  cliente: string | null;
+  finalizada: boolean;
+  tolPesoAbaixoPct: number | null;
+  tolPesoAcimaPct: number | null;
+  itens: ReconferenciaItem[];
+}
+
+export interface ReconferenciaResumo {
+  sessaoId: string;
+  nunota: number;
+  numNota: number | null;
+  cliente: string | null;
+  ordemCarga: number | null;
+  dataMovimento: string | null;
+  finalizadaEm: string;
+  express: boolean;
+  retira: boolean;
+  entrega: boolean;
+  totalItens: number;
+  checados: number;
+}
+
+/** Reconferência: check manual do que foi conferido (só registro — não altera a conferência). */
+@Injectable({ providedIn: 'root' })
+export class ReconferenciaService {
+  private readonly http = inject(HttpClient);
+
+  listar(dias = 7): Observable<ReconferenciaResumo[]> {
+    return this.http.get<ReconferenciaResumo[]>('/api/reconferencia', { params: { dias } });
+  }
+
+  detalhe(sessaoId: string): Observable<ReconferenciaDetalhe> {
+    return this.http.get<ReconferenciaDetalhe>(`/api/reconferencia/${sessaoId}`);
+  }
+
+  marcar(sessaoId: string, codprod: number, controle: string, checado: boolean): Observable<unknown> {
+    return this.http.put(`/api/reconferencia/${sessaoId}/check`, { codprod, controle, checado });
+  }
+}

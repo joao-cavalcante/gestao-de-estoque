@@ -1,0 +1,126 @@
+<div class="oq-page">
+  @if (sessaoAberta()) {
+    <header class="oq-page__header">
+      <div class="oq-toolbar">
+        <div class="oq-toolbar__title-block">
+          <button type="button" class="oq-toolbar__filters-btn" (click)="voltar()">
+            <oq-icon name="arrow-left" [size]="12" />
+            Voltar
+          </button>
+          <h1 class="oq-toolbar__title">
+            Carregamento · Nota {{ detalhe()?.numNota ?? detalhe()?.nunota ?? '' }}
+          </h1>
+          @if (detalhe(); as d) {
+            <span class="oq-toolbar__counter">[ Nº único {{ d.nunota }} · {{ d.cliente ?? '—' }} ]</span>
+          }
+        </div>
+      </div>
+    </header>
+    <main class="oq-page__content cg-detalhe">
+      @if (erro()) {
+        <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
+      } @else {
+        @if (detalhe(); as d) {
+          <div class="cg-painel">
+            <oq-conferidos-checklist [detalhe]="d" />
+          </div>
+        } @else {
+          <oq-skeleton variant="item-row" [count]="8" />
+        }
+      }
+    </main>
+  } @else {
+    <header class="oq-page__header">
+      <div class="oq-toolbar">
+        <div class="oq-toolbar__title-block">
+          <h1 class="oq-toolbar__title cg-titulo"><oq-icon name="entrega" [size]="18" /> Carregamento</h1>
+          <span class="oq-toolbar__counter">[ {{ filtradas().length }} conferência(s) ]</span>
+        </div>
+
+        <div class="oq-toolbar__actions">
+          <div class="oq-toolbar__pills" role="group" aria-label="Filtro por modalidade do pedido">
+            @for (m of modalidadesFiltro; track m.id) {
+              <button type="button" class="oq-toolbar__pill oq-toolbar__pill--icon"
+                [class.oq-toolbar__pill--active]="filtroModalidade().has(m.id)" (click)="alternarModalidade(m.id)">
+                <oq-icon [name]="m.icone" [size]="12" />
+                {{ m.label }}
+              </button>
+            }
+          </div>
+          <div class="oq-toolbar__pills" role="group" aria-label="Ordem de carga">
+            <button type="button" class="oq-toolbar__pill" [class.oq-toolbar__pill--active]="filtroOc() === 'com'"
+              (click)="filtroOc.set(filtroOc() === 'com' ? 'todas' : 'com')">Com OC</button>
+            <button type="button" class="oq-toolbar__pill" [class.oq-toolbar__pill--active]="filtroOc() === 'sem'"
+              (click)="filtroOc.set(filtroOc() === 'sem' ? 'todas' : 'sem')">Sem OC</button>
+          </div>
+          <div class="oq-toolbar__pills" role="group" aria-label="Check">
+            <button type="button" class="oq-toolbar__pill oq-toolbar__pill--icon" [class.oq-toolbar__pill--active]="soNaoChecadas()"
+              (click)="soNaoChecadas.set(!soNaoChecadas())">
+              <oq-icon name="check" [size]="12" />
+              Não checadas
+            </button>
+          </div>
+          <div class="oq-toolbar__pills" role="group" aria-label="Período">
+            @for (d of [1, 3, 7]; track d) {
+              <button type="button" class="oq-toolbar__pill" [class.oq-toolbar__pill--active]="dias() === d" (click)="mudarDias(d)">
+                {{ d === 1 ? 'Hoje' : d + ' dias' }}
+              </button>
+            }
+          </div>
+
+          <label class="oq-toolbar__search">
+            <oq-icon name="search" [size]="12" />
+            <input type="search" placeholder="NOTA, Nº ÚNICO, OC OU CLIENTE" [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
+          </label>
+
+          <button type="button" class="oq-toolbar__filters-btn" (click)="buscar()">
+            <oq-icon name="sync" [size]="12" />
+            Atualizar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="oq-page__content">
+      @if (erro()) {
+        <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
+      }
+      @if (carregando()) {
+        <div class="oq-page__grid" aria-busy="true"><oq-skeleton variant="task-card" [count]="6" /></div>
+      } @else if (filtradas().length === 0) {
+        <div class="oq-page__status">Nenhuma conferência finalizada com esses filtros.</div>
+      } @else {
+        <div class="oq-page__grid">
+          @for (r of filtradas(); track r.sessaoId) {
+            <article class="oq-card cg-card" [class.cg-card--ok]="r.totalItens > 0 && r.checados >= r.totalItens"
+              [class.cg-card--express]="r.express" [class.cg-card--retira]="r.retira && !r.express">
+              <header class="oq-card__header">
+                <span class="oq-card__client" [title]="r.cliente ?? ''">{{ r.cliente ?? '—' }}</span>
+                <div class="oq-card__status-line">
+                  <oq-modalidade-pins [modalidade]="r" [compacto]="true" />
+                  @if (r.totalItens > 0 && r.checados >= r.totalItens) {
+                    <span class="cg-selo cg-selo--ok"><oq-icon name="check" [size]="11" /> CHECADA</span>
+                  }
+                </div>
+              </header>
+              <dl class="cg-dados">
+                <div><dt>Nota</dt><dd>{{ r.numNota ?? '—' }}</dd></div>
+                <div><dt>Nº único</dt><dd>{{ r.nunota }}</dd></div>
+                <div><dt>OC</dt><dd>{{ r.ordemCarga ?? 'S/ OC' }}</dd></div>
+                <div><dt>Finalizada</dt><dd>{{ dataHora(r.finalizadaEm) }}</dd></div>
+              </dl>
+              <div class="cg-prog">
+                <span class="cg-prog__txt"><strong>{{ r.checados }}</strong>/{{ r.totalItens }} checados</span>
+                <span class="cg-prog__barra"><span [style.width.%]="pct(r)"></span></span>
+              </div>
+              <button type="button" class="oq-admin-btn oq-admin-btn--primary cg-btn" (click)="reconferir(r)">
+                <oq-icon name="list-check" [size]="13" />
+                {{ r.checados > 0 ? 'Continuar check' : 'Reconferir' }}
+              </button>
+            </article>
+          }
+        </div>
+      }
+    </main>
+  }
+</div>

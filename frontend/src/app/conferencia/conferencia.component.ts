@@ -28,6 +28,8 @@ import { AuthService } from '../auth/auth.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
+import { OqConferidosChecklistComponent } from '../reconferencia/oq-conferidos-checklist.component';
+import { ReconferenciaDetalhe, ReconferenciaService } from '../reconferencia/reconferencia.service';
 import { ActionFeedbackService } from '../shared/action-feedback/action-feedback.service';
 import { OqFeedbackFlashDirective } from '../shared/action-feedback/oq-feedback-flash.directive';
 
@@ -157,6 +159,7 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
     OqLiberacaoCorteModalComponent,
     OqSpinnerComponent,
     OqSkeletonComponent,
+    OqConferidosChecklistComponent,
     OqFeedbackFlashDirective,
     FormsModule,
   ],
@@ -518,57 +521,27 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly ehUltimaEtapaPendente = computed(
     () => !this.modoEtapa() || this.etapasSessao().filter((e) => e.status === 'P').length <= 1,
   );
-  // ─── "Ver conferidos": tudo o que já foi conferido na nota, de todas as etapas (só leitura) ───
+  // ─── "Ver conferidos": tudo o que já foi conferido na nota (todas as etapas), com check de reconferência ───
+  private readonly reconferenciaService = inject(ReconferenciaService);
   readonly mostrarConferidosNota = signal(false);
-  /** Botão aparece numa etapa quando alguma OUTRA etapa da nota já está concluída. */
-  readonly temOutraEtapaConcluida = computed(
-    () => this.modoEtapa() && this.etapasSessao().some((e) => e.status === 'C' && e.tipoSeparacao !== this.etapaAtual()),
-  );
-  /** Itens conferidos (qtd > 0) da nota inteira por etapa — etapa atual vem da tela (em dia), as outras do retrato da sessão. */
-  readonly conferidosPorEtapa = computed(() => {
-    const atual = this.etapaAtual();
-    const daAtual = [...this.items(), ...this.conferred()];
-    const outras = this.todosItensMapeados().filter((i) => i.tipoSeparacao !== atual);
-    const vistos = new Set<string>();
-    const todos = [...daAtual, ...outras].filter((i) => {
-      const chave = `${i.seq}|${i.code}|${i.control}`;
-      if (vistos.has(chave)) return false;
-      vistos.add(chave);
-      return i.scanned > 0;
+  readonly conferidosDetalhe = signal<ReconferenciaDetalhe | null>(null);
+  readonly conferidosErro = signal<string | null>(null);
+
+  abrirConferidos(): void {
+    const sessaoId = this.sessaoIdAtual;
+    if (!sessaoId) return;
+    this.conferidosDetalhe.set(null);
+    this.conferidosErro.set(null);
+    this.mostrarConferidosNota.set(true);
+    this.reconferenciaService.detalhe(sessaoId).subscribe({
+      next: (d) => this.conferidosDetalhe.set(d),
+      error: () => this.conferidosErro.set('Não foi possível carregar os conferidos da nota.'),
     });
-    return [1, 2, 3, 0]
-      .map((tipo) => {
-        const etapa = this.etapasSessao().find((e) => e.tipoSeparacao === tipo);
-        return {
-          tipo,
-          rotulo: tipo === 0 ? 'Sem etapa' : rotuloTipoSeparacao(tipo),
-          concluida: etapa?.status === 'C',
-          atual: tipo === atual,
-          itens: todos.filter((i) => (i.tipoSeparacao ?? 0) === tipo).sort((a, b) => a.name.localeCompare(b.name)),
-        };
-      })
-      .filter((g) => g.itens.length > 0);
-  });
-
-  /** Itens com divergência (mesma regra da finalização: itensDivergentesSessao — pesável na tolerância fica de fora). */
-  private readonly chavesDivergentes = computed(
-    () => new Set(this.itensDivergentesSessao().map((i) => `${i.code}|${i.control}`)),
-  );
-
-  /** null = sem divergência; senão o motivo curto (Falta / Sobra / Peso a menor / Peso a maior). */
-  motivoDivergenciaConferido(i: ConferenciaItem): string | null {
-    if (!this.chavesDivergentes().has(`${i.code}|${i.control}`)) return null;
-    const aMaior = i.scanned > i.expected;
-    if (i.usaConfPeso) return aMaior ? 'PESO A MAIOR' : 'PESO A MENOR';
-    return aMaior ? 'SOBRA' : 'FALTA';
   }
 
-  divergentesNoGrupo(itens: ConferenciaItem[]): number {
-    return itens.filter((i) => this.motivoDivergenciaConferido(i) != null).length;
-  }
-
-  formatarQtdConferidos(n: number, casas = 3): string {
-    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: 3 });
+  fecharConferidos(): void {
+    this.mostrarConferidosNota.set(false);
+    this.conferidosDetalhe.set(null);
   }
 
   /** true = sessão segmentada, mais de uma etapa pendente e nenhuma escolhida — mostra o seletor. */

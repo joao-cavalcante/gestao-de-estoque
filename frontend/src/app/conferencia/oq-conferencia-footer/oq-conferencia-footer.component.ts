@@ -33,6 +33,9 @@ export class OqConferenciaFooterComponent {
   @Output() confirmar = new EventEmitter<void>();
   @Output() volumeChange = new EventEmitter<number>();
   @Output() cancelar = new EventEmitter<void>();
+  /** Mostra o botão "Ver conferidos" (sessão já iniciada). */
+  @Input() mostrarVerConferidos = false;
+  @Output() verConferidos = new EventEmitter<void>();
 
   /**
    * true só pra clique/toque de verdade. Enter/Espaço num botão com foco também
