@@ -65,6 +65,60 @@
     <div class="oq-cf-etapa-bar">
       <oq-icon [name]="etapaAtual() === 3 ? 'congelado' : etapaAtual() === 2 ? 'refrigerado' : 'seco'" [size]="14" />
       <span>Etapa: <strong>{{ rotuloEtapaAtual() }}</strong></span>
+      @if (temOutraEtapaConcluida()) {
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline oq-cf-etapa-bar__btn" (click)="mostrarConferidosNota.set(true)">
+          <oq-icon name="list-check" [size]="13" />
+          Ver conferidos da nota
+        </button>
+      }
+    </div>
+  }
+
+  @if (mostrarConferidosNota()) {
+    <div class="oq-modal-backdrop" (click)="mostrarConferidosNota.set(false)">
+      <div class="oq-modal oq-modal--wide oq-cn" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Conferidos da nota {{ numeroUnico }}</span>
+          <button type="button" class="oq-modal__fechar" (click)="mostrarConferidosNota.set(false)">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body oq-cn__body">
+          @for (g of conferidosPorEtapa(); track g.tipo) {
+            <section class="oq-cn__etapa">
+              <div class="oq-cn__etapa-topo">
+                @if (g.tipo) { <oq-icon [name]="g.tipo === 3 ? 'congelado' : g.tipo === 2 ? 'refrigerado' : 'seco'" [size]="15" /> }
+                <strong>{{ g.rotulo }}</strong>
+                <span class="oq-cn__selo" [class.oq-cn__selo--ok]="g.concluida">{{ g.concluida ? 'CONCLUÍDA' : g.atual ? 'EM CONFERÊNCIA' : 'PENDENTE' }}</span>
+                <span class="oq-cn__qtd">{{ g.itens.length }} item(ns)</span>
+              </div>
+              <ul class="oq-cn__lista">
+                @for (i of g.itens; track i.seq + i.code + i.control) {
+                  <li class="oq-cn__item">
+                    <span class="oq-cn__cod">{{ i.code }}</span>
+                    <span class="oq-cn__nome">{{ i.name }}</span>
+                    @if (i.usaConfPeso) {
+                      <!-- Selo no estilo da etiqueta de peso -->
+                      <span class="oq-cn__peso" title="Pesável — peso conferido">
+                        <oq-icon name="balanca" [size]="13" />
+                        <strong>{{ formatarQtdConferidos(i.scanned) }}</strong> KG
+                        <small>de {{ formatarQtdConferidos(i.expected) }}</small>
+                      </span>
+                    } @else {
+                      <span class="oq-cn__qtdi">{{ formatarQtdConferidos(i.scanned, 0) }} / {{ formatarQtdConferidos(i.expected, 0) }} {{ i.unidadePadrao }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          } @empty {
+            <div class="oq-empty-row">Nada conferido ainda nesta nota.</div>
+          }
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="mostrarConferidosNota.set(false)">Fechar</button>
+        </div>
+      </div>
     </div>
   }
 

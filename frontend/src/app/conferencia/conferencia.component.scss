@@ -390,3 +390,101 @@
     display: none !important;
   }
 }
+
+.oq-cf-etapa-bar__btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Pop-up "Conferidos da nota" (todas as etapas) */
+.oq-cn__body {
+  max-height: 70vh;
+  overflow-y: auto;
+  gap: 14px;
+}
+
+.oq-cn__etapa-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--oq-border);
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.oq-cn__selo {
+  padding: 1px 6px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+
+  &--ok { background: var(--oq-success-soft); color: var(--oq-success-foreground); }
+}
+
+.oq-cn__qtd {
+  margin-left: auto;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+  text-transform: none;
+}
+
+.oq-cn__lista {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.oq-cn__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--oq-border);
+  font-size: 12px;
+}
+
+.oq-cn__cod {
+  flex: none;
+  width: 56px;
+  font-family: var(--oq-font-mono);
+  color: var(--oq-text-secondary);
+}
+
+.oq-cn__nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oq-cn__qtdi {
+  flex: none;
+  font-family: var(--oq-font-mono);
+  font-weight: 600;
+}
+
+/* Selo de peso no estilo da etiqueta de peso: borda tracejada, ícone de balança, KG em destaque */
+.oq-cn__peso {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px dashed var(--oq-text-primary);
+  border-radius: var(--oq-radius-input);
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+
+  oq-icon { align-self: center; }
+  strong { font-size: 13px; }
+  small { color: var(--oq-text-secondary); }
+}

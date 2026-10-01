@@ -518,6 +518,42 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly ehUltimaEtapaPendente = computed(
     () => !this.modoEtapa() || this.etapasSessao().filter((e) => e.status === 'P').length <= 1,
   );
+  // ─── "Ver conferidos": tudo o que já foi conferido na nota, de todas as etapas (só leitura) ───
+  readonly mostrarConferidosNota = signal(false);
+  /** Botão aparece numa etapa quando alguma OUTRA etapa da nota já está concluída. */
+  readonly temOutraEtapaConcluida = computed(
+    () => this.modoEtapa() && this.etapasSessao().some((e) => e.status === 'C' && e.tipoSeparacao !== this.etapaAtual()),
+  );
+  /** Itens conferidos (qtd > 0) da nota inteira por etapa — etapa atual vem da tela (em dia), as outras do retrato da sessão. */
+  readonly conferidosPorEtapa = computed(() => {
+    const atual = this.etapaAtual();
+    const daAtual = [...this.items(), ...this.conferred()];
+    const outras = this.todosItensMapeados().filter((i) => i.tipoSeparacao !== atual);
+    const vistos = new Set<string>();
+    const todos = [...daAtual, ...outras].filter((i) => {
+      const chave = `${i.seq}|${i.code}|${i.control}`;
+      if (vistos.has(chave)) return false;
+      vistos.add(chave);
+      return i.scanned > 0;
+    });
+    return [1, 2, 3, 0]
+      .map((tipo) => {
+        const etapa = this.etapasSessao().find((e) => e.tipoSeparacao === tipo);
+        return {
+          tipo,
+          rotulo: tipo === 0 ? 'Sem etapa' : rotuloTipoSeparacao(tipo),
+          concluida: etapa?.status === 'C',
+          atual: tipo === atual,
+          itens: todos.filter((i) => (i.tipoSeparacao ?? 0) === tipo).sort((a, b) => a.name.localeCompare(b.name)),
+        };
+      })
+      .filter((g) => g.itens.length > 0);
+  });
+
+  formatarQtdConferidos(n: number, casas = 3): string {
+    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: 3 });
+  }
+
   /** true = sessão segmentada, mais de uma etapa pendente e nenhuma escolhida — mostra o seletor. */
   readonly precisaEscolherEtapa = computed(() => this.etapaAtual() == null && this.etapasSessao().length > 0);
   /** Etapas pra oferecer no seletor (pendentes primeiro). */
