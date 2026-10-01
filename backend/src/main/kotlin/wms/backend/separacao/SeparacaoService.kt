@@ -679,7 +679,31 @@ object SeparacaoService {
         // entrada/compra com peso A MAIOR — pedido complementar/devolução) fazia o
         // cortar ser recusado e a finalização quebrar sem ir pra liberação de corte
         // (nota 58933, 01/10).
-        try {
+        // COMPRA (TIPMOV 'C'/'O'): o nativo NÃO chama cortar — só finalizarConferencia com os
+        // eventos de divergência (payload capturado pelo usuário, nuConf 766, 01/10), e é isso
+        // que gera a liberação de corte. O cortar recusa entrada pesada a maior ("quantidade
+        // entregue não pode ser maior que a negociada" — notas 58915/58933).
+        val ehCompra = withContext(Dispatchers.IO) { TarefasRepository.buscarTipMovLocal(tenantId, sessao.nunota) }
+            ?.trim()?.uppercase() in setOf("C", "O")
+        if (ehCompra) {
+            try {
+                SankhyaSpClient.chamarRaw(
+                    tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
+                    buildJsonObject {
+                        putJsonObject("params") {
+                            put("nuConf", nuconf.toString())
+                            put("peso", 0)
+                            put("qtdVol", qtdVol)
+                        }
+                        CLIENT_EVENT_FINALIZAR_DIVERGENTE.forEach { (k, v) -> put(k, v) }
+                    },
+                )
+            } catch (e: Exception) {
+                println("AVISO: finalizarConferencia (compra) falhou (nunota ${sessao.nunota}, nuconf $nuconf): ${e.message}")
+                throw e
+            }
+            println("INFO: compra nunota ${sessao.nunota} (nuconf $nuconf) finalizada no modelo nativo; status=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}")
+        } else try {
             SankhyaSpClient.chamarRaw(
                 tenantSlug, "ConferenciaSP.cortar", "mgecom",
                 buildJsonObject {
@@ -714,7 +738,8 @@ object SeparacaoService {
         // quando o operador escolhe "Cortar" no pop-up de finalização divergente
         // (esse clique não é autorização de liberação — ver LiberacaoCorteService).
         var resolvidoViaAutoLiberacao = false
-        if (aguardandoCorte) {
+        // Compra: sem corte silencioso — toda divergência vai pra liberação manual.
+        if (aguardandoCorte && !ehCompra) {
             FinalizacaoProgresso.atualizar(sessaoId, "liberacao")
             val liberouTudo = runCatching {
                 LiberacaoCorteService.autoLiberarPesoDentroTolerancia(tenantSlug, tenantId, nuconf, sessaoId)
@@ -737,7 +762,8 @@ object SeparacaoService {
         // confirmação o Sankhya fica sem resposta pras decisões que só ele
         // resolve (PROCEDCORTE/GERARPEDCOMPL), suspeita mais forte do "corte
         // maior automático" relatado em secos divergente.
-        if (!aguardandoCorte && !resolvidoViaAutoLiberacao) {
+        // Compra já chamou o finalizarConferencia acima (no lugar do cortar) — não repete.
+        if (!aguardandoCorte && !resolvidoViaAutoLiberacao && !ehCompra) {
             FinalizacaoProgresso.atualizar(sessaoId, "finalizando")
             try {
                 SankhyaSpClient.chamarRaw(
