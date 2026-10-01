@@ -23,6 +23,9 @@ export class OqConferenciaHeaderComponent {
   @Input() vendedor = '';
   /** NUNOTA da nota — número único no Sankhya. */
   @Input() numeroUnico = '';
+  /** Motorista e veículo ("PLACA · MODELO") da Ordem de Carga — só aparece quando a nota tem OC. */
+  @Input() motorista: string | null = null;
+  @Input() veiculo: string | null = null;
 
   @Input() pendingCount = 0;
   @Input() conferredCount = 0;

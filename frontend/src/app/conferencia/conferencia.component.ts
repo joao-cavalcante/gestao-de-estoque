@@ -205,6 +205,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   parceiro = '—';
   vendedor = '—';
   numeroUnico = '—';
+  motorista: string | null = null;
+  veiculo: string | null = null;
 
   private readonly items = signal<ConferenciaItem[]>([]);
   private readonly conferred = signal<ConferenciaItem[]>([]);
@@ -694,6 +696,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       this.nf = tarefa.nf;
       this.parceiro = tarefa.cliente;
       this.vendedor = tarefa.responsavel;
+      this.motorista = tarefa.motorista ?? null;
+      this.veiculo = tarefa.transporte && tarefa.transporte !== '—' ? tarefa.transporte : null;
     }
     this.numeroUnico = nunota ? String(nunota) : '—';
 

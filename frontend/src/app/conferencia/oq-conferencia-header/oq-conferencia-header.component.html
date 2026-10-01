@@ -47,6 +47,16 @@
         <span class="oq-cf-info-item__value">{{ vendedor }}</span>
       </div>
     </div>
+    @if (motorista || veiculo) {
+      <div class="oq-cf-header__sep oq-cf-header__sep--vendedor"></div>
+      <div class="oq-cf-info-item oq-cf-info-item--vendedor oq-cf-info-item--truncate">
+        <oq-icon name="entrega" [size]="15" class="oq-cf-info-item__icon" />
+        <div class="oq-cf-info-item__text oq-cf-info-item__text--truncate">
+          <span class="oq-cf-info-item__label">Motorista · Veículo</span>
+          <span class="oq-cf-info-item__value" [title]="(motorista ?? '—') + ' · ' + (veiculo ?? '—')">{{ motorista ?? '—' }} · {{ veiculo ?? '—' }}</span>
+        </div>
+      </div>
+    }
   </div>
 
   <div class="oq-cf-header__kpis">

@@ -42,6 +42,29 @@
   grid-template-rows: 11mm 21mm 29mm 1fr;
 }
 
+/* Nota com Ordem de Carga: faixa de motorista/veículo entre o cliente e o Nº Único. */
+.et--transporte {
+  grid-template-rows: 11mm 21mm 8mm 25mm 1fr;
+}
+
+.et__transporte {
+  @include et-secao;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.8mm;
+  min-width: 0;
+}
+
+.et__transporte-texto {
+  font-size: 9pt;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .et__rotulo { @include et-rotulo; }
 
 .et__unico {

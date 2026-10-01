@@ -56,6 +56,10 @@ export interface TarefaApiDto {
   descricaoTipoOperacao: string | null;
   /** TGFCAB.ORDEMCARGA — número da ordem/onda de carga. */
   ordemCarga: number | null;
+  /** Motorista e veículo da Ordem de Carga (null sem OC / ainda não carregado). */
+  motorista?: string | null;
+  placa?: string | null;
+  veiculo?: string | null;
   /** TGFCAB.AD_TURNOENTREGA — "1" Diurno | "2" Noturno | "9" Qualquer. */
   turnoEntrega: string | null;
   /** TGFCAB.AD_EXPRESS / AD_RETIRA / AD_ENTREGA = 'S'. */
@@ -135,7 +139,8 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     numeroUnico: String(p.nunota),
     nf,
     data: p.dataMovimento ?? '—',
-    transporte: '—', // campo AD_ (AD_TIPOENTREGA) — fora de escopo por enquanto
+    motorista: p.motorista ?? null,
+    transporte: [p.placa, p.veiculo].filter((v) => !!v).join(' · ') || '—',
     responsavel: p.apelidoVendedor ?? '—',
     codigoResponsavel: p.codigoVendedor,
     tipoOperacao: p.descricaoTipoOperacao ?? '—',

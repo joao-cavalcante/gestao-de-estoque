@@ -35,7 +35,7 @@ fun Route.tarefasRoutes() {
                 return@get
             }
 
-            call.respond(filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))
+            call.respond(comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))
         }
 
         // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
@@ -59,7 +59,7 @@ fun Route.tarefasRoutes() {
             }
             try {
                 TarefaSyncService.sincronizarTenant(slug, tenantId)
-                call.respond(filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))
+                call.respond(comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadGateway,
@@ -108,6 +108,16 @@ private fun resolverTenantId(slug: String): UUID? =
     TenantRepository.buscarPorSlug(slug)?.id?.let { UUID.fromString(it) }
 
 /** Fila só com as notas cuja TOP a conta logada pode conferir (PermissoesRecurso; admin vê tudo). */
+/** Motorista/veículo da OC nos cards — só do cache (ver TransporteOrdemCarga.doCache), a fila continua sem esperar o Sankhya. */
+private fun comTransporte(slug: String, tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    val ocs = tarefas.mapNotNull { it.ordemCarga }
+    if (ocs.isEmpty()) return tarefas
+    val transporte = wms.backend.mapaseparacao.TransporteOrdemCarga.doCache(slug, tenantId, ocs)
+    return tarefas.map { t ->
+        t.ordemCarga?.let { transporte[it] }?.let { t.copy(motorista = it.motorista, placa = it.placa, veiculo = it.veiculo) } ?: t
+    }
+}
+
 private fun filtrarPorTop(claims: ClaimsToken, tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
     if (PermissoesRecurso.acessoTotal(claims)) return tarefas
     val restritas = PermissoesRecurso.topsRestritas(tenantId)

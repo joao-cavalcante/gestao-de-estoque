@@ -1124,7 +1124,11 @@ object SeparacaoService {
 
         val numeroNota = nunota.toString().padStart(5, '0').takeLast(5)
         val ordemCarga = withContext(Dispatchers.IO) { TarefasRepository.buscarOrdemCargaLocal(tenantId, nunota) }
+        val transporte = ordemCarga?.let { wms.backend.mapaseparacao.TransporteOrdemCarga.buscar(tenantSlug, tenantId, it) }
         return EtiquetaDadosDto(
+            motorista = transporte?.motorista,
+            placa = transporte?.placa,
+            veiculo = transporte?.veiculo,
             cliente = cliente,
             uf = uf,
             numeroNota = numeroNota,

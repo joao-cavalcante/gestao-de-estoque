@@ -138,6 +138,13 @@ export class EtiquetasComponent implements OnInit {
     };
   }
 
+  /** "JOSÉ DA SILVA · ABC1D23 VW DELIVERY" — null quando a nota não tem OC com motorista/veículo. */
+  transporte(grupo: EtiquetaDados): string | null {
+    const veiculo = [grupo.placa, grupo.veiculo].filter((v) => !!v).join(' ');
+    const partes = [grupo.motorista, veiculo].filter((v) => !!v);
+    return partes.length ? partes.join(' · ') : null;
+  }
+
   imprimir(): void {
     window.print();
   }

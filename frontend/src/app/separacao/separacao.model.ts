@@ -86,6 +86,10 @@ export interface EtiquetaDados {
   /** NUNOTA completo + Ordem de Carga — impressos como "Nº Único - O.C.". */
   nunota?: number;
   ordemCarga?: number | null;
+  /** Motorista e veículo (placa + modelo) da Ordem de Carga. */
+  motorista?: string | null;
+  placa?: string | null;
+  veiculo?: string | null;
   /** CODPARC — impresso pequeno acima do nome do cliente. */
   codParc?: number | null;
   numeroConferencia: number | null;

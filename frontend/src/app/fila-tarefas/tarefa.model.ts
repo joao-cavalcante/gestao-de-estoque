@@ -22,7 +22,10 @@ export interface Tarefa {
   numeroUnico: string;
   nf: string;
   data: string;
+  /** Veículo da Ordem de Carga — "PLACA · MODELO" ou "—". */
   transporte: string;
+  /** Motorista da Ordem de Carga (null sem OC). */
+  motorista: string | null;
   responsavel: string;
   codigoResponsavel: string | null;
   tipoOperacao: string;

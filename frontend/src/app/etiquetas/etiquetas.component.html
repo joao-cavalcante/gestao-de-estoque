@@ -19,9 +19,16 @@
        que já saiu impressa na hora (nome da etapa NÃO aparece, pedido explícito). -->
   @for (grupo of grupos(); track grupo) {
     @for (v of volumesDoGrupo(grupo); track v) {
-      <div class="et">
+      <div class="et" [class.et--transporte]="!!transporte(grupo)">
         <oq-et-cabecalho [data]="agora" />
         <oq-et-cliente [codigo]="grupo.codParc" [nome]="grupo.cliente" [uf]="grupo.uf" />
+
+        @if (transporte(grupo); as t) {
+          <section class="et__transporte">
+            <span class="et__rotulo">MOTORISTA · VEÍCULO</span>
+            <span class="et__transporte-texto">{{ t }}</span>
+          </section>
+        }
 
         <section class="et__unico">
           <span class="et__rotulo">Nº ÚNICO</span>

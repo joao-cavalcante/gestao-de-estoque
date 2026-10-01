@@ -59,6 +59,14 @@
       <span class="oq-card__field-label">Período p/ entrega</span>
       <span class="oq-card__field-value">{{ tarefa.periodoEntrega }}</span>
     </div>
+    @if (tarefa.motorista || tarefa.transporte !== '—') {
+      <div class="oq-card__field oq-card__field--full">
+        <span class="oq-card__field-label">Motorista · Veículo</span>
+        <span class="oq-card__field-value" [title]="(tarefa.motorista ?? '—') + ' · ' + tarefa.transporte">
+          {{ tarefa.motorista ?? '—' }} · {{ tarefa.transporte }}
+        </span>
+      </div>
+    }
   </div>
 
   <!-- Área de ação — sempre encostada na base do card (margin-top:auto) pra

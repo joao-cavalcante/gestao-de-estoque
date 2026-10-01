@@ -191,6 +191,10 @@ data class EtiquetaDadosDto(
     /** NUNOTA completo (sem corte de dígitos) + Ordem de Carga — o que sai impresso hoje ("Nº Único - O.C."). */
     val nunota: Long = 0,
     val ordemCarga: Long? = null,
+    /** Motorista e veículo (placa + modelo) da Ordem de Carga — null sem OC. */
+    val motorista: String? = null,
+    val placa: String? = null,
+    val veiculo: String? = null,
     /** CODPARC do cliente — impresso pequeno acima do nome. */
     val codParc: Int? = null,
     val numeroConferencia: Int?,
