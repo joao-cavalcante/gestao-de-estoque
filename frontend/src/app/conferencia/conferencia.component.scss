@@ -516,3 +516,30 @@
   font-size: 10px;
   font-weight: 700;
 }
+
+/* Pop-up "Atualizado com o Sankhya" — o que a sincronização corrigiu em cada item */
+.oq-sinc__item {
+  align-items: flex-start;
+}
+
+.oq-sinc__texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.oq-sinc__nome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.oq-sinc__mudanca {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}

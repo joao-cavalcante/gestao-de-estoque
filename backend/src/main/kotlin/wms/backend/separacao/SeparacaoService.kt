@@ -378,36 +378,18 @@ object SeparacaoService {
             // numa unidade != a de cadastro do produto pega o fator do VOA cujo
             // CODVOL == CODVOL da linha (+ fallback lote-livre). NUNCA fallback
             // por produto (conferencia.helper.ts:262-287). É só p/ display.
-            val voaPorChave: Map<Triple<Int, String, String>, Pair<String?, BigDecimal?>> = voaRows.mapNotNull { r ->
-                val cp = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
-                val cv = r["CODVOL"]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-                val ctrl = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " "
-                Triple(cp, cv, ctrl) to (r["DIVIDEMULTIPLICA"]?.trim()?.takeIf { it.isNotEmpty() } to r["QUANTIDADE"].parseBigDecimalBr())
-            }.toMap()
+            val voaPorChave = montarVoaPorChave(voaRows)
 
             val itensComPeso = itens.map { item ->
-                val lineCodvol = item.codvol?.trim()?.takeIf { it.isNotEmpty() }
-                val prodCodvol = codvolProdutoPorCodprod[item.codprod]?.trim()?.takeIf { it.isNotEmpty() }
-                val ctrl = item.controle.trim().takeIf { it.isNotEmpty() } ?: " "
-                val voa = lineCodvol?.let {
-                    voaPorChave[Triple(item.codprod, it, ctrl)] ?: voaPorChave[Triple(item.codprod, it, " ")]
-                }
+                val enriquecido = enriquecerItem(item, voaPorChave, codvolProdutoPorCodprod, itemUsaConfPeso(item))
                 // Item liberado (silencioso): a qtd liberada veio na unidade COMERCIAL da linha (OBSERVACAO
                 // da liberação: "1 CX"), mas qtd_neg é na unidade PADRÃO (PE) — converte. Bug real (nota
                 // 58363, óleo 381): 1 CX (=20 PE) subia como 1 PE → 0,05 CX no Sankhya.
-                val qtdNegAjustada = if (item.silencioso) {
-                    SeparacaoRepository.comercialParaPadrao(item.qtdNeg, voa?.first, voa?.second)
+                if (item.silencioso) {
+                    enriquecido.copy(qtdNeg = SeparacaoRepository.comercialParaPadrao(item.qtdNeg, enriquecido.divideMultiplica, enriquecido.fatorConversao))
                 } else {
-                    item.qtdNeg
+                    enriquecido
                 }
-                item.copy(
-                    qtdNeg = qtdNegAjustada,
-                    usaConfPeso = itemUsaConfPeso(item),
-                    unidadeComercial = lineCodvol ?: prodCodvol,
-                    unidadePadrao = prodCodvol ?: lineCodvol,
-                    divideMultiplica = voa?.first,
-                    fatorConversao = voa?.second,
-                )
             }
             // Qtd liberada já na unidade padrão, por (codprod, controle) — usada na auto-conferência abaixo.
             val qtdLiberadaPadraoPorChave = itensComPeso.filter { it.silencioso }.associate { (it.codprod to it.controle) to it.qtdNeg }
@@ -1384,6 +1366,21 @@ object SeparacaoService {
         nuconf: Int?,
         codprodsNegados: Set<Pair<Int, String>> = emptySet(),
     ): List<ItemParaSalvar> {
+        val (todos, pendentes) = buscarItensDaNota(tenantSlug, nunota, nuconf, codprodsNegados)
+        return todos.filter { it.sequencia in pendentes }
+    }
+
+    /**
+     * Todas as linhas da nota (menos EXCLUIRCONF='S') + as SEQUENCIAs que ainda precisam de
+     * conferência (critério abaixo). A sincronização com o Sankhya precisa das duas coisas: linha
+     * já resolvida no NUCONF atual continua existindo (não pode ser tratada como removida).
+     */
+    private suspend fun buscarItensDaNota(
+        tenantSlug: String,
+        nunota: Long,
+        nuconf: Int?,
+        codprodsNegados: Set<Pair<Int, String>>,
+    ): Pair<List<ItemParaSalvar>, Set<Int>> {
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,
             LoadRecordsRequest(
@@ -1399,7 +1396,9 @@ object SeparacaoService {
                 .getOrDefault(emptyMap())
         } ?: emptyMap()
 
-        val rows = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
+        val todasAsLinhas = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
+            .filter { it["Produto.EXCLUIRCONF"]?.trim()?.uppercase() != "S" }
+        val pendentes = todasAsLinhas
             // Critério real de "precisa reconferência", capturado ao vivo da
             // tela nativa (nota 57500): compara QTDNEG (ItemNota) com QTDCONF
             // (DetalhesConferencia, NUCONF atual) — ItemNota.QTDCONFERIDA fica
@@ -1420,9 +1419,10 @@ object SeparacaoService {
                 val qtdConf = codprod?.let { qtdConferidaPorProduto[it] } ?: BigDecimal.ZERO
                 qtdNeg > qtdConf
             }
-            .filter { it["Produto.EXCLUIRCONF"]?.trim()?.uppercase() != "S" }
+            .mapNotNull { it["SEQUENCIA"]?.toIntOrNull() }
+            .toSet()
 
-        return rows.mapNotNull { r ->
+        val itens = todasAsLinhas.mapNotNull { r ->
             val sequencia = r["SEQUENCIA"]?.toIntOrNull() ?: return@mapNotNull null
             val codprod = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
             val dadosJson = buildJsonObject {
@@ -1439,6 +1439,7 @@ object SeparacaoService {
                 tipoSeparacao = parseTipoSeparacao(r["Produto.AD_TIPOSEPARACAO"]),
             )
         }
+        return itens to pendentes
     }
 
     /**
@@ -1633,6 +1634,115 @@ object SeparacaoService {
         }
 
         return codigos
+    }
+
+    /** TGFVOA por (codprod, codvol, controle) → (DIVIDEMULTIPLICA, QUANTIDADE). */
+    private fun montarVoaPorChave(voaRows: List<Map<String, String?>>): Map<Triple<Int, String, String>, Pair<String?, BigDecimal?>> =
+        voaRows.mapNotNull { r ->
+            val cp = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
+            val cv = r["CODVOL"]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val ctrl = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " "
+            Triple(cp, cv, ctrl) to (r["DIVIDEMULTIPLICA"]?.trim()?.takeIf { it.isNotEmpty() } to r["QUANTIDADE"].parseBigDecimalBr())
+        }.toMap()
+
+    /**
+     * Unidades (comercial = CODVOL da linha, padrão = TGFPRO.CODVOL), fator de conversão e pesável
+     * do item — usado na abertura da sessão e na sincronização com o Sankhya (mesma regra nas duas).
+     * Fator: match POR LINHA no VOA cujo CODVOL == CODVOL da linha (+ fallback lote-livre), NUNCA
+     * fallback por produto (conferencia.helper.ts:262-287).
+     */
+    private fun enriquecerItem(
+        item: ItemParaSalvar,
+        voaPorChave: Map<Triple<Int, String, String>, Pair<String?, BigDecimal?>>,
+        codvolProdutoPorCodprod: Map<Int, String>,
+        pesavel: Boolean,
+    ): ItemParaSalvar {
+        val lineCodvol = item.codvol?.trim()?.takeIf { it.isNotEmpty() }
+        val prodCodvol = codvolProdutoPorCodprod[item.codprod]?.trim()?.takeIf { it.isNotEmpty() }
+        val ctrl = item.controle.trim().takeIf { it.isNotEmpty() } ?: " "
+        val voa = lineCodvol?.let {
+            voaPorChave[Triple(item.codprod, it, ctrl)] ?: voaPorChave[Triple(item.codprod, it, " ")]
+        }
+        return item.copy(
+            usaConfPeso = pesavel,
+            unidadeComercial = lineCodvol ?: prodCodvol,
+            unidadePadrao = prodCodvol ?: lineCodvol,
+            divideMultiplica = voa?.first,
+            fatorConversao = voa?.second,
+        )
+    }
+
+    class SincronizarSankhyaException(message: String) : Exception(message)
+
+    /**
+     * Botão "Atualizar com Sankhya" da conferência (virada de sistema: pedido subiu com quantidade,
+     * unidade, fator ou AD_PESAVEL errado e foi corrigido no Sankhya depois que a conferência abriu).
+     * Relê a nota AO VIVO — TGFITE, TGFPRO.CODVOL, TGFVOA sem cache, regra de pesável — e aplica as
+     * diferenças nos itens da sessão sem fechar a conferência. Item que já tinha conferência e mudou
+     * de unidade/fator/pesável tem a conferência DESFEITA (a leitura foi feita na regra errada); mudou
+     * só a quantidade, a leitura continua valendo. Item silencioso (já liberado em corte) não é tocado.
+     */
+    suspend fun sincronizarComSankhya(tenantSlug: String, tenantId: UUID, sessaoId: UUID): SincronizacaoSankhyaDto {
+        val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
+            ?: throw SincronizarSankhyaException("sessão não encontrada")
+        if (sessao.status != SeparacaoStatus.PRONTA) {
+            throw SincronizarSankhyaException("Conferência em status '${sessao.status}' — só dá pra atualizar conferência aberta.")
+        }
+        val nunota = sessao.nunota
+        val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
+        val codprodsNegados = withContext(Dispatchers.IO) { SeparacaoRepository.buscarCodprodsNegados(tenantId, nunota) }
+        val chavesLiberadas = withContext(Dispatchers.IO) { SeparacaoRepository.buscarDecisoesLiberadasComQtd(tenantId, nunota) }
+            .map { it.codprod to it.controle }.toSet()
+
+        val (itensNota, sequenciasPendentes) = buscarItensDaNota(tenantSlug, nunota, nuconf, codprodsNegados)
+        val codprods = itensNota.map { it.codprod }.distinct()
+        // Aqui falha de leitura TRAVA (diferente da abertura): corrigir com dado incompleto pioraria a sessão.
+        val codvolProduto = buscarCodvolProduto(tenantSlug, codprods)
+        val decisor = wms.backend.produtos.RegraPesavel.decisor(
+            tenantSlug, tenantId, wms.backend.produtos.RegraPesavel.filtroCodprods(codprods),
+        )
+        val voaRows = buscarVoa(tenantSlug, tenantId, codprods, aoVivo = true)
+        val voaPorChave = montarVoaPorChave(voaRows)
+        val itensSankhya = itensNota.map { enriquecerItem(it, voaPorChave, codvolProduto, decisor.pesavel(it.codprod, it.codvol)) }
+
+        val resultado = withContext(Dispatchers.IO) {
+            SeparacaoRepository.aplicarSincronizacao(tenantId, sessaoId, itensSankhya, sequenciasPendentes, chavesLiberadas)
+        }
+
+        // Produtos afetados: códigos de barra (fator do VOA) e UMA (pesável) da sessão refeitos.
+        if (resultado.codprodsAfetados.isNotEmpty()) {
+            val afetados = resultado.codprodsAfetados.toList()
+            // Produto que saiu do pedido perde os códigos de barra da sessão (bipar vira "fora do pedido").
+            val noPedido = afetados.filter { cp -> itensSankhya.any { it.codprod == cp } }.toSet()
+            val barRows = buscarBar(tenantSlug, tenantId, noPedido.toList())
+            val estRows = if (resultado.buscarCodigoBarraPor == "A" || resultado.buscarCodigoBarraPor == "E") {
+                buscarEst(tenantSlug, nunota).filter { it["CODPROD"]?.toIntOrNull() in noPedido }
+            } else {
+                emptyList()
+            }
+            val codigos = montarCodigosBarra(barRows, voaRows.filter { it["CODPROD"]?.toIntOrNull() in noPedido }, estRows)
+            val pesaveisAfetados = itensSankhya.filter { it.codprod in noPedido && it.usaConfPeso }.map { it.codprod }.distinct()
+            val umas = if (pesaveisAfetados.isEmpty()) emptyList() else buscarUma(tenantSlug, pesaveisAfetados)
+            withContext(Dispatchers.IO) { SeparacaoRepository.substituirCodigosEUma(tenantId, sessaoId, afetados, codigos, umas) }
+        }
+
+        // Conferência por etapa: etapa nova ganha linha; etapa concluída com item que voltou a pendente reabre.
+        if (sessao.conferenciaSegmentada) {
+            withContext(Dispatchers.IO) {
+                val itensSessao = SeparacaoRepository.listarItens(tenantId, sessaoId)
+                SeparacaoRepository.semearEtapas(tenantId, sessaoId, itensSessao.map { it.tipoSeparacao.toShort() }.toSet())
+                SeparacaoRepository.listarEtapas(tenantId, sessaoId)
+                    .filter { it.status == SeparacaoEtapaStatus.CONCLUIDA }
+                    .filter { SeparacaoRepository.contarPendentesDaEtapa(tenantId, sessaoId, it.tipoSeparacao.toShort()) > 0 }
+                    .forEach { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, it.tipoSeparacao.toShort()) }
+            }
+        }
+
+        if (resultado.correcoes.isNotEmpty()) {
+            println("Sincronização com Sankhya (nunota $nunota, sessão $sessaoId): ${resultado.correcoes.size} correção(ões) — " +
+                resultado.correcoes.joinToString("; ") { "seq ${it.sequencia} prod ${it.codprod} ${it.tipo}: ${it.mudancas.joinToString(", ")}${if (it.conferenciaDesfeita) " [conferência desfeita]" else ""}" })
+        }
+        return SincronizacaoSankhyaDto(itensVerificados = itensSankhya.size, correcoes = resultado.correcoes)
     }
 
     /** Hash estável dos itens (ordenados) — detecta divergência sem precisar comparar campo a campo. */

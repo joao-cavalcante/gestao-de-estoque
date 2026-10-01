@@ -269,3 +269,21 @@ export interface ItemSeparacao {
   quantidadeComercialConferida: string | null;
   quantidadePadraoConferida: string | null;
 }
+
+/** Linha corrigida pelo "Atualizar com Sankhya". */
+export interface CorrecaoItem {
+  sequencia: number;
+  codprod: number;
+  controle: string;
+  descricao: string | null;
+  tipo: 'alterado' | 'incluido' | 'removido';
+  mudancas: string[];
+  /** true = a conferência desse item foi feita na regra errada e foi zerada (volta pra Pendentes). */
+  conferenciaDesfeita: boolean;
+  qtdDesfeita: string | null;
+}
+
+export interface SincronizacaoSankhya {
+  itensVerificados: number;
+  correcoes: CorrecaoItem[];
+}

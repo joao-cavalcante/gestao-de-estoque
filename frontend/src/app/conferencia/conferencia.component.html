@@ -93,6 +93,57 @@
     </div>
   }
 
+  @if (sincronizacao(); as sinc) {
+    <div class="oq-modal-backdrop" (click)="fecharSincronizacao()">
+      <div class="oq-modal oq-modal--wide oq-cn" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">Atualizado com o Sankhya</span>
+          <button type="button" class="oq-modal__fechar" (click)="fecharSincronizacao()">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body oq-cn__body">
+          @if (sinc.correcoes.length === 0) {
+            <span class="oq-form-hint">
+              Nenhuma diferença: os {{ sinc.itensVerificados }} itens do pedido já estavam iguais ao Sankhya.
+            </span>
+          } @else {
+            <span class="oq-form-hint">
+              {{ sinc.correcoes.length }} {{ sinc.correcoes.length === 1 ? 'item corrigido' : 'itens corrigidos' }} de {{ sinc.itensVerificados }} verificados.
+              @if (sincronizacaoDesfeitos() > 0) {
+                <strong>{{ sincronizacaoDesfeitos() }} {{ sincronizacaoDesfeitos() === 1 ? 'item tinha' : 'itens tinham' }} conferência na regra errada e {{ sincronizacaoDesfeitos() === 1 ? 'voltou' : 'voltaram' }} para Pendentes — confira de novo.</strong>
+              }
+            </span>
+            <ul class="oq-cn__lista">
+              @for (c of sinc.correcoes; track c.sequencia + '-' + c.tipo) {
+                <li class="oq-cn__item oq-sinc__item" [class.oq-cn__item--div]="c.conferenciaDesfeita">
+                  <span class="oq-cn__cod">{{ c.codprod }}</span>
+                  <div class="oq-sinc__texto">
+                    <span class="oq-sinc__nome">
+                      {{ c.descricao ?? 'Produto ' + c.codprod }}
+                      <span class="oq-cn__selo" [class.oq-cn__selo--ok]="c.tipo === 'incluido'">
+                        {{ c.tipo === 'incluido' ? 'INCLUÍDO' : c.tipo === 'removido' ? 'REMOVIDO' : 'CORRIGIDO' }}
+                      </span>
+                    </span>
+                    @for (m of c.mudancas; track m) {
+                      <span class="oq-sinc__mudanca">{{ m }}</span>
+                    }
+                  </div>
+                  @if (c.conferenciaDesfeita) {
+                    <span class="oq-cn__div">CONFERÊNCIA DESFEITA</span>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="fecharSincronizacao()">Fechar</button>
+        </div>
+      </div>
+    </div>
+  }
+
   @if (precisaEscolherEtapa()) {
     <div class="oq-cf-etapa-escolha">
       <span class="oq-cf-etapa-escolha__titulo">Qual etapa você vai conferir?</span>
@@ -226,6 +277,8 @@
     (cancelar)="onCancelarPedido()"
     [mostrarVerConferidos]="!!sessaoIdAtual"
     (verConferidos)="abrirConferidos()"
+    [sincronizando]="sincronizando()"
+    (sincronizar)="onSincronizarSankhya()"
   />
   }
   }

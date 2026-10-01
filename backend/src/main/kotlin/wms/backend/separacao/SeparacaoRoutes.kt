@@ -569,6 +569,21 @@ fun Route.separacaoRoutes() {
             }
         }
 
+        /** "Atualizar com Sankhya" — relê a nota ao vivo e corrige quantidade/unidade/fator/pesável dos itens (ver SeparacaoService.sincronizarComSankhya). */
+        post("/sessoes/{id}/sincronizar-sankhya") {
+            val (slug, sessaoId, tenantId) = resolverSessao(call) ?: return@post
+            if (!exigirOperadorSeEstacao(call, tenantId, sessaoId)) return@post
+            if (!exigirLock(call, tenantId, sessaoId, null)) return@post
+            try {
+                call.respond(SeparacaoService.sincronizarComSankhya(slug, tenantId, sessaoId))
+            } catch (e: SeparacaoService.SincronizarSankhyaException) {
+                call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível atualizar")))
+            } catch (e: Exception) {
+                println("ERRO sincronizar-sankhya (sessão $sessaoId): ${e.message}")
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to "Falha ao ler o pedido no Sankhya: ${e.message ?: "erro desconhecido"}"))
+            }
+        }
+
         /** UMAs (Unidade de Movimentação/Armazenagem) dos produtos pesáveis da sessão — rotina de peso portada do projeto base. */
         get("/sessoes/{id}/uma") {
             val claims = call.exigirAuth() ?: return@get

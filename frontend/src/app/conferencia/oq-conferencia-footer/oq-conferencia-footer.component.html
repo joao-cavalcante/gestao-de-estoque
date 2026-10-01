@@ -18,6 +18,22 @@
           Ver conferidos
         </button>
       }
+      @if (mostrarVerConferidos) {
+        <button
+          type="button"
+          class="oq-cf-footer__btn oq-cf-footer__btn--outline"
+          title="Relê o pedido no Sankhya e corrige quantidade, unidade e pesável dos itens desta conferência"
+          [disabled]="sincronizando"
+          (click)="soPonteiro($event) && sincronizar.emit()"
+        >
+          @if (sincronizando) {
+            <oq-spinner [size]="13" />
+            Atualizando…
+          } @else {
+            Atualizar com Sankhya
+          }
+        </button>
+      }
       <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--critico" (click)="cancelar.emit()">
         Cancelar Pedido
       </button>

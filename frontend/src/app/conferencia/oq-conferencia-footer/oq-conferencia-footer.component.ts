@@ -36,6 +36,9 @@ export class OqConferenciaFooterComponent {
   /** Mostra o botão "Ver conferidos" (sessão já iniciada). */
   @Input() mostrarVerConferidos = false;
   @Output() verConferidos = new EventEmitter<void>();
+  /** "Atualizar com Sankhya" — relê o pedido e corrige os itens da sessão. */
+  @Output() sincronizar = new EventEmitter<void>();
+  @Input() sincronizando = false;
 
   /**
    * true só pra clique/toque de verdade. Enter/Espaço num botão com foco também

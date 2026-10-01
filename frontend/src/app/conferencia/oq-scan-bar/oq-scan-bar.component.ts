@@ -270,6 +270,11 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
       },
     });
     // UMAs da sessão — 1x, filtradas por produto no identificar.
+    this.recarregarUma();
+  }
+
+  /** Relê as UMAs da sessão — no init e depois do "Atualizar com Sankhya" (item pode ter virado pesável). */
+  recarregarUma(): void {
     this.separacaoService.buscarUma(this.tenant, this.sessaoId).subscribe({
       next: (umas) => (this.umasDaSessao = umas),
       error: () => (this.umasDaSessao = []),

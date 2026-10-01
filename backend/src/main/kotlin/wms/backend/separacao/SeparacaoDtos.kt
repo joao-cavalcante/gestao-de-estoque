@@ -275,6 +275,26 @@ data class ConferirItemRequest(
 @Serializable
 data class DevolverItemRequest(val codprod: Int, val controle: String)
 
+/** Uma linha corrigida pelo "Atualizar com Sankhya" (ver SeparacaoService.sincronizarComSankhya). */
+@Serializable
+data class CorrecaoItemDto(
+    val sequencia: Int,
+    val codprod: Int,
+    val controle: String,
+    val descricao: String?,
+    /** "alterado" | "incluido" | "removido" */
+    val tipo: String,
+    /** Textos prontos pra tela, ex.: "Unidade: BI → CX". */
+    val mudancas: List<String>,
+    /** true = o item tinha conferência feita na regra errada e ela foi zerada (volta pra Pendentes). */
+    val conferenciaDesfeita: Boolean = false,
+    /** Quanto estava conferido antes de desfazer (unidade padrão antiga), só informativo. */
+    val qtdDesfeita: String? = null,
+)
+
+@Serializable
+data class SincronizacaoSankhyaDto(val itensVerificados: Int, val correcoes: List<CorrecaoItemDto>)
+
 @Serializable
 data class LinhaConferidaDto(val sequencia: Int, val qtdConferidaLocal: String)
 

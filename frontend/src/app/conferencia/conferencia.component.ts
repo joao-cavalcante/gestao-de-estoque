@@ -19,6 +19,7 @@ import {
   ItemConferido,
   ItemSeparacao,
   SessaoEtapa,
+  SincronizacaoSankhya,
   TopFaturamento,
 } from '../separacao/separacao.model';
 import { OqLiberacaoCorteModalComponent } from '../liberacao-corte/oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
@@ -521,6 +522,38 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly ehUltimaEtapaPendente = computed(
     () => !this.modoEtapa() || this.etapasSessao().filter((e) => e.status === 'P').length <= 1,
   );
+  // ─── "Atualizar com Sankhya": relê o pedido e corrige quantidade/unidade/pesável (virada de sistema) ───
+  readonly sincronizando = signal(false);
+  /** Resultado da última atualização — abre o pop-up com o que foi corrigido. */
+  readonly sincronizacao = signal<SincronizacaoSankhya | null>(null);
+  readonly sincronizacaoDesfeitos = computed(() => this.sincronizacao()?.correcoes.filter((c) => c.conferenciaDesfeita).length ?? 0);
+
+  onSincronizarSankhya(): void {
+    const sessaoId = this.sessaoIdAtual;
+    if (!sessaoId || this.sincronizando()) return;
+    this.sincronizando.set(true);
+    this.separacaoService.sincronizarSankhya(this.tenantAtual, sessaoId).subscribe({
+      next: (r) => {
+        this.sincronizacao.set(r);
+        // Item pode ter virado pesável (UMA) ou mudado de etapa — relê o que a tela guarda em memória.
+        this.scanBar?.recarregarUma();
+        if (this.conferenciaSegmentada) {
+          this.separacaoService.buscarEtapas(this.tenantAtual, sessaoId).subscribe({ next: (e) => this.etapasSessao.set(e) });
+        }
+        this.recarregarItens(sessaoId, () => this.sincronizando.set(false));
+      },
+      error: (err) => {
+        this.sincronizando.set(false);
+        if (err?.error?.codigo === 'LOCK_INVALIDO') return; // interceptor já trava a tela
+        this.feedback.trigger('ERRO', { mensagem: err?.error?.erro ?? 'Falha ao atualizar com o Sankhya — tente novamente.' });
+      },
+    });
+  }
+
+  fecharSincronizacao(): void {
+    this.sincronizacao.set(null);
+  }
+
   // ─── "Ver conferidos": tudo o que já foi conferido na nota (todas as etapas), com check de reconferência ───
   private readonly reconferenciaService = inject(ReconferenciaService);
   readonly mostrarConferidosNota = signal(false);

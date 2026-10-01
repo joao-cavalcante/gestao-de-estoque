@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   CodigoBarra,
+  SincronizacaoSankhya,
   ConcluirEtapaResultado,
   ConferenciasFinalizadasResposta,
   EtiquetaDados,
@@ -144,6 +145,11 @@ export class SeparacaoService {
       { codprod, controle },
       { params: { tenant } },
     );
+  }
+
+  /** "Atualizar com Sankhya" — relê a nota e corrige quantidade/unidade/pesável dos itens; devolve o que mudou. */
+  sincronizarSankhya(tenant: string, sessaoId: string): Observable<SincronizacaoSankhya> {
+    return this.http.post<SincronizacaoSankhya>(`${this.baseUrl}/sessoes/${sessaoId}/sincronizar-sankhya`, {}, { params: { tenant } });
   }
 
   /** Fecha a conferência DE VERDADE no Sankhya (corte de estoque + financeiro). */

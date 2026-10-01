@@ -988,6 +988,301 @@ object SeparacaoRepository {
         true
     }
 
+    data class ResultadoSincronizacao(
+        val correcoes: List<CorrecaoItemDto>,
+        /** Produtos com linha alterada/incluída/removida — códigos de barra e UMA da sessão são refeitos pra eles. */
+        val codprodsAfetados: Set<Int>,
+        val buscarCodigoBarraPor: String?,
+    )
+
+    /**
+     * Aplica nos itens da sessão o que o Sankhya diz hoje (ver SeparacaoService.sincronizarComSankhya),
+     * tudo numa transação. Casa por SEQUENCIA. [itensSankhya] = todas as linhas da nota já enriquecidas
+     * (unidades/fator/pesável); [sequenciasPendentes] = as que ainda precisam de conferência (só elas
+     * podem ENTRAR na sessão — numa recontagem as já resolvidas não voltam). Linha silenciosa (já
+     * liberada em corte) e de decisão liberada não é tocada.
+     *
+     * Conferência existente: mudou unidade/fator/pesável → leituras do produto+controle apagadas (foram
+     * feitas na regra errada); mudou só quantidade/etapa → leituras mantidas e redistribuídas entre as
+     * linhas. Em ambos os casos o grupo volta a "não enviado" (V43) pra subir de novo no finalizar.
+     */
+    fun aplicarSincronizacao(
+        tenantId: UUID,
+        sessaoId: UUID,
+        itensSankhya: List<ItemParaSalvar>,
+        sequenciasPendentes: Set<Int>,
+        chavesLiberadas: Set<Pair<Int, String>>,
+    ): ResultadoSincronizacao = TenantTx.run(tenantId) {
+        val sessao = SeparacaoSessoesTable.selectAll()
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
+            .single()
+        val linhas = SeparacaoItensTable.selectAll()
+            .where { (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) }
+            .toList()
+        val doPedido = linhas.filter { !it[SeparacaoItensTable.foraPedido] && !it[SeparacaoItensTable.silencioso] }
+        // Sequências que não podem receber linha nova: as do pedido e as silenciosas (mesma SEQUENCIA do Sankhya).
+        val sequenciasOcupadas = linhas.filter { !it[SeparacaoItensTable.foraPedido] }.map { it[SeparacaoItensTable.sequencia] }.toSet()
+        val sankhyaPorSeq = itensSankhya.associateBy { it.sequencia }
+        val lidoPorGrupo = SeparacaoLeiturasTable.selectAll()
+            .where { (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) }
+            .groupBy { it[SeparacaoLeiturasTable.codprod] to it[SeparacaoLeiturasTable.controle] }
+            .mapValues { (_, ls) -> ls.sumOf { it[SeparacaoLeiturasTable.qtd] } }
+
+        val correcoes = mutableListOf<CorrecaoItemDto>()
+        val desfazer = mutableSetOf<Pair<Int, String>>()
+        val realocar = mutableSetOf<Pair<Int, String>>()
+        val afetados = mutableSetOf<Int>()
+        val incluir = mutableListOf<ItemParaSalvar>()
+
+        for (row in doPedido) {
+            val seq = row[SeparacaoItensTable.sequencia]
+            val codprod = row[SeparacaoItensTable.codprod]
+            val controle = row[SeparacaoItensTable.controle]
+            val chave = codprod to controle
+            val descricao = descricaoDosDados(row[SeparacaoItensTable.dados])
+            val novo = sankhyaPorSeq[seq]
+
+            if (novo == null || novo.codprod != codprod || novo.controle != controle) {
+                SeparacaoItensTable.deleteWhere { SeparacaoItensTable.id eq row[SeparacaoItensTable.id] }
+                realocar += chave
+                afetados += codprod
+                val motivo = if (novo == null) "Saiu do pedido no Sankhya" else "A linha agora é do produto ${novo.codprod} no Sankhya"
+                correcoes += CorrecaoItemDto(seq, codprod, controle, descricao, "removido", listOf(motivo))
+                if (novo != null && (novo.codprod to novo.controle) !in chavesLiberadas) incluir += novo
+                continue
+            }
+
+            val antes = Unidades(
+                comercial = row[SeparacaoItensTable.unidadeComercial] ?: row[SeparacaoItensTable.codvol],
+                padrao = row[SeparacaoItensTable.unidadePadrao] ?: row[SeparacaoItensTable.codvol],
+                divideMultiplica = row[SeparacaoItensTable.divideMultiplica],
+                fator = row[SeparacaoItensTable.fatorConversao],
+            )
+            val depois = Unidades(novo.unidadeComercial, novo.unidadePadrao, novo.divideMultiplica, novo.fatorConversao)
+            val mudancas = mutableListOf<String>()
+            var mudouRegra = false
+            if (antes.comercial?.trim() != depois.comercial?.trim()) {
+                mudancas += "Unidade do pedido: ${antes.comercial ?: "-"} → ${depois.comercial ?: "-"}"
+                mudouRegra = true
+            }
+            if (antes.padrao?.trim() != depois.padrao?.trim()) {
+                mudancas += "Unidade base: ${antes.padrao ?: "-"} → ${depois.padrao ?: "-"}"
+                mudouRegra = true
+            }
+            if (antes.divideMultiplica != depois.divideMultiplica || !mesmoValor(antes.fator, depois.fator)) {
+                mudancas += "Conversão: ${antes.descreverConversao()} → ${depois.descreverConversao()}"
+                mudouRegra = true
+            }
+            if (row[SeparacaoItensTable.usaConfPeso] != novo.usaConfPeso) {
+                mudancas += "Pesável: ${simNao(row[SeparacaoItensTable.usaConfPeso])} → ${simNao(novo.usaConfPeso)}"
+                mudouRegra = true
+            }
+            if (row[SeparacaoItensTable.qtdNeg].compareTo(novo.qtdNeg) != 0) {
+                mudancas += "Quantidade: ${antes.descreverQtd(row[SeparacaoItensTable.qtdNeg])} → ${depois.descreverQtd(novo.qtdNeg)}"
+            }
+            if (row[SeparacaoItensTable.tipoSeparacao] != novo.tipoSeparacao) {
+                mudancas += "Etapa: ${nomeEtapa(row[SeparacaoItensTable.tipoSeparacao])} → ${nomeEtapa(novo.tipoSeparacao)}"
+            }
+
+            // Descrição/QTDENTREGUE acompanham sempre (não contam como correção visível).
+            SeparacaoItensTable.update({ SeparacaoItensTable.id eq row[SeparacaoItensTable.id] }) {
+                it[SeparacaoItensTable.codvol] = novo.codvol
+                it[SeparacaoItensTable.qtdNeg] = novo.qtdNeg
+                it[SeparacaoItensTable.qtdEntregue] = novo.qtdEntregue
+                it[SeparacaoItensTable.usaConfPeso] = novo.usaConfPeso
+                it[SeparacaoItensTable.unidadeComercial] = novo.unidadeComercial
+                it[SeparacaoItensTable.unidadePadrao] = novo.unidadePadrao
+                it[SeparacaoItensTable.divideMultiplica] = novo.divideMultiplica
+                it[SeparacaoItensTable.fatorConversao] = novo.fatorConversao
+                it[SeparacaoItensTable.tipoSeparacao] = novo.tipoSeparacao
+                it[SeparacaoItensTable.dados] = novo.dadosJson
+            }
+            if (mudancas.isEmpty()) continue
+            afetados += codprod
+            if (mudouRegra) desfazer += chave else realocar += chave
+            correcoes += CorrecaoItemDto(seq, codprod, controle, descricao, "alterado", mudancas)
+        }
+
+        incluir += itensSankhya.filter { novo ->
+            novo.sequencia !in sequenciasOcupadas && novo.sequencia in sequenciasPendentes &&
+                (novo.codprod to novo.controle) !in chavesLiberadas
+        }
+        var proximaSequenciaLivre = (linhas.map { it[SeparacaoItensTable.sequencia] } + itensSankhya.map { it.sequencia })
+            .maxOrNull()?.plus(1) ?: 1
+        for (novo in incluir.distinctBy { it.sequencia }) {
+            val chave = novo.codprod to novo.controle
+            val mudancas = mutableListOf("Entrou no pedido: ${Unidades(novo.unidadeComercial, novo.unidadePadrao, novo.divideMultiplica, novo.fatorConversao).descreverQtd(novo.qtdNeg)}")
+            // Produto bipado como "fora do pedido" que agora está no pedido: a linha fora-do-pedido some
+            // e as leituras dele passam pra linha nova (realocação abaixo).
+            val foraDoPedido = SeparacaoItensTable.selectAll()
+                .where {
+                    (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                        (SeparacaoItensTable.foraPedido eq true) and
+                        (SeparacaoItensTable.codprod eq novo.codprod) and (SeparacaoItensTable.controle eq novo.controle)
+                }
+                .map { it[SeparacaoItensTable.id] }
+            if (foraDoPedido.isNotEmpty()) {
+                SeparacaoItensTable.deleteWhere { SeparacaoItensTable.id inList foraDoPedido }
+                mudancas += "Estava como fora do pedido — agora é item do pedido"
+            }
+            // Linha fora-do-pedido (de outro produto) usando a mesma SEQUENCIA: vai pro fim.
+            SeparacaoItensTable.update({
+                (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                    (SeparacaoItensTable.sequencia eq novo.sequencia)
+            }) { it[SeparacaoItensTable.sequencia] = proximaSequenciaLivre++ }
+            SeparacaoItensTable.insert {
+                it[id] = UUID.randomUUID()
+                it[SeparacaoItensTable.tenantId] = tenantId
+                it[SeparacaoItensTable.sessaoId] = sessaoId
+                it[sequencia] = novo.sequencia
+                it[codprod] = novo.codprod
+                it[controle] = novo.controle
+                it[codvol] = novo.codvol
+                it[qtdNeg] = novo.qtdNeg
+                it[qtdEntregue] = novo.qtdEntregue
+                it[qtdConferidaLocal] = BigDecimal.ZERO
+                it[usaConfPeso] = novo.usaConfPeso
+                it[foraPedido] = false
+                it[unidadeComercial] = novo.unidadeComercial
+                it[unidadePadrao] = novo.unidadePadrao
+                it[divideMultiplica] = novo.divideMultiplica
+                it[fatorConversao] = novo.fatorConversao
+                it[SeparacaoItensTable.tipoSeparacao] = novo.tipoSeparacao
+                it[dados] = novo.dadosJson
+                it[silencioso] = false
+            }
+            afetados += novo.codprod
+            realocar += chave
+            correcoes += CorrecaoItemDto(novo.sequencia, novo.codprod, novo.controle, descricaoDosDados(novo.dadosJson), "incluido", mudancas)
+        }
+
+        val desfeitos = mutableMapOf<Pair<Int, String>, BigDecimal>()
+        for (chave in desfazer + realocar) {
+            val (codprod, controle) = chave
+            val doGrupo = (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                (SeparacaoItensTable.codprod eq codprod) and (SeparacaoItensTable.controle eq controle)
+            val restantes = SeparacaoItensTable.selectAll().where { doGrupo }.count()
+            val lido = lidoPorGrupo[chave] ?: BigDecimal.ZERO
+            if (chave in desfazer || restantes == 0L) {
+                SeparacaoLeiturasTable.deleteWhere {
+                    (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) and
+                        (SeparacaoLeiturasTable.codprod eq codprod) and (SeparacaoLeiturasTable.controle eq controle)
+                }
+                if (lido > BigDecimal.ZERO) desfeitos[chave] = lido
+            }
+            SeparacaoItensTable.update({ doGrupo }) { it[enviadoSankhya] = false }
+            realocarLeituras(tenantId, sessaoId, codprod, controle)
+        }
+
+        ResultadoSincronizacao(
+            correcoes = correcoes
+                .map { c -> desfeitos[c.codprod to c.controle]?.let { c.copy(conferenciaDesfeita = true, qtdDesfeita = formatarQtd(it)) } ?: c }
+                .sortedBy { it.sequencia },
+            codprodsAfetados = afetados,
+            buscarCodigoBarraPor = sessao[SeparacaoSessoesTable.buscarCodigoBarraPor],
+        )
+    }
+
+    /** Redistribui as leituras do produto+controle entre as linhas (em ordem de SEQUENCIA; o excesso fica na última) — mesma regra de [conferirItem]. */
+    private fun realocarLeituras(tenantId: UUID, sessaoId: UUID, codprod: Int, controle: String) {
+        var restante = SeparacaoLeiturasTable.selectAll()
+            .where {
+                (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) and
+                    (SeparacaoLeiturasTable.codprod eq codprod) and (SeparacaoLeiturasTable.controle eq controle)
+            }
+            .sumOf { it[SeparacaoLeiturasTable.qtd] }
+        val linhas = SeparacaoItensTable.selectAll()
+            .where {
+                (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                    (SeparacaoItensTable.codprod eq codprod) and (SeparacaoItensTable.controle eq controle)
+            }
+            .orderBy(SeparacaoItensTable.sequencia to SortOrder.ASC)
+            .toList()
+        for ((idx, linha) in linhas.withIndex()) {
+            val alocado = (if (idx == linhas.lastIndex) restante else restante.min(linha[SeparacaoItensTable.qtdNeg])).max(BigDecimal.ZERO)
+            SeparacaoItensTable.update({ SeparacaoItensTable.id eq linha[SeparacaoItensTable.id] }) { it[qtdConferidaLocal] = alocado }
+            restante = (restante - alocado).max(BigDecimal.ZERO)
+        }
+    }
+
+    /** Troca os códigos de barra e UMA da sessão dos [codprods] pelos relidos do Sankhya. */
+    fun substituirCodigosEUma(
+        tenantId: UUID,
+        sessaoId: UUID,
+        codprods: List<Int>,
+        codigos: List<CodigoBarraParaSalvar>,
+        umas: List<UmaParaSalvar>,
+    ): Unit = TenantTx.run(tenantId) {
+        if (codprods.isEmpty()) return@run
+        SeparacaoCodigosBarraTable.deleteWhere {
+            (SeparacaoCodigosBarraTable.tenantId eq tenantId) and (SeparacaoCodigosBarraTable.sessaoId eq sessaoId) and
+                (SeparacaoCodigosBarraTable.codprod inList codprods)
+        }
+        SeparacaoUmaTable.deleteWhere {
+            (SeparacaoUmaTable.tenantId eq tenantId) and (SeparacaoUmaTable.sessaoId eq sessaoId) and
+                (SeparacaoUmaTable.codprod inList codprods)
+        }
+        SeparacaoCodigosBarraTable.batchInsert(codigos) { c ->
+            this[SeparacaoCodigosBarraTable.id] = UUID.randomUUID()
+            this[SeparacaoCodigosBarraTable.tenantId] = tenantId
+            this[SeparacaoCodigosBarraTable.sessaoId] = sessaoId
+            this[SeparacaoCodigosBarraTable.codigoBarra] = c.codigoBarra
+            this[SeparacaoCodigosBarraTable.codprod] = c.codprod
+            this[SeparacaoCodigosBarraTable.codvol] = c.codvol
+            this[SeparacaoCodigosBarraTable.controle] = c.controle
+            this[SeparacaoCodigosBarraTable.origem] = c.origem
+            this[SeparacaoCodigosBarraTable.quantidade] = c.quantidade
+            this[SeparacaoCodigosBarraTable.divideMultiplica] = c.divideMultiplica
+        }
+        SeparacaoUmaTable.batchInsert(umas) { uma ->
+            this[SeparacaoUmaTable.id] = UUID.randomUUID()
+            this[SeparacaoUmaTable.tenantId] = tenantId
+            this[SeparacaoUmaTable.sessaoId] = sessaoId
+            this[SeparacaoUmaTable.codprod] = uma.codprod
+            this[SeparacaoUmaTable.coduma] = uma.coduma
+            this[SeparacaoUmaTable.descricao] = uma.descricao
+            this[SeparacaoUmaTable.peso] = uma.peso
+            this[SeparacaoUmaTable.codvol] = uma.codvol
+            this[SeparacaoUmaTable.codbarra] = uma.codbarra
+            this[SeparacaoUmaTable.padrao] = uma.padrao
+        }
+        Unit
+    }
+
+    /** Unidades de uma linha — só pra montar os textos do relatório da sincronização. */
+    private data class Unidades(val comercial: String?, val padrao: String?, val divideMultiplica: String?, val fator: BigDecimal?) {
+        fun descreverConversao(): String = when {
+            fator == null || divideMultiplica == null -> "sem conversão"
+            divideMultiplica == "M" -> "1 $comercial = ${formatarQtd(fator)} $padrao"
+            else -> "1 $padrao = ${formatarQtd(fator)} $comercial"
+        }
+
+        /** "2 CX (50 KG)" quando há conversão; senão "50 KG". */
+        fun descreverQtd(qtdPadrao: BigDecimal): String {
+            val base = "${formatarQtd(qtdPadrao)} ${padrao ?: ""}".trim()
+            if (comercial == null || comercial == padrao) return base
+            val comercialQtd = SeparacaoRepository.padraoParaComercial(qtdPadrao, divideMultiplica, fator)
+            return "${formatarQtd(comercialQtd)} $comercial ($base)"
+        }
+    }
+
+    private fun mesmoValor(a: BigDecimal?, b: BigDecimal?): Boolean =
+        if (a == null || b == null) a == b else a.compareTo(b) == 0
+
+    private fun simNao(v: Boolean) = if (v) "Sim" else "Não"
+
+    private fun nomeEtapa(tipo: Short) = when (tipo.toInt()) {
+        2 -> "Resfriados"
+        3 -> "Congelados"
+        else -> "Secos"
+    }
+
+    private fun formatarQtd(v: BigDecimal): String =
+        v.setScale(3, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', ',')
+
+    private fun descricaoDosDados(dados: String): String? =
+        runCatching { (Json.parseToJsonElement(dados) as JsonObject)["Produto.DESCRPROD"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+
     fun buscarSessao(tenantId: UUID, sessaoId: UUID): SessaoSeparacaoDto? = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()
             .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
