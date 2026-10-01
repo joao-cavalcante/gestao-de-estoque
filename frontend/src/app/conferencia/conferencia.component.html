@@ -422,7 +422,7 @@
         </div>
         <div class="oq-modal__footer">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onCancelarDivergencia()">Cancelar</button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="finalizando()" (click)="onConfirmarDivergente(false)" title="Ajusta a nota ao conferido conforme a Configuração de Conferência (pode exigir liberação)">
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente(false)" title="Ajusta a nota ao conferido conforme a Configuração de Conferência (pode exigir liberação)">
             @if (finalizando()) {
               <oq-spinner [size]="12" />
               Enviando…
@@ -430,7 +430,9 @@
               Ajustar
             }
           </button>
-          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="finalizando()" (click)="onConfirmarDivergente(true)" title="Fecha a conferência como divergente, sem cortar a nota">
+          <!-- Desabilitado (01/10/2026): operador fechava como 'D' por engano e a divergência não ia pra
+               Liberação de Corte (notas 58447, 58507, 58896, 58940). Toda divergência sobe por "Ajustar". -->
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" disabled title="Desabilitado — use Ajustar: a divergência vai para a Liberação de Corte">
             @if (finalizando()) {
               <oq-spinner [size]="12" />
               Enviando…

@@ -579,6 +579,11 @@ object SeparacaoService {
         /** Quem finalizou (login pessoal, ou operador do crachá na estação) — vira TGFCON2.CODUSUCONF. */
         usuarioFinalizadorId: UUID? = null,
     ): FinalizarResultadoDto {
+        // "Finalizar divergente" desabilitado (01/10/2026): fechava como 'D' por engano, sem passar pela
+        // Liberação de Corte. Barrado aqui também pra aba aberta com a tela antiga.
+        if (semCorte) {
+            throw FinalizarSeparacaoException("\"Finalizar divergente\" está desabilitado — use \"Ajustar\" (a divergência vai para a Liberação de Corte).")
+        }
         val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão não encontrada")
         if (sessao.status != SeparacaoStatus.PRONTA) {
