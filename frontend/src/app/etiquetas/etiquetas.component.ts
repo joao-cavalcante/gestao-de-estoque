@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
@@ -109,7 +109,11 @@ export class EtiquetasComponent implements OnInit {
       .pipe(
         switchMap((etapas) => {
           if (etapas.length === 0) return this.separacao.dadosEtiqueta(this.tenant, sessaoId);
-          return forkJoin(etapas.map((e) => this.separacao.dadosEtiqueta(this.tenant, sessaoId, e.tipoSeparacao)));
+          // Só etapa CONCLUÍDA tem etiqueta liberada — conferência parcial (aberta) não imprime a etapa
+          // ainda em andamento, mesmo que já tenha volume apontado (saía com numeração errada).
+          const concluidas = etapas.filter((e) => e.status === 'C');
+          if (concluidas.length === 0) return of([]);
+          return forkJoin(concluidas.map((e) => this.separacao.dadosEtiqueta(this.tenant, sessaoId, e.tipoSeparacao)));
         }),
         // buscarEtapas indisponível (ex.: tenant sem o módulo) não pode travar a
         // reimpressão — cai pro comportamento padrão de sempre (nota inteira).

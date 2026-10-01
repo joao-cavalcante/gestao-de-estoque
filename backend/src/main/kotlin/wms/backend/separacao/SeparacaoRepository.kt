@@ -1362,9 +1362,18 @@ object SeparacaoRepository {
     ): ConferenciasFinalizadasResponse = TenantTx.run(tenantId) {
         // Conferência por etapa: a etiqueta de uma etapa CONCLUÍDA não espera a nota inteira — sessão ainda
         // aberta (PRONTA) com etapa 'C' também entra, marcada como parcial (imprime só as etapas prontas).
-        val etapasConcluidasPorSessao = SeparacaoEtapasTable.selectAll()
+        val etapasConcluidas = SeparacaoEtapasTable.selectAll()
             .where { (SeparacaoEtapasTable.tenantId eq tenantId) and (SeparacaoEtapasTable.status eq "C") }
+            .toList()
+        val etapasConcluidasPorSessao = etapasConcluidas
             .groupBy({ it[SeparacaoEtapasTable.sessaoId] }, { it[SeparacaoEtapasTable.tipoSeparacao].toInt() })
+        // Hora da etapa concluída mais recente por sessão — a etiqueta de etapa "nasce" aí, não na
+        // abertura da sessão (atualizado_em de sessão aberta é da abertura: etapa concluída agora numa
+        // conferência aberta mais cedo ia parar páginas abaixo e parecia que não tinha chegado).
+        val ultimaEtapaPorSessao = etapasConcluidas
+            .filter { it[SeparacaoEtapasTable.concluidaEm] != null }
+            .groupBy { it[SeparacaoEtapasTable.sessaoId] }
+            .mapValues { (_, es) -> es.maxOf { it[SeparacaoEtapasTable.concluidaEm]!! } }
         val base = SeparacaoSessoesTable.selectAll()
             .where {
                 val abertasComEtapaPronta = etapasConcluidasPorSessao.keys.toList()
@@ -1379,8 +1388,11 @@ object SeparacaoRepository {
             // Última FINALIZADA primeiro: atualizado_em é gravado por marcarConcluida no
             // momento da finalização. Antes era criado_em (abertura da sessão) — uma
             // conferência aberta dias atrás e finalizada agora caía numa página lá do fim.
-            .orderBy(SeparacaoSessoesTable.atualizadoEm to SortOrder.DESC)
             .toList()
+            .sortedByDescending { row ->
+                val atualizado = row[SeparacaoSessoesTable.atualizadoEm]
+                ultimaEtapaPorSessao[row[SeparacaoSessoesTable.id]]?.takeIf { it > atualizado } ?: atualizado
+            }
 
         val nunotas = base.map { it[SeparacaoSessoesTable.nunota] }.distinct()
         val dadosPorNunota = if (nunotas.isEmpty()) {
