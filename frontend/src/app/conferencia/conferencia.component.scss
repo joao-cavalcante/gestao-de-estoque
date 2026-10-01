@@ -488,3 +488,31 @@
   strong { font-size: 13px; }
   small { color: var(--oq-text-secondary); }
 }
+
+/* Alerta de divergência no pop-up de conferidos */
+.oq-cn__item--div {
+  background: var(--oq-critical-soft);
+  box-shadow: inset 3px 0 0 var(--oq-critical);
+  padding-left: 8px;
+}
+
+.oq-cn__div {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-critical);
+  color: #fff;
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.oq-cn__alerta-etapa {
+  padding: 1px 6px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-critical-soft);
+  color: var(--oq-critical-foreground);
+  font-size: 10px;
+  font-weight: 700;
+}

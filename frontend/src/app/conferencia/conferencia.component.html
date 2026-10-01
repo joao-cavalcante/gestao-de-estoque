@@ -90,13 +90,19 @@
                 @if (g.tipo) { <oq-icon [name]="g.tipo === 3 ? 'congelado' : g.tipo === 2 ? 'refrigerado' : 'seco'" [size]="15" /> }
                 <strong>{{ g.rotulo }}</strong>
                 <span class="oq-cn__selo" [class.oq-cn__selo--ok]="g.concluida">{{ g.concluida ? 'CONCLUÍDA' : g.atual ? 'EM CONFERÊNCIA' : 'PENDENTE' }}</span>
+                @if (divergentesNoGrupo(g.itens); as nd) {
+                  <span class="oq-cn__alerta-etapa">⚠ {{ nd }} divergente(s)</span>
+                }
                 <span class="oq-cn__qtd">{{ g.itens.length }} item(ns)</span>
               </div>
               <ul class="oq-cn__lista">
                 @for (i of g.itens; track i.seq + i.code + i.control) {
-                  <li class="oq-cn__item">
+                  <li class="oq-cn__item" [class.oq-cn__item--div]="motivoDivergenciaConferido(i)">
                     <span class="oq-cn__cod">{{ i.code }}</span>
                     <span class="oq-cn__nome">{{ i.name }}</span>
+                    @if (motivoDivergenciaConferido(i); as motivo) {
+                      <span class="oq-cn__div" title="Divergente do pedido">⚠ {{ motivo }}</span>
+                    }
                     @if (i.usaConfPeso) {
                       <!-- Selo no estilo da etiqueta de peso -->
                       <span class="oq-cn__peso" title="Pesável — peso conferido">

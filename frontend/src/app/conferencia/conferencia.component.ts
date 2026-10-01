@@ -550,6 +550,23 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       .filter((g) => g.itens.length > 0);
   });
 
+  /** Itens com divergência (mesma regra da finalização: itensDivergentesSessao — pesável na tolerância fica de fora). */
+  private readonly chavesDivergentes = computed(
+    () => new Set(this.itensDivergentesSessao().map((i) => `${i.code}|${i.control}`)),
+  );
+
+  /** null = sem divergência; senão o motivo curto (Falta / Sobra / Peso a menor / Peso a maior). */
+  motivoDivergenciaConferido(i: ConferenciaItem): string | null {
+    if (!this.chavesDivergentes().has(`${i.code}|${i.control}`)) return null;
+    const aMaior = i.scanned > i.expected;
+    if (i.usaConfPeso) return aMaior ? 'PESO A MAIOR' : 'PESO A MENOR';
+    return aMaior ? 'SOBRA' : 'FALTA';
+  }
+
+  divergentesNoGrupo(itens: ConferenciaItem[]): number {
+    return itens.filter((i) => this.motivoDivergenciaConferido(i) != null).length;
+  }
+
   formatarQtdConferidos(n: number, casas = 3): string {
     return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: 3 });
   }
