@@ -673,6 +673,7 @@ object SeparacaoService {
         }
 
         FinalizacaoProgresso.atualizar(sessaoId, "corte")
+        var finalizouPorExcesso = false
         // Com os MESMOS eventos de confirmação da finalização divergente — o legado
         // (fila-de-conferencia) e a tela nativa mandam esses eventos em TODA chamada
         // de cortar. Sem eles, divergência que o Sankhya precisa confirmar (ex.:
@@ -693,7 +694,24 @@ object SeparacaoService {
             )
         } catch (e: Exception) {
             println("AVISO: ConferenciaSP.cortar falhou (nunota ${sessao.nunota}, nuconf $nuconf): ${e.message}")
-            throw e
+            // Divergência A MAIOR (ex.: entrada/compra pesada acima do pedido): o cortar grava o
+            // conferido como QTDENTREGUE e o Sankhya recusa entregue > negociado. Pra excesso o
+            // caminho nativo é o finalizarConferencia com os eventos de divergência — é ele que
+            // gera a solicitação de liberação (STATUS 'C') — nota 58933, 01/10.
+            if (e.message?.contains("maior que a quantidade negociada", ignoreCase = true) != true) throw e
+            SankhyaSpClient.chamarRaw(
+                tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
+                buildJsonObject {
+                    putJsonObject("params") {
+                        put("nuConf", nuconf.toString())
+                        put("peso", 0)
+                        put("qtdVol", qtdVol)
+                    }
+                    CLIENT_EVENT_FINALIZAR_DIVERGENTE.forEach { (k, v) -> put(k, v) }
+                },
+            )
+            println("INFO: excesso nunota ${sessao.nunota} (nuconf $nuconf) — finalizarConferencia no lugar do cortar; status=${runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()}")
+            finalizouPorExcesso = true
         }
 
         // Se a CCO exige liberação de corte (LIBCORTE='S') e houve divergência, o
@@ -737,7 +755,7 @@ object SeparacaoService {
         // confirmação o Sankhya fica sem resposta pras decisões que só ele
         // resolve (PROCEDCORTE/GERARPEDCOMPL), suspeita mais forte do "corte
         // maior automático" relatado em secos divergente.
-        if (!aguardandoCorte && !resolvidoViaAutoLiberacao) {
+        if (!aguardandoCorte && !resolvidoViaAutoLiberacao && !finalizouPorExcesso) {
             FinalizacaoProgresso.atualizar(sessaoId, "finalizando")
             try {
                 SankhyaSpClient.chamarRaw(
