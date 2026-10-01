@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
@@ -27,7 +28,41 @@ import { ABAS } from './config-conferencia.catalogo';
   templateUrl: './config-conferencia.component.html',
   styleUrl: './config-conferencia.component.scss',
 })
-export class ConfigConferenciaComponent implements OnInit {
+export class ConfigConferenciaComponent implements OnInit, OnDestroy {
+  // ─── Ressincronizar produtos (cache local ← Sankhya) — botão da barra, só admin ───
+  private readonly http = inject(HttpClient);
+  readonly ressinc = signal<{ rodando: boolean; concluidoEm?: string | null; erro?: string | null; produtos?: number | null } | null>(null);
+  private ressincTimer?: ReturnType<typeof setInterval>;
+
+  ressincronizarProdutos(): void {
+    if (this.ressinc()?.rodando) return;
+    this.http.post<{ rodando: boolean }>('/api/produtos/ressincronizar', {}).subscribe({
+      next: (s) => {
+        this.ressinc.set(s);
+        this.acompanharRessinc();
+      },
+      error: (err) => this.ressinc.set({ rodando: false, erro: err.error?.erro ?? 'Não foi possível iniciar a ressincronização.' }),
+    });
+  }
+
+  /** Consulta o andamento a cada 3 s até terminar. */
+  private acompanharRessinc(): void {
+    if (this.ressincTimer) clearInterval(this.ressincTimer);
+    this.ressincTimer = setInterval(() => {
+      this.http.get<{ rodando: boolean; concluidoEm?: string; erro?: string; produtos?: number }>('/api/produtos/ressincronizar').subscribe((s) => {
+        this.ressinc.set(s);
+        if (!s.rodando && this.ressincTimer) {
+          clearInterval(this.ressincTimer);
+          this.ressincTimer = undefined;
+        }
+      });
+    }, 3000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.ressincTimer) clearInterval(this.ressincTimer);
+  }
+
   private readonly service = inject(ConfigConferenciaService);
 
   readonly abas = ABAS;

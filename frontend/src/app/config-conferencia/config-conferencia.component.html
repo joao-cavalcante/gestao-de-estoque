@@ -21,10 +21,31 @@
         {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar agora' }}
       </button>
 
+      <button
+        type="button"
+        class="oq-admin-btn oq-admin-btn--outline"
+        [disabled]="ressinc()?.rodando"
+        (click)="ressincronizarProdutos()"
+        title="Apaga o cache de produtos, códigos de barra e unidades alternativas e relê tudo do Sankhya (use depois de corrigir cadastro no Sankhya)"
+      >
+        <oq-icon name="box" [size]="13" [class.oq-spin]="ressinc()?.rodando" />
+        {{ ressinc()?.rodando ? 'Ressincronizando produtos…' : 'Ressincronizar produtos' }}
+      </button>
+
       <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!alterado() || salvando()" (click)="salvar()">
         {{ salvando() ? 'Salvando…' : 'Salvar alterações' }}
       </button>
     </div>
+
+    @if (ressinc(); as r) {
+      @if (r.erro) {
+        <div class="oq-cc__alerta">Ressincronização de produtos falhou: {{ r.erro }}</div>
+      } @else if (!r.rodando && r.concluidoEm) {
+        <div class="oq-form-hint">Produtos ressincronizados com o Sankhya ({{ r.produtos }} produtos). Unidades alternativas são relidas na próxima conferência/mapa de cada nota.</div>
+      } @else if (r.rodando) {
+        <div class="oq-form-hint">Ressincronizando produtos com o Sankhya… pode levar alguns minutos. A operação continua normal enquanto isso.</div>
+      }
+    }
 
     @if (erro()) {
       <div class="oq-cc__alerta">{{ erro() }}</div>
