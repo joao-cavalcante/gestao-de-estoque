@@ -662,3 +662,15 @@
   margin-left: 12px;
   font-weight: 600;
 }
+
+/* Linha de status dos cards do mapa quebra quando junta status + pins + IMPRESSO (não estoura o card). */
+.oq-card .oq-card__status-line {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.ms-impresso {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

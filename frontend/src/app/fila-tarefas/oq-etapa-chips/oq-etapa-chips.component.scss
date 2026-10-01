@@ -52,3 +52,24 @@
   font-variant-numeric: tabular-nums;
   opacity: 0.85;
 }
+
+/* No card, as etapas dividem a largura: com "1/1" (progresso) o 3º chip era cortado pelo scroll
+   escondido. Agora o chip encolhe (o nome abrevia com "…") e o progresso nunca some. */
+:host(.oq-card__etapas) .oq-etapa-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+:host(.oq-card__etapas) .oq-etapa-chip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:host(.oq-card__etapas) .oq-etapa-chip__prog,
+:host(.oq-card__etapas) oq-icon {
+  flex: none;
+}
