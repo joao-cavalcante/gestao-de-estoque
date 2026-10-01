@@ -7,6 +7,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.jetbrains.exposed.sql.Op
+import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
@@ -1064,9 +1065,19 @@ object SeparacaoRepository {
         page: Int,
         perPage: Int,
     ): ConferenciasFinalizadasResponse = TenantTx.run(tenantId) {
+        // Conferência por etapa: a etiqueta de uma etapa CONCLUÍDA não espera a nota inteira — sessão ainda
+        // aberta (PRONTA) com etapa 'C' também entra, marcada como parcial (imprime só as etapas prontas).
+        val etapasConcluidasPorSessao = SeparacaoEtapasTable.selectAll()
+            .where { (SeparacaoEtapasTable.tenantId eq tenantId) and (SeparacaoEtapasTable.status eq "C") }
+            .groupBy({ it[SeparacaoEtapasTable.sessaoId] }, { it[SeparacaoEtapasTable.tipoSeparacao].toInt() })
         val base = SeparacaoSessoesTable.selectAll()
             .where {
-                var cond = (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA)
+                val abertasComEtapaPronta = etapasConcluidasPorSessao.keys.toList()
+                var cond = (SeparacaoSessoesTable.tenantId eq tenantId) and (
+                    (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA) or
+                        (if (abertasComEtapaPronta.isEmpty()) Op.FALSE else
+                            ((SeparacaoSessoesTable.status eq SeparacaoStatus.PRONTA) and (SeparacaoSessoesTable.id inList abertasComEtapaPronta)))
+                    )
                 if (nunota != null) cond = cond and (SeparacaoSessoesTable.nunota eq nunota.toInt())
                 cond
             }
@@ -1102,6 +1113,8 @@ object SeparacaoRepository {
                 dataMovimento = d?.get("DTNEG")?.jsonPrimitive?.contentOrNull,
                 apelidoVendedor = d?.get("Vendedor.APELIDO")?.jsonPrimitive?.contentOrNull,
                 nuconf = row[SeparacaoSessoesTable.nuconf],
+                parcial = row[SeparacaoSessoesTable.status] == SeparacaoStatus.PRONTA,
+                etapasConcluidas = etapasConcluidasPorSessao[row[SeparacaoSessoesTable.id]].orEmpty().distinct().sorted(),
             )
         }
 

@@ -120,6 +120,12 @@ export class ImpressaoEtiquetasComponent implements OnInit {
     window.open(`/etiquetas-peso/${item.sessaoId}`, '_blank');
   }
 
+  /** "Secos, Refrigerado" — etapas concluídas de uma conferência parcial. */
+  rotuloEtapas(tipos: number[] | undefined): string {
+    const nomes: Record<number, string> = { 1: 'Secos', 2: 'Refrigerado', 3: 'Congelado' };
+    return (tipos ?? []).map((t) => nomes[t] ?? `Etapa ${t}`).join(', ');
+  }
+
   imprimir(item: ConferenciaFinalizada): void {
     window.open(`/etiquetas/${item.sessaoId}`, '_blank');
   }

@@ -157,6 +157,10 @@ export interface ConferenciaFinalizada {
   nuconf: number | null;
   /** Tem item pesável conferido — sem isso não há etiqueta de peso a imprimir. */
   temPesavel?: boolean;
+  /** Conferência em andamento com etapa(s) concluída(s) — imprime só as etapas prontas. */
+  parcial?: boolean;
+  /** Etapas concluídas (1 Secos | 2 Refrigerado | 3 Congelado). */
+  etapasConcluidas?: number[];
 }
 
 export interface ConferenciasFinalizadasResposta {

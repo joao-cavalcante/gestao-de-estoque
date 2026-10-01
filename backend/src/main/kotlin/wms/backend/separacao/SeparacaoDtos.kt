@@ -168,6 +168,10 @@ data class ConferenciaFinalizadaDto(
     val nuconf: Int? = null,
     /** Tem item pesável conferido (peso > 0) — sem isso não há etiqueta de peso a imprimir. */
     val temPesavel: Boolean = false,
+    /** Conferência ainda em andamento com etapa(s) concluída(s): imprime só as etapas prontas. */
+    val parcial: Boolean = false,
+    /** Etapas concluídas (1 Secos | 2 Refrigerado | 3 Congelado). */
+    val etapasConcluidas: List<Int> = emptyList(),
 )
 
 @Serializable

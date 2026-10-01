@@ -55,10 +55,17 @@
               <header class="oq-card__header">
                 <span class="oq-card__client" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
                 <div class="oq-card__status-line">
-                  <span class="oq-status-pin oq-status-pin--concluido">
-                    <oq-icon name="check" [size]="12" />
-                    Conferência finalizada
-                  </span>
+                  @if (item.parcial) {
+                    <span class="oq-status-pin oq-status-pin--andamento" title="Conferência em andamento — etiquetas liberadas das etapas já concluídas">
+                      <oq-icon name="clock" [size]="12" />
+                      Parcial · {{ rotuloEtapas(item.etapasConcluidas) }}
+                    </span>
+                  } @else {
+                    <span class="oq-status-pin oq-status-pin--concluido">
+                      <oq-icon name="check" [size]="12" />
+                      Conferência finalizada
+                    </span>
+                  }
                 </div>
               </header>
 
@@ -128,6 +135,9 @@
                   </td>
                   <td class="oq-lista__principal" data-label="Cliente">
                     <span class="oq-lista__destaque" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
+                    @if (item.parcial) {
+                      <span class="oq-status-pin oq-status-pin--andamento" title="Conferência em andamento — etiquetas liberadas das etapas já concluídas">Parcial · {{ rotuloEtapas(item.etapasConcluidas) }}</span>
+                    }
                   </td>
                   <td data-label="NF">{{ item.numeroNota ?? '—' }}</td>
                   <td data-label="Nº Único">{{ item.nunota }}</td>
