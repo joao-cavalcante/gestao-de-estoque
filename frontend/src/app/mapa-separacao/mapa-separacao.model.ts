@@ -42,6 +42,9 @@ export interface PedidoSemOrdemCargaDto {
   dataMovimento: string | null;
   conferido: boolean;
   modalidade?: Modalidade;
+  /** Última impressão do mapa deste Nº Único (ISO) — null = nunca impresso. */
+  impressoEm?: string | null;
+  impressoPor?: string | null;
 }
 
 export interface ParceiroSeparacaoDto {
@@ -69,6 +72,9 @@ export interface OrdemCargaResumoDto {
   qtdExpress?: number;
   qtdRetira?: number;
   qtdEntrega?: number;
+  /** Última impressão do mapa desta OC (ISO) — null = nunca impresso. */
+  impressoEm?: string | null;
+  impressoPor?: string | null;
 }
 
 export interface CategoriaSeparacaoDto {

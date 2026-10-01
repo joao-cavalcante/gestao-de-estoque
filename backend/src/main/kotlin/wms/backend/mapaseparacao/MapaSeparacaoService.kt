@@ -225,6 +225,7 @@ object MapaSeparacaoService {
     fun listarSemOrdemCarga(tenantId: UUID): List<PedidoSemOrdemCargaDto> {
         val pedidos = TarefasRepository.listarSemOrdemCarga(tenantId).filter { it.statusOperacional !in STATUS_CONFERIDA }
         val modalidades = TarefasRepository.modalidadePorNunota(tenantId, pedidos.map { it.nunota })
+        val impressoes = MapaImpressoesRepository.ultimaPorNunota(tenantId, pedidos.map { it.nunota })
         return pedidos.map {
             PedidoSemOrdemCargaDto(
                 nunota = it.nunota,
@@ -234,6 +235,8 @@ object MapaSeparacaoService {
                 dataMovimento = it.dataMovimento,
                 conferido = it.statusOperacional in STATUS_CONFERIDA,
                 modalidade = modalidades[it.nunota] ?: wms.backend.tarefas.ModalidadePedido(),
+                impressoEm = impressoes[it.nunota]?.em,
+                impressoPor = impressoes[it.nunota]?.por,
             )
         }
     }
@@ -475,6 +478,9 @@ object MapaSeparacaoService {
         val statusPorOc = withContext(Dispatchers.IO) {
             TarefasRepository.statusPorOrdemCarga(tenantId, ordensCarga.toSet())
         }.groupBy({ it.first }, { it.second })
+        val impressoesPorOc = withContext(Dispatchers.IO) {
+            MapaImpressoesRepository.ultimaPorOrdemCarga(tenantId, ordensCarga.toSet())
+        }
         val modalidadesPorOc = withContext(Dispatchers.IO) {
             TarefasRepository.modalidadePorOrdemCarga(tenantId, ordensCarga.toSet())
         }
@@ -495,6 +501,8 @@ object MapaSeparacaoService {
                 qtdExpress = modalidadesPorOc[ordemCarga].orEmpty().count { it.express },
                 qtdRetira = modalidadesPorOc[ordemCarga].orEmpty().count { it.retira },
                 qtdEntrega = modalidadesPorOc[ordemCarga].orEmpty().count { it.entrega },
+                impressoEm = impressoesPorOc[ordemCarga]?.em,
+                impressoPor = impressoesPorOc[ordemCarga]?.por,
             )
         }
     }

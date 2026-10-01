@@ -1,6 +1,7 @@
 package wms.backend.mapaseparacao
 
 import io.ktor.http.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import wms.backend.auth.exigirAuth
@@ -24,6 +25,15 @@ fun Route.mapaSeparacaoRoutes() {
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao consultar o Sankhya")))
             }
+        }
+
+        /** Registra a impressão de mapas (selo IMPRESSO + filtro Impressos / Não impressos). */
+        post("/impressoes") {
+            val claims = call.exigirAuth() ?: return@post
+            val req = call.receive<RegistrarImpressaoRequest>()
+            val nome = wms.backend.usuarios.UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
+            MapaImpressoesRepository.registrar(claims.tenantId, req.ordensCarga, req.nunotas, nome)
+            call.respond(mapOf("ok" to true))
         }
 
         /** Pedidos SEM Ordem de Carga (mirror local) — painel do filtro "S/ Ordem de Carga". */

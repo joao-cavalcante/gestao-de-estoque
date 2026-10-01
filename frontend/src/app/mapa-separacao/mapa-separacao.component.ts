@@ -78,7 +78,51 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   }
 
   private salvarFiltros(): void {
-    this.filtrosSalvos.salvar('mapa-separacao', { semOrdemCarga: this.semOrdemCarga });
+    this.filtrosSalvos.salvar('mapa-separacao', {
+      semOrdemCarga: this.semOrdemCarga,
+      modalidades: [...this.filtroModalidade],
+      naoImpressos: this.filtroNaoImpressos,
+    });
+  }
+
+  // ─── Filtros rápidos (mesmos da Fila: Express, Cliente retira, Entrega) + "Não impressos" ───
+  readonly modalidadesFiltro = [
+    { id: 'express', label: 'Express', icone: 'express' },
+    { id: 'retira', label: 'Cliente retira', icone: 'retira' },
+    { id: 'entrega', label: 'Entrega', icone: 'entrega' },
+  ] as const;
+  filtroModalidade = new Set<string>(
+    (this.filtrosSalvos.ler<{ modalidades?: string[] }>('mapa-separacao')?.modalidades ?? []).filter((m) =>
+      ['express', 'retira', 'entrega'].includes(m),
+    ),
+  );
+  filtroNaoImpressos = this.filtrosSalvos.ler<{ naoImpressos?: boolean }>('mapa-separacao')?.naoImpressos === true;
+
+  alternarModalidade(id: string): void {
+    if (this.filtroModalidade.has(id)) this.filtroModalidade.delete(id);
+    else this.filtroModalidade.add(id);
+    this.filtroModalidade = new Set(this.filtroModalidade);
+    this.pagina.set(1);
+    this.salvarFiltros();
+  }
+
+  alternarNaoImpressos(): void {
+    this.filtroNaoImpressos = !this.filtroNaoImpressos;
+    this.pagina.set(1);
+    this.salvarFiltros();
+  }
+
+  /** Passa no filtro de modalidade se tiver QUALQUER uma das marcadas (igual à Fila). */
+  private passaModalidadeOc(oc: OrdemCargaResumoDto): boolean {
+    const f = this.filtroModalidade;
+    return f.size === 0 || (f.has('express') && (oc.qtdExpress ?? 0) > 0) || (f.has('retira') && (oc.qtdRetira ?? 0) > 0) ||
+      (f.has('entrega') && (oc.qtdEntrega ?? 0) > 0);
+  }
+
+  private passaModalidadePedido(p: PedidoSemOrdemCargaDto): boolean {
+    const f = this.filtroModalidade;
+    const m = p.modalidade;
+    return f.size === 0 || (f.has('express') && !!m?.express) || (f.has('retira') && !!m?.retira) || (f.has('entrega') && !!m?.entrega);
   }
 
   onSemOrdemCargaChange(): void {
@@ -188,10 +232,12 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     const termo = this.filtroLista.trim().toLowerCase();
     return this.abertas().filter(
       (oc) =>
-        !termo ||
-        String(oc.ordemCarga).includes(termo) ||
-        !!oc.placa?.toLowerCase().includes(termo) ||
-        !!oc.nomeMotorista?.toLowerCase().includes(termo),
+        (!termo ||
+          String(oc.ordemCarga).includes(termo) ||
+          !!oc.placa?.toLowerCase().includes(termo) ||
+          !!oc.nomeMotorista?.toLowerCase().includes(termo)) &&
+        this.passaModalidadeOc(oc) &&
+        (!this.filtroNaoImpressos || !oc.impressoEm),
     );
   }
 
@@ -199,11 +245,13 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     const termo = this.filtroLista.trim().toLowerCase();
     return this.pedidosSemOc().filter(
       (p) =>
-        !termo ||
-        String(p.nunota).includes(termo) ||
-        (p.numNota != null && String(p.numNota).includes(termo)) ||
-        (p.codParc != null && String(p.codParc).includes(termo)) ||
-        !!p.nomeParceiro?.toLowerCase().includes(termo),
+        (!termo ||
+          String(p.nunota).includes(termo) ||
+          (p.numNota != null && String(p.numNota).includes(termo)) ||
+          (p.codParc != null && String(p.codParc).includes(termo)) ||
+          !!p.nomeParceiro?.toLowerCase().includes(termo)) &&
+        this.passaModalidadePedido(p) &&
+        (!this.filtroNaoImpressos || !p.impressoEm),
     );
   }
 
@@ -397,6 +445,31 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     };
     window.addEventListener('afterprint', restaurar, { once: true });
     setTimeout(() => window.print(), 50);
+    this.registrarImpressao(mapas);
+  }
+
+  /** Grava a impressão no backend e já marca IMPRESSO na lista local (sem recarregar o painel). */
+  private registrarImpressao(mapas: MapaSeparacaoDto[]): void {
+    const ocs = mapas.filter((m) => !m.semOrdemCarga && m.ordemCarga != null).map((m) => m.ordemCarga as number);
+    const nunotas = mapas.filter((m) => m.semOrdemCarga && m.nunota != null).map((m) => m.nunota as number);
+    if (!ocs.length && !nunotas.length) return;
+    const agora = new Date().toISOString();
+    this.service.registrarImpressao(ocs, nunotas).subscribe({
+      next: () => {
+        this.abertas.update((l) => l.map((oc) => (ocs.includes(oc.ordemCarga) ? { ...oc, impressoEm: agora } : oc)));
+        this.pedidosSemOc.update((l) => l.map((p) => (nunotas.includes(p.nunota) ? { ...p, impressoEm: agora } : p)));
+      },
+      error: () => undefined, // registro de impressão não pode atrapalhar a impressão
+    });
+  }
+
+  /** "14:32" (hoje) ou "29/09 14:32" — selo IMPRESSO. */
+  horaImpressao(iso: string | null | undefined): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const hoje = new Date();
+    const hh = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === hoje.toDateString() ? hh : `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hh}`;
   }
 
   trackMapa(_index: number, mapa: MapaSeparacaoDto): string {

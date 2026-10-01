@@ -26,4 +26,9 @@ export class MapaSeparacaoService {
   consultarSemOrdemCarga(nunota: number): Observable<MapaSeparacaoDto> {
     return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/sem-ordem-carga/${nunota}`);
   }
+
+  /** Registra a impressão (selo IMPRESSO e filtro "Não impressos"). */
+  registrarImpressao(ordensCarga: number[], nunotas: number[]): Observable<unknown> {
+    return this.http.post(`${this.baseUrl}/impressoes`, { ordensCarga, nunotas });
+  }
 }

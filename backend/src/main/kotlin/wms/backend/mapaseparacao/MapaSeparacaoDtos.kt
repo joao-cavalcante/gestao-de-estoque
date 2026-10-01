@@ -65,6 +65,9 @@ data class PedidoSemOrdemCargaDto(
     /** Conferência já concluída (mesma regra da barra de progresso das OCs). */
     val conferido: Boolean,
     val modalidade: ModalidadePedido = ModalidadePedido(),
+    /** Última impressão do mapa deste Nº Único (ISO) e por quem — null = nunca impresso. */
+    val impressoEm: String? = null,
+    val impressoPor: String? = null,
 )
 
 /** Refrigerados de UM pedido (NUNOTA) da OC — bloco próprio por pedido, com o cliente dele; `nunotas` tem só esse NUNOTA. */
@@ -103,6 +106,9 @@ data class OrdemCargaResumoDto(
     val qtdExpress: Int = 0,
     val qtdRetira: Int = 0,
     val qtdEntrega: Int = 0,
+    /** Última impressão do mapa desta OC (ISO) e por quem — null = nunca impresso. */
+    val impressoEm: String? = null,
+    val impressoPor: String? = null,
 )
 
 @Serializable
@@ -126,4 +132,10 @@ data class ItemSeparacaoDto(
     val pesoTotal: String,
     /** Exige pesagem (RegraPesavel: unidade, ou TGFPRO.AD_PESAVEL com o módulo) — o front mostra o ícone de balança. */
     val pesavel: Boolean,
+)
+
+@Serializable
+data class RegistrarImpressaoRequest(
+    val ordensCarga: List<Long> = emptyList(),
+    val nunotas: List<Long> = emptyList(),
 )

@@ -30,6 +30,32 @@
             S/ Ordem de Carga
           </label>
 
+          <!-- Filtros rápidos: mesmos da Fila (Express, Cliente retira, Entrega) + Não impressos -->
+          <div class="oq-toolbar__pills" role="group" aria-label="Filtro por modalidade do pedido">
+            @for (m of modalidadesFiltro; track m.id) {
+              <button
+                type="button"
+                class="oq-toolbar__pill oq-toolbar__pill--icon"
+                [class.oq-toolbar__pill--active]="filtroModalidade.has(m.id)"
+                (click)="alternarModalidade(m.id)"
+              >
+                <oq-icon [name]="m.icone" [size]="12" />
+                {{ m.label }}
+              </button>
+            }
+          </div>
+          <div class="oq-toolbar__pills" role="group" aria-label="Filtro de impressão">
+            <button
+              type="button"
+              class="oq-toolbar__pill oq-toolbar__pill--icon"
+              [class.oq-toolbar__pill--active]="filtroNaoImpressos"
+              (click)="alternarNaoImpressos()"
+            >
+              <oq-icon name="impressora" [size]="12" />
+              Não impressos
+            </button>
+          </div>
+
           <!-- Busca única: filtra a lista; número + Enter abre o mapa direto (mesmo fora da lista, ex.: reimprimir já conferido). -->
           <label
             class="oq-toolbar__search"
@@ -118,7 +144,12 @@
           @if (viewMode() === 'cards') {
             <div class="oq-page__grid">
               @for (p of pedidosDaPagina; track p.nunota) {
-                <article class="oq-card" [class.ms-card--selecionado]="selecionados().has(p.nunota)">
+                <article
+                  class="oq-card"
+                  [class.ms-card--selecionado]="selecionados().has(p.nunota)"
+                  [class.ms-card--express]="p.modalidade?.express"
+                  [class.ms-card--retira]="p.modalidade?.retira && !p.modalidade?.express"
+                >
                   <header class="oq-card__header">
                     <label class="ms-check ms-check--card">
                       <input type="checkbox" [checked]="selecionados().has(p.nunota)" (change)="alternarSelecao(p.nunota)" />
@@ -130,6 +161,11 @@
                         Pronto pra separar
                       </span>
                       <oq-modalidade-pins class="ms-pins" [modalidade]="p.modalidade" />
+                      @if (p.impressoEm) {
+                        <span class="ms-impresso" [title]="'Mapa impresso' + (p.impressoPor ? ' por ' + p.impressoPor : '')">
+                          <oq-icon name="impressora" [size]="11" /> IMPRESSO {{ horaImpressao(p.impressoEm) }}
+                        </span>
+                      }
                     </div>
                   </header>
                   <div class="oq-card__divider"></div>
@@ -186,6 +222,11 @@
                           <span class="oq-lista__destaque">Nro. Único {{ p.nunota }}</span>
                         </label>
                         <oq-modalidade-pins class="ms-pins" [modalidade]="p.modalidade" [compacto]="true" />
+                        @if (p.impressoEm) {
+                          <span class="ms-impresso" [title]="'Mapa impresso' + (p.impressoPor ? ' por ' + p.impressoPor : '')">
+                            <oq-icon name="impressora" [size]="11" /> {{ horaImpressao(p.impressoEm) }}
+                          </span>
+                        }
                       </td>
                       <td data-label="Nota">{{ p.numNota ?? '—' }}</td>
                       <td data-label="Data">{{ p.dataMovimento ?? '—' }}</td>
@@ -220,7 +261,11 @@
         @if (viewMode() === 'cards') {
           <div class="oq-page__grid">
             @for (oc of ocsDaPagina; track oc.ordemCarga) {
-              <article class="oq-card">
+              <article
+                class="oq-card"
+                [class.ms-card--express]="(oc.qtdExpress ?? 0) > 0"
+                [class.ms-card--retira]="(oc.qtdRetira ?? 0) > 0 && !((oc.qtdExpress ?? 0) > 0)"
+              >
                 <header class="oq-card__header">
                   <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
                   <div class="oq-card__status-line">
@@ -232,6 +277,11 @@
                       <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
                     }
                     <oq-modalidade-pins class="ms-pins" [contagem]="{ express: oc.qtdExpress ?? 0, retira: oc.qtdRetira ?? 0, entrega: oc.qtdEntrega ?? 0 }" />
+                    @if (oc.impressoEm) {
+                      <span class="ms-impresso" [title]="'Mapa impresso' + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
+                        <oq-icon name="impressora" [size]="11" /> IMPRESSO {{ horaImpressao(oc.impressoEm) }}
+                      </span>
+                    }
                   </div>
                 </header>
                 <div class="oq-card__divider"></div>
@@ -298,6 +348,11 @@
                       <span class="oq-lista__destaque">
                         Ordem de Carga {{ oc.ordemCarga }}
                         <oq-modalidade-pins class="ms-pins" [contagem]="{ express: oc.qtdExpress ?? 0, retira: oc.qtdRetira ?? 0, entrega: oc.qtdEntrega ?? 0 }" [compacto]="true" />
+                        @if (oc.impressoEm) {
+                          <span class="ms-impresso" [title]="'Mapa impresso' + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
+                            <oq-icon name="impressora" [size]="11" /> {{ horaImpressao(oc.impressoEm) }}
+                          </span>
+                        }
                         @if (oc.situacao === 'F') {
                           <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
                         }
