@@ -53,9 +53,12 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
               <span class="ck-nome">{{ i.descricao }}{{ i.controle ? ' · ' + i.controle : '' }}</span>
               @if (motivo(i); as m) { <span class="ck-div">⚠ {{ m }}</span> }
               @if (i.pesavel) {
+                @if (pedidoComercial(i); as pc) {
+                  <span class="ck-qtd ck-qtd--pedido" title="Quantidade no pedido">{{ pc }}</span>
+                }
                 <span class="ck-peso" title="Pesável — peso conferido">
                   <oq-icon name="balanca" [size]="13" />
-                  <strong>{{ fmt(i.qtdConferida, 3) }}</strong> KG <small>de {{ fmt(i.qtdPedido, 3) }}</small>
+                  <strong>{{ fmt(i.qtdConferida, 3) }}</strong> {{ i.unidade ?? 'KG' }} <small>de {{ fmt(i.qtdPedido, 3) }}</small>
                 </span>
               } @else {
                 <span class="ck-qtd">{{ fmt(i.qtdConferida, 0) }} / {{ fmt(i.qtdPedido, 0) }} {{ i.unidade }}</span>
@@ -90,6 +93,7 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
       .ck-cod { flex: none; width: 52px; font-family: var(--oq-font-mono); color: var(--oq-text-secondary); }
       .ck-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ck-qtd { flex: none; font-family: var(--oq-font-mono); font-weight: 600; white-space: nowrap; }
+      .ck-qtd--pedido { font-weight: 700; }
       .ck-div { flex: none; padding: 1px 6px; border-radius: var(--oq-radius-input); background: var(--oq-critical); color: #fff;
         font-family: var(--oq-font-display); font-size: 10px; font-weight: 700; }
       .ck-peso { flex: none; display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 8px; border: 1px dashed var(--oq-text-primary);
@@ -152,6 +156,15 @@ export class OqConferidosChecklistComponent implements OnChanges {
       return aMaior ? 'PESO A MAIOR' : 'PESO A MENOR';
     }
     return aMaior ? 'SOBRA' : 'FALTA';
+  }
+
+  /**
+   * Pesável vendido em unidade comercial (ex.: CX): "3 CX" do pedido ao lado do peso. Sem unidade
+   * comercial diferente da base (vendido em KG), não mostra — o peso já diz tudo.
+   */
+  pedidoComercial(i: ReconferenciaItem): string | null {
+    if (!i.unidadeComercial || !i.qtdPedidoComercial || i.unidadeComercial === i.unidade) return null;
+    return `${this.fmt(i.qtdPedidoComercial, 0)} ${i.unidadeComercial}`;
   }
 
   fmt(v: string, casas: number): string {

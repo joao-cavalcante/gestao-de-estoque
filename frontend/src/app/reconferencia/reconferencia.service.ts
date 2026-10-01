@@ -12,6 +12,9 @@ export interface ReconferenciaItem {
   unidade: string | null;
   qtdPedido: string;
   qtdConferida: string;
+  /** Unidade do pedido (ex.: CX) e a qtd do pedido nela. */
+  unidadeComercial?: string | null;
+  qtdPedidoComercial?: string | null;
   pesavel: boolean;
   checado: boolean;
   checadoPor?: string | null;
