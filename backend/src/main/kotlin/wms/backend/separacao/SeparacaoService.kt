@@ -1435,13 +1435,18 @@ object SeparacaoService {
      * desta sessão), e o WMS continuou aplicando o fator 1 indefinidamente — cache "pra sempre"
      * significava "errado pra sempre" quando o cadastro do Sankhya muda depois do 1º cache.
      */
-    private val VOA_CACHE_TTL: java.time.Duration = java.time.Duration.ofHours(24)
+    private val VOA_CACHE_TTL: java.time.Duration = java.time.Duration.ofMinutes(30)
 
-    internal suspend fun buscarVoa(tenantSlug: String, tenantId: UUID, codprods: List<Int>): List<Map<String, String?>> {
+    /**
+     * [aoVivo] = ignora o cache e consulta tudo no Sankhya (atualizando o cache) — usado pelo Mapa de
+     * Separação: relatório impresso não pode sair com fator velho (caso real: OC 69, produto 248 com
+     * CX=25 no cache e CX=5 no Sankhya → imprimiu 0,2 CX em vez de 1 CX).
+     */
+    internal suspend fun buscarVoa(tenantSlug: String, tenantId: UUID, codprods: List<Int>, aoVivo: Boolean = false): List<Map<String, String?>> {
         if (codprods.isEmpty()) return emptyList()
 
         val frescoDesde = java.time.Instant.now().minus(VOA_CACHE_TTL)
-        val cache = withContext(Dispatchers.IO) { ProdutoCatalogoRepository.buscarVoaPorCodprods(tenantId, codprods, frescoDesde) }
+        val cache = if (aoVivo) emptyList() else withContext(Dispatchers.IO) { ProdutoCatalogoRepository.buscarVoaPorCodprods(tenantId, codprods, frescoDesde) }
         val faltando = codprods - cache.mapNotNull { it["CODPROD"]?.toIntOrNull() }.toSet()
         if (faltando.isEmpty()) return cache
 
@@ -1453,14 +1458,14 @@ object SeparacaoService {
                 criteriaExpression = "CODPROD IN (${faltando.joinToString(",")})",
             ),
         )
-        val aoVivo = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_VOA)
+        val consultados = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_VOA)
         withContext(Dispatchers.IO) {
             // Limpa órfãos ANTES de upsert — combinação que sumiu do Sankhya pra um CODPROD
             // revalidado (inclusive CODPROD que ficou com ZERO unidades alternativas agora).
-            ProdutoCatalogoRepository.removerVoaOrfas(tenantId, faltando, aoVivo)
-            if (aoVivo.isNotEmpty()) ProdutoCatalogoRepository.upsertVoa(tenantId, aoVivo)
+            ProdutoCatalogoRepository.removerVoaOrfas(tenantId, faltando, consultados)
+            if (consultados.isNotEmpty()) ProdutoCatalogoRepository.upsertVoa(tenantId, consultados)
         }
-        return cache + aoVivo
+        return cache + consultados
     }
 
     /**

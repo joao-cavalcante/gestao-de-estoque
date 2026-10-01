@@ -301,7 +301,7 @@ object MapaSeparacaoService {
         val codprodsComVoa = linhas.filter { it.precisaConversao() }.map { it.codProd }.distinct()
         val voaPorChave: Map<Triple<Int, String, String>, Pair<String?, BigDecimal?>> =
             if (codprodsComVoa.isEmpty()) emptyMap()
-            else wms.backend.separacao.SeparacaoService.buscarVoa(tenantSlug, tenantId, codprodsComVoa).mapNotNull { r ->
+            else wms.backend.separacao.SeparacaoService.buscarVoa(tenantSlug, tenantId, codprodsComVoa, aoVivo = true).mapNotNull { r ->
                 val cp = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
                 val cv = r["CODVOL"]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
                 val ctrl = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " "
