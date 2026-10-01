@@ -720,29 +720,29 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   }
 
   private focarIdentificador(): void {
-    setTimeout(() => this.inputIdentificador?.nativeElement.focus());
+    setTimeout(() => this.inputIdentificador?.nativeElement.focus({ preventScroll: true }));
   }
 
   private focarControle(): void {
     setTimeout(() => {
       if (this.controleModoLote) {
-        this.inputControleLoteRef?.nativeElement.focus();
+        this.inputControleLoteRef?.nativeElement.focus({ preventScroll: true });
       } else {
-        this.selectControleRef?.nativeElement.focus();
+        this.selectControleRef?.nativeElement.focus({ preventScroll: true });
       }
     });
   }
 
   private focarPeso(): void {
     setTimeout(() => {
-      this.inputPesoRef?.nativeElement.focus();
+      this.inputPesoRef?.nativeElement.focus({ preventScroll: true });
       this.inputPesoRef?.nativeElement.select();
     });
   }
 
   private focarQtd(): void {
     setTimeout(() => {
-      this.inputQtdRef?.nativeElement.focus();
+      this.inputQtdRef?.nativeElement.focus({ preventScroll: true });
       this.inputQtdRef?.nativeElement.select();
     });
   }

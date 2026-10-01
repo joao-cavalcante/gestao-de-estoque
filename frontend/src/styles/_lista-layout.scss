@@ -849,3 +849,16 @@
   .oq-lista__linha--critical { border: 2px solid var(--oq-critical); }
   .oq-lista__linha--attention { border: 2px solid var(--oq-attention); }
 }
+
+/* Tela estreita (tablet/celular): grupo de filtros em botões rola na horizontal em vez de cortar. */
+@media (max-width: 1024px) {
+  .oq-toolbar__pills {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .oq-toolbar__pill { flex: none; }
+}

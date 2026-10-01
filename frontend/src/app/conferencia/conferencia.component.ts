@@ -675,6 +675,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   );
 
   ngOnInit(): void {
+    // Tablet/celular: abre sempre no topo (o foco no campo de bipagem não rola mais a página — preventScroll).
+    window.scrollTo(0, 0);
     // O aviso de lock inválido é global (LockService, root) — um 409 da conferência
     // ANTERIOR não pode travar esta. Bug real: "sessões presas" sem sessão nenhuma ativa.
     this.lockService.invalido.set(null);
@@ -698,7 +700,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.separacaoService.iniciar(this.tenantAtual, nunota).subscribe({
       next: (resp) => {
         this.sessaoIdParaOperador = resp.sessaoId;
-        if (this.exigeCracha) setTimeout(() => this.inputCrachaOperador?.nativeElement.focus());
+        if (this.exigeCracha) setTimeout(() => this.inputCrachaOperador?.nativeElement.focus({ preventScroll: true }));
         this.aguardarSessaoPronta(resp.sessaoId);
       },
       error: (err) => {
@@ -735,7 +737,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         this.identificandoOperador.set(false);
         this.erroOperador.set(err?.error?.erro ?? 'Crachá não reconhecido.');
         this.feedback.trigger('OPERACAO_NAO_PERMITIDA');
-        setTimeout(() => this.inputCrachaOperador?.nativeElement.focus());
+        setTimeout(() => this.inputCrachaOperador?.nativeElement.focus({ preventScroll: true }));
       },
     });
   }
