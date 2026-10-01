@@ -116,7 +116,8 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
   return {
     seq: item.sequencia,
     code: String(item.codprod),
-    name: item.descricaoProduto || `Produto ${item.codprod}`,
+    // Descrição + complemento do produto (TGFPRO.COMPLDESC), quando houver.
+    name: [item.descricaoProduto, item.complementoDescricao?.trim()].filter(Boolean).join(' ') || `Produto ${item.codprod}`,
     control: item.controle.trim() || '—',
     expected,
     scanned,

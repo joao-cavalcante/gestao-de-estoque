@@ -51,7 +51,7 @@ object MapaSeparacaoService {
     private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
     private val FIELDS_ITEM = listOf(
         "NUNOTA", "CODPROD", "CONTROLE", "CODVOL", "QTDNEG",
-        "Produto.DESCRPROD", "Produto.PESOBRUTO", "Produto.USOPROD", "Produto.AD_TIPOSEPARACAO", "Produto.CODVOL",
+        "Produto.DESCRPROD", "Produto.COMPLDESC", "Produto.PESOBRUTO", "Produto.USOPROD", "Produto.AD_TIPOSEPARACAO", "Produto.CODVOL",
     )
 
     /** Linha negociada numa unidade diferente da padrão do produto → precisa do fator do VOA. */
@@ -284,7 +284,11 @@ object MapaSeparacaoService {
                 codVol = r["CODVOL"]?.trim().orEmpty(),
                 codVolProduto = r["Produto.CODVOL"]?.trim()?.takeIf { it.isNotEmpty() },
                 qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO,
-                descrProd = r["Produto.DESCRPROD"]?.trim().orEmpty(),
+                // Descrição + complemento do produto (TGFPRO.COMPLDESC), ex.: "LINGUIÇA CALABRESA AURORA 5KG GRANDE".
+                descrProd = listOfNotNull(
+                    r["Produto.DESCRPROD"]?.trim()?.takeIf { it.isNotEmpty() },
+                    r["Produto.COMPLDESC"]?.trim()?.takeIf { it.isNotEmpty() },
+                ).joinToString(" "),
                 pesoBruto = r["Produto.PESOBRUTO"].parseBigDecimalBr() ?: BigDecimal.ZERO,
                 usoProd = r["Produto.USOPROD"]?.trim(),
                 tipoSeparacao = r["Produto.AD_TIPOSEPARACAO"]?.trim()?.takeIf { it.isNotEmpty() } ?: "0",
