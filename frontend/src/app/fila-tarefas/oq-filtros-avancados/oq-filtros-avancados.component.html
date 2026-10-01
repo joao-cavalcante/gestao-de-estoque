@@ -1,6 +1,6 @@
 <div class="oq-filtros-backdrop" (click)="fechar.emit()"></div>
 
-<div class="oq-filtros-avancados__panel" (click)="$event.stopPropagation()">
+<div #painel class="oq-filtros-avancados__panel" (click)="$event.stopPropagation()">
   <div class="oq-filtros-avancados__header">
     <span class="oq-filtros-avancados__titulo">Filtros</span>
     <button type="button" class="oq-filtros-avancados__fechar" (click)="fechar.emit()">

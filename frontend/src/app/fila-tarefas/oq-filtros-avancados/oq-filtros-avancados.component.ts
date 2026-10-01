@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSearchableSelectComponent } from '../../shared/oq-searchable-select/oq-searchable-select.component';
@@ -25,7 +25,8 @@ const VAZIO: FiltrosAvancados = {
   templateUrl: './oq-filtros-avancados.component.html',
   styleUrl: './oq-filtros-avancados.component.scss',
 })
-export class OqFiltrosAvancadosComponent {
+export class OqFiltrosAvancadosComponent implements AfterViewInit {
+  @ViewChild('painel', { static: true }) private painel!: ElementRef<HTMLElement>;
   @Input() opcoesParceiros: OpcaoComCodigo[] = [];
   @Input() opcoesVendedores: OpcaoComCodigo[] = [];
   @Input() opcoesTiposOperacao: OpcaoComCodigo[] = [];
@@ -44,6 +45,21 @@ export class OqFiltrosAvancadosComponent {
 
   @Output() aplicar = new EventEmitter<FiltrosAvancados>();
   @Output() fechar = new EventEmitter<void>();
+
+  /**
+   * O painel é ancorado pela direita do botão. Em tablet/celular a toolbar
+   * quebra linha e o botão pode ficar colado à esquerda — aí o painel abriria
+   * pra fora da tela. Mede ao abrir e empurra pra dentro (margem de 16px).
+   */
+  ngAfterViewInit(): void {
+    const el = this.painel.nativeElement;
+    const margem = 16;
+    const r = el.getBoundingClientRect();
+    let dx = 0;
+    if (r.left < margem) dx = margem - r.left;
+    else if (r.right > window.innerWidth - margem) dx = window.innerWidth - margem - r.right;
+    if (dx) el.style.transform = `translateX(${dx}px)`;
+  }
 
   /** Limpa E já aplica — senão o filtro anterior continua valendo até alguém clicar "Aplicar" depois. */
   limpar(): void {
