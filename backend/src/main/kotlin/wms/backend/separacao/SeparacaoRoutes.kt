@@ -335,6 +335,7 @@ fun Route.separacaoRoutes() {
             } catch (e: SeparacaoService.FinalizarSeparacaoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível finalizar")))
             } catch (e: Exception) {
+                println("AVISO: finalizar sessão $sessaoId falhou: ${e.message}")
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao finalizar no Sankhya")))
             }
         }
@@ -457,6 +458,7 @@ fun Route.separacaoRoutes() {
             } catch (e: SeparacaoService.FinalizarSeparacaoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível finalizar")))
             } catch (e: Exception) {
+                println("AVISO: concluir etapa (sessão $sessaoId) falhou: ${e.message}")
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao concluir etapa")))
             }
         }

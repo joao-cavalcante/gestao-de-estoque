@@ -673,15 +673,28 @@ object SeparacaoService {
         }
 
         FinalizacaoProgresso.atualizar(sessaoId, "corte")
-        SankhyaSpClient.chamar(
-            tenantSlug,
-            "ConferenciaSP.cortar",
-            mapOf(
-                "nuNota" to JsonPrimitive(sessao.nunota),
-                "peso" to JsonPrimitive(0),
-                "qtdVol" to JsonPrimitive(qtdVol),
-            ),
-        )
+        // Com os MESMOS eventos de confirmação da finalização divergente — o legado
+        // (fila-de-conferencia) e a tela nativa mandam esses eventos em TODA chamada
+        // de cortar. Sem eles, divergência que o Sankhya precisa confirmar (ex.:
+        // entrada/compra com peso A MAIOR — pedido complementar/devolução) fazia o
+        // cortar ser recusado e a finalização quebrar sem ir pra liberação de corte
+        // (nota 58933, 01/10).
+        try {
+            SankhyaSpClient.chamarRaw(
+                tenantSlug, "ConferenciaSP.cortar", "mgecom",
+                buildJsonObject {
+                    putJsonObject("params") {
+                        put("nuNota", sessao.nunota)
+                        put("peso", 0)
+                        put("qtdVol", qtdVol)
+                    }
+                    CLIENT_EVENT_FINALIZAR_DIVERGENTE.forEach { (k, v) -> put(k, v) }
+                },
+            )
+        } catch (e: Exception) {
+            println("AVISO: ConferenciaSP.cortar falhou (nunota ${sessao.nunota}, nuconf $nuconf): ${e.message}")
+            throw e
+        }
 
         // Se a CCO exige liberação de corte (LIBCORTE='S') e houve divergência, o
         // `cortar` deixa a conferência em TGFCON2.STATUS='C' em vez de 'F' — um
