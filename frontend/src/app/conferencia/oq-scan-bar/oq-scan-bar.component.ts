@@ -407,7 +407,12 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   abrirModalPeso(): void {
     this.feedback.trigger('PESAGEM_INICIADA');
     this.mostrarModalPeso = true;
-    this.modoEntradaPeso = this.balancaAtiva && this.balancaAtiva.tipoComunicacao !== 'HTTP' ? 'balanca' : 'manual';
+    // Abre direto na Balança se houver balança serial/TCP escolhida — ou se o usuário tem balança mas
+    // ainda não escolheu nenhuma (o seletor fica no topo da aba Balança).
+    this.modoEntradaPeso =
+      (this.balancaAtiva && this.balancaAtiva.tipoComunicacao !== 'HTTP') || (!this.balancaAtiva && this.balancas.length > 0)
+        ? 'balanca'
+        : 'manual';
     if (this.modoEntradaPeso === 'balanca') {
       this.iniciarLeituraAoVivo();
     } else {

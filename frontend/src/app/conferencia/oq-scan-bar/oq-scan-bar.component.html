@@ -138,8 +138,8 @@
             class="oq-peso-modal__tab"
             [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'balanca'"
             [attr.aria-selected]="modoEntradaPeso === 'balanca'"
-            [disabled]="!balancaAtiva"
-            [title]="balancaAtiva ? '' : 'Selecione uma balança'"
+            [disabled]="balancas.length === 0"
+            [title]="balancas.length === 0 ? 'Nenhuma balança disponível para este usuário' : ''"
             (click)="alternarModoPeso('balanca')"
           >
             Balança
