@@ -463,12 +463,21 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     // Auto-captura por estabilidade (LocalScaleService já debounce 2s / 0.005kg,
     // com tara e auto-untare) — mesma UX do projeto base, mas só com o switch ligado.
     this.assinaturaPesoEstavel?.unsubscribe();
-    this.assinaturaPesoEstavel = this.localScale.pesoEstavel$.subscribe((leitura) => {
-      if (!this.mostrarModalPeso || this.modoEntradaPeso !== 'balanca' || !this.capturaAutoAtiva) return;
-      if (leitura.peso < 0.001) return;
-      this.peso = leitura.peso.toFixed(3);
-      this.confirmarPeso();
-    });
+    this.assinaturaPesoEstavel = this.localScale.pesoEstavel$.subscribe((leitura) => this.autoCapturar(leitura.peso));
+  }
+
+  /** Ligou a captura automática com o peso já parado na balança — captura na hora (o "estável" já tinha passado). */
+  onCapturaAutoChange(): void {
+    const estavel = this.localScale.leituraEstavelAtual();
+    if (estavel) this.autoCapturar(estavel.peso);
+  }
+
+  private autoCapturar(peso: number): void {
+    if (!this.mostrarModalPeso || this.modoEntradaPeso !== 'balanca' || !this.capturaAutoAtiva) return;
+    if (peso < 0.001) return;
+    this.peso = peso.toFixed(3);
+    this.feedback.trigger('PESAGEM_OK');
+    this.confirmarPeso();
   }
 
   private pararLeituraAoVivo(): void {
@@ -480,7 +489,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.assinaturaErroBalanca = undefined;
     this.assinaturaStatusBalanca?.unsubscribe();
     this.assinaturaStatusBalanca = undefined;
-    if (this.balancaAtiva?.portaCom) this.localScale.unsubscribe(this.balancaAtiva.portaCom);
+    this.localScale.unsubscribe();
     this.pesoAoVivo = null;
   }
 

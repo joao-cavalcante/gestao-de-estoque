@@ -270,7 +270,7 @@
             </div>
 
             <label class="oq-peso-modal__autocap">
-              <input type="checkbox" [(ngModel)]="capturaAutoAtiva" name="capturaAuto" />
+              <input type="checkbox" [(ngModel)]="capturaAutoAtiva" (ngModelChange)="onCapturaAutoChange()" name="capturaAuto" />
               <span class="oq-peso-modal__switch"></span>
               <span class="oq-peso-modal__autocap-txt">Captura automática ao estabilizar (2 s)</span>
             </label>

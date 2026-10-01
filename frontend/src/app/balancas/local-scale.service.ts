@@ -9,8 +9,12 @@ import { Subject } from 'rxjs';
  *   agente->cliente: {tipo:'peso'|'erro'|'portas', ...}
  *
  * Estabilização é client-side (não faz parte do protocolo — o agente
- * sempre manda um peso, sem indicar estabilidade real): debounce de 2s
- * sobre variação < 0.005kg, mesma lógica do sistema atual.
+ * sempre manda um peso, sem indicar estabilidade real): peso dentro de
+ * ±0.005kg de uma referência por 2s seguidos = estável.
+ *
+ * Uma estação pode ter mais de uma balança no mesmo agente: só a porta
+ * assinada por último é ouvida (leitura de outra porta é descartada), senão
+ * os pesos das duas se misturam e o display fica oscilando.
  */
 export type StatusBalanca = 'desconectado' | 'conectando' | 'conectado';
 
@@ -39,6 +43,12 @@ export class LocalScaleService {
   private timerEstabilidade: ReturnType<typeof setTimeout> | null = null;
   private timerZero: ReturnType<typeof setTimeout> | null = null;
   private taraValor = 0;
+  /** Porta assinada no momento — leituras de outras portas são ignoradas. */
+  private portaAtiva: string | null = null;
+  /** Peso de referência da janela de estabilidade atual. */
+  private referenciaEstavel: number | null = null;
+  /** Última leitura que completou 2s estável e ainda não variou depois disso. */
+  private leituraEstavel: LeituraPeso | null = null;
 
   readonly peso$ = new Subject<LeituraPeso>();
   readonly pesoEstavel$ = new Subject<LeituraPeso>();
@@ -80,8 +90,16 @@ export class LocalScaleService {
   }
 
   subscribe(portaCom: string): void {
+    // Trocou de balança: solta a porta anterior no agente e zera a tara (era da outra balança).
+    if (this.portaAtiva && !this.mesmaPorta(this.portaAtiva, portaCom)) {
+      this.enviar({ tipo: 'unsubscribe', portaCom: this.portaAtiva });
+      this.taraValor = 0;
+    }
+    this.portaAtiva = portaCom;
     // Novo ciclo de leitura — zera o estado de estabilização/anti-flicker.
     this.pesoAnterior = null;
+    this.referenciaEstavel = null;
+    this.leituraEstavel = null;
     if (this.timerZero) {
       clearTimeout(this.timerZero);
       this.timerZero = null;
@@ -93,8 +111,28 @@ export class LocalScaleService {
     this.enviar({ tipo: 'subscribe', portaCom });
   }
 
-  unsubscribe(portaCom: string): void {
-    this.enviar({ tipo: 'unsubscribe', portaCom });
+  /** Solta a porta informada — ou, sem argumento, a porta assinada no momento. */
+  unsubscribe(portaCom?: string): void {
+    const porta = portaCom ?? this.portaAtiva;
+    if (!porta) return;
+    this.enviar({ tipo: 'unsubscribe', portaCom: porta });
+    if (this.portaAtiva && this.mesmaPorta(this.portaAtiva, porta)) {
+      this.portaAtiva = null;
+      if (this.timerEstabilidade) {
+        clearTimeout(this.timerEstabilidade);
+        this.timerEstabilidade = null;
+      }
+      this.leituraEstavel = null;
+    }
+  }
+
+  /** Leitura estável vigente (peso parado há 2s+ e sem variar depois), se houver. */
+  leituraEstavelAtual(): LeituraPeso | null {
+    return this.leituraEstavel;
+  }
+
+  private mesmaPorta(a: string, b: string): boolean {
+    return a.trim().toUpperCase() === b.trim().toUpperCase();
   }
 
   listarPortas(): void {
@@ -107,6 +145,8 @@ export class LocalScaleService {
   }
 
   private processarLeitura(leitura: LeituraPeso): void {
+    // Leitura de outra balança do mesmo agente (porta não assinada por esta tela) — ignora.
+    if (!this.portaAtiva || (leitura.portaCom && !this.mesmaPorta(leitura.portaCom, this.portaAtiva))) return;
     const pesoLiquido = Math.max(0, leitura.peso - this.taraValor);
     // Reset automático de tara: se o peso bruto cair bem abaixo da tara
     // (objeto retirado), zera sozinho pra não travar o display em 0.
@@ -144,13 +184,25 @@ export class LocalScaleService {
   private emitir(leituraAjustada: LeituraPeso): void {
     this.peso$.next(leituraAjustada);
 
-    const variou =
-      this.pesoAnterior === null || Math.abs(leituraAjustada.peso - this.pesoAnterior) >= LIMIAR_ESTABILIDADE_KG;
     this.pesoAnterior = leituraAjustada.peso;
 
+    // Compara com a referência da janela (não com o frame anterior) — senão um
+    // peso subindo devagar, < 0.005kg por frame, "estabilizaria" no meio do caminho.
+    const variou =
+      this.referenciaEstavel === null || Math.abs(leituraAjustada.peso - this.referenciaEstavel) >= LIMIAR_ESTABILIDADE_KG;
+
     if (variou) {
+      this.referenciaEstavel = leituraAjustada.peso;
+      this.leituraEstavel = null;
       if (this.timerEstabilidade) clearTimeout(this.timerEstabilidade);
-      this.timerEstabilidade = setTimeout(() => this.pesoEstavel$.next(leituraAjustada), TEMPO_ESTABILIDADE_MS);
+      this.timerEstabilidade = setTimeout(() => {
+        this.timerEstabilidade = null;
+        this.leituraEstavel = leituraAjustada;
+        this.pesoEstavel$.next(leituraAjustada);
+      }, TEMPO_ESTABILIDADE_MS);
+    } else if (this.leituraEstavel) {
+      // Segue estável — mantém o valor mais recente (dentro da tolerância).
+      this.leituraEstavel = leituraAjustada;
     }
   }
 
