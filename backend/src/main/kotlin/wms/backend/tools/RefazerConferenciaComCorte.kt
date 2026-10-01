@@ -33,6 +33,7 @@ import kotlin.system.exitProcess
  *
  *   docker exec wms-backend-prod sh -c 'java -cp "/app/lib/[jars]" wms.backend.tools.RefazerConferenciaComCorteKt negri 58447'
  *   ... acrescente --executar pra valer; sem ele só mostra o que faria (nada muda).
+ *   --origem=<sessaoId> escolhe a sessão local de onde vêm as leituras (padrão: a do NUCONF atual).
  */
 fun main(args: Array<String>) {
     val slug = args.getOrNull(0)
@@ -44,7 +45,8 @@ fun main(args: Array<String>) {
     }
     Database.init()
     val codigo = try {
-        runBlocking { refazer(slug, nunota, executar) }
+        val origem = args.firstOrNull { it.startsWith("--origem=") }?.substringAfter("=")?.let(UUID::fromString)
+        runBlocking { refazer(slug, nunota, executar, origem) }
         0
     } catch (e: Exception) {
         println("ERRO: ${e.message}")
@@ -62,7 +64,7 @@ private data class Leitura(
     val peso: BigDecimal?,
 )
 
-private suspend fun refazer(slug: String, nunota: Long, executar: Boolean) {
+private suspend fun refazer(slug: String, nunota: Long, executar: Boolean, origemArg: UUID?) {
     val tenantId = UUID.fromString(TenantRepository.buscarPorSlug(slug)?.id ?: error("tenant '$slug' não encontrado"))
 
     // 1. Estado no Sankhya: só mexe em conferência finalizada DIVERGENTE de nota não faturada.
@@ -78,22 +80,27 @@ private suspend fun refazer(slug: String, nunota: Long, executar: Boolean) {
     if (statusConf !in setOf("D", "RD")) error("só refaz conferência 'D'/'RD' (Finalizada divergente); esta está '$statusConf'")
     if ((cab["DESTINOS"]?.toIntOrNull() ?: 0) > 0) error("nota já gerou outra nota (faturada) — não dá pra refazer a conferência")
 
-    // 2. Sessão local de origem: a do NUCONF atual, com leituras.
-    val origem = TenantTx.run(tenantId) {
+    // 2. Sessão local de origem: a do NUCONF atual com leituras, ou a escolhida com --origem=<id>.
+    val sessoesDaNota = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()
-            .where {
-                (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
-                    (SeparacaoSessoesTable.nuconf eq nuconf)
-            }
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) }
             .orderBy(SeparacaoSessoesTable.criadoEm to SortOrder.DESC)
             .toList()
-    }.firstOrNull { s ->
-        TenantTx.run(tenantId) {
-            SeparacaoLeiturasTable.selectAll()
-                .where { (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq s[SeparacaoSessoesTable.id]) }
-                .count() > 0
-        }
-    } ?: error("nenhuma sessão local do NUCONF $nuconf com leituras — não há o que reaplicar")
+    }
+    fun qtdLeituras(id: UUID) = TenantTx.run(tenantId) {
+        SeparacaoLeiturasTable.selectAll()
+            .where { (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq id) }
+            .count()
+    }
+    println("Sessões locais da nota:")
+    sessoesDaNota.forEach { s ->
+        println("  ${s[SeparacaoSessoesTable.id]} status=${s[SeparacaoSessoesTable.status]} nuconf=${s[SeparacaoSessoesTable.nuconf]} " +
+            "criada=${s[SeparacaoSessoesTable.criadoEm]} leituras=${qtdLeituras(s[SeparacaoSessoesTable.id])}")
+    }
+    val origemEscolhida = origemArg?.let { id -> sessoesDaNota.firstOrNull { it[SeparacaoSessoesTable.id] == id } ?: error("sessão $id não é desta nota") }
+    val origem = origemEscolhida
+        ?: sessoesDaNota.filter { it[SeparacaoSessoesTable.nuconf] == nuconf }.firstOrNull { qtdLeituras(it[SeparacaoSessoesTable.id]) > 0 }
+        ?: error("nenhuma sessão local do NUCONF $nuconf com leituras — escolha uma das sessões acima com --origem=<id>")
     val origemId = origem[SeparacaoSessoesTable.id]
 
     val leituras = TenantTx.run(tenantId) {
