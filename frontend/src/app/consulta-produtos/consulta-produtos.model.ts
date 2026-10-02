@@ -17,6 +17,8 @@ export interface ProdutoEstoque {
   referencia: string | null;
   /** Unidade padrão — o saldo da instância Estoque é sempre nela. */
   unidade: string | null;
+  /** Mesma regra da conferência; null = não deu pra decidir. */
+  pesavel: boolean | null;
   codigosBarra: string[];
   estoque: number;
   reservado: number;
@@ -33,8 +35,10 @@ export interface ConsultaProdutosResposta {
 
 export type FiltroSaldo = 'todos' | 'com-estoque' | 'sem-estoque' | 'com-reservado' | 'disp-negativo';
 
+export type FiltroPesavel = 'todos' | 'sim' | 'nao';
+
 export type CampoOrdenacaoProduto =
-  | 'codprod' | 'descricao' | 'referencia' | 'marca' | 'unidade' | 'estoque' | 'reservado' | 'disponivel';
+  | 'codprod' | 'descricao' | 'referencia' | 'marca' | 'unidade' | 'pesavel' | 'estoque' | 'reservado' | 'disponivel';
 
 export interface OrdenacaoProduto {
   campo: CampoOrdenacaoProduto;

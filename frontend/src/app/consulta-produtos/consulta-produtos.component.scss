@@ -36,6 +36,26 @@
   color: var(--oq-text-secondary);
 }
 
+// Flag de pesável — "Sim" destacado, "Não" discreto.
+.cp-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--oq-text-secondary);
+
+  &--sim {
+    border-color: var(--oq-brand);
+    color: var(--oq-brand);
+  }
+}
+
 .cp-disponivel {
   font-weight: 700;
 }

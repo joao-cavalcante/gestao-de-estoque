@@ -55,7 +55,8 @@ object ConsultaProdutosService {
         val reservado: Double,
     )
 
-    private class Leitura(val linhas: List<LinhaEstoque>, val lidoEm: Instant)
+    /** [pesaveis] null = a regra de pesável não pôde ser lida (a tela mostra "—", não "Não"). */
+    private class Leitura(val linhas: List<LinhaEstoque>, val pesaveis: Set<Int>?, val lidoEm: Instant)
 
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cache = ConcurrentHashMap<UUID, Leitura>()
@@ -101,6 +102,7 @@ object ConsultaProdutosService {
                     marca = p.marca,
                     referencia = p.referencia,
                     unidade = p.unidade,
+                    pesavel = leitura?.pesaveis?.let { p.codprod in it },
                     codigosBarra = barras[p.codprod].orEmpty(),
                     estoque = locais.sumOf { it.estoque },
                     reservado = locais.sumOf { it.reservado },
@@ -135,8 +137,19 @@ object ConsultaProdutosService {
     private suspend fun atualizar(tenantSlug: String, tenantId: UUID, codprods: List<Int>, desde: Instant): Leitura =
         travas.computeIfAbsent(tenantId) { Mutex() }.withLock {
             cache[tenantId]?.takeIf { it.lidoEm > desde }?.let { return@withLock it }
-            Leitura(lerFaixas(tenantSlug, codprods), Instant.now()).also { cache[tenantId] = it }
+            coroutineScope {
+                val pesaveis = async { lerPesaveis(tenantSlug, tenantId, codprods) }
+                val linhas = lerFaixas(tenantSlug, codprods)
+                Leitura(linhas, pesaveis.await(), Instant.now()).also { cache[tenantId] = it }
+            }
         }
+
+    /** Mesma regra da conferência/Mapa (RegraPesavel) — uma consulta só pro catálogo inteiro. */
+    private suspend fun lerPesaveis(tenantSlug: String, tenantId: UUID, codprods: List<Int>): Set<Int>? = runCatching {
+        val decisor = wms.backend.produtos.RegraPesavel.decisor(tenantSlug, tenantId, "CODPROD > 0")
+        codprods.filter { decisor.pesavel(it, null) }.toSet()
+    }.onFailure { println("AVISO: consulta de produtos — falha ao decidir pesáveis (tenant $tenantSlug): ${it.message}") }
+        .getOrNull()
 
     private suspend fun lerFaixas(tenantSlug: String, codprods: List<Int>): List<LinhaEstoque> {
         val inicio = System.currentTimeMillis()

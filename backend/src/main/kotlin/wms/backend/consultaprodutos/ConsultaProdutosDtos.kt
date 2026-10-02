@@ -25,6 +25,8 @@ data class ProdutoEstoqueDto(
     val referencia: String? = null,
     /** Unidade padrão (TGFPRO.CODVOL) — o Estoque guarda o saldo sempre nela. */
     val unidade: String? = null,
+    /** Regra central (RegraPesavel). null = não deu pra decidir (falha ao ler do Sankhya). */
+    val pesavel: Boolean? = null,
     /** Só pro filtro de texto da tela achar o produto pelo código de barras. */
     val codigosBarra: List<String> = emptyList(),
     val estoque: Double = 0.0,

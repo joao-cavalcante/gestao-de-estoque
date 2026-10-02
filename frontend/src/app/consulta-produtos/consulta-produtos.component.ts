@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ConsultaProdutosService } from './consulta-produtos.service';
 import {
   CampoOrdenacaoProduto,
+  FiltroPesavel,
   FiltroSaldo,
   OrdenacaoProduto,
   ProdutoEstoque,
@@ -52,6 +53,13 @@ export class ConsultaProdutosComponent implements OnInit {
   readonly filtroSaldo = signal<FiltroSaldo>('todos');
   readonly filtroEmpresa = signal<string | null>(null);
   readonly filtroLocal = signal<string | null>(null);
+  readonly filtroPesavel = signal<FiltroPesavel>('todos');
+
+  readonly opcoesPesavel: { id: FiltroPesavel; label: string }[] = [
+    { id: 'todos', label: 'Todos' },
+    { id: 'sim', label: 'Pesável' },
+    { id: 'nao', label: 'Não pesável' },
+  ];
 
   readonly opcoesSaldo: { id: FiltroSaldo; label: string }[] = [
     { id: 'todos', label: 'Todos' },
@@ -67,6 +75,7 @@ export class ConsultaProdutosComponent implements OnInit {
     { titulo: 'Referência', campo: 'referencia' },
     { titulo: 'Marca', campo: 'marca' },
     { titulo: 'Unid.', campo: 'unidade' },
+    { titulo: 'Pesável', campo: 'pesavel' },
     { titulo: 'Estoque', campo: 'estoque', classe: 'oq-lista__direita' },
     { titulo: 'Reservado', campo: 'reservado', classe: 'oq-lista__direita' },
     { titulo: 'Disponível', campo: 'disponivel', classe: 'oq-lista__direita' },
@@ -121,7 +130,10 @@ export class ConsultaProdutosComponent implements OnInit {
     const palavras = normalizar(this.busca()).split(/\s+/).filter((p) => p);
     const termoInteiro = this.busca().trim();
     const saldo = this.filtroSaldo();
+    const pesavel = this.filtroPesavel();
     const lista = this.recortados().filter((p) => {
+      if (pesavel === 'sim' && p.pesavel !== true) return false;
+      if (pesavel === 'nao' && p.pesavel !== false) return false;
       switch (saldo) {
         case 'com-estoque': if (!(p.estoque > 0)) return false; break;
         case 'sem-estoque': if (p.estoque > 0) return false; break;
@@ -136,7 +148,8 @@ export class ConsultaProdutosComponent implements OnInit {
 
     const { campo, direcao } = this.ordenacao();
     const sinal = direcao === 'asc' ? 1 : -1;
-    return [...lista].sort((a, b) => sinal * comparar(a[campo], b[campo]) || a.codprod - b.codprod);
+    const valor = (p: ProdutoEstoque) => (campo === 'pesavel' ? (p.pesavel == null ? null : p.pesavel ? 'Sim' : 'Não') : p[campo]);
+    return [...lista].sort((a, b) => sinal * comparar(valor(a), valor(b)) || a.codprod - b.codprod);
   });
 
   readonly totalPaginas = computed(() => Math.max(Math.ceil(this.filtrados().length / this.itensPorPagina()), 1));
@@ -149,7 +162,9 @@ export class ConsultaProdutosComponent implements OnInit {
   });
 
   readonly temFiltro = computed(
-    () => !!this.busca().trim() || this.filtroSaldo() !== 'todos' || this.filtroEmpresa() != null || this.filtroLocal() != null,
+    () =>
+      !!this.busca().trim() || this.filtroSaldo() !== 'todos' || this.filtroPesavel() !== 'todos' ||
+      this.filtroEmpresa() != null || this.filtroLocal() != null,
   );
 
   ngOnInit(): void {
@@ -184,6 +199,11 @@ export class ConsultaProdutosComponent implements OnInit {
     this.page.set(0);
   }
 
+  setPesavel(f: FiltroPesavel): void {
+    this.filtroPesavel.set(f);
+    this.page.set(0);
+  }
+
   setEmpresa(v: string | null): void {
     this.filtroEmpresa.set(v);
     this.page.set(0);
@@ -197,6 +217,7 @@ export class ConsultaProdutosComponent implements OnInit {
   limparFiltros(): void {
     this.busca.set('');
     this.filtroSaldo.set('todos');
+    this.filtroPesavel.set('todos');
     this.filtroEmpresa.set(null);
     this.filtroLocal.set(null);
     this.page.set(0);
