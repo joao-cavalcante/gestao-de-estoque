@@ -17,6 +17,7 @@ export interface ProdutoEstoque {
   referencia: string | null;
   /** Unidade padrão — o saldo da instância Estoque é sempre nela. */
   unidade: string | null;
+  codigosBarra: string[];
   estoque: number;
   reservado: number;
   disponivel: number;
@@ -25,6 +26,17 @@ export interface ProdutoEstoque {
 
 export interface ConsultaProdutosResposta {
   produtos: ProdutoEstoque[];
-  limitado: boolean;
+  /** ISO-8601 — quando o saldo foi lido do Sankhya. */
+  estoqueLidoEm: string | null;
   erroEstoque: string | null;
+}
+
+export type FiltroSaldo = 'todos' | 'com-estoque' | 'sem-estoque' | 'com-reservado' | 'disp-negativo';
+
+export type CampoOrdenacaoProduto =
+  | 'codprod' | 'descricao' | 'referencia' | 'marca' | 'unidade' | 'estoque' | 'reservado' | 'disponivel';
+
+export interface OrdenacaoProduto {
+  campo: CampoOrdenacaoProduto;
+  direcao: 'asc' | 'desc';
 }

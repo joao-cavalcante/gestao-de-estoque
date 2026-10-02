@@ -3,6 +3,7 @@ package wms.backend.produtos
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.selectAll
@@ -25,6 +26,14 @@ object ProdutoCatalogoRepository {
             .associate { it[ProdutosCacheTable.codprod] to it[ProdutosCacheTable.dtalterSankhya] }
     }
 
+    /** Produtos gravados antes da V54 (sem unidade) — o sync regrava mesmo sem DTALTER mudar. */
+    fun codprodsSemCodvol(tenantId: UUID): Set<Int> = TenantTx.run(tenantId) {
+        ProdutosCacheTable.selectAll()
+            .where { (ProdutosCacheTable.tenantId eq tenantId) and ProdutosCacheTable.codvol.isNull() }
+            .map { it[ProdutosCacheTable.codprod] }
+            .toSet()
+    }
+
     /** Grava só quem o sync incremental já identificou como novo/alterado (linha completa). */
     fun upsertProdutos(tenantId: UUID, linhas: List<LinhaCatalogo>): Int = TenantTx.run(tenantId) {
         val agora = Instant.now()
@@ -39,6 +48,7 @@ object ProdutoCatalogoRepository {
                 it[compldesc] = linha["COMPLDESC"]
                 it[marca] = linha["MARCA"]
                 it[referencia] = linha["REFERENCIA"]
+                it[ProdutosCacheTable.codvol] = linha["CODVOL"]?.trim()?.takeIf { v -> v.isNotEmpty() }
                 it[tipcontest] = linha["TIPCONTEST"]
                 it[liscontest] = linha["LISCONTEST"]
                 it[dtalterSankhya] = linha["DTALTER"]

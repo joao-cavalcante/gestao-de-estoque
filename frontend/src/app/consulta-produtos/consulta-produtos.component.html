@@ -1,11 +1,12 @@
 <!-- Mesmo layout de lista das outras telas (estilos globais em styles/_lista-layout.scss). -->
 <div class="oq-page">
   <header class="oq-page__header">
-    <form class="oq-toolbar" (ngSubmit)="consultar()">
+    <div class="oq-toolbar">
       <div class="oq-toolbar__title-block">
         <h1 class="oq-toolbar__title">Consulta de Produtos</h1>
-        @if (termoConsultado() !== null) {
-          <span class="oq-toolbar__counter">[ {{ produtos().length }}{{ limitado() ? '+' : '' }} ]</span>
+        <span class="oq-toolbar__counter">[ {{ filtrados().length }} / {{ produtos().length }} ]</span>
+        @if (estoqueLidoEm()) {
+          <span class="cp-lido" title="Hora em que o saldo foi lido do Sankhya">Estoque das {{ lidoEmTexto() }}</span>
         }
       </div>
 
@@ -14,20 +15,51 @@
           <oq-icon name="search" [size]="12" />
           <input
             type="text"
-            name="busca"
-            placeholder="CÓDIGO / CÓD. BARRAS / DESCRIÇÃO / MARCA"
+            placeholder="CÓDIGO / CÓD. BARRAS / DESCRIÇÃO / MARCA / REFERÊNCIA"
             autocomplete="off"
-            [(ngModel)]="busca"
-            autofocus
+            [ngModel]="busca()"
+            (ngModelChange)="onBusca($event)"
           />
         </label>
 
-        <button type="submit" class="oq-toolbar__filters-btn" [disabled]="carregando()">
-          <oq-icon name="search" [size]="12" />
-          Consultar
+        <button type="button" class="oq-toolbar__filters-btn" (click)="exportar()" [disabled]="exportando() || carregando() || !filtrados().length" title="Exporta o que está filtrado e ordenado na tela">
+          <oq-icon name="download" [size]="12" />
+          {{ exportando() ? 'Gerando…' : 'Excel' }}
+        </button>
+
+        <button type="button" class="oq-toolbar__filters-btn" (click)="carregar(true)" [disabled]="carregando()" title="Lê o estoque de novo no Sankhya">
+          <oq-icon name="sync" [size]="12" />
+          Atualizar
         </button>
       </div>
-    </form>
+    </div>
+
+    <div class="cp-filtros">
+      <div class="oq-toolbar__pills" role="group" aria-label="Filtro de saldo">
+        @for (s of opcoesSaldo; track s.id) {
+          <button
+            type="button"
+            class="oq-toolbar__pill"
+            [class.oq-toolbar__pill--active]="filtroSaldo() === s.id"
+            (click)="setSaldo(s.id)"
+          >{{ s.label }}</button>
+        }
+      </div>
+
+      <div class="cp-filtros__select">
+        <oq-searchable-select placeholder="Todas as empresas" [opcoes]="opcoesEmpresa()" [valor]="filtroEmpresa()" (valorChange)="setEmpresa($event)" />
+      </div>
+      <div class="cp-filtros__select">
+        <oq-searchable-select placeholder="Todos os locais" [opcoes]="opcoesLocal()" [valor]="filtroLocal()" (valorChange)="setLocal($event)" />
+      </div>
+
+      @if (temFiltro()) {
+        <button type="button" class="oq-toolbar__filters-btn" (click)="limparFiltros()">
+          <oq-icon name="x" [size]="12" />
+          Limpar filtros
+        </button>
+      }
+    </div>
   </header>
 
   <main class="oq-page__content">
@@ -35,41 +67,46 @@
       <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
     }
     @if (erroEstoque()) {
-      <div class="oq-page__status oq-page__status--erro">Produtos encontrados, mas o estoque não veio do Sankhya: {{ erroEstoque() }}</div>
+      <div class="oq-page__status oq-page__status--erro">
+        O estoque não veio do Sankhya{{ estoqueLidoEm() ? ' — mostrando a última leitura' : '' }}: {{ erroEstoque() }}
+      </div>
     }
 
     @if (carregando()) {
       <div class="oq-page__lista" aria-busy="true">
         <table class="oq-page__lista-skel">
-          <tbody><oq-skeleton variant="table-row" [count]="8" /></tbody>
+          <tbody><oq-skeleton variant="table-row" [count]="10" /></tbody>
         </table>
       </div>
-    } @else if (termoConsultado() === null) {
-      <div class="oq-page__status">Digite o código, código de barras ou descrição do produto e tecle Enter.</div>
     } @else if (produtos().length === 0) {
-      <div class="oq-page__status">Nenhum produto encontrado para "{{ termoConsultado() }}".</div>
+      <div class="oq-page__status">Nenhum produto no catálogo.</div>
+    } @else if (filtrados().length === 0) {
+      <div class="oq-page__status">Nenhum produto para esses filtros.</div>
     } @else {
-      @if (limitado()) {
-        <div class="oq-page__status">Mostrando os {{ produtos().length }} primeiros — refine a busca para ver outros.</div>
-      }
       <div class="oq-page__lista">
         <table class="oq-lista">
           <caption class="oq-lista__caption">Produtos e saldo em estoque</caption>
           <thead>
             <tr>
-              <th scope="col">Código</th>
-              <th scope="col" class="oq-lista__principal">Produto</th>
-              <th scope="col">Referência</th>
-              <th scope="col">Unid.</th>
-              <th scope="col" class="oq-lista__direita">Estoque</th>
-              <th scope="col" class="oq-lista__direita">Reservado</th>
-              <th scope="col" class="oq-lista__direita">Disponível</th>
+              @for (col of colunas; track col.campo) {
+                <th scope="col" [class]="col.classe ?? ''" [attr.aria-sort]="ariaSort(col.campo)">
+                  <button
+                    type="button"
+                    class="oq-lista__sort"
+                    [class.oq-lista__sort--ativo]="ordenacao().campo === col.campo"
+                    (click)="ordenar(col.campo)"
+                  >
+                    {{ col.titulo }}
+                    <span class="oq-lista__sort-ind" aria-hidden="true">{{ indicador(col.campo) }}</span>
+                  </button>
+                </th>
+              }
               <th scope="col" class="oq-lista__acoes">Locais</th>
             </tr>
           </thead>
           <tbody>
-            @for (p of produtos(); track p.codprod) {
-              <tr class="oq-lista__linha" [class.oq-lista__linha--critical]="!erroEstoque() && p.disponivel <= 0">
+            @for (p of paginaAtual(); track p.codprod) {
+              <tr class="oq-lista__linha" [class.oq-lista__linha--critical]="p.disponivel < 0">
                 <td data-label="Código">{{ p.codprod }}</td>
                 <td class="oq-lista__principal" data-label="Produto">
                   <span class="oq-lista__destaque" [title]="p.descricao">{{ p.descricao }}</span>
@@ -78,6 +115,7 @@
                   }
                 </td>
                 <td data-label="Referência">{{ p.referencia || '—' }}</td>
+                <td data-label="Marca">{{ p.marca || '—' }}</td>
                 <td data-label="Unid.">{{ p.unidade || '—' }}</td>
                 <td class="oq-lista__direita" data-label="Estoque">{{ qtd(p.estoque) }}</td>
                 <td class="oq-lista__direita" data-label="Reservado">{{ qtd(p.reservado) }}</td>
@@ -96,7 +134,7 @@
               </tr>
               @if (aberto(p.codprod) && p.locais.length > 0) {
                 <tr class="cp-detalhe">
-                  <td colspan="8">
+                  <td colspan="9">
                     <table class="cp-locais">
                       <thead>
                         <tr>
@@ -128,6 +166,15 @@
           </tbody>
         </table>
       </div>
+
+      <oq-paginacao
+        [total]="filtrados().length"
+        [pagina]="paginaIdx() + 1"
+        [itensPorPagina]="itensPorPagina()"
+        [opcoes]="opcoesItensPorPagina"
+        (paginaChange)="page.set($event - 1)"
+        (itensPorPaginaChange)="onItensPorPagina($event)"
+      />
     }
   </main>
 </div>

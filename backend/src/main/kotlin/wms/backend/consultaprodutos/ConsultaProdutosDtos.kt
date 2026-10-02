@@ -23,8 +23,10 @@ data class ProdutoEstoqueDto(
     val complemento: String? = null,
     val marca: String? = null,
     val referencia: String? = null,
-    /** Unidade padrão (Produto.CODVOL) — o Estoque guarda o saldo sempre nela. */
+    /** Unidade padrão (TGFPRO.CODVOL) — o Estoque guarda o saldo sempre nela. */
     val unidade: String? = null,
+    /** Só pro filtro de texto da tela achar o produto pelo código de barras. */
+    val codigosBarra: List<String> = emptyList(),
     val estoque: Double = 0.0,
     val reservado: Double = 0.0,
     val disponivel: Double = 0.0,
@@ -34,8 +36,8 @@ data class ProdutoEstoqueDto(
 @Serializable
 data class ConsultaProdutosRespostaDto(
     val produtos: List<ProdutoEstoqueDto>,
-    /** true = a busca achou mais que o limite; só os primeiros vieram. */
-    val limitado: Boolean = false,
-    /** Preenchido quando a busca local deu certo mas o estoque não veio do Sankhya. */
+    /** Quando o saldo foi lido do Sankhya (ISO-8601) — a leitura é reaproveitada por alguns minutos. */
+    val estoqueLidoEm: String? = null,
+    /** Preenchido quando o catálogo veio mas o estoque não veio do Sankhya. */
     val erroEstoque: String? = null,
 )

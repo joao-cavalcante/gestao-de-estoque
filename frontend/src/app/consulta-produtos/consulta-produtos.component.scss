@@ -5,6 +5,28 @@
   height: 100%;
 }
 
+.cp-lido {
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+// Segunda linha da barra: saldo + empresa + local.
+.cp-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+
+  &__select {
+    width: 240px;
+    max-width: 100%;
+  }
+}
+
 .cp-sub {
   display: block;
   overflow: hidden;

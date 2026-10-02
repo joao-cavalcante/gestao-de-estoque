@@ -20,7 +20,7 @@ import java.util.UUID
  * TGFVOA fica de fora daqui de propósito — sem campo de auditoria, não compensa varrer a tabela
  * inteira; ela é populada só sob demanda (ver SeparacaoService/ProdutoCatalogoRepository.upsertVoa).
  */
-private val CAMPOS_PRODUTO = listOf("CODPROD", "DESCRPROD", "COMPLDESC", "MARCA", "REFERENCIA", "TIPCONTEST", "LISCONTEST", "DTALTER")
+private val CAMPOS_PRODUTO = listOf("CODPROD", "DESCRPROD", "COMPLDESC", "MARCA", "REFERENCIA", "CODVOL", "TIPCONTEST", "LISCONTEST", "DTALTER")
 private val CAMPOS_BAR = listOf("CODPROD", "CODVOL", "CODBARRA", "DHALTER")
 
 object ProdutoCatalogoSyncService {
@@ -33,6 +33,7 @@ object ProdutoCatalogoSyncService {
 
     private suspend fun sincronizarProdutos(tenantSlug: String, tenantId: UUID): Int {
         val dtalterLocal = ProdutoCatalogoRepository.mapaDtalterProdutos(tenantId)
+        val semCodvol = ProdutoCatalogoRepository.codprodsSemCodvol(tenantId)
         val alterados = mutableListOf<Map<String, String?>>()
         val vistos = mutableSetOf<Int>()
         var pagina = 0
@@ -45,7 +46,9 @@ object ProdutoCatalogoSyncService {
                 val codprod = linha["CODPROD"]?.toIntOrNull()
                 if (codprod != null) {
                     vistos += codprod
-                    if (!dtalterLocal.containsKey(codprod) || dtalterLocal[codprod] != linha["DTALTER"]) {
+                    if (!dtalterLocal.containsKey(codprod) || dtalterLocal[codprod] != linha["DTALTER"] ||
+                        (codprod in semCodvol && !linha["CODVOL"].isNullOrBlank())
+                    ) {
                         alterados += linha
                     }
                 }

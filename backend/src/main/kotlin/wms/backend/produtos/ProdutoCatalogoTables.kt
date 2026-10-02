@@ -12,6 +12,8 @@ object ProdutosCacheTable : Table("app.produtos_cache") {
     val compldesc = text("compldesc").nullable()
     val marca = text("marca").nullable()
     val referencia = text("referencia").nullable()
+    /** Unidade padrão (V54). */
+    val codvol = text("codvol").nullable()
     val tipcontest = text("tipcontest").nullable()
     val liscontest = text("liscontest").nullable()
     /** Cru, como o Sankhya devolve — mesmo motivo documentado na V16 (sem parser de data confirmado). */

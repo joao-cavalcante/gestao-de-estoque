@@ -8,7 +8,10 @@ import { ConsultaProdutosResposta } from './consulta-produtos.model';
 export class ConsultaProdutosService {
   private readonly http = inject(HttpClient);
 
-  consultar(termo: string): Observable<ConsultaProdutosResposta> {
-    return this.http.get<ConsultaProdutosResposta>('/api/consulta-produtos', { params: { q: termo } });
+  /** Catálogo inteiro com saldo. [atualizar] = ignora a leitura de estoque guardada no servidor. */
+  listar(atualizar = false): Observable<ConsultaProdutosResposta> {
+    return this.http.get<ConsultaProdutosResposta>('/api/consulta-produtos', {
+      params: atualizar ? { atualizar: 'true' } : {},
+    });
   }
 }
