@@ -565,6 +565,7 @@ object TarefasRepository {
                 val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
                 fun campo(nome: String) = dados?.get(nome)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
                 if (normalizarOrdemCarga(campo("ORDEMCARGA")) != null) return@mapNotNull null
+                if (!ehSaida(dados)) return@mapNotNull null
                 // Pedido de entrega só entra no Mapa quando tiver OC (e aí vai pelo mapa da OC).
                 if (entregaSemOrdemCarga(dados)) return@mapNotNull null
                 PedidoSemOrdemCarga(
@@ -594,6 +595,12 @@ object TarefasRepository {
      * mirror local (app.tarefas). Usado pelo Mapa de Separação pra ignorar nota da OC
      * que nunca vai ser conferida — mesmo universo de [statusPorOrdemCarga].
      */
+    /** Nota de SAÍDA (TIPMOV 'V' venda / 'P' pedido) — só elas entram no Mapa de Separação (compra/entrada não). */
+    fun ehSaida(dados: JsonObject?): Boolean =
+        dados?.get("TIPMOV")?.jsonPrimitive?.contentOrNull?.trim()?.uppercase() in TIPMOV_SAIDA
+
+    val TIPMOV_SAIDA = setOf("V", "P")
+
     /** AD_EXPRESS / AD_RETIRA / AD_ENTREGA do cabeçalho (dados da tarefa) — só 'S' liga. */
     fun modalidadeDe(dados: JsonObject?): ModalidadePedido {
         fun sim(campo: String) = dados?.get(campo)?.jsonPrimitive?.contentOrNull?.trim()?.uppercase() == "S"
@@ -619,6 +626,7 @@ object TarefasRepository {
             .where { TarefasTable.tenantId eq tenantId }
             .mapNotNull { row ->
                 val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                if (!ehSaida(dados)) return@mapNotNull null
                 val oc = normalizarOrdemCarga(dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull) ?: return@mapNotNull null
                 if (oc !in ordensCarga) return@mapNotNull null
                 oc to modalidadeDe(dados)
@@ -645,6 +653,7 @@ object TarefasRepository {
             .mapNotNull { row ->
                 if (row[TarefasTable.statusOperacional] in statusIgnorados) return@mapNotNull null
                 val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                if (!ehSaida(dados)) return@mapNotNull null
                 normalizarOrdemCarga(dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull)
             }
             .toSet()
@@ -656,6 +665,7 @@ object TarefasRepository {
             .where { TarefasTable.tenantId eq tenantId }
             .mapNotNull { row ->
                 val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                if (!ehSaida(dados)) return@mapNotNull null
                 // vem como "46" ou "46.0" do loadRecords — mesma normalização de TarefasRepository.listar (ordemCarga).
                 val ordemCarga = dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull
                     ?.trim()?.takeIf { it.isNotEmpty() }

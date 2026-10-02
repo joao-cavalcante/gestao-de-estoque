@@ -121,7 +121,8 @@ object MapaSeparacaoService {
         val notasRaw = notasRawDeferred.await()
         if (notasRaw.isEmpty()) throw MapaSeparacaoException("Nenhum pedido encontrado para a Ordem de Carga $ordemCarga")
 
-        val notasDaOc = parseNotas(notasRaw)
+        // Mapa de Separação é só de SAÍDA (TIPMOV V/P) — compra/entrada/devolução da OC não entram.
+        val notasDaOc = parseNotas(notasRaw).filter { it.tipMov.uppercase() in TarefasRepository.TIPMOV_SAIDA }
         // Só nota que tem conferência (passou pelo critério e está no mirror local
         // app.tarefas) — a OC pode ter nota que nunca vai ser conferida (ex.: OC 49
         // com 4 notas e só 3 pedidos de verdade). Mesmo universo da barra de
@@ -130,7 +131,7 @@ object MapaSeparacaoService {
             TarefasRepository.nunotasComConferencia(tenantId, notasDaOc.map { it.nunota })
         }
         val notas = notasDaOc.filter { it.nunota in comConferencia }
-        if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido com conferência encontrado para a Ordem de Carga $ordemCarga")
+        if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido de saída com conferência encontrado para a Ordem de Carga $ordemCarga")
 
         val ordemRaw = ordemRawDeferred.await() ?: throw MapaSeparacaoException("Ordem de Carga $ordemCarga não encontrada (TGFORD)")
         val pesoMaxOc = ordemRaw["PESOMAX"].parseBigDecimalBr()
@@ -195,6 +196,9 @@ object MapaSeparacaoService {
             throw MapaSeparacaoException("O pedido $nunota está na Ordem de Carga $oc — use o mapa da Ordem de Carga")
         }
         val nota = parseNotas(listOf(raw)).firstOrNull() ?: throw MapaSeparacaoException("Pedido (Nro. Único) $nunota sem parceiro")
+        if (nota.tipMov.uppercase() !in TarefasRepository.TIPMOV_SAIDA) {
+            throw MapaSeparacaoException("O pedido $nunota não é de saída (TIPMOV '${nota.tipMov}') — o Mapa de Separação é só de venda/pedido")
+        }
         val comConferencia = withContext(Dispatchers.IO) { TarefasRepository.nunotasComConferencia(tenantId, listOf(nunota)) }
         if (nunota !in comConferencia) throw MapaSeparacaoException("O pedido $nunota não está na fila de conferência")
         if (withContext(Dispatchers.IO) { TarefasRepository.entregaSemOrdemCarga(tenantId, nunota) }) {

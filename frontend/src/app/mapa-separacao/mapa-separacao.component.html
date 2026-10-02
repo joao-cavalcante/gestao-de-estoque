@@ -156,16 +156,19 @@
                       <span class="oq-card__client">Nro. Único {{ p.nunota }}</span>
                     </label>
                     <div class="oq-card__status-line">
-                      <span class="oq-status-pin oq-status-pin--aguardando">
-                        <oq-icon name="box" [size]="12" />
-                        Pronto pra separar
-                      </span>
-                      <oq-modalidade-pins class="ms-pins" [modalidade]="p.modalidade" />
+                      <!-- Impresso vira o status do card (antes era um selo pequeno no fim da linha, sumia). -->
                       @if (p.impressoEm) {
-                        <span class="ms-impresso" [title]="'Mapa impresso' + (p.impressoPor ? ' por ' + p.impressoPor : '')">
-                          <oq-icon name="impressora" [size]="11" /> IMPRESSO {{ horaImpressao(p.impressoEm) }}
+                        <span class="oq-status-pin oq-status-pin--concluido" [title]="'Mapa impresso' + (p.impressoPor ? ' por ' + p.impressoPor : '')">
+                          <oq-icon name="impressora" [size]="12" />
+                          Impresso {{ horaImpressao(p.impressoEm) }}
+                        </span>
+                      } @else {
+                        <span class="oq-status-pin oq-status-pin--aguardando">
+                          <oq-icon name="box" [size]="12" />
+                          Pronto pra separar
                         </span>
                       }
+                      <oq-modalidade-pins class="ms-pins" [modalidade]="p.modalidade" />
                     </div>
                   </header>
                   <div class="oq-card__divider"></div>
@@ -269,19 +272,21 @@
                 <header class="oq-card__header">
                   <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
                   <div class="oq-card__status-line">
-                    <span class="oq-status-pin oq-status-pin--aguardando">
-                      <oq-icon name="box" [size]="12" />
-                      Pronta pra separar
-                    </span>
+                    @if (oc.impressoEm) {
+                      <span class="oq-status-pin oq-status-pin--concluido" [title]="'Mapa impresso' + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
+                        <oq-icon name="impressora" [size]="12" />
+                        Impresso {{ horaImpressao(oc.impressoEm) }}
+                      </span>
+                    } @else {
+                      <span class="oq-status-pin oq-status-pin--aguardando">
+                        <oq-icon name="box" [size]="12" />
+                        Pronta pra separar
+                      </span>
+                    }
                     @if (oc.situacao === 'F') {
                       <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
                     }
                     <oq-modalidade-pins class="ms-pins" [contagem]="{ express: oc.qtdExpress ?? 0, retira: oc.qtdRetira ?? 0, entrega: oc.qtdEntrega ?? 0 }" />
-                    @if (oc.impressoEm) {
-                      <span class="ms-impresso" [title]="'Mapa impresso' + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
-                        <oq-icon name="impressora" [size]="11" /> IMPRESSO {{ horaImpressao(oc.impressoEm) }}
-                      </span>
-                    }
                   </div>
                 </header>
                 <div class="oq-card__divider"></div>
