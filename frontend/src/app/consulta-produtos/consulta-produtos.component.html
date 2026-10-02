@@ -1,0 +1,133 @@
+<!-- Mesmo layout de lista das outras telas (estilos globais em styles/_lista-layout.scss). -->
+<div class="oq-page">
+  <header class="oq-page__header">
+    <form class="oq-toolbar" (ngSubmit)="consultar()">
+      <div class="oq-toolbar__title-block">
+        <h1 class="oq-toolbar__title">Consulta de Produtos</h1>
+        @if (termoConsultado() !== null) {
+          <span class="oq-toolbar__counter">[ {{ produtos().length }}{{ limitado() ? '+' : '' }} ]</span>
+        }
+      </div>
+
+      <div class="oq-toolbar__actions">
+        <label class="oq-toolbar__search">
+          <oq-icon name="search" [size]="12" />
+          <input
+            type="text"
+            name="busca"
+            placeholder="CÓDIGO / CÓD. BARRAS / DESCRIÇÃO / MARCA"
+            autocomplete="off"
+            [(ngModel)]="busca"
+            autofocus
+          />
+        </label>
+
+        <button type="submit" class="oq-toolbar__filters-btn" [disabled]="carregando()">
+          <oq-icon name="search" [size]="12" />
+          Consultar
+        </button>
+      </div>
+    </form>
+  </header>
+
+  <main class="oq-page__content">
+    @if (erro()) {
+      <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
+    }
+    @if (erroEstoque()) {
+      <div class="oq-page__status oq-page__status--erro">Produtos encontrados, mas o estoque não veio do Sankhya: {{ erroEstoque() }}</div>
+    }
+
+    @if (carregando()) {
+      <div class="oq-page__lista" aria-busy="true">
+        <table class="oq-page__lista-skel">
+          <tbody><oq-skeleton variant="table-row" [count]="8" /></tbody>
+        </table>
+      </div>
+    } @else if (termoConsultado() === null) {
+      <div class="oq-page__status">Digite o código, código de barras ou descrição do produto e tecle Enter.</div>
+    } @else if (produtos().length === 0) {
+      <div class="oq-page__status">Nenhum produto encontrado para "{{ termoConsultado() }}".</div>
+    } @else {
+      @if (limitado()) {
+        <div class="oq-page__status">Mostrando os {{ produtos().length }} primeiros — refine a busca para ver outros.</div>
+      }
+      <div class="oq-page__lista">
+        <table class="oq-lista">
+          <caption class="oq-lista__caption">Produtos e saldo em estoque</caption>
+          <thead>
+            <tr>
+              <th scope="col">Código</th>
+              <th scope="col" class="oq-lista__principal">Produto</th>
+              <th scope="col">Referência</th>
+              <th scope="col">Unid.</th>
+              <th scope="col" class="oq-lista__direita">Estoque</th>
+              <th scope="col" class="oq-lista__direita">Reservado</th>
+              <th scope="col" class="oq-lista__direita">Disponível</th>
+              <th scope="col" class="oq-lista__acoes">Locais</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of produtos(); track p.codprod) {
+              <tr class="oq-lista__linha" [class.oq-lista__linha--critical]="!erroEstoque() && p.disponivel <= 0">
+                <td data-label="Código">{{ p.codprod }}</td>
+                <td class="oq-lista__principal" data-label="Produto">
+                  <span class="oq-lista__destaque" [title]="p.descricao">{{ p.descricao }}</span>
+                  @if (subtitulo(p); as sub) {
+                    <span class="cp-sub">{{ sub }}</span>
+                  }
+                </td>
+                <td data-label="Referência">{{ p.referencia || '—' }}</td>
+                <td data-label="Unid.">{{ p.unidade || '—' }}</td>
+                <td class="oq-lista__direita" data-label="Estoque">{{ qtd(p.estoque) }}</td>
+                <td class="oq-lista__direita" data-label="Reservado">{{ qtd(p.reservado) }}</td>
+                <td class="oq-lista__direita cp-disponivel" data-label="Disponível">{{ qtd(p.disponivel) }}</td>
+                <td class="oq-lista__acoes" data-label="Locais">
+                  <button
+                    type="button"
+                    class="oq-lista__btn oq-lista__btn--outline"
+                    [disabled]="p.locais.length === 0"
+                    [attr.aria-expanded]="aberto(p.codprod)"
+                    (click)="alternar(p.codprod)"
+                  >
+                    {{ p.locais.length === 0 ? 'Sem saldo' : (aberto(p.codprod) ? 'Ocultar' : p.locais.length + (p.locais.length === 1 ? ' local' : ' locais')) }}
+                  </button>
+                </td>
+              </tr>
+              @if (aberto(p.codprod) && p.locais.length > 0) {
+                <tr class="cp-detalhe">
+                  <td colspan="8">
+                    <table class="cp-locais">
+                      <thead>
+                        <tr>
+                          <th scope="col">Empresa</th>
+                          <th scope="col">Local</th>
+                          <th scope="col">Lote / Controle</th>
+                          <th scope="col" class="oq-lista__direita">Estoque</th>
+                          <th scope="col" class="oq-lista__direita">Reservado</th>
+                          <th scope="col" class="oq-lista__direita">Disponível</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (l of p.locais; track $index) {
+                          <tr>
+                            <td>{{ l.codemp }}{{ l.empresa ? ' — ' + l.empresa : '' }}</td>
+                            <td>{{ l.codlocal }}{{ l.local ? ' — ' + l.local : '' }}</td>
+                            <td>{{ controle(l.controle) }}</td>
+                            <td class="oq-lista__direita">{{ qtd(l.estoque) }}</td>
+                            <td class="oq-lista__direita">{{ qtd(l.reservado) }}</td>
+                            <td class="oq-lista__direita cp-disponivel">{{ qtd(l.disponivel) }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </main>
+</div>

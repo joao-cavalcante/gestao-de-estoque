@@ -1,0 +1,93 @@
+// Layout de página/barra/lista — estilos globais em src/styles/_lista-layout.scss; aqui só o encaixe
+// da tela no shell e o detalhe por local.
+:host {
+  display: block;
+  height: 100%;
+}
+
+.cp-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--oq-text-secondary);
+}
+
+.cp-disponivel {
+  font-weight: 700;
+}
+
+.cp-detalhe > td {
+  padding: 0 10px 12px 28px;
+  background: var(--oq-surface-2);
+}
+
+.cp-locais {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+
+  th {
+    padding: 8px 8px 4px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oq-text-secondary);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 4px 8px;
+    border-top: 1px solid var(--oq-border);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .oq-lista__direita {
+    text-align: right;
+  }
+}
+
+// Celular: o detalhe vira bloco logo abaixo do card do produto, com rolagem lateral se precisar.
+@media (max-width: 767.98px) {
+  .cp-detalhe {
+    display: block;
+    margin: -6px 0 10px;
+  }
+
+  .cp-detalhe > td {
+    display: block;
+    padding: 8px;
+    overflow-x: auto;
+    border-radius: var(--oq-radius-block);
+
+    &::before { display: none; }
+  }
+
+  // Desfaz, na tabela aninhada, o "tabela vira card" global de .oq-lista (que pega descendentes).
+  .cp-locais {
+    thead {
+      position: static;
+      width: auto;
+      height: auto;
+      overflow: visible;
+      clip: auto;
+    }
+
+    tbody { display: table-row-group; }
+
+    td {
+      display: table-cell;
+      padding: 4px 8px;
+      border-top: 1px solid var(--oq-border);
+      white-space: nowrap;
+
+      &::before { display: none; }
+    }
+
+    .oq-lista__direita { text-align: right; }
+  }
+}

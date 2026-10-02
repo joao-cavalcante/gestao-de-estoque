@@ -16,6 +16,7 @@ import wms.backend.auth.authRoutes
 import wms.backend.balancas.balancasRoutes
 import wms.backend.configconferencia.ConfigConferenciaSyncWorker
 import wms.backend.configconferencia.configConferenciaRoutes
+import wms.backend.consultaprodutos.consultaProdutosRoutes
 import wms.backend.downloads.downloadsRoutes
 import wms.backend.inventario.inventarioRoutes
 import wms.backend.liberacaocorte.liberacaoCorteRoutes
@@ -103,5 +104,6 @@ fun Application.module() {
         tipoOperacaoRoutes()
         liberacaoCorteRoutes()
         mapaSeparacaoRoutes()
+        consultaProdutosRoutes()
     }
 }
