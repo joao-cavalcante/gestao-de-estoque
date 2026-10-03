@@ -695,6 +695,13 @@ object SeparacaoService {
         // ponto de vista do WMS, o Sankhya é dono da liberação agora.
         var aguardandoCorte = runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()?.trim() == "C"
 
+        // Vínculo liberação -> produto (V55): o Sankhya não grava, só recalcula. Este é o único
+        // momento em que TGFCOI2/TGFITE estão como ele viu ao numerar as liberações — antes da
+        // auto-liberação (que depende dele) e de qualquer corte mudar a nota. Ver VinculoCorte.
+        if (aguardandoCorte) {
+            wms.backend.liberacaocorte.VinculoCorte.calcular(tenantSlug, tenantId, sessao.nunota.toLong(), nuconf, "cortar")
+        }
+
         // Auto-liberação de corte por peso, ITEM A ITEM: toda linha de item pesável
         // dentro de ±5% do pedido é liberada em silêncio pela aplicação, mesmo que
         // a nota tenha outras divergências (item normal, ou pesável fora dos 5%) —

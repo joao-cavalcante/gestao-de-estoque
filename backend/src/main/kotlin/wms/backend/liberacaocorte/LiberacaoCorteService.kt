@@ -211,10 +211,59 @@ object LiberacaoCorteService {
      * bug real confirmado (Queijo Mussarela Búfala Levitare, Complem.:
      * Grande, divergência de 0,001 PC).
      */
-    private fun chaveDescricao(descricao: String?, complemento: String?): String? {
-        val desc = descricao?.trim()?.takeIf(String::isNotEmpty) ?: return null
-        val compl = complemento?.trim()?.takeIf(String::isNotEmpty)
-        return (if (compl != null) "$desc, Complem.: $compl" else desc).uppercase()
+    private fun chaveDescricao(item: wms.backend.separacao.ItemSeparacaoDto): String? =
+        VinculoCorte.textoProduto(item.descricaoProduto, item.complementoDescricao, item.controle.takeIf { it.isNotBlank() })
+
+    /**
+     * Item local de cada linha da liberação (SEQUENCIA -> item da sessão).
+     *
+     * 1º pelo vínculo gravado (VinculoCorte — mesma conta do Sankhya, feita logo
+     * depois do `cortar`); sem vínculo (conferência anterior ao V55, ou a conta não
+     * fechou), pela descrição da OBSERVACAO. Enquanto a descrição ainda serve de
+     * alarme: vínculo e descrição apontando produtos DIFERENTES -> a linha fica sem
+     * item (nada automático é feito nela) e loga AVISO.
+     */
+    private fun itensPorLiberacao(
+        tenantId: UUID,
+        nuconf: Int,
+        linhas: List<Map<String, String?>>,
+        itensSessao: List<wms.backend.separacao.ItemSeparacaoDto>,
+    ): Map<Int, wms.backend.separacao.ItemSeparacaoDto> {
+        val vinculos = VinculoCorte.buscar(tenantId, nuconf)
+        val porChave = itensSessao.associateBy { VinculoCorte.Chave(it.codprod, VinculoCorte.normControle(it.controle)) }
+        val porDescricao = itensSessao.mapNotNull { item -> chaveDescricao(item)?.let { it to item } }
+            .groupBy({ it.first }, { it.second })
+        val resultado = HashMap<Int, wms.backend.separacao.ItemSeparacaoDto>()
+        for (linha in linhas) {
+            val seq = linha["SEQUENCIA"]?.toIntOrNull() ?: continue
+            val prod = parseObservacaoLiberacao(linha["OBSERVACAO"]).produto?.trim()?.uppercase()
+            // Descrição repetida (2 produtos com o mesmo nome) não decide — só o vínculo resolve.
+            val pelaDescricao = prod?.let { porDescricao[it] }?.distinctBy { it.codprod to it.controle }?.singleOrNull()
+            val vinculo = vinculos[seq]
+            if (vinculo == null) {
+                pelaDescricao?.let { resultado[seq] = it }
+                continue
+            }
+            val pelaRegra = porChave[vinculo] ?: continue
+            if (pelaDescricao != null && pelaDescricao.codprod != pelaRegra.codprod) {
+                println(
+                    "AVISO: corte $nuconf seq $seq — vínculo aponta produto ${pelaRegra.codprod} mas a descrição aponta " +
+                        "${pelaDescricao.codprod} ('$prod'); item ignorado nas ações automáticas",
+                )
+                continue
+            }
+            resultado[seq] = pelaRegra
+        }
+        return resultado
+    }
+
+    /** Garante o vínculo das liberações desta conferência (se faltar algum) — ver VinculoCorte. */
+    private suspend fun garantirVinculo(tenantSlug: String, tenantId: UUID, nuconf: Int, nunota: Long?, linhas: List<Map<String, String?>>, origem: String) {
+        if (nunota == null) return
+        val faltando = withContext(Dispatchers.IO) { VinculoCorte.buscar(tenantId, nuconf) }.keys.let { tem ->
+            linhas.any { (it["SEQUENCIA"]?.toIntOrNull() ?: return@any false) !in tem }
+        }
+        if (faltando) VinculoCorte.calcular(tenantSlug, tenantId, nunota, nuconf, origem, forcar = false)
     }
 
     /**
@@ -265,15 +314,16 @@ object LiberacaoCorteService {
                 println("INFO: pendencia corte $nuconf seq=${p["SEQUENCIA"]} evento=${p["EVENTO"]} vlrAtual=${p["VLRATUAL"]} vlrLimite=${p["VLRLIMITE"]} obs=${p["OBSERVACAO"]}")
             }
 
-            // Produtos pesáveis da sessão, por descrição (match por descrição — é o
-            // que a ViewLiberacaoLimite expõe na OBSERVACAO) — Map, não Set, porque
-            // precisamos do CODPROD depois pra persistir a decisão (ver V36).
-            val pesaveisPorDescricao = withContext(Dispatchers.IO) {
-                wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true)
+            // Item local (pesável ou não) de cada liberação — pelo vínculo (VinculoCorte), com a
+            // descrição como reserva/alarme. Precisamos do CODPROD pra persistir a decisão (V36).
+            val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
+            garantirVinculo(tenantSlug, tenantId, nuconf, nunota, pendentes, "auto-liberação")
+            val itemPorSeq = withContext(Dispatchers.IO) {
+                itensPorLiberacao(
+                    tenantId, nuconf, pendentes,
+                    wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true),
+                )
             }
-                .filter { it.usaConfPeso }
-                .mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
-                .toMap()
 
             // V50 — tolerância da SESSÃO (copiada do NUCCO na abertura). null = sem limite naquele
             // sentido. Padrão (NUCCO sem configuração) = a maior sem limite, a menor 5% — a regra de antes.
@@ -283,10 +333,10 @@ object LiberacaoCorteService {
 
             val liberaveis = pendentes.filter { linha ->
                 val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
-                val prod = obs.produto?.trim()?.uppercase() ?: return@filter false
+                val item = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()] ?: return@filter false
+                if (!item.usaConfPeso) return@filter false
                 val conf = obs.qtdConferida ?: return@filter false
                 val ped = obs.qtdPedido ?: return@filter false
-                if (prod !in pesaveisPorDescricao) return@filter false
                 val base = if (ped != 0.0) ped else conf
                 if (base == 0.0) return@filter false
                 if (conf > ped) {
@@ -310,19 +360,19 @@ object LiberacaoCorteService {
 
             // Registra a decisão localmente (TGFITE não guarda isso — ver V36),
             // senão o item liberado reaparece na recontagem igual ao negado.
-            val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
             if (nunota != null) {
                 withContext(Dispatchers.IO) {
                     liberaveis.forEach { linha ->
                         val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
-                        val prod = obs.produto?.trim()?.uppercase() ?: return@forEach
-                        val item = pesaveisPorDescricao[prod] ?: return@forEach
+                        val item = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()] ?: return@forEach
                         wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(
                             tenantId, nunota, item.codprod, liberado = true, nuconf = nuconf,
                             controle = item.controle, qtdLiberada = obs.qtdConferida?.toBigDecimal(),
                         )
                     }
                 }
+                // Liberar pode reprocessar a conferência no Sankhya e nascer SEQUENCIA nova (caso real nuconf 1024).
+                VinculoCorte.calcular(tenantSlug, tenantId, nunota, nuconf, "pós auto-liberação")
             }
 
             val restantes = runCatching { buscarPendentesRaw(tenantSlug, nuconf) }.getOrDefault(emptyList())
@@ -388,22 +438,25 @@ object LiberacaoCorteService {
      * local de fato registrou (separacao_itens.qtd_neg/qtd_conferida_local,
      * unidade_padrao — normalmente KG) em vez do texto que o Sankhya expõe
      * na OBSERVACAO (sempre unidade comercial, ex.: CX — não é a referência
-     * usada durante a conferência pra produto pesável). Match por descrição
-     * do produto, mesma técnica de [autoLiberarPesoDentroTolerancia].
+     * usada durante a conferência pra produto pesável). Item de cada linha pelo
+     * vínculo (VinculoCorte), mesma técnica de [autoLiberarPesoDentroTolerancia].
      */
     suspend fun listarPendentes(tenantSlug: String, tenantId: UUID, nuconf: Int): List<LiberacaoPendenteDto> {
-        val itensPesaveisPorDescricao = withContext(Dispatchers.IO) {
-            val nunota = wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) ?: return@withContext emptyMap()
-            val sessao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota) ?: return@withContext emptyMap()
-            wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id), incluirSilenciosos = true)
-                .filter { it.usaConfPeso }
-                .mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
-                .toMap()
+        val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
+        val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
+        garantirVinculo(tenantSlug, tenantId, nuconf, nunota, pendentes, "tela de liberação")
+        val itemPorSeq = withContext(Dispatchers.IO) {
+            val sessao = nunota?.let { wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, it) }
+                ?: return@withContext emptyMap()
+            itensPorLiberacao(
+                tenantId, nuconf, pendentes,
+                wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id), incluirSilenciosos = true),
+            )
         }
 
-        return buscarPendentesRaw(tenantSlug, nuconf).map { linha ->
+        return pendentes.map { linha ->
             val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
-            val itemPesavel = obs.produto?.trim()?.uppercase()?.let { itensPesaveisPorDescricao[it] }
+            val itemPesavel = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()]?.takeIf { it.usaConfPeso }
 
             if (itemPesavel != null) {
                 val pedido = itemPesavel.qtdNeg.toDoubleOrNull()
@@ -477,6 +530,8 @@ object LiberacaoCorteService {
             else "Negado manualmente pela tela de Liberação de Corte"
 
         val nunotaLog = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
+        // Vínculo ANTES de decidir: depois de negar a nota vai pra recontagem e os dados mudam.
+        garantirVinculo(tenantSlug, tenantId, nuconf, nunotaLog, pendentes, "liberação manual")
         val acao = if (liberarNorm == "S") "liberar" else "negar"
         // Diagnóstico (nota 57529): o Sankhya às vezes já está em recontagem
         // quando chega o NEGAR. Loga o STATUS da conferência antes e depois de
@@ -522,15 +577,13 @@ object LiberacaoCorteService {
         // na recontagem igual a um negado de verdade.
         if (nunota != null) {
             withContext(Dispatchers.IO) {
-                val itensPorDescricao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota)
+                val itensSessao = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota)
                     ?.let { sessao -> wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id), incluirSilenciosos = true) }
-                    ?.mapNotNull { item -> chaveDescricao(item.descricaoProduto, item.complementoDescricao)?.let { it to item } }
-                    ?.toMap()
-                    ?: emptyMap()
+                    ?: emptyList()
+                val itemPorSeq = itensPorLiberacao(tenantId, nuconf, selecionados, itensSessao)
                 selecionados.forEach { linha ->
                     val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
-                    val prod = obs.produto?.trim()?.uppercase() ?: return@forEach
-                    val item = itensPorDescricao[prod] ?: return@forEach
+                    val item = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()] ?: return@forEach
                     wms.backend.separacao.SeparacaoRepository.registrarDecisaoLiberacao(
                         tenantId, nunota, item.codprod, liberado = liberarNorm == "S", nuconf = nuconf,
                         controle = item.controle,
@@ -538,6 +591,8 @@ object LiberacaoCorteService {
                     )
                 }
             }
+            // Liberar pode reprocessar a conferência no Sankhya e nascer SEQUENCIA nova (caso real nuconf 1024).
+            if (liberarNorm == "S") VinculoCorte.calcular(tenantSlug, tenantId, nunota, nuconf, "pós liberação manual")
         }
 
         // Verifica se sobrou algo pendente INDEPENDENTE da ação ter sido liberar
@@ -646,8 +701,11 @@ object LiberacaoCorteService {
         val unidadePedido: String?,
     )
 
+    // Quantidade é BigDecimal.toString() do Sankhya: às vezes vem em notação científica
+    // ("0E+2 PC" = zero) — com [\d.]+ a OBSERVACAO inteira deixava de ser lida e a decisão
+    // não era gravada (casos reais nuconf 786 e 1016).
     private val REGEX_OBS = Regex(
-        """^Prod\.:\s*(.+?),\s*Qtd\.\s*total\s*conf\.:\s*([\d.]+)\s*(\S+),\s*Qtd\.\s*total\s*pedido/nota:\s*([\d.]+)\s*(\S+)""",
+        """^Prod\.:\s*(.+?),\s*Qtd\.\s*total\s*conf\.:\s*([\d.Ee+-]+)\s*(\S+),\s*Qtd\.\s*total\s*pedido/nota:\s*([\d.Ee+-]+)\s*(\S+)""",
         RegexOption.IGNORE_CASE,
     )
 
