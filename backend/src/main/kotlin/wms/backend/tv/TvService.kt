@@ -405,9 +405,6 @@ object TvService {
         val linhas = notas.groupBy({ it.first }, { it.second }).mapNotNull { (oc, doGrupo) ->
             val aConferir = doGrupo.filter { it.status in pendentes }
             val conferidas = doGrupo.filter { it.status in PRONTO }
-            val comCarga = conferidas.mapNotNull { carregamento[it.nunota] }
-            val itensTotal = comCarga.sumOf { it.total }
-            val itensCarregados = comCarga.sumOf { it.carregados }
             val pedidosACarregar = conferidas.count { n -> carregamento[n.nunota]?.let { it.carregados < it.total } == true }
             if (aConferir.isEmpty() && pedidosACarregar == 0) {
                 // Tudo pronto — conta como carregada hoje se a última conclusão foi hoje.
@@ -420,8 +417,7 @@ object TvService {
                 pedidos = doGrupo.size,
                 pedidosConferidos = conferidas.size,
                 pedidosEmConferencia = aConferir.count { it.status in EM_CONFERENCIA },
-                itensTotal = itensTotal,
-                itensCarregados = itensCarregados,
+                pedidosACarregar = pedidosACarregar,
                 pesoTotalKg = arredondar(doGrupo.sumOf { it.pesoBrutoKg }),
                 pesoASepararKg = arredondar(aConferir.sumOf { it.pesoBrutoKg }),
                 pesoAguardandoLiberacaoKg = arredondar(aConferir.filter { it.status in AGUARDANDO_LIBERACAO }.sumOf { it.pesoBrutoKg }),

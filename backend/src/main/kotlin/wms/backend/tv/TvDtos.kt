@@ -183,8 +183,8 @@ data class TvOcDto(
     val pedidos: Int,
     val pedidosConferidos: Int,
     val pedidosEmConferencia: Int,
-    val itensTotal: Int,
-    val itensCarregados: Int,
+    /** Pedidos conferidos que ainda faltam carregar (carregamento é por pedido). */
+    val pedidosACarregar: Int,
     val pesoTotalKg: Double,
     val pesoASepararKg: Double,
     val pesoAguardandoLiberacaoKg: Double,

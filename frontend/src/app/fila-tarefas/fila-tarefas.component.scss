@@ -42,3 +42,5 @@
   .oq-oc-faixa { margin: 0 12px 10px; gap: 6px 12px; }
   .oq-oc-faixa__btn { margin-left: 0; flex: 1 1 100%; padding: 10px; }
 }
+
+.oq-oc-faixa__link { border: 0; background: none; color: var(--oq-brand-accent); text-decoration: underline; cursor: pointer; font-size: 12px; }

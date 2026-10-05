@@ -25,8 +25,7 @@ export function statusVisual(tarefa: Tarefa): StatusVisual {
   const visual = STATUS_VISUAL[tarefa.status];
   // Conferida com OC e ainda não carregada (só aparece na fila filtrada por OC).
   if (aCarregar(tarefa)) {
-    const c = tarefa.carregamento!;
-    return { icone: 'entrega', label: `A CARREGAR · ${c.carregados}/${c.total}`, gira: false, tom: 'andamento' };
+    return { icone: 'entrega', label: 'A CARREGAR', gira: false, tom: 'andamento' };
   }
   // "aguardando_recontagem" cai no mesmo bucket 'aguardando' de uma nota
   // nunca conferida (ver STATUS_MAP em conferencias.service.ts), mas pro

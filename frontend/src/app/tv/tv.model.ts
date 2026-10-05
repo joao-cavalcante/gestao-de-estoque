@@ -109,8 +109,8 @@ export interface TvOc {
   pedidos: number;
   pedidosConferidos: number;
   pedidosEmConferencia: number;
-  itensTotal: number;
-  itensCarregados: number;
+  /** Pedidos conferidos que ainda faltam carregar. */
+  pedidosACarregar: number;
   pesoTotalKg: number;
   pesoASepararKg: number;
   pesoAguardandoLiberacaoKg: number;

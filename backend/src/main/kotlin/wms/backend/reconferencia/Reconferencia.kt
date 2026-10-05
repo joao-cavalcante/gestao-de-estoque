@@ -106,6 +106,9 @@ data class CheckRequest(val codprod: Int, val controle: String = "", val checado
 @Serializable
 data class CheckTodosRequest(val checado: Boolean)
 
+@Serializable
+data class CarregarPedidosRequest(val nunotas: List<Long>)
+
 object ReconferenciaService {
     private val iso = DateTimeFormatter.ISO_INSTANT
 
@@ -253,6 +256,21 @@ object ReconferenciaService {
     }
 
     /**
+     * "✓ Carregado" do pedido (um toque, sem checklist): marca como carregados todos os itens conferidos das
+     * sessões CONCLUÍDAS de cada nota desde a entrada no ar do carregamento. Devolve quantos itens marcou.
+     */
+    fun carregarPedidos(tenantId: UUID, nunotas: List<Long>, por: String?): Int = TenantTx.run(tenantId) {
+        if (nunotas.isEmpty()) return@run 0
+        val sessoes = SeparacaoSessoesTable.selectAll()
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA) and
+                    (SeparacaoSessoesTable.nunota inList nunotas.map { it.toInt() }) and (SeparacaoSessoesTable.atualizadoEm greaterEq INICIO_CARREGAMENTO)
+            }
+            .map { it[SeparacaoSessoesTable.id] }
+        sessoes.sumOf { id -> inserirChecks(tenantId, id, chavesConferidas(tenantId, id, null), por) }
+    }
+
+    /**
      * Carregamento por NOTA (fila): itens conferidos x checados somando as sessões CONCLUÍDAS da nota nos
      * últimos [dias] dias (recontagem é sessão nova, com só o que voltou). `sessaoId` = a sessão mais recente
      * que ainda tem item a carregar (ou a mais recente, se tudo carregado).
@@ -370,6 +388,14 @@ fun Route.reconferenciaRoutes() {
             val nome = UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
             ReconferenciaService.marcar(claims.tenantId, id, req, nome)
             call.respond(mapOf("ok" to true))
+        }
+        /** "✓ Carregado" de um ou vários pedidos (card da fila / "Carregar tudo" da OC). */
+        post("/carregar") {
+            val claims = call.exigirAuth() ?: return@post
+            val req = call.receive<CarregarPedidosRequest>()
+            val nome = UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
+            val n = ReconferenciaService.carregarPedidos(claims.tenantId, req.nunotas.distinct().take(200), nome)
+            call.respond(mapOf("ok" to true, "itens" to n))
         }
         /** "Marcar todos" do checklist de carregamento. */
         put("/{sessaoId}/check-todos") {

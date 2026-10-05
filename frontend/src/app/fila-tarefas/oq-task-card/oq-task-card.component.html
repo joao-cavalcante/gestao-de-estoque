@@ -79,14 +79,17 @@
     }
 
     <footer class="oq-card__footer">
-      @if (etapasVisiveis.length === 0) {
+      @if (aCarregar) {
+        <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="carregado.emit(tarefa)">✓ Carregado</button>
+        <button type="button" class="oq-card__btn" (click)="conferir.emit(tarefa)">Ver itens</button>
+      } @else if (etapasVisiveis.length === 0) {
         <button
           type="button"
           class="oq-card__btn oq-card__btn--primary"
           [class.oq-card__btn--continuar]="tarefa.status === 'andamento'"
           (click)="conferir.emit(tarefa)"
         >
-          {{ tarefa.carregamento && tarefa.status === 'concluido' ? 'Carregar' : tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+          {{ tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
         </button>
       }
     </footer>

@@ -43,6 +43,12 @@ export class OqTaskListComponent {
 
   @Output() conferir = new EventEmitter<Tarefa | { tarefa: Tarefa; etapa: number }>();
   @Output() ordenar = new EventEmitter<CampoOrdenacao>();
+  /** "✓ Carregado" — um toque, pedido inteiro. */
+  @Output() carregado = new EventEmitter<Tarefa>();
+
+  aCarregar(t: Tarefa): boolean {
+    return t.status === 'concluido' && t.ordemCarga != null && !!t.carregamento && t.carregamento.carregados < t.carregamento.total;
+  }
 
   readonly colunas: Coluna[] = [
     { titulo: 'Status', classe: 'oq-lista__topo' },

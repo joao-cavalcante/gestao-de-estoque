@@ -1575,13 +1575,16 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   /** OC do pedido (vinda da fila) — pedido com OC passa pelo carregamento. */
   ordemCargaTarefa: number | null = null;
 
-  /** Pop-up final: "Carregar agora" abre o "Ver conferidos" (checklist de carregamento) aqui mesmo. */
+  /** Pop-up final: "✓ Já carregado" — um toque dá baixa no carregamento do pedido inteiro. */
   private voltarAoPainelFinal = false;
+  readonly carregadoFinal = signal<'nao' | 'salvando' | 'ok'>('nao');
   irParaCarregamento(): void {
-    if (!this.sessaoIdAtual) return;
-    this.voltarAoPainelFinal = true;
-    this.mostrarPainelFinalizada.set(false);
-    this.abrirConferidos();
+    if (this.carregadoFinal() !== 'nao' || !this.numeroUnico || this.numeroUnico === '—') return;
+    this.carregadoFinal.set('salvando');
+    this.reconferenciaService.carregarPedidos([this.numeroUnico]).subscribe({
+      next: () => this.carregadoFinal.set('ok'),
+      error: () => this.carregadoFinal.set('nao'),
+    });
   }
 }
 

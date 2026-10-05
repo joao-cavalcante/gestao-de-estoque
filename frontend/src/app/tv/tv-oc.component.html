@@ -63,9 +63,9 @@
 
             <div class="to-oc__barra-rot">
               <span>Carregamento</span>
-              <strong>{{ o.itensTotal > 0 ? o.itensCarregados + '/' + o.itensTotal + ' itens' : '—' }}</strong>
+              <strong>{{ o.pedidosConferidos > 0 ? (o.pedidosConferidos - o.pedidosACarregar) + '/' + o.pedidosConferidos + ' ped.' : '—' }}</strong>
             </div>
-            <span class="to-oc__barra to-oc__barra--carga"><span [style.width.%]="pct(o.itensCarregados, o.itensTotal)"></span></span>
+            <span class="to-oc__barra to-oc__barra--carga"><span [style.width.%]="pct(o.pedidosConferidos - o.pedidosACarregar, o.pedidosConferidos)"></span></span>
 
             <div class="to-oc__rodape">
               <span class="to-oc__peso">{{ o.pesoASepararKg > 0 ? peso(o.pesoASepararKg) + ' a separar' : peso(o.pesoTotalKg) + ' total' }}</span>

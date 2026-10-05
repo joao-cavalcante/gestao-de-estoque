@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { OqModalidadePinsComponent } from '../../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { CommonModule } from '@angular/common';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
-import { Tarefa } from '../tarefa.model';
+import { Tarefa, aCarregar } from '../tarefa.model';
 import { EtapaVisual, StatusVisual, etapasVisiveis, statusVisual } from '../tarefa-visual';
 import { OqEtapaChipsComponent } from '../oq-etapa-chips/oq-etapa-chips.component';
 
@@ -25,6 +25,12 @@ export class OqTaskCardComponent {
   @Input({ required: true }) tarefa!: Tarefa;
 
   @Output() conferir = new EventEmitter<Tarefa | { tarefa: Tarefa; etapa: number }>();
+  /** "✓ Carregado" — um toque, pedido inteiro. */
+  @Output() carregado = new EventEmitter<Tarefa>();
+
+  get aCarregar(): boolean {
+    return aCarregar(this.tarefa);
+  }
 
   /** Etapas da conferência por etapa (V29) — ver tarefa-visual.ts (mesmo cálculo da lista). */
   get etapasVisiveis(): EtapaVisual[] {

@@ -38,14 +38,16 @@
 
   @if (resumoOc(); as r) {
     <!-- Faixa da OC filtrada: conferência + carregamento -->
-    <section class="oq-oc-faixa" [class.oq-oc-faixa--ok]="r.itensTotal > 0 && r.itensCarregados >= r.itensTotal && r.conferidos === r.pedidos">
+    <section class="oq-oc-faixa" [class.oq-oc-faixa--ok]="r.conferidos === r.pedidos && r.pedidosACarregar === 0">
       <span class="oq-oc-faixa__oc">OC {{ r.oc }}</span>
       <span class="oq-oc-faixa__item">Conferência <strong>{{ r.conferidos }}/{{ r.pedidos }}</strong> pedidos</span>
-      <span class="oq-oc-faixa__item">Carregamento <strong>{{ r.itensCarregados }}/{{ r.itensTotal }}</strong> itens</span>
       @if (r.pedidosACarregar > 0) {
         <span class="oq-oc-faixa__alerta">🚚 {{ r.pedidosACarregar }} pedido(s) a carregar</span>
+        <button type="button" class="oq-oc-faixa__link" (click)="carregarOc()">ver itens</button>
+        <button type="button" class="oq-oc-faixa__btn" [disabled]="salvandoCarga()" (click)="carregarTudoOc()">✓ Carregar tudo</button>
+      } @else if (r.conferidos > 0) {
+        <span class="oq-oc-faixa__item">✓ tudo carregado</span>
       }
-      <button type="button" class="oq-oc-faixa__btn" [disabled]="r.conferidos === 0" (click)="carregarOc()">Carregar OC</button>
     </section>
   }
 
@@ -105,7 +107,7 @@
       @if (viewMode() === 'cards') {
         <div class="oq-page__grid" #rolagem>
           @for (tarefa of tarefasPaginadas(); track tarefa.id) {
-            <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" />
+            <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" />
           }
         </div>
       } @else {
@@ -114,6 +116,7 @@
             [tarefas]="tarefasPaginadas()"
             [ordenacao]="ordenacao()"
             (conferir)="onConferir($event)"
+            (carregado)="onCarregado($event)"
             (ordenar)="onOrdenar($event)"
           />
         </div>

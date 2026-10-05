@@ -189,13 +189,10 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const daOc = this.tarefas().filter((t) => String(t.ordemCarga ?? '') === oc);
     if (daOc.length === 0) return null;
     const conferidos = daOc.filter((t) => t.status === 'concluido');
-    const comCarga = conferidos.filter((t) => !!t.carregamento);
     return {
       oc,
       pedidos: daOc.length,
       conferidos: conferidos.length,
-      itensTotal: comCarga.reduce((s, t) => s + t.carregamento!.total, 0),
-      itensCarregados: comCarga.reduce((s, t) => s + t.carregamento!.carregados, 0),
       pedidosACarregar: conferidos.filter((t) => aCarregar(t)).length,
     };
   });
@@ -397,7 +394,30 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     blocos: { nunota: string; cliente: string; detalhe: ReconferenciaDetalhe | null; erro: string | null }[];
   } | null>(null);
 
-  /** Carregamento da OC inteira: todos os pedidos conferidos da OC que ainda têm item a carregar. */
+  /** "✓ Carregado" do card: um toque, pedido inteiro. */
+  readonly salvandoCarga = signal(false);
+  onCarregado(tarefa: Tarefa): void {
+    this.darBaixaCarregamento([tarefa.numeroUnico]);
+  }
+
+  /** "✓ Carregar tudo" da faixa: todos os pedidos a carregar da OC, de uma vez. */
+  carregarTudoOc(): void {
+    this.darBaixaCarregamento(this.tarefasACarregar().map((t) => t.numeroUnico));
+  }
+
+  private darBaixaCarregamento(nunotas: string[]): void {
+    if (nunotas.length === 0 || this.salvandoCarga()) return;
+    this.salvandoCarga.set(true);
+    this.reconferenciaService.carregarPedidos(nunotas).subscribe({
+      next: () => {
+        this.salvandoCarga.set(false);
+        this.carregarFila();
+      },
+      error: () => this.salvandoCarga.set(false),
+    });
+  }
+
+  /** "Ver itens" da OC: checklist (opcional) de todos os pedidos a carregar. */
   carregarOc(): void {
     const oc = this.ocFiltrada();
     if (!oc) return;

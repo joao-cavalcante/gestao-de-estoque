@@ -66,6 +66,11 @@ export class ReconferenciaService {
     return this.http.get<ReconferenciaDetalhe>(`/api/reconferencia/${sessaoId}`);
   }
 
+  /** "✓ Carregado" de um ou vários pedidos (um toque, sem checklist). */
+  carregarPedidos(nunotas: (number | string)[]): Observable<unknown> {
+    return this.http.post('/api/reconferencia/carregar', { nunotas: nunotas.map(Number) });
+  }
+
   /** "Marcar todos" do checklist de carregamento. */
   marcarTodos(sessaoId: string, checado: boolean): Observable<unknown> {
     return this.http.put(`/api/reconferencia/${sessaoId}/check-todos`, { checado });
