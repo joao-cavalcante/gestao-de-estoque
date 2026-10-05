@@ -1928,15 +1928,21 @@ object SeparacaoService {
             withContext(Dispatchers.IO) { SeparacaoRepository.substituirCodigosEUma(tenantId, sessaoId, afetados, codigos, umas) }
         }
 
-        // Conferência por etapa: etapa nova ganha linha; etapa concluída com item que voltou a pendente reabre.
+        // Conferência por etapa: etapa nova ganha linha; etapa concluída reabre SÓ se ESTA sincronização
+        // mexeu num item dela (entrou/saiu/mudou) e ele ficou pendente. Pendência que já existia foi aceita
+        // pelo operador ao concluir com divergência — reabrir isso (bug real, nota 61553, 05/10) fazia a
+        // checagem do pedido ao concluir uma etapa reabrir a outra, em ping-pong, e a nota nunca chegava ao corte.
         if (sessao.conferenciaSegmentada) {
             withContext(Dispatchers.IO) {
                 val itensSessao = SeparacaoRepository.listarItens(tenantId, sessaoId)
                 SeparacaoRepository.semearEtapas(tenantId, sessaoId, itensSessao.map { it.tipoSeparacao.toShort() }.toSet())
-                SeparacaoRepository.listarEtapas(tenantId, sessaoId)
-                    .filter { it.status == SeparacaoEtapaStatus.CONCLUIDA }
-                    .filter { SeparacaoRepository.contarPendentesDaEtapa(tenantId, sessaoId, it.tipoSeparacao.toShort()) > 0 }
-                    .forEach { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, it.tipoSeparacao.toShort()) }
+                val etapasMexidas = itensSessao.filter { it.codprod in resultado.codprodsAfetados }.map { it.tipoSeparacao }.toSet()
+                if (etapasMexidas.isNotEmpty()) {
+                    SeparacaoRepository.listarEtapas(tenantId, sessaoId)
+                        .filter { it.status == SeparacaoEtapaStatus.CONCLUIDA && it.tipoSeparacao in etapasMexidas }
+                        .filter { SeparacaoRepository.contarPendentesDaEtapa(tenantId, sessaoId, it.tipoSeparacao.toShort()) > 0 }
+                        .forEach { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, it.tipoSeparacao.toShort()) }
+                }
             }
         }
 
