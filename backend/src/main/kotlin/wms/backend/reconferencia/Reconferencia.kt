@@ -109,6 +109,9 @@ data class CheckTodosRequest(val checado: Boolean)
 object ReconferenciaService {
     private val iso = DateTimeFormatter.ISO_INSTANT
 
+    /** Entrada no ar da etapa de carregamento (deploy de 05/10/2026 ~17:04 BRT). */
+    private val INICIO_CARREGAMENTO: Instant = Instant.parse("2026-10-05T20:05:00Z")
+
     private fun dadosDe(raw: String?): JsonObject? = raw?.let { runCatching { Json.parseToJsonElement(it) as JsonObject }.getOrNull() }
     private fun JsonObject?.campo(n: String) = this?.get(n)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
 
@@ -256,7 +259,9 @@ object ReconferenciaService {
      */
     fun resumoCarregamento(tenantId: UUID, nunotas: List<Long>, dias: Long): Map<Long, wms.backend.tarefas.CarregamentoResumoDto> = TenantTx.run(tenantId) {
         if (nunotas.isEmpty()) return@run emptyMap()
-        val desde = Instant.now().minusSeconds(dias * 86_400)
+        // Conferência finalizada antes do carregamento existir nunca teve check (nem o automático de
+        // Secos/Congelado) — conta como já carregada, senão OC antiga fica "a carregar" pra sempre.
+        val desde = maxOf(Instant.now().minusSeconds(dias * 86_400), INICIO_CARREGAMENTO)
         val sessoes = SeparacaoSessoesTable.selectAll()
             .where {
                 (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA) and
