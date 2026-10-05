@@ -526,6 +526,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly sincronizando = signal(false);
   /** Resultado da última atualização — abre o pop-up com o que foi corrigido. */
   readonly sincronizacao = signal<SincronizacaoSankhya | null>(null);
+  /** true = o pop-up veio da checagem automática ao concluir/finalizar (pedido mudou no Sankhya). */
+  readonly sincronizacaoAutomatica = signal(false);
   readonly sincronizacaoDesfeitos = computed(() => this.sincronizacao()?.correcoes.filter((c) => c.conferenciaDesfeita).length ?? 0);
 
   onSincronizarSankhya(): void {
@@ -534,13 +536,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.sincronizando.set(true);
     this.separacaoService.sincronizarSankhya(this.tenantAtual, sessaoId).subscribe({
       next: (r) => {
-        this.sincronizacao.set(r);
-        // Item pode ter virado pesável (UMA) ou mudado de etapa — relê o que a tela guarda em memória.
-        this.scanBar?.recarregarUma();
-        if (this.conferenciaSegmentada) {
-          this.separacaoService.buscarEtapas(this.tenantAtual, sessaoId).subscribe({ next: (e) => this.etapasSessao.set(e) });
-        }
-        this.recarregarItens(sessaoId, () => this.sincronizando.set(false));
+        this.sincronizacaoAutomatica.set(false);
+        this.aplicarSincronizacao(r, sessaoId, () => this.sincronizando.set(false));
       },
       error: (err) => {
         this.sincronizando.set(false);
@@ -550,8 +547,32 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Mostra o que mudou e relê a sessão (itens, etapas, UMA) — botão "Atualizar com Sankhya" e checagem ao concluir. */
+  private aplicarSincronizacao(r: SincronizacaoSankhya, sessaoId: string, depois?: () => void): void {
+    this.sincronizacao.set(r);
+    // Item pode ter virado pesável (UMA) ou mudado de etapa — relê o que a tela guarda em memória.
+    this.scanBar?.recarregarUma();
+    if (this.conferenciaSegmentada) {
+      this.separacaoService.buscarEtapas(this.tenantAtual, sessaoId).subscribe({ next: (e) => this.etapasSessao.set(e) });
+    }
+    this.recarregarItens(sessaoId, depois);
+  }
+
+  /** 409 PEDIDO_ALTERADO (concluir etapa/finalizar): a sessão já foi corrigida no backend — mostra e deixa conferir. */
+  private tratarPedidoAlterado(err: any): boolean {
+    if (err?.status !== 409 || err?.error?.codigo !== 'PEDIDO_ALTERADO' || !this.sessaoIdAtual) return false;
+    this.encerrarOperacao();
+    this.mostrarModalDivergencia.set(false);
+    this.mostrarModalAvisoEtapa.set(false);
+    this.feedback.trigger('DIVERGENCIA');
+    this.sincronizacaoAutomatica.set(true);
+    this.aplicarSincronizacao(err.error.sincronizacao as SincronizacaoSankhya, this.sessaoIdAtual);
+    return true;
+  }
+
   fecharSincronizacao(): void {
     this.sincronizacao.set(null);
+    this.sincronizacaoAutomatica.set(false);
   }
 
   // ─── "Ver conferidos": tudo o que já foi conferido na nota (todas as etapas), com check de reconferência ───
@@ -1318,6 +1339,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: ConcluirEtapaResultado) => this.aoConcluirEtapa(res, infoEtapa),
         error: (err) => {
+          if (this.tratarPedidoAlterado(err)) return;
           if (err?.status === 409 && typeof err?.error?.pendentes === 'number') {
             this.encerrarOperacao();
             if (this.ehUltimaEtapaPendente()) {
@@ -1415,6 +1437,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.operacaoSub = this.separacaoService.finalizar(this.tenantAtual, this.sessaoIdAtual, semCorte).subscribe({
       next: (res) => this.aoFinalizar(res),
       error: (err) => {
+        if (this.tratarPedidoAlterado(err)) return;
         this.verificarConclusaoAntesDoErro(() => {
           this.encerrarOperacao();
           this.mostrarModalDivergencia.set(false);

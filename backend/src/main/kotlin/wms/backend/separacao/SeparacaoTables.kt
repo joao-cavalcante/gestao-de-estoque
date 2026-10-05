@@ -260,3 +260,20 @@ object SeparacaoLocksTable : Table("app.separacao_locks") {
 
     override val primaryKey = PrimaryKey(tenantId, sessaoId, tipoSeparacao)
 }
+
+/** V56 — rastreio de cada carga de itens (abertura/sincronização): o que o pedido tinha e o que ficou escondido. */
+object SeparacaoDiagnosticosTable : Table("app.separacao_diagnosticos") {
+    val id = uuid("id")
+    val tenantId = uuid("tenant_id")
+    val sessaoId = uuid("sessao_id")
+    val nunota = integer("nunota")
+    val nuconf = integer("nuconf").nullable()
+    val origem = text("origem")
+    val recontagem = bool("recontagem")
+    val linhasPedido = integer("linhas_pedido")
+    val linhasCarregadas = integer("linhas_carregadas")
+    val ocultas = jsonb("ocultas")
+    val criadoEm = timestamp("criado_em")
+
+    override val primaryKey = PrimaryKey(id)
+}

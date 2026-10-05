@@ -303,6 +303,10 @@ data class CorrecaoItemDto(
 @Serializable
 data class SincronizacaoSankhyaDto(val itensVerificados: Int, val correcoes: List<CorrecaoItemDto>)
 
+/** 409 de concluir etapa / finalizar quando o pedido mudou no Sankhya — a sessão já foi corrigida, o operador confere. */
+@Serializable
+data class PedidoAlteradoDto(val codigo: String = "PEDIDO_ALTERADO", val erro: String, val sincronizacao: SincronizacaoSankhyaDto)
+
 @Serializable
 data class LinhaConferidaDto(val sequencia: Int, val qtdConferidaLocal: String)
 

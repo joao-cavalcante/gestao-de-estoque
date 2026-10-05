@@ -99,12 +99,17 @@
     <div class="oq-modal-backdrop" (click)="fecharSincronizacao()">
       <div class="oq-modal oq-modal--wide oq-cn" (click)="$event.stopPropagation()">
         <div class="oq-modal__header">
-          <span class="oq-modal__titulo">Atualizado com o Sankhya</span>
+          <span class="oq-modal__titulo">{{ sincronizacaoAutomatica() ? 'Pedido alterado no Sankhya' : 'Atualizado com o Sankhya' }}</span>
           <button type="button" class="oq-modal__fechar" (click)="fecharSincronizacao()">
             <oq-icon name="x" [size]="12" />
           </button>
         </div>
         <div class="oq-modal__body oq-cn__body">
+          @if (sincronizacaoAutomatica()) {
+            <span class="oq-form-hint oq-form-hint--erro">
+              O pedido mudou desde que a conferência foi aberta. A lista já foi atualizada — confira os itens abaixo e conclua de novo.
+            </span>
+          }
           @if (sinc.correcoes.length === 0) {
             <span class="oq-form-hint">
               Nenhuma diferença: os {{ sinc.itensVerificados }} itens do pedido já estavam iguais ao Sankhya.

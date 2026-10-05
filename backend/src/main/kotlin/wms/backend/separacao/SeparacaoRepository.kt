@@ -1868,6 +1868,34 @@ object SeparacaoRepository {
             .firstOrNull()?.get(SeparacaoItensTable.tipoSeparacao)?.toInt()
     }
 
+    /** Grava o rastreio de uma carga de itens (V56) — ver SeparacaoService.buscarItensDaNota. */
+    fun gravarDiagnostico(
+        tenantId: UUID,
+        sessaoId: UUID,
+        nunota: Long,
+        nuconf: Int?,
+        origem: String,
+        recontagem: Boolean,
+        linhasPedido: Int,
+        linhasCarregadas: Int,
+        ocultasJson: String,
+    ): Unit = TenantTx.run(tenantId) {
+        SeparacaoDiagnosticosTable.insert {
+            it[id] = UUID.randomUUID()
+            it[SeparacaoDiagnosticosTable.tenantId] = tenantId
+            it[SeparacaoDiagnosticosTable.sessaoId] = sessaoId
+            it[SeparacaoDiagnosticosTable.nunota] = nunota.toInt()
+            it[SeparacaoDiagnosticosTable.nuconf] = nuconf
+            it[SeparacaoDiagnosticosTable.origem] = origem
+            it[SeparacaoDiagnosticosTable.recontagem] = recontagem
+            it[SeparacaoDiagnosticosTable.linhasPedido] = linhasPedido
+            it[SeparacaoDiagnosticosTable.linhasCarregadas] = linhasCarregadas
+            it[ocultas] = ocultasJson
+            it[criadoEm] = java.time.Instant.now()
+        }
+        Unit
+    }
+
     /** Marca as linhas do grupo produto+controle como já enviadas ao Sankhya (V43). */
     fun marcarGrupoEnviado(tenantId: UUID, sessaoId: UUID, codprod: Int, controle: String): Unit = TenantTx.run(tenantId) {
         SeparacaoItensTable.update({

@@ -234,7 +234,9 @@ object SeparacaoService {
             // paralelo com buscarItens como antes. NUCCO é leitura local, roda
             // no meio sem bloquear nada.
             val codprodsNegados = withContext(Dispatchers.IO) { SeparacaoRepository.buscarCodprodsNegados(tenantId, nunota) }
-            val itensBrutos = buscarItens(tenantSlug, tenantId, nunota, nuconf, codprodsNegados)
+            val carga = buscarItensDaNota(tenantSlug, nunota, nuconf, codprodsNegados, recontagem = ehRecontagem)
+            registrarDiagnostico(tenantId, sessaoId, nunota, nuconf, "abertura", ehRecontagem, carga)
+            val itensBrutos = carga.itens.filter { it.sequencia in carga.pendentes }
 
             // Item já LIBERADO numa rodada de corte anterior: o Sankhya devolve
             // ele na recontagem com o QTDNEG original (15), não com o que foi
@@ -513,6 +515,31 @@ object SeparacaoService {
 
     class FinalizarSeparacaoException(message: String) : Exception(message)
 
+    /** O pedido mudou no Sankhya desde a abertura — a sessão já foi corrigida; o operador precisa conferir antes. */
+    class PedidoAlteradoException(val sincronizacao: SincronizacaoSankhyaDto) :
+        Exception("O pedido foi alterado no Sankhya — confira os itens atualizados antes de concluir.")
+
+    /**
+     * Antes de concluir etapa/finalizar: mesma comparação do "Atualizar com Sankhya" (itens que entraram,
+     * saíram ou mudaram). Achou diferença → a sessão é corrigida e a conclusão PARA ([PedidoAlteradoException]),
+     * pro operador conferir o que mudou. Caso real: nota 61514 (itens que não vieram na abertura).
+     * Falha ao consultar o Sankhya NÃO trava a operação — segue e registra o aviso.
+     */
+    private suspend fun verificarPedidoAtualizado(tenantSlug: String, tenantId: UUID, sessaoId: UUID, contexto: String) {
+        // Módulo opt-out: o tenant pode desligar a checagem pra ganhar desempenho (ver Modulos.SEM_VERIFICACAO_PEDIDO).
+        val desligada = withContext(Dispatchers.IO) {
+            wms.backend.tenancy.TenantRepository.modulosHabilitados(tenantId).contains(wms.backend.tenancy.Modulos.SEM_VERIFICACAO_PEDIDO)
+        }
+        if (desligada) return
+        val sinc = runCatching { sincronizarComSankhya(tenantSlug, tenantId, sessaoId) }
+            .onFailure { println("AVISO: verificação do pedido antes de $contexto falhou (sessão $sessaoId) — seguindo sem ela: ${it.message}") }
+            .getOrNull() ?: return
+        if (sinc.correcoes.isNotEmpty()) {
+            println("AVISO: $contexto barrado (sessão $sessaoId) — pedido mudou no Sankhya: ${sinc.correcoes.size} correção(ões)")
+            throw PedidoAlteradoException(sinc)
+        }
+    }
+
     /**
      * Eventos de confirmação que a TELA NATIVA do Sankhya manda junto de
      * ConferenciaSP.finalizarConferencia quando fecha uma conferência com
@@ -578,6 +605,8 @@ object SeparacaoService {
         semCorte: Boolean = false,
         /** Quem finalizou (login pessoal, ou operador do crachá na estação) — vira TGFCON2.CODUSUCONF. */
         usuarioFinalizadorId: UUID? = null,
+        /** false quando quem chama já verificou o pedido (concluirEtapa da última etapa). */
+        verificarPedido: Boolean = true,
     ): FinalizarResultadoDto {
         // "Finalizar divergente" desabilitado (01/10/2026): fechava como 'D' por engano, sem passar pela
         // Liberação de Corte. Barrado aqui também pra aba aberta com a tela antiga.
@@ -599,6 +628,8 @@ object SeparacaoService {
         }
         val nuconf = SeparacaoRepository.buscarNuconf(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão sem NUCONF — carregamento não terminou de verdade")
+
+        if (verificarPedido) verificarPedidoAtualizado(tenantSlug, tenantId, sessaoId, "finalizar")
 
         // CCO.FORMACAOVOLUMES 'S'/'T'/'D' exige volume apontado — mesma checagem
         // que o frontend faz pra desabilitar o botão, repetida aqui porque quem
@@ -840,6 +871,8 @@ object SeparacaoService {
         }
         val tipo = tipoSeparacao.toShort()
 
+        verificarPedidoAtualizado(tenantSlug, tenantId, sessaoId, "concluir etapa $tipoSeparacao")
+
         if (!manterPendente) {
             val pendentes = withContext(Dispatchers.IO) {
                 SeparacaoRepository.contarPendentesDaEtapa(tenantId, sessaoId, tipo)
@@ -893,7 +926,7 @@ object SeparacaoService {
         // precisou de UPDATE manual no banco pra destravar. Reverte a etapa
         // pra 'P' se finalizar() falhar, pra um retry pela UI funcionar sozinho.
         val res = try {
-            finalizar(tenantSlug, tenantId, sessaoId, semCorte = finalizarSemCorte, usuarioFinalizadorId = usuarioFinalizadorId)
+            finalizar(tenantSlug, tenantId, sessaoId, semCorte = finalizarSemCorte, usuarioFinalizadorId = usuarioFinalizadorId, verificarPedido = false)
         } catch (e: Exception) {
             withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
             throw e
@@ -1443,15 +1476,44 @@ object SeparacaoService {
         }.toMap()
     }
 
-    private suspend fun buscarItens(
-        tenantSlug: String,
-        tenantId: UUID,
-        nunota: Long,
-        nuconf: Int?,
-        codprodsNegados: Set<Pair<Int, String>> = emptySet(),
-    ): List<ItemParaSalvar> {
-        val (todos, pendentes) = buscarItensDaNota(tenantSlug, nunota, nuconf, codprodsNegados)
-        return todos.filter { it.sequencia in pendentes }
+    /** Linha do pedido que o filtro de "já conferido" escondeu (ou quis esconder e a TGFCOI2 não confirmou). */
+    @kotlinx.serialization.Serializable
+    data class LinhaOculta(
+        val sequencia: Int,
+        val codprod: Int,
+        val qtdNeg: String,
+        /** QTDCONF da DetalhesConferencia (o que disparou o filtro). */
+        val qtdConfDetalhe: String,
+        /** Soma do QTDCONF na TGFCOI2 (checagem dupla; null = não consultada). */
+        val qtdConfTgfcoi2: String? = null,
+        /** "oculto" = ficou fora da conferência | "mantido" = TGFCOI2 não confirmou, ficou na lista. */
+        val acao: String,
+    )
+
+    data class ItensDaNota(
+        val itens: List<ItemParaSalvar>,
+        val pendentes: Set<Int>,
+        val ocultas: List<LinhaOculta>,
+    )
+
+    /** Rastreio da carga (V56) + log. Nunca derruba a abertura/sincronização. */
+    private suspend fun registrarDiagnostico(
+        tenantId: UUID, sessaoId: UUID, nunota: Long, nuconf: Int?, origem: String, recontagem: Boolean, carga: ItensDaNota,
+    ) {
+        val carregadas = carga.itens.count { it.sequencia in carga.pendentes }
+        println(
+            "INFO: carga itens nunota=$nunota nuconf=$nuconf ($origem${if (recontagem) ", recontagem" else ""}): " +
+                "pedido=${carga.itens.size} carregadas=$carregadas" +
+                (if (carga.ocultas.isEmpty()) "" else " ocultas=" + carga.ocultas.joinToString { "seq${it.sequencia}/${it.codprod}:${it.acao}" }),
+        )
+        runCatching {
+            withContext(Dispatchers.IO) {
+                SeparacaoRepository.gravarDiagnostico(
+                    tenantId, sessaoId, nunota, nuconf, origem, recontagem, carga.itens.size, carregadas,
+                    kotlinx.serialization.json.Json.encodeToString(kotlinx.serialization.builtins.ListSerializer(LinhaOculta.serializer()), carga.ocultas),
+                )
+            }
+        }.onFailure { println("AVISO: falha ao gravar diagnóstico da carga (nunota $nunota): ${it.message}") }
     }
 
     /**
@@ -1464,7 +1526,8 @@ object SeparacaoService {
         nunota: Long,
         nuconf: Int?,
         codprodsNegados: Set<Pair<Int, String>>,
-    ): Pair<List<ItemParaSalvar>, Set<Int>> {
+        recontagem: Boolean,
+    ): ItensDaNota {
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,
             LoadRecordsRequest(
@@ -1482,6 +1545,40 @@ object SeparacaoService {
 
         val todasAsLinhas = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
             .filter { it["Produto.EXCLUIRCONF"]?.trim()?.uppercase() != "S" }
+
+        // Paliativo (nota 61514, 05/10/2026): itens do pedido sumiram da abertura sem nunca terem sido
+        // conferidos — o único filtro que esconde linha é este de "já conferido". Fora da recontagem
+        // (onde ele é a regra de verdade), só esconde se a TGFCOI2 da conferência CONFIRMAR conferido do
+        // produto; sem confirmação (ou falha na consulta) o item fica na lista. Tudo vai pro rastreio (V56).
+        val querEsconder = todasAsLinhas.filter { r ->
+            val codprod = r["CODPROD"]?.toIntOrNull() ?: return@filter false
+            val controle = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " "
+            if ((codprod to controle) in codprodsNegados) return@filter false
+            val qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO
+            qtdNeg <= (qtdConferidaPorProduto[codprod] ?: BigDecimal.ZERO)
+        }
+        val conferidoTgfcoi2: Map<Int, BigDecimal>? = if (recontagem || querEsconder.isEmpty() || nuconf == null) null else {
+            runCatching {
+                SankhyaDbExplorerClient.executarQuery(
+                    tenantSlug, "SELECT CODPROD, SUM(QTDCONF) AS QTD FROM TGFCOI2 WHERE NUCONF = $nuconf GROUP BY CODPROD",
+                ).mapNotNull { r -> r["CODPROD"]?.toBigDecimalOrNull()?.toInt()?.let { it to (r["QTD"]?.toBigDecimalOrNull() ?: BigDecimal.ZERO) } }.toMap()
+            }.onFailure { println("AVISO: checagem TGFCOI2 falhou (nuconf $nuconf) — nenhum item escondido: ${it.message}") }
+                .getOrDefault(emptyMap())
+        }
+        val ocultas = querEsconder.mapNotNull { r ->
+            val codprod = r["CODPROD"]?.toIntOrNull() ?: return@mapNotNull null
+            val confirmado = recontagem || (conferidoTgfcoi2?.get(codprod)?.signum() ?: 0) > 0
+            LinhaOculta(
+                sequencia = r["SEQUENCIA"]?.toIntOrNull() ?: return@mapNotNull null,
+                codprod = codprod,
+                qtdNeg = (r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO).stripTrailingZeros().toPlainString(),
+                qtdConfDetalhe = (qtdConferidaPorProduto[codprod] ?: BigDecimal.ZERO).stripTrailingZeros().toPlainString(),
+                qtdConfTgfcoi2 = conferidoTgfcoi2?.let { (it[codprod] ?: BigDecimal.ZERO).stripTrailingZeros().toPlainString() },
+                acao = if (confirmado) "oculto" else "mantido",
+            )
+        }
+        val escondidas = ocultas.filter { it.acao == "oculto" }.map { it.sequencia }.toSet()
+
         val pendentes = todasAsLinhas
             // Critério real de "precisa reconferência", capturado ao vivo da
             // tela nativa (nota 57500): compara QTDNEG (ItemNota) com QTDCONF
@@ -1495,15 +1592,8 @@ object SeparacaoService {
             // 57501, codprod 94): negar é uma decisão explícita do operador
             // que exige nova ação; não pode sumir sozinho só porque o Sankhya
             // já espelhou um QTDCONF que parece "resolvido" pro novo ciclo.
-            .filter { r ->
-                val codprod = r["CODPROD"]?.toIntOrNull()
-                val controle = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " "
-                if (codprod != null && (codprod to controle) in codprodsNegados) return@filter true
-                val qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO
-                val qtdConf = codprod?.let { qtdConferidaPorProduto[it] } ?: BigDecimal.ZERO
-                qtdNeg > qtdConf
-            }
             .mapNotNull { it["SEQUENCIA"]?.toIntOrNull() }
+            .filter { it !in escondidas }
             .toSet()
 
         val itens = todasAsLinhas.mapNotNull { r ->
@@ -1523,7 +1613,7 @@ object SeparacaoService {
                 tipoSeparacao = parseTipoSeparacao(r["Produto.AD_TIPOSEPARACAO"]),
             )
         }
-        return itens to pendentes
+        return ItensDaNota(itens, pendentes, ocultas)
     }
 
     /**
@@ -1786,7 +1876,10 @@ object SeparacaoService {
         val chavesLiberadas = withContext(Dispatchers.IO) { SeparacaoRepository.buscarDecisoesLiberadasComQtd(tenantId, nunota) }
             .map { it.codprod to it.controle }.toSet()
 
-        val (itensNota, sequenciasPendentes) = buscarItensDaNota(tenantSlug, nunota, nuconf, codprodsNegados)
+        val carga = buscarItensDaNota(tenantSlug, nunota, nuconf, codprodsNegados, recontagem = sessao.recontagem)
+        registrarDiagnostico(tenantId, sessaoId, nunota, nuconf, "sincronizacao", sessao.recontagem, carga)
+        val itensNota = carga.itens
+        val sequenciasPendentes = carga.pendentes
         val codprods = itensNota.map { it.codprod }.distinct()
         // Aqui falha de leitura TRAVA (diferente da abertura): corrigir com dado incompleto pioraria a sessão.
         val codvolProduto = buscarCodvolProduto(tenantSlug, codprods)

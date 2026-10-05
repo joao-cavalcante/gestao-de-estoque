@@ -332,6 +332,8 @@ fun Route.separacaoRoutes() {
                     ?: claims.userId.takeIf { claims.perfil != "ESTACAO" }
                 val resultado = SeparacaoService.finalizar(slug, tenantId, sessaoId, semCorte = semCorte, usuarioFinalizadorId = finalizador)
                 call.respond(resultado)
+            } catch (e: SeparacaoService.PedidoAlteradoException) {
+                call.respond(HttpStatusCode.Conflict, PedidoAlteradoDto(erro = e.message ?: "pedido alterado no Sankhya", sincronizacao = e.sincronizacao))
             } catch (e: SeparacaoService.FinalizarSeparacaoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível finalizar")))
             } catch (e: Exception) {
@@ -453,6 +455,8 @@ fun Route.separacaoRoutes() {
                 call.respond(resultado)
             } catch (e: SeparacaoService.EtapaComPendentesException) {
                 call.respond(HttpStatusCode.Conflict, EtapaComPendentesDto(pendentes = e.pendentes))
+            } catch (e: SeparacaoService.PedidoAlteradoException) {
+                call.respond(HttpStatusCode.Conflict, PedidoAlteradoDto(erro = e.message ?: "pedido alterado no Sankhya", sincronizacao = e.sincronizacao))
             } catch (e: SeparacaoService.ConcluirEtapaException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível concluir a etapa")))
             } catch (e: SeparacaoService.FinalizarSeparacaoException) {

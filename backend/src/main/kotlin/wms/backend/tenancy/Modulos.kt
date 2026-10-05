@@ -19,6 +19,13 @@ object Modulos {
      */
     const val PESAVEL_POR_PRODUTO = "pesavel_por_produto"
 
+    /**
+     * DESLIGA a checagem do pedido com o Sankhya ao concluir etapa/finalizar (SeparacaoService.verificarPedidoAtualizado).
+     * Ao contrário dos outros, é um "opt-out": sem o módulo a checagem RODA (padrão seguro, nota 61514);
+     * marcar o módulo troca a segurança por desempenho (uma leitura a menos do pedido no Sankhya por conclusão).
+     */
+    const val SEM_VERIFICACAO_PEDIDO = "sem_verificacao_pedido"
+
     /** Todos os módulos conhecidos — usado pela tela de admin de tenant pra listar as opções. */
-    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO)
+    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO)
 }
