@@ -60,6 +60,12 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
                   <oq-icon name="balanca" [size]="13" />
                   <strong>{{ fmt(i.qtdConferida, 3) }}</strong> {{ i.unidade ?? 'KG' }} <small>de {{ fmt(i.qtdPedido, 3) }}</small>
                 </span>
+              } @else if (usaUnidadePedido(i)) {
+                <!-- Não pesável vendido em outra unidade (ex.: CX): mostra na unidade do pedido, base de referência. -->
+                <span class="ck-qtd" title="Conferido / pedido na unidade do pedido">
+                  {{ fmt(i.qtdConferidaComercial!, 0) }} / {{ fmt(i.qtdPedidoComercial!, 0) }} {{ i.unidadeComercial }}
+                  <small class="ck-base">Base: {{ fmt(i.qtdConferida, 0) }} / {{ fmt(i.qtdPedido, 0) }} {{ i.unidade }}</small>
+                </span>
               } @else {
                 <span class="ck-qtd">{{ fmt(i.qtdConferida, 0) }} / {{ fmt(i.qtdPedido, 0) }} {{ i.unidade }}</span>
               }
@@ -94,6 +100,7 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
       .ck-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ck-qtd { flex: none; font-family: var(--oq-font-mono); font-weight: 600; white-space: nowrap; }
       .ck-qtd--pedido { font-weight: 700; }
+      .ck-base { display: block; font-weight: 400; font-size: 0.8em; opacity: 0.7; text-align: right; }
       .ck-div { flex: none; padding: 1px 6px; border-radius: var(--oq-radius-input); background: var(--oq-critical); color: #fff;
         font-family: var(--oq-font-display); font-size: 10px; font-weight: 700; }
       .ck-peso { flex: none; display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 8px; border: 1px dashed var(--oq-text-primary);
@@ -165,6 +172,11 @@ export class OqConferidosChecklistComponent implements OnChanges {
   pedidoComercial(i: ReconferenciaItem): string | null {
     if (!i.unidadeComercial || !i.qtdPedidoComercial || i.unidadeComercial === i.unidade) return null;
     return `${this.fmt(i.qtdPedidoComercial, 0)} ${i.unidadeComercial}`;
+  }
+
+  /** Item NÃO pesável negociado numa unidade diferente da base (ex.: CX com base KG) — mesma regra da Conferência. */
+  usaUnidadePedido(i: ReconferenciaItem): boolean {
+    return !!i.unidadeComercial && i.unidadeComercial !== i.unidade && !!i.qtdPedidoComercial && !!i.qtdConferidaComercial;
   }
 
   fmt(v: string, casas: number): string {

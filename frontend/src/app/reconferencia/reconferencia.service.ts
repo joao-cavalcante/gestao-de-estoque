@@ -15,6 +15,8 @@ export interface ReconferenciaItem {
   /** Unidade do pedido (ex.: CX) e a qtd do pedido nela. */
   unidadeComercial?: string | null;
   qtdPedidoComercial?: string | null;
+  /** Qtd conferida na unidade do pedido (não pesável aparece nela). */
+  qtdConferidaComercial?: string | null;
   pesavel: boolean;
   checado: boolean;
   checadoPor?: string | null;

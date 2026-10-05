@@ -59,6 +59,8 @@ data class ReconferenciaItemDto(
     /** Unidade do pedido (comercial, ex.: CX) e a qtd do pedido nela — pesável mostra "3 CX" + o peso em KG. */
     val unidadeComercial: String? = null,
     val qtdPedidoComercial: String? = null,
+    /** Qtd conferida na unidade do pedido — item NÃO pesável vendido em CX/BI aparece nela (ex.: 20 CX, não 30 KG). */
+    val qtdConferidaComercial: String? = null,
     val pesavel: Boolean,
     val checado: Boolean,
     val checadoPor: String? = null,
@@ -141,6 +143,11 @@ object ReconferenciaService {
                     qtdPedidoComercial = linhas.sumOf {
                         wms.backend.separacao.SeparacaoRepository.padraoParaComercial(
                             it[SeparacaoItensTable.qtdNeg], it[SeparacaoItensTable.divideMultiplica], it[SeparacaoItensTable.fatorConversao],
+                        )
+                    }.stripTrailingZeros().toPlainString(),
+                    qtdConferidaComercial = linhas.sumOf {
+                        wms.backend.separacao.SeparacaoRepository.padraoParaComercial(
+                            it[SeparacaoItensTable.qtdConferidaLocal], it[SeparacaoItensTable.divideMultiplica], it[SeparacaoItensTable.fatorConversao],
                         )
                     }.stripTrailingZeros().toPlainString(),
                     pesavel = r[SeparacaoItensTable.usaConfPeso],
