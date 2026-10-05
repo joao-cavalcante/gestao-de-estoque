@@ -34,6 +34,8 @@ data class MapaSeparacaoDto(
     val nomeMotorista: String?,
     /** TGFORD.PESOMAX — peso máximo da Ordem de Carga. */
     val pesoMaxOc: String?,
+    /** TGFORD.DTALTER — data/hora da última alteração da OC ("dd/MM/yyyy HH:mm:ss"); null no mapa S/ OC. */
+    val ultimaAlteracaoOc: String? = null,
     val totalPedidos: Int,
     val quantidadeTotal: String,
     val pesoTotal: String,
@@ -95,6 +97,8 @@ data class OrdemCargaResumoDto(
     val ordemCarga: Long,
     /** TGFORD.DTPREVSAIDA (dd/MM/yyyy), já formatada — ou "—" se ausente. */
     val dataPrevSaida: String,
+    /** TGFORD.DTALTER — última alteração da OC ("dd/MM/yyyy HH:mm:ss"), ou "—". */
+    val ultimaAlteracao: String = "—",
     val placa: String?,
     val nomeMotorista: String?,
     /** Total de notas da OC (TGFCAB.ORDEMCARGA) — pra barra de progresso de conferência. */

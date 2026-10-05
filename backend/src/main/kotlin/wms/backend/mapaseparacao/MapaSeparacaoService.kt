@@ -45,8 +45,22 @@ object MapaSeparacaoService {
     private val FIELDS_NOTA = listOf("NUNOTA", "CODEMP", "CODPARC", "Parceiro.NOMEPARC", "TIPMOV", "ORDEMCARGA")
     /** + NUMNOTA pro cabeçalho do mapa S/ Ordem de Carga (identificação do pedido impresso). */
     private val FIELDS_NOTA_SEM_OC = FIELDS_NOTA + "NUMNOTA"
-    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODEMP", "PESOMAX", "CODVEICULO", "CODPARCMOTORISTA")
-    private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO")
+    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODEMP", "PESOMAX", "CODVEICULO", "CODPARCMOTORISTA", "DTALTER")
+    private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO", "DTALTER")
+
+    /**
+     * TGFORD.DTALTER como vem do Sankhya ("05102026 15:20:42" ou "05/10/2026 15:20:42") → "05/10/2026 15:20:42".
+     * Formato desconhecido volta como veio (nunca derruba o mapa).
+     */
+    private fun formatarDataHora(bruto: String?): String? {
+        val v = bruto?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val compacto = Regex("""^(\d{2})(\d{2})(\d{4})\s+(\d{2}:\d{2}:\d{2})""").find(v)
+        if (compacto != null) {
+            val (d, m, a, h) = compacto.destructured
+            return "$d/$m/$a $h"
+        }
+        return v
+    }
     private val FIELDS_VEICULO = listOf("CODVEICULO", "MARCAMODELO", "PLACA")
     private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
     private val FIELDS_ITEM = listOf(
@@ -167,6 +181,7 @@ object MapaSeparacaoService {
             codParcMotorista = codParcMotorista,
             nomeMotorista = codParcMotorista?.let { motoristaDeferred?.await()?.get(it) },
             pesoMaxOc = pesoMaxOc?.formatar(),
+            ultimaAlteracaoOc = formatarDataHora(ordemRaw["DTALTER"]),
             totalPedidos = corpo.totalPedidos,
             quantidadeTotal = corpo.quantidadeTotal,
             pesoTotal = corpo.pesoTotal,
@@ -514,6 +529,7 @@ object MapaSeparacaoService {
             OrdemCargaResumoDto(
                 ordemCarga = ordemCarga,
                 dataPrevSaida = r["DTPREVSAIDA"]?.trim()?.takeIf { it.isNotEmpty() } ?: "—",
+                ultimaAlteracao = formatarDataHora(r["DTALTER"]) ?: "—",
                 placa = codVeiculo?.let { placasPorCodVeiculo[it] },
                 nomeMotorista = codMotorista?.let { nomesPorCodParc[it] },
                 totalNotas = statusDaOc.size,

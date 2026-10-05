@@ -14,6 +14,8 @@ export interface MapaSeparacaoDto {
   codParcMotorista: number | null;
   nomeMotorista: string | null;
   pesoMaxOc: string | null;
+  /** TGFORD.DTALTER — última alteração da OC ("dd/MM/yyyy HH:mm:ss"); null no mapa S/ OC. */
+  ultimaAlteracaoOc?: string | null;
   totalPedidos: number;
   quantidadeTotal: string;
   pesoTotal: string;
@@ -74,6 +76,8 @@ export interface ParceiroSeparacaoDto {
 export interface OrdemCargaResumoDto {
   ordemCarga: number;
   dataPrevSaida: string;
+  /** TGFORD.DTALTER — última alteração da OC ("dd/MM/yyyy HH:mm:ss") ou "—". */
+  ultimaAlteracao?: string;
   placa: string | null;
   nomeMotorista: string | null;
   /** Total de notas da OC e quantas já estão conferidas no mirror local (ver TarefaSyncService) — barra de progresso do card. */

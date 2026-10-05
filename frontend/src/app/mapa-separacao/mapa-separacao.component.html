@@ -296,6 +296,10 @@
                     <span class="oq-card__field-value">{{ oc.dataPrevSaida }}</span>
                   </div>
                   <div class="oq-card__field">
+                    <span class="oq-card__field-label">Última alteração</span>
+                    <span class="oq-card__field-value">{{ oc.ultimaAlteracao ?? '—' }}</span>
+                  </div>
+                  <div class="oq-card__field">
                     <span class="oq-card__field-label">Placa</span>
                     <span class="oq-card__field-value">{{ oc.placa ?? '—' }}</span>
                   </div>
@@ -334,6 +338,7 @@
                   <th scope="col" class="oq-lista__topo">Status</th>
                   <th scope="col" class="oq-lista__principal">Ordem de Carga</th>
                   <th scope="col">Data prev. saída</th>
+                  <th scope="col">Última alteração</th>
                   <th scope="col">Placa</th>
                   <th scope="col">Motorista</th>
                   <th scope="col">Notas conferidas</th>
@@ -364,6 +369,7 @@
                       </span>
                     </td>
                     <td data-label="Data prev. saída">{{ oc.dataPrevSaida }}</td>
+                    <td data-label="Última alteração">{{ oc.ultimaAlteracao ?? '—' }}</td>
                     <td data-label="Placa">{{ oc.placa ?? '—' }}</td>
                     <td data-label="Motorista" [title]="oc.nomeMotorista ?? ''">{{ oc.nomeMotorista ?? '—' }}</td>
                     <td data-label="Notas conferidas">
@@ -473,6 +479,12 @@
             <span class="ms-label">Motorista</span>
             <span class="ms-valor">{{ mapa.nomeMotorista ?? '—' }}</span>
           </div>
+          @if (mapa.ultimaAlteracaoOc) {
+            <div class="ms-cabecalho__cel">
+              <span class="ms-label">Última alteração da OC</span>
+              <span class="ms-valor">{{ mapa.ultimaAlteracaoOc }}</span>
+            </div>
+          }
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Peso Máximo OC</span>
             <span class="ms-valor">{{ mapa.pesoMaxOc ? formatarPeso(mapa.pesoMaxOc) : '—' }}</span>
