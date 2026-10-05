@@ -49,6 +49,37 @@
     </section>
   }
 
+  @if (carregamento(); as c) {
+    <!-- Carregamento: o checklist do "Ver conferidos", aqui mesmo na fila -->
+    <div class="oq-modal-backdrop" (click)="fecharCarregamento()">
+      <div class="oq-modal oq-modal--wide oq-cn" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span class="oq-modal__titulo">{{ c.titulo }}</span>
+          <button type="button" class="oq-modal__fechar" (click)="fecharCarregamento()">✕</button>
+        </div>
+        <div class="oq-modal__body oq-carga__body">
+          @for (b of c.blocos; track b.nunota) {
+            <section class="oq-carga__pedido">
+              @if (c.blocos.length > 1) {
+                <div class="oq-carga__pedido-topo"><strong>{{ b.nunota }}</strong> · {{ b.cliente }}</div>
+              }
+              @if (b.erro) {
+                <span class="oq-form-hint oq-form-hint--erro">{{ b.erro }}</span>
+              } @else if (b.detalhe) {
+                <oq-conferidos-checklist [detalhe]="b.detalhe" />
+              } @else {
+                <span class="oq-form-hint">Carregando itens…</span>
+              }
+            </section>
+          }
+        </div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="fecharCarregamento()">Concluir</button>
+        </div>
+      </div>
+    </div>
+  }
+
   <main class="oq-page__content">
     @if (carregando() || syncTick.sincronizando()) {
       @if (viewMode() === 'cards') {

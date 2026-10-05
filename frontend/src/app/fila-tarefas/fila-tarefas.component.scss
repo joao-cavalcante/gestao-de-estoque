@@ -31,3 +31,9 @@
 
   &:disabled { opacity: 0.5; cursor: default; }
 }
+
+// Pop-up de carregamento (um bloco por pedido)
+.oq-carga__body { display: flex; flex-direction: column; gap: 18px; max-height: 70vh; overflow: auto; }
+.oq-carga__pedido { display: flex; flex-direction: column; gap: 10px; }
+.oq-carga__pedido + .oq-carga__pedido { padding-top: 14px; border-top: 1px solid var(--oq-border); }
+.oq-carga__pedido-topo { font-size: 14px; strong { font-family: var(--oq-font-mono); } }

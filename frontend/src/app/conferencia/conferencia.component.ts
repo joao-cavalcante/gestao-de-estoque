@@ -596,6 +596,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   fecharConferidos(): void {
     this.mostrarConferidosNota.set(false);
     this.conferidosDetalhe.set(null);
+    if (this.voltarAoPainelFinal) {
+      this.voltarAoPainelFinal = false;
+      this.mostrarPainelFinalizada.set(true);
+    }
   }
 
   /** true = sessão segmentada, mais de uma etapa pendente e nenhuma escolhida — mostra o seletor. */
@@ -1571,9 +1575,13 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   /** OC do pedido (vinda da fila) — pedido com OC passa pelo carregamento. */
   ordemCargaTarefa: number | null = null;
 
-  /** Pop-up final: abre o checklist de carregamento desta conferência. */
+  /** Pop-up final: "Carregar agora" abre o "Ver conferidos" (checklist de carregamento) aqui mesmo. */
+  private voltarAoPainelFinal = false;
   irParaCarregamento(): void {
-    if (this.sessaoIdAtual) this.router.navigate(['/carregamento', this.sessaoIdAtual]);
+    if (!this.sessaoIdAtual) return;
+    this.voltarAoPainelFinal = true;
+    this.mostrarPainelFinalizada.set(false);
+    this.abrirConferidos();
   }
 }
 

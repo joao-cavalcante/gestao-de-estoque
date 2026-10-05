@@ -1,4 +1,6 @@
 import { Component, ElementRef, Injector, ViewChild, afterNextRender, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { OqConferidosChecklistComponent } from '../reconferencia/oq-conferidos-checklist.component';
+import { ReconferenciaDetalhe, ReconferenciaService } from '../reconferencia/reconferencia.service';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -40,6 +42,7 @@ function chaveData(data: string): number {
   selector: 'app-fila-tarefas',
   standalone: true,
   imports: [
+    OqConferidosChecklistComponent,
     FormsModule,
     OqKpiBarComponent,
     OqToolbarComponent,
@@ -386,10 +389,47 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.dropdownFiltrosAberto.update((v) => !v);
   }
 
-  /** Carregamento da OC inteira: lista das notas da OC na tela de carregamento. */
+  // ─── Carregamento na própria fila (pop-up com o checklist do "Ver conferidos") ───
+  private readonly reconferenciaService = inject(ReconferenciaService);
+  /** Pop-up aberto: um bloco por pedido (o "Carregar OC" traz todos os da OC que faltam). */
+  readonly carregamento = signal<{
+    titulo: string;
+    blocos: { nunota: string; cliente: string; detalhe: ReconferenciaDetalhe | null; erro: string | null }[];
+  } | null>(null);
+
+  /** Carregamento da OC inteira: todos os pedidos conferidos da OC que ainda têm item a carregar. */
   carregarOc(): void {
     const oc = this.ocFiltrada();
-    if (oc) this.router.navigate(['/carregamento'], { queryParams: { oc } });
+    if (!oc) return;
+    const pedidos = this.tarefasACarregar();
+    if (pedidos.length === 0) return;
+    this.abrirCarregamento(`Carregamento · OC ${oc}`, pedidos);
+  }
+
+  private abrirCarregamento(titulo: string, pedidos: Tarefa[]): void {
+    const comSessao = pedidos.filter((t) => !!t.carregamento?.sessaoId);
+    this.carregamento.set({
+      titulo,
+      blocos: comSessao.map((t) => ({ nunota: t.numeroUnico, cliente: t.cliente, detalhe: null, erro: null })),
+    });
+    comSessao.forEach((t, idx) => {
+      this.reconferenciaService.detalhe(t.carregamento!.sessaoId!).subscribe({
+        next: (d) => this.atualizarBloco(idx, { detalhe: d }),
+        error: () => this.atualizarBloco(idx, { erro: 'Não foi possível carregar os itens deste pedido.' }),
+      });
+    });
+  }
+
+  private atualizarBloco(idx: number, patch: { detalhe?: ReconferenciaDetalhe; erro?: string }): void {
+    const atual = this.carregamento();
+    if (!atual) return;
+    this.carregamento.set({ ...atual, blocos: atual.blocos.map((b, i) => (i === idx ? { ...b, ...patch } : b)) });
+  }
+
+  /** Fecha e relê a fila — o pedido todo carregado sai da lista e a faixa da OC atualiza. */
+  fecharCarregamento(): void {
+    this.carregamento.set(null);
+    this.carregarFila();
   }
 
   aplicarFiltrosAvancados(filtros: FiltrosAvancados): void {
@@ -403,7 +443,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const etapa = 'tarefa' in evento ? evento.etapa : undefined;
     // Conferida a carregar: abre o checklist de carregamento (o "Ver conferidos" da nota).
     if (aCarregar(tarefa) && tarefa.carregamento?.sessaoId) {
-      this.router.navigate(['/carregamento', tarefa.carregamento.sessaoId]);
+      this.abrirCarregamento(`Carregamento · ${tarefa.cliente}`, [tarefa]);
       return;
     }
     // Conferência já cortada e aguardando liberação — o operador vai pra tela
