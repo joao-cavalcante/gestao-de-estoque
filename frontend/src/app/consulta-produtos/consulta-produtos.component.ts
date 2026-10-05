@@ -287,9 +287,9 @@ export class ConsultaProdutosComponent implements OnInit {
     return valor?.trim() || '—';
   }
 
-  /** Complemento abaixo da descrição. */
-  subtitulo(p: ProdutoEstoque): string {
-    return p.complemento?.trim() ?? '';
+  /** "Descrição - Complemento" — mesmo formato de todas as telas. */
+  nomeProduto(p: ProdutoEstoque): string {
+    return [p.descricao?.trim(), p.complemento?.trim()].filter(Boolean).join(' - ');
   }
 
   lidoEmTexto(): string {

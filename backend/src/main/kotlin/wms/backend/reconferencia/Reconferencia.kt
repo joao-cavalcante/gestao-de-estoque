@@ -133,8 +133,8 @@ object ReconferenciaService {
                 ReconferenciaItemDto(
                     codprod = chave.first,
                     controle = chave.second,
-                    descricao = listOfNotNull(d.campo("Produto.DESCRPROD"), d.campo("Produto.COMPLDESC")).joinToString(" ")
-                        .ifBlank { "Produto ${chave.first}" },
+                    descricao = wms.backend.produtos.NomeProduto.formatar(d.campo("Produto.DESCRPROD"), d.campo("Produto.COMPLDESC"))
+                        ?: "Produto ${chave.first}",
                     tipoSeparacao = r[SeparacaoItensTable.tipoSeparacao].toInt(),
                     unidade = r[SeparacaoItensTable.unidadePadrao] ?: r[SeparacaoItensTable.codvol],
                     qtdPedido = linhas.sumOf { it[SeparacaoItensTable.qtdNeg] }.stripTrailingZeros().toPlainString(),
@@ -164,7 +164,7 @@ object ReconferenciaService {
             finalizada = s[SeparacaoSessoesTable.status] == SeparacaoStatus.CONCLUIDA,
             tolPesoAbaixoPct = s[SeparacaoSessoesTable.tolPesoAbaixoPct]?.toDouble(),
             tolPesoAcimaPct = s[SeparacaoSessoesTable.tolPesoAcimaPct]?.toDouble(),
-            itens = itens,
+            itens = itens.sortedWith(compareBy(wms.backend.produtos.NomeProduto.ORDEM) { it.descricao }),
         )
     }
 

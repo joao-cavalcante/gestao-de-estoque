@@ -119,8 +119,8 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
   return {
     seq: item.sequencia,
     code: String(item.codprod),
-    // Descrição + complemento do produto (TGFPRO.COMPLDESC), quando houver.
-    name: [item.descricaoProduto, item.complementoDescricao?.trim()].filter(Boolean).join(' ') || `Produto ${item.codprod}`,
+    // "Descrição - Complemento" (TGFPRO.COMPLDESC), quando houver — mesmo formato de todas as telas.
+    name: [item.descricaoProduto?.trim(), item.complementoDescricao?.trim()].filter(Boolean).join(' - ') || `Produto ${item.codprod}`,
     control: item.controle.trim() || '—',
     expected,
     scanned,
@@ -258,7 +258,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   /** Modo simplificado (sem dimensão) — só a quantidade de volumes, nativo do Sankhya. */
   readonly volume = signal(0);
 
-  readonly pendingItems = computed(() => this.items());
+  /** Pendentes em ordem alfabética de produto ("Descrição - Complemento"). */
+  readonly pendingItems = computed(() => [...this.items()].sort(porNomeProduto));
   readonly pendingCount = computed(() => this.items().length);
   readonly conferredCount = computed(() => this.conferred().length);
   /**
@@ -395,7 +396,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         quantidadeComercial,
       });
     }
-    return agregados.sort((a, b) => a.name.localeCompare(b.name));
+    return agregados.sort(porNomeProduto);
   });
   readonly temDivergenciaSessao = computed(() => this.itensDivergentesSessao().length > 0);
 
@@ -678,7 +679,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     [...this.conferred()].sort((a, b) => {
       if (a.status === 'critical' && b.status !== 'critical') return -1;
       if (b.status === 'critical' && a.status !== 'critical') return 1;
-      return 0;
+      return porNomeProduto(a, b);
     }),
   );
 
@@ -1572,4 +1573,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   sairParaFila(): void {
     this.router.navigate(['/fila-tarefas']);
   }
+}
+
+/** Ordem alfabética pelo nome exibido do produto (pt-BR, sem diferenciar maiúscula/acento, números em ordem natural). */
+function porNomeProduto(a: { name: string }, b: { name: string }): number {
+  return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base', numeric: true });
 }

@@ -1208,8 +1208,8 @@ object SeparacaoService {
 
         return withContext(Dispatchers.IO) {
             itens.map { item ->
-                val produto = listOfNotNull(item.descricaoProduto, item.complementoDescricao?.takeIf { it.isNotBlank() })
-                    .joinToString(" ").ifBlank { "Produto ${item.codprod}" }
+                val produto = wms.backend.produtos.NomeProduto.formatar(item.descricaoProduto, item.complementoDescricao)
+                    ?: "Produto ${item.codprod}"
                 SeparacaoRepository.obterOuCriarEtiquetaPeso(
                     tenantId = tenantId,
                     sessaoId = sessaoId,

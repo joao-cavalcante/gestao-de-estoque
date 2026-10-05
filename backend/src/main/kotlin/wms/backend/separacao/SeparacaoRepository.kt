@@ -576,7 +576,10 @@ object SeparacaoRepository {
                     codprod = row[SeparacaoItensTable.codprod],
                     controle = row[SeparacaoItensTable.controle],
                     codvol = row[SeparacaoItensTable.codvol],
-                    descricao = dados?.get("Produto.DESCRPROD")?.jsonPrimitive?.contentOrNull,
+                    descricao = wms.backend.produtos.NomeProduto.formatar(
+                        dados?.get("Produto.DESCRPROD")?.jsonPrimitive?.contentOrNull,
+                        dados?.get("Produto.COMPLDESC")?.jsonPrimitive?.contentOrNull,
+                    ),
                     referencia = dados?.get("Produto.REFERENCIA")?.jsonPrimitive?.contentOrNull,
                     tipControle = dados?.get("Produto.TIPCONTEST")?.jsonPrimitive?.contentOrNull,
                     lisControles = dados?.get("Produto.LISCONTEST")?.jsonPrimitive?.contentOrNull,
@@ -655,7 +658,7 @@ object SeparacaoRepository {
             codprod = codprod,
             controle = " ",
             codvol = null,
-            descricao = produto[ProdutosCacheTable.descrprod],
+            descricao = wms.backend.produtos.NomeProduto.formatar(produto[ProdutosCacheTable.descrprod], produto[ProdutosCacheTable.compldesc]),
             referencia = produto[ProdutosCacheTable.referencia],
             tipControle = produto[ProdutosCacheTable.tipcontest],
             lisControles = produto[ProdutosCacheTable.liscontest],
@@ -920,8 +923,7 @@ object SeparacaoRepository {
                 ultimaQtdConferida = alocado
                 linhasAfetadas += LinhaConferidaDto(linha[SeparacaoItensTable.sequencia], alocado.toPlainString())
                 if (ehUltima) {
-                    val dados = runCatching { Json.parseToJsonElement(linha[SeparacaoItensTable.dados]) as JsonObject }.getOrNull()
-                    descricaoProduto = dados?.get("Produto.DESCRPROD")?.jsonPrimitive?.contentOrNull
+                    descricaoProduto = descricaoDosDados(linha[SeparacaoItensTable.dados])
                 }
             }
 
@@ -1281,7 +1283,13 @@ object SeparacaoRepository {
         v.setScale(3, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', ',')
 
     private fun descricaoDosDados(dados: String): String? =
-        runCatching { (Json.parseToJsonElement(dados) as JsonObject)["Produto.DESCRPROD"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+        runCatching {
+            val d = Json.parseToJsonElement(dados) as JsonObject
+            wms.backend.produtos.NomeProduto.formatar(
+                d["Produto.DESCRPROD"]?.jsonPrimitive?.contentOrNull,
+                d["Produto.COMPLDESC"]?.jsonPrimitive?.contentOrNull,
+            )
+        }.getOrNull()
 
     fun buscarSessao(tenantId: UUID, sessaoId: UUID): SessaoSeparacaoDto? = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()

@@ -288,11 +288,8 @@ object MapaSeparacaoService {
                 codVol = r["CODVOL"]?.trim().orEmpty(),
                 codVolProduto = r["Produto.CODVOL"]?.trim()?.takeIf { it.isNotEmpty() },
                 qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO,
-                // Descrição + complemento do produto (TGFPRO.COMPLDESC), ex.: "LINGUIÇA CALABRESA AURORA 5KG GRANDE".
-                descrProd = listOfNotNull(
-                    r["Produto.DESCRPROD"]?.trim()?.takeIf { it.isNotEmpty() },
-                    r["Produto.COMPLDESC"]?.trim()?.takeIf { it.isNotEmpty() },
-                ).joinToString(" "),
+                // Descrição - complemento (TGFPRO.COMPLDESC), ex.: "LINGUIÇA CALABRESA AURORA 5KG - GRANDE".
+                descrProd = wms.backend.produtos.NomeProduto.formatar(r["Produto.DESCRPROD"], r["Produto.COMPLDESC"]).orEmpty(),
                 pesoBruto = r["Produto.PESOBRUTO"].parseBigDecimalBr() ?: BigDecimal.ZERO,
                 usoProd = r["Produto.USOPROD"]?.trim(),
                 tipoSeparacao = r["Produto.AD_TIPOSEPARACAO"]?.trim()?.takeIf { it.isNotEmpty() } ?: "0",
@@ -425,7 +422,7 @@ object MapaSeparacaoService {
                 descricao = descricaoCategoria(codigo),
                 quantidadeTotal = itensCategoria.sumOf { it.quantidade }.formatar(),
                 pesoTotal = itensCategoria.sumOf { it.pesoTotal }.formatar(),
-                itens = itensCategoria.sortedBy { it.codProd }.map { i ->
+                itens = itensCategoria.sortedWith(compareBy(wms.backend.produtos.NomeProduto.ORDEM) { it.descricao }).map { i ->
                     ItemSeparacaoDto(
                         codProd = i.codProd,
                         descricao = i.descricao,

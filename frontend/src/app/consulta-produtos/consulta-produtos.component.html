@@ -120,10 +120,7 @@
               <tr class="oq-lista__linha" [class.oq-lista__linha--critical]="p.disponivel < 0">
                 <td data-label="Código">{{ p.codprod }}</td>
                 <td class="oq-lista__principal" data-label="Produto">
-                  <span class="oq-lista__destaque" [title]="p.descricao">{{ p.descricao }}</span>
-                  @if (subtitulo(p); as sub) {
-                    <span class="cp-sub">{{ sub }}</span>
-                  }
+                  <span class="oq-lista__destaque" [title]="nomeProduto(p)">{{ nomeProduto(p) }}</span>
                 </td>
                 <td data-label="Referência">{{ p.referencia || '—' }}</td>
                 <td data-label="Marca">{{ p.marca || '—' }}</td>

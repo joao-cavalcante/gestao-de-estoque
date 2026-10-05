@@ -463,7 +463,7 @@ object LiberacaoCorteService {
                 val conferido = itemPesavel.qtdConferidaLocal.toDoubleOrNull()
                 LiberacaoPendenteDto(
                     sequencia = linha["SEQUENCIA"]?.toIntOrNull() ?: 0,
-                    produto = obs.produto,
+                    produto = wms.backend.produtos.NomeProduto.daObservacaoLiberacao(obs.produto),
                     qtdPedido = pedido,
                     unidadePedido = itemPesavel.unidadePadrao,
                     qtdConferida = conferido,
@@ -479,7 +479,7 @@ object LiberacaoCorteService {
                 }
                 LiberacaoPendenteDto(
                     sequencia = linha["SEQUENCIA"]?.toIntOrNull() ?: 0,
-                    produto = obs.produto,
+                    produto = wms.backend.produtos.NomeProduto.daObservacaoLiberacao(obs.produto),
                     qtdPedido = obs.qtdPedido,
                     unidadePedido = obs.unidadePedido,
                     qtdConferida = obs.qtdConferida,
@@ -487,7 +487,7 @@ object LiberacaoCorteService {
                     diferenca = diferenca,
                 )
             }
-        }
+        }.sortedWith(compareBy(wms.backend.produtos.NomeProduto.ORDEM) { it.produto })
     }
 
     /** Aprova ('S') ou nega ('N') os itens selecionados. Se liberar e não sobrar nada pendente, finaliza a conferência. */
