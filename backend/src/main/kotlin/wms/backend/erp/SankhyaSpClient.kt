@@ -72,13 +72,18 @@ object SankhyaSpClient {
      *    rodam em `/mge` e levam `clientEventList` ao lado de `params`;
      *  - `SelecaoDocumentoSP.faturar` leva `requestBody.notas` (não `params`).
      * Mesmo retry/backoff/auth/checagem de `status == "1"` do [chamar].
+     * `retentar = false` pra rotina NÃO idempotente (ex.: faturar): um timeout depois que o
+     * Sankhya já processou faria a repetição gerar a operação de novo — quem chama confere o estado.
      */
     suspend fun chamarRaw(
         tenantSlug: String,
         serviceName: String,
         modulo: String,
         requestBody: JsonObject,
-    ): JsonObject = comRetry(serviceName) { chamarRawUmaVez(tenantSlug, serviceName, modulo, requestBody) }
+        retentar: Boolean = true,
+    ): JsonObject =
+        if (retentar) comRetry(serviceName) { chamarRawUmaVez(tenantSlug, serviceName, modulo, requestBody) }
+        else SankhyaMetricas.medir(serviceName) { chamarRawUmaVez(tenantSlug, serviceName, modulo, requestBody) }
 
     private suspend fun chamarRawUmaVez(
         tenantSlug: String,

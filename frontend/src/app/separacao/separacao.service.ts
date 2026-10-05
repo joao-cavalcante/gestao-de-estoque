@@ -164,8 +164,8 @@ export class SeparacaoService {
   }
 
   /** Fatura a nota da sessão na TOP escolhida. */
-  faturar(tenant: string, sessaoId: string, codTipOper: number, serie?: string): Observable<{ ok: boolean }> {
-    return this.http.post<{ ok: boolean }>(
+  faturar(tenant: string, sessaoId: string, codTipOper: number, serie?: string): Observable<{ ok: boolean; notasGeradas: number[] }> {
+    return this.http.post<{ ok: boolean; notasGeradas: number[] }>(
       `${this.baseUrl}/sessoes/${sessaoId}/faturar`,
       { codTipOper, serie: serie ?? null },
       { params: { tenant } },

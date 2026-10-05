@@ -727,8 +727,8 @@ fun Route.separacaoRoutes() {
             // Sem lock aqui: o faturamento roda DEPOIS do finalizar, que já liberou os locks da sessão concluída.
             val body = call.receive<FaturarRequest>()
             try {
-                SeparacaoService.faturar(slug, tenantId, sessaoId, body.codTipOper, body.serie)
-                call.respond(mapOf("ok" to true))
+                val notas = SeparacaoService.faturar(slug, tenantId, sessaoId, body.codTipOper, body.serie)
+                call.respond(FaturarResponse(ok = true, notasGeradas = notas))
             } catch (e: SeparacaoService.FaturamentoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível faturar")))
             } catch (e: Exception) {

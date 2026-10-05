@@ -156,6 +156,10 @@ data class TopFaturamentoDto(val codTipOper: Int, val descricao: String)
 @Serializable
 data class FaturarRequest(val codTipOper: Int, val serie: String? = null)
 
+/** `notasGeradas` = NUNOTA das notas criadas pelo faturamento (TGFVAR), pro operador conferir. */
+@Serializable
+data class FaturarResponse(val ok: Boolean, val notasGeradas: List<Long>)
+
 @Serializable
 data class ConferenciaFinalizadaDto(
     val sessaoId: String,

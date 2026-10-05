@@ -80,7 +80,11 @@ fun Route.liberacaoCorteRoutes() {
                 val n = LiberacaoCorteService.liberarOuNegar(
                     slug, claims.tenantId, body.nuconf, body.usuario, body.senha, body.liberar, body.sequencias, body.obs,
                 )
-                call.respond(LiberarCorteResponse(ok = true, itensProcessados = n))
+                val sessao = runCatching {
+                    wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(claims.tenantId, body.nuconf)
+                        ?.let { wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(claims.tenantId, it) }
+                }.getOrNull()
+                call.respond(LiberarCorteResponse(ok = true, itensProcessados = n, sessaoId = sessao?.id, fatAoConcluir = sessao?.fatAoConcluir))
             } catch (e: LiberacaoCorteService.LiberacaoCorteException) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to (e.message ?: "falha na liberação")))
             } catch (e: Exception) {

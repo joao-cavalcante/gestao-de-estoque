@@ -43,4 +43,11 @@ data class LiberarCorteRequest(
 )
 
 @Serializable
-data class LiberarCorteResponse(val ok: Boolean = true, val itensProcessados: Int)
+data class LiberarCorteResponse(
+    val ok: Boolean = true,
+    val itensProcessados: Int,
+    /** Sessão WMS da nota — a tela de Liberação de Corte usa pra oferecer o faturamento quando o corte fecha. */
+    val sessaoId: String? = null,
+    /** CCO.FATAOCONCLUIR da sessão — 'S' = oferecer faturamento depois de liberar todo o corte. */
+    val fatAoConcluir: String? = null,
+)

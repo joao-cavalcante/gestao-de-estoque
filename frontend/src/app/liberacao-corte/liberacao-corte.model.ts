@@ -38,4 +38,8 @@ export interface LiberarCorteParams {
 export interface LiberarCorteResposta {
   ok: boolean;
   itensProcessados: number;
+  /** Sessão WMS da nota — usada pra oferecer o faturamento quando o corte fecha. */
+  sessaoId?: string | null;
+  /** CCO.FATAOCONCLUIR — 'S' = oferecer faturamento depois de liberar todo o corte. */
+  fatAoConcluir?: string | null;
 }

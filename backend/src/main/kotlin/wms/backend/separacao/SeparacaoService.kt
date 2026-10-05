@@ -371,7 +371,7 @@ object SeparacaoService {
                 emptyList()
             }
 
-            val codigosBarra = montarCodigosBarra(barRows, voaRows, estRows)
+            val codigosBarra = montarCodigosBarra(barRows, voaRows, estRows, codvolProdutoPorCodprod)
             val fingerprint = calcularFingerprint(itens)
 
             // Unidades alternativas (TGFVOA) — match POR LINHA: a linha negociada
@@ -1035,10 +1035,58 @@ object SeparacaoService {
 
     class FaturamentoException(message: String) : Exception(message)
 
+    /** Estado da nota no Sankhya que decide se dá pra faturar: notas já geradas a partir dela e corte aguardando liberação. */
+    private data class SituacaoFaturamento(val notasGeradas: List<Long>, val liberacoesPendentes: Int, val statusConferencia: String?)
+
+    private suspend fun situacaoFaturamento(tenantSlug: String, nunota: Long): SituacaoFaturamento {
+        val geradas = SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            "SELECT DISTINCT V.NUNOTA FROM TGFVAR V WHERE V.NUNOTAORIG = $nunota AND V.NUNOTA <> $nunota",
+        ).mapNotNull { it["NUNOTA"]?.toBigDecimalOrNull()?.toLong() }.sorted()
+        // STATUS da conferência atual da nota + corte com liberação (TSILIB evento 64) ainda sem decisão — ver VinculoCorte.
+        val conf = SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            "SELECT (SELECT F.STATUS FROM TGFCON2 F WHERE F.NUCONF = C.NUCONFATUAL) AS STATUS_CONF, " +
+                "(SELECT COUNT(*) FROM TSILIB L WHERE L.NUCHAVE = C.NUCONFATUAL AND L.TABELA = 'TGFCOI2' " +
+                "AND L.EVENTO = 64 AND L.DHLIB IS NULL) AS QTD " +
+                "FROM TGFCAB C WHERE C.NUNOTA = $nunota",
+        ).firstOrNull()
+        val pendentes = conf?.get("QTD")?.toBigDecimalOrNull()?.toInt() ?: 0
+        return SituacaoFaturamento(geradas, pendentes, conf?.get("STATUS_CONF")?.trim()?.takeIf { it.isNotEmpty() })
+    }
+
+    /** STATUS de conferência (TGFCON2) que contam como finalizada — mesmo conjunto da checagem de recontagem no iniciar. */
+    private val STATUS_CONF_FINALIZADA = setOf("F", "D", "RF", "RD")
+
+    /**
+     * Bloqueios de faturamento da sessão. Quem decide se a conferência está finalizada é o
+     * STATUS no Sankhya, não a sessão local: a liberação de corte pela tela própria fecha a
+     * conferência por lá, e um corte NEGADO põe a nota em recontagem com a sessão local ainda concluída.
+     */
+    private suspend fun validarFaturamento(tenantSlug: String, sessao: SessaoSeparacaoDto) {
+        if (sessao.status == SeparacaoStatus.CANCELADA) {
+            throw FaturamentoException("esta conferência foi cancelada")
+        }
+        val situacao = situacaoFaturamento(tenantSlug, sessao.nunota)
+        if (situacao.notasGeradas.isNotEmpty()) {
+            throw FaturamentoException("a nota ${sessao.nunota} já foi faturada (nota gerada: ${situacao.notasGeradas.joinToString()})")
+        }
+        if (situacao.statusConferencia == "C" || situacao.liberacoesPendentes > 0) {
+            throw FaturamentoException("há corte aguardando liberação nesta conferência — libere o corte antes de faturar")
+        }
+        if (situacao.statusConferencia !in STATUS_CONF_FINALIZADA) {
+            throw FaturamentoException(
+                "a conferência não está finalizada no Sankhya (status '${situacao.statusConferencia ?: "sem conferência"}') — " +
+                    "se houve corte negado, a nota precisa ser recontada antes de faturar",
+            )
+        }
+    }
+
     /** TOPs de destino possíveis pro faturamento da nota da sessão — TGFTOP ativos do mesmo TIPMOV. Portado de fila-conferencia conferencia.service.ts:1684. */
     suspend fun topsFaturamento(tenantSlug: String, tenantId: UUID, sessaoId: UUID): List<TopFaturamentoDto> {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
+        validarFaturamento(tenantSlug, sessao)
         val tipmov = withContext(Dispatchers.IO) { TarefasRepository.buscarTipMovLocal(tenantId, sessao.nunota) } ?: "V"
 
         val fields = listOf("CODTIPOPER", "DESCROPER")
@@ -1065,10 +1113,16 @@ object SeparacaoService {
      * Corpo portado VERBATIM do fila-conferencia
      * (fila-conferencia-backend/src/modules/conferencia/conferencia.service.ts:1698-1727) —
      * testado em produção lá.
+     *
+     * Antes: bloqueia sessão não concluída, nota já faturada e corte aguardando liberação.
+     * A chamada vai SEM retry (faturar não é idempotente); se ela falhar sem resposta clara,
+     * relê o Sankhya — se a nota gerada apareceu, o faturamento entrou e é tratado como sucesso.
+     * Devolve os NUNOTA das notas geradas.
      */
-    suspend fun faturar(tenantSlug: String, tenantId: UUID, sessaoId: UUID, codTipOper: Int, serie: String?) {
+    suspend fun faturar(tenantSlug: String, tenantId: UUID, sessaoId: UUID, codTipOper: Int, serie: String?): List<Long> {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
+        validarFaturamento(tenantSlug, sessao)
 
         val hoje = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
         val requestBody = buildJsonObject {
@@ -1088,7 +1142,21 @@ object SeparacaoService {
                 put("nfeDevolucaoViaRecusa", false)
             }
         }
-        SankhyaSpClient.chamarRaw(tenantSlug, "SelecaoDocumentoSP.faturar", "mgecom", requestBody)
+        try {
+            SankhyaSpClient.chamarRaw(tenantSlug, "SelecaoDocumentoSP.faturar", "mgecom", requestBody, retentar = false)
+        } catch (e: Exception) {
+            // Recusa de regra do Sankhya é definitiva; já timeout/5xx pode ter faturado mesmo assim.
+            if (e is SankhyaSpClient.SankhyaSpException && e !is SankhyaSpClient.SankhyaSpErroTransitorio) throw e
+            val geradas = runCatching { situacaoFaturamento(tenantSlug, sessao.nunota).notasGeradas }.getOrNull()
+            if (geradas.isNullOrEmpty()) {
+                throw FaturamentoException(
+                    "o Sankhya não confirmou o faturamento (${e.message}). Confira no Sankhya se a nota ${sessao.nunota} foi faturada antes de tentar de novo.",
+                )
+            }
+            println("AVISO: faturar nunota ${sessao.nunota} falhou (${e.message}), mas a nota foi gerada: $geradas")
+            return geradas
+        }
+        return runCatching { situacaoFaturamento(tenantSlug, sessao.nunota).notasGeradas }.getOrDefault(emptyList())
     }
 
     /** Dados pra etiqueta de volume (uma por volume) — cliente/UF/número/qtd de volumes. Portado de fila-conferencia arquivo.helper.ts. */
@@ -1605,6 +1673,7 @@ object SeparacaoService {
         barRows: List<Map<String, String?>>,
         voaRows: List<Map<String, String?>>,
         estRows: List<Map<String, String?>>,
+        codvolProdutoPorCodprod: Map<Int, String> = emptyMap(),
     ): List<CodigoBarraParaSalvar> {
         val codigos = mutableListOf<CodigoBarraParaSalvar>()
 
@@ -1623,14 +1692,18 @@ object SeparacaoService {
         for (v in voaRows) {
             val codigoBarra = v["CODBARRA"]?.trim()?.takeIf { it.isNotEmpty() } ?: continue
             val codprod = v["CODPROD"]?.toIntOrNull() ?: continue
+            val codvol = v["CODVOL"]?.trim()?.takeIf { it.isNotEmpty() }
+            // VOA que repete a unidade PADRÃO do produto é fator 1 (ver enriquecerItem) — sem isto,
+            // cada bipagem desse código contaria o fator cadastrado (ex.: "BD multiplica 10").
+            val ehPadrao = codvol != null && codvolProdutoPorCodprod[codprod]?.trim().equals(codvol, ignoreCase = true)
             codigos += CodigoBarraParaSalvar(
                 codigoBarra = codigoBarra,
                 codprod = codprod,
-                codvol = v["CODVOL"]?.trim()?.takeIf { it.isNotEmpty() },
+                codvol = codvol,
                 controle = v["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " ",
                 origem = "VOA",
-                quantidade = v["QUANTIDADE"].parseBigDecimalBr(),
-                divideMultiplica = v["DIVIDEMULTIPLICA"]?.trim()?.takeIf { it.isNotEmpty() },
+                quantidade = if (ehPadrao) null else v["QUANTIDADE"].parseBigDecimalBr(),
+                divideMultiplica = if (ehPadrao) null else v["DIVIDEMULTIPLICA"]?.trim()?.takeIf { it.isNotEmpty() },
             )
         }
 
@@ -1676,7 +1749,10 @@ object SeparacaoService {
         val lineCodvol = item.codvol?.trim()?.takeIf { it.isNotEmpty() }
         val prodCodvol = codvolProdutoPorCodprod[item.codprod]?.trim()?.takeIf { it.isNotEmpty() }
         val ctrl = item.controle.trim().takeIf { it.isNotEmpty() } ?: " "
-        val voa = lineCodvol?.let {
+        // Linha na PRÓPRIA unidade padrão não tem conversão (fator 1), mesmo que o cadastro tenha a
+        // unidade padrão repetida na TGFVOA com fator — bug real (nota 61572, produto 3717: padrão BD
+        // e TGFVOA "BD multiplica 10" faziam o pedido de 5 BD virar 0,5 BD na conferência).
+        val voa = lineCodvol?.takeIf { prodCodvol == null || !it.equals(prodCodvol, ignoreCase = true) }?.let {
             voaPorChave[Triple(item.codprod, it, ctrl)] ?: voaPorChave[Triple(item.codprod, it, " ")]
         }
         return item.copy(
@@ -1736,7 +1812,7 @@ object SeparacaoService {
             } else {
                 emptyList()
             }
-            val codigos = montarCodigosBarra(barRows, voaRows.filter { it["CODPROD"]?.toIntOrNull() in noPedido }, estRows)
+            val codigos = montarCodigosBarra(barRows, voaRows.filter { it["CODPROD"]?.toIntOrNull() in noPedido }, estRows, codvolProduto)
             val pesaveisAfetados = itensSankhya.filter { it.codprod in noPedido && it.usaConfPeso }.map { it.codprod }.distinct()
             val umas = if (pesaveisAfetados.isEmpty()) emptyList() else buscarUma(tenantSlug, pesaveisAfetados)
             withContext(Dispatchers.IO) { SeparacaoRepository.substituirCodigosEUma(tenantId, sessaoId, afetados, codigos, umas) }

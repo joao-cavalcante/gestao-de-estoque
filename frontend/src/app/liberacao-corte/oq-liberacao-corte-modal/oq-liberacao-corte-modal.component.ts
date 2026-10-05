@@ -25,6 +25,12 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
   @Input() rotulo = '';
   /** true = pelo menos um item foi liberado/negado (a lista de origem deve recarregar). */
   @Output() fechado = new EventEmitter<boolean>();
+  /**
+   * Emitido (antes do `fechado`) quando uma LIBERAÇÃO fecha todo o corte e a CCO pede
+   * faturamento ao concluir — leva o id da sessão. A tela de Liberação de Corte abre o
+   * faturamento com isso; a conferência ignora (já tem a própria cadeia pós-finalização).
+   */
+  @Output() faturarAposLiberar = new EventEmitter<string>();
 
   constructor(private readonly service: LiberacaoCorteService) {}
 
@@ -44,6 +50,7 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
   erroAcao = signal<string | null>(null);
   mensagem = signal<string | null>(null);
   private houveAcao = false;
+  private sessaoParaFaturar: string | null = null;
 
   ngOnInit(): void {
     // nada — a autenticação dispara o carregamento
@@ -150,7 +157,11 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
           this.feedback.trigger(liberar === 'S' ? 'CORTE_LIBERADO' : 'CORTE_NEGADO');
           this.pendentes.update((arr) => arr.filter((p) => !sequencias.includes(p.sequencia)));
           this.limparSelecao();
-          if (this.pendentes().length === 0) setTimeout(() => this.fechar(), 1400);
+          if (this.pendentes().length === 0) {
+            // Só liberar fecha a conferência; negar manda pra recontagem — nada a faturar.
+            this.sessaoParaFaturar = liberar === 'S' && res.fatAoConcluir === 'S' ? res.sessaoId ?? null : null;
+            setTimeout(() => this.fechar(), 1400);
+          }
         },
         error: (err) => {
           this.processando.set(false);
@@ -161,6 +172,8 @@ export class OqLiberacaoCorteModalComponent implements OnInit {
   }
 
   fechar(): void {
+    if (this.sessaoParaFaturar) this.faturarAposLiberar.emit(this.sessaoParaFaturar);
+    this.sessaoParaFaturar = null;
     this.fechado.emit(this.houveAcao);
   }
 }

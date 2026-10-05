@@ -20,9 +20,9 @@ import {
   ItemSeparacao,
   SessaoEtapa,
   SincronizacaoSankhya,
-  TopFaturamento,
 } from '../separacao/separacao.model';
 import { OqLiberacaoCorteModalComponent } from '../liberacao-corte/oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
+import { OqFaturamentoModalComponent } from '../separacao/oq-faturamento-modal.component';
 import { FormsModule } from '@angular/forms';
 import { Tarefa, rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
 import { AuthService } from '../auth/auth.service';
@@ -158,6 +158,7 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
     OqConferenciaFooterComponent,
     OqIconComponent,
     OqLiberacaoCorteModalComponent,
+    OqFaturamentoModalComponent,
     OqSpinnerComponent,
     OqSkeletonComponent,
     OqConferidosChecklistComponent,
@@ -244,11 +245,6 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   nuconfLiberacao: number | null = null;
   /** Modal de faturamento (CCO FATAOCONCLUIR='S'). */
   readonly mostrarModalFaturamento = signal(false);
-  readonly topsFaturamento = signal<TopFaturamento[]>([]);
-  codTipOperFaturamento: number | null = null;
-  readonly faturando = signal(false);
-  readonly erroFaturamento = signal<string | null>(null);
-  readonly sucessoFaturamento = signal(false);
   /** Painel "Conferência finalizada" (com botão de imprimir etiquetas). */
   readonly mostrarPainelFinalizada = signal(false);
   /** Etiquetas da ETAPA recém-concluída (volumes acumulados + peso) — pop-up de fim de etapa e painel final. */
@@ -1470,40 +1466,13 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     else this.mostrarPainelFinalizada.set(true);
   }
 
+  /** O modal consulta as TOPs e mostra o bloqueio (já faturada, corte pendente, recontagem) sozinho. */
   private abrirModalFaturamento(): void {
-    if (!this.sessaoIdAtual) return;
-    this.erroFaturamento.set(null);
-    this.sucessoFaturamento.set(false);
-    this.codTipOperFaturamento = null;
-    this.separacaoService.topsFaturamento(this.tenantAtual, this.sessaoIdAtual).subscribe({
-      next: (tops) => {
-        this.topsFaturamento.set(tops);
-        this.codTipOperFaturamento = tops.length === 1 ? tops[0].codTipOper : null;
-        this.mostrarModalFaturamento.set(true);
-      },
-      error: () => {
-        // Sem TOPs / falha ao listar — pula o faturamento e segue pro painel final.
-        this.mostrarPainelFinalizada.set(true);
-      },
-    });
-  }
-
-  confirmarFaturamento(): void {
-    if (!this.sessaoIdAtual || this.codTipOperFaturamento == null || this.faturando()) return;
-    this.faturando.set(true);
-    this.erroFaturamento.set(null);
-    this.separacaoService.faturar(this.tenantAtual, this.sessaoIdAtual, this.codTipOperFaturamento).subscribe({
-      next: () => {
-        this.faturando.set(false);
-        this.sucessoFaturamento.set(true);
-        this.feedback.trigger('SUCESSO_SANKHYA');
-      },
-      error: (err) => {
-        this.faturando.set(false);
-        this.erroFaturamento.set(err?.error?.erro ?? 'Falha ao faturar a nota.');
-        this.feedback.trigger('ERRO_SANKHYA', { toast: false });
-      },
-    });
+    if (!this.sessaoIdAtual) {
+      this.mostrarPainelFinalizada.set(true);
+      return;
+    }
+    this.mostrarModalFaturamento.set(true);
   }
 
   fecharModalFaturamento(): void {

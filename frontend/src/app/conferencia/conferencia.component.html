@@ -453,48 +453,8 @@
     />
   }
 
-  @if (mostrarModalFaturamento()) {
-    <div class="oq-modal-backdrop">
-      <div class="oq-modal" (click)="$event.stopPropagation()">
-        <div class="oq-modal__header">
-          <span class="oq-modal__titulo">Faturar pedido</span>
-        </div>
-        <div class="oq-modal__body">
-          @if (sucessoFaturamento()) {
-            <span class="oq-form-hint">Nota faturada com sucesso.</span>
-          } @else {
-            <span class="oq-form-hint">Selecione a TOP (tipo de operação) de destino do faturamento.</span>
-            <select class="oq-input" [(ngModel)]="codTipOperFaturamento">
-              <option [ngValue]="null" disabled>Selecione uma TOP…</option>
-              @for (t of topsFaturamento(); track t.codTipOper) {
-                <option [ngValue]="t.codTipOper">{{ t.codTipOper }} — {{ t.descricao }}</option>
-              }
-            </select>
-            @if (erroFaturamento()) { <span class="oq-form-hint oq-form-hint--erro">{{ erroFaturamento() }}</span> }
-          }
-        </div>
-        <div class="oq-modal__footer">
-          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModalFaturamento()">
-            {{ sucessoFaturamento() ? 'Fechar' : 'Pular' }}
-          </button>
-          @if (!sucessoFaturamento()) {
-            <button
-              type="button"
-              class="oq-admin-btn oq-admin-btn--primary"
-              [disabled]="codTipOperFaturamento === null || faturando()"
-              (click)="confirmarFaturamento()"
-            >
-              @if (faturando()) {
-                <oq-spinner [size]="12" />
-                Faturando…
-              } @else {
-                Faturar
-              }
-            </button>
-          }
-        </div>
-      </div>
-    </div>
+  @if (mostrarModalFaturamento() && sessaoIdAtual) {
+    <oq-faturamento-modal [sessaoId]="sessaoIdAtual" (fechado)="fecharModalFaturamento()" />
   }
 
   @if (mostrarPainelEtapaConcluida() && etapaImpressao(); as ei) {
