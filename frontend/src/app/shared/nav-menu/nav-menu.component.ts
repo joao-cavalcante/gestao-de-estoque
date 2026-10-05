@@ -42,6 +42,7 @@ const ITENS: ItemMenu[] = [
       { rota: '/tv/saida', label: 'Saídas (vendas)', icone: 'tv' },
       { rota: '/tv/entrada', label: 'Entradas (compras)', icone: 'tv' },
       { rota: '/tv', label: 'Entradas e saídas', icone: 'tv' },
+      { rota: '/tv/carga', label: 'Ordens de carga', icone: 'tv' },
     ],
   },
   // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
