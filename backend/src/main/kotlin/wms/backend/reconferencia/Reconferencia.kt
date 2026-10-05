@@ -64,6 +64,8 @@ data class ReconferenciaItemDto(
     /** Observação "CX com 12 BI" (fator da TGFVOA); null = sem conversão. Só display. */
     val conversao: String? = null,
     val pesavel: Boolean,
+    /** Item do pedido com NADA conferido — aparece no checklist como alerta (sem check; não entra no x/y). */
+    val naoConferido: Boolean = false,
     val checado: Boolean,
     val checadoPor: String? = null,
     val checadoEm: String? = null,
@@ -121,7 +123,8 @@ object ReconferenciaService {
         val checks = ReconferenciaChecksTable.selectAll()
             .where { (ReconferenciaChecksTable.tenantId eq tenantId) and (ReconferenciaChecksTable.sessaoId eq sessaoId) }
             .associateBy { it[ReconferenciaChecksTable.codprod] to it[ReconferenciaChecksTable.controle] }
-        // Uma linha por produto+controle (soma das linhas do pedido), só o que tem algo conferido.
+        // Uma linha por produto+controle (soma das linhas do pedido). Item do pedido com NADA conferido
+        // também vem (naoConferido) — no carregamento é a última chance de ver o que ficou pra trás.
         val itens = SeparacaoItensTable.selectAll()
             .where {
                 (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
@@ -131,7 +134,8 @@ object ReconferenciaService {
             .groupBy { it[SeparacaoItensTable.codprod] to it[SeparacaoItensTable.controle].trim() }
             .mapNotNull { (chave, linhas) ->
                 val conferida = linhas.sumOf { it[SeparacaoItensTable.qtdConferidaLocal] }
-                if (conferida.signum() <= 0) return@mapNotNull null
+                val pedido = linhas.sumOf { it[SeparacaoItensTable.qtdNeg] }
+                if (conferida.signum() <= 0 && pedido.signum() <= 0) return@mapNotNull null
                 val r = linhas.first()
                 val d = dadosDe(r[SeparacaoItensTable.dados])
                 val check = checks[chave]
@@ -161,7 +165,8 @@ object ReconferenciaService {
                         r[SeparacaoItensTable.divideMultiplica], r[SeparacaoItensTable.fatorConversao],
                     ),
                     pesavel = r[SeparacaoItensTable.usaConfPeso],
-                    checado = check != null,
+                    naoConferido = conferida.signum() <= 0,
+                    checado = check != null && conferida.signum() > 0,
                     checadoPor = check?.get(ReconferenciaChecksTable.checadoPor),
                     checadoEm = check?.get(ReconferenciaChecksTable.checadoEm)?.let(iso::format),
                 )

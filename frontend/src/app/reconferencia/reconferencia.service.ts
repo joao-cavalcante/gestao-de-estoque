@@ -20,6 +20,8 @@ export interface ReconferenciaItem {
   /** Observação "CX com 12 BI"; null = sem conversão. */
   conversao?: string | null;
   pesavel: boolean;
+  /** Item do pedido com NADA conferido — alerta no checklist, sem check. */
+  naoConferido?: boolean;
   checado: boolean;
   checadoPor?: string | null;
   checadoEm?: string | null;

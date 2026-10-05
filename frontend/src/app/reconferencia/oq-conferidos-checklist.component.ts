@@ -30,17 +30,18 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
       <label class="ck-todos" title="Marcar/desmarcar todos os itens">
         <input
           type="checkbox"
-          [checked]="itens().length > 0 && checados() === itens().length"
-          [indeterminate]="checados() > 0 && checados() < itens().length"
-          [disabled]="marcandoTodos() || itens().length === 0"
+          [checked]="conferidos().length > 0 && checados() === conferidos().length"
+          [indeterminate]="checados() > 0 && checados() < conferidos().length"
+          [disabled]="marcandoTodos() || conferidos().length === 0"
           (change)="alternarTodos()"
         />
         Todos
       </label>
       <span class="ck-prog">
-        <strong>{{ checados() }}</strong> de {{ itens().length }} checados
+        <strong>{{ checados() }}</strong> de {{ conferidos().length }} checados
       </span>
       <span class="ck-barra"><span class="ck-barra__fill" [style.width.%]="pct()"></span></span>
+      @if (naoConferidosTotal() > 0) { <span class="ck-alerta ck-alerta--falta">⚠ {{ naoConferidosTotal() }} não conferido(s)</span> }
       @if (divergentesTotal() > 0) { <span class="ck-alerta">⚠ {{ divergentesTotal() }} divergente(s)</span> }
     </div>
     @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
@@ -51,17 +52,25 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
           @if (g.icone) { <oq-icon [name]="g.icone" [size]="15" /> }
           <strong>{{ g.rotulo }}</strong>
           @if (divergentesNo(g.itens); as nd) { <span class="ck-alerta">⚠ {{ nd }}</span> }
-          <span class="ck-etapa__qtd">{{ checadosNo(g.itens) }}/{{ g.itens.length }}</span>
+          <span class="ck-etapa__qtd">{{ checadosNo(g.itens) }}/{{ conferidosNo(g.itens) }}</span>
         </div>
         <ul class="ck-lista">
           @for (i of g.itens; track i.codprod + '|' + i.controle) {
-            <li class="ck-item" [class.ck-item--ok]="i.checado" [class.ck-item--div]="motivo(i) && !i.checado">
-              <label class="ck-check" [title]="i.checado ? 'Checado' + (i.checadoPor ? ' por ' + i.checadoPor : '') : 'Marcar como reconferido'">
-                <input type="checkbox" [checked]="i.checado" [disabled]="salvando().has(chave(i))" (change)="alternar(i)" />
-              </label>
+            <li class="ck-item" [class.ck-item--ok]="i.checado" [class.ck-item--div]="motivo(i) && !i.checado" [class.ck-item--falta]="i.naoConferido">
+              @if (i.naoConferido) {
+                <span class="ck-check ck-check--falta" title="Nada conferido deste item">⚠</span>
+              } @else {
+                <label class="ck-check" [title]="i.checado ? 'Checado' + (i.checadoPor ? ' por ' + i.checadoPor : '') : 'Marcar como reconferido'">
+                  <input type="checkbox" [checked]="i.checado" [disabled]="salvando().has(chave(i))" (change)="alternar(i)" />
+                </label>
+              }
               <span class="ck-cod">{{ i.codprod }}</span>
               <span class="ck-nome">{{ i.descricao }}{{ i.controle ? ' · ' + i.controle : '' }}</span>
-              @if (motivo(i); as m) { <span class="ck-div">⚠ {{ m }}</span> }
+              @if (i.naoConferido) {
+                <span class="ck-div ck-div--falta">NÃO CONFERIDO</span>
+              } @else if (motivo(i)) {
+                <span class="ck-div">⚠ {{ motivo(i) }}</span>
+              }
               @if (i.pesavel) {
                 @if (pedidoComercial(i); as pc) {
                   <span class="ck-qtd ck-qtd--pedido" title="Quantidade no pedido">{{ pc }}</span>
@@ -92,6 +101,10 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
     `
       :host { display: flex; flex-direction: column; gap: 12px; }
       .ck-topo { display: flex; align-items: center; gap: 10px; }
+      .ck-item--falta { background: color-mix(in srgb, var(--oq-critical) 10%, transparent); }
+      .ck-check--falta { color: var(--oq-critical-foreground); font-weight: 700; text-align: center; }
+      .ck-div--falta { color: var(--oq-critical-foreground); font-weight: 700; }
+      .ck-alerta--falta { color: var(--oq-critical-foreground); }
       .ck-todos { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
       .ck-todos input { width: 18px; height: 18px; cursor: pointer; }
       .ck-prog { font-family: var(--oq-font-mono); font-size: 12px; white-space: nowrap; }
@@ -147,9 +160,12 @@ export class OqConferidosChecklistComponent implements OnChanges {
       }))
       .filter((g) => g.itens.length > 0),
   );
-  readonly checados = computed(() => this.itens().filter((i) => i.checado).length);
-  readonly pct = computed(() => (this.itens().length ? (this.checados() / this.itens().length) * 100 : 0));
-  readonly divergentesTotal = computed(() => this.itens().filter((i) => this.motivo(i)).length);
+  /** Só o que tem algo conferido entra no x/y e no "Todos" — não conferido aparece como alerta. */
+  readonly conferidos = computed(() => this.itens().filter((i) => !i.naoConferido));
+  readonly checados = computed(() => this.conferidos().filter((i) => i.checado).length);
+  readonly pct = computed(() => (this.conferidos().length ? (this.checados() / this.conferidos().length) * 100 : 0));
+  readonly naoConferidosTotal = computed(() => this.itens().filter((i) => i.naoConferido).length);
+  readonly divergentesTotal = computed(() => this.itens().filter((i) => !i.naoConferido && this.motivo(i)).length);
 
   /** Marca todos (ou desmarca, se já estão todos marcados) de uma vez. */
   alternarTodos(): void {
@@ -158,7 +174,7 @@ export class OqConferidosChecklistComponent implements OnChanges {
     const antes = this.itens();
     this.marcandoTodos.set(true);
     this.erro.set(null);
-    this.itens.set(antes.map((i) => ({ ...i, checado: marcar })));
+    this.itens.set(antes.map((i) => ({ ...i, checado: i.naoConferido ? false : marcar })));
     this.service.marcarTodos(this.detalhe.sessaoId, marcar).subscribe({
       next: () => this.marcandoTodos.set(false),
       error: () => {
@@ -173,12 +189,16 @@ export class OqConferidosChecklistComponent implements OnChanges {
     return `${i.codprod}|${i.controle}`;
   }
 
+  conferidosNo(itens: ReconferenciaItem[]): number {
+    return itens.filter((i) => !i.naoConferido).length;
+  }
+
   checadosNo(itens: ReconferenciaItem[]): number {
     return itens.filter((i) => i.checado).length;
   }
 
   divergentesNo(itens: ReconferenciaItem[]): number {
-    return itens.filter((i) => this.motivo(i)).length;
+    return itens.filter((i) => !i.naoConferido && this.motivo(i)).length;
   }
 
   /** Divergência do item (mesma ideia da finalização): pesável respeita a tolerância da sessão. */
