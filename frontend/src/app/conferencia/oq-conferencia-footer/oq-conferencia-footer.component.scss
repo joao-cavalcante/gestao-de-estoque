@@ -208,6 +208,34 @@
   }
 }
 
+/* Tablet / tela média: as duas metades do rodapé quebram de linha em vez de vazar pra fora. */
+@media (max-width: 1100px) {
+  .oq-cf-footer__actions {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .oq-cf-footer__actions-esquerda {
+    flex-wrap: wrap;
+  }
+
+  /* Volumes + progresso + Confirmar: quebra e o Confirmar nunca encolhe nem corta. */
+  .oq-cf-footer__progress-group {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+
+  .oq-cf-footer__btn--primary {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .oq-cf-footer__btn {
+    letter-spacing: 0.04em;
+  }
+}
+
 @media (max-width: 639px) {
   .oq-cf-footer__actions {
     flex-direction: column;
@@ -216,8 +244,20 @@
     padding: 8px 12px;
   }
 
+  /* Voltar / Ver conferidos / Atualizar / Cancelar: 2 por linha, sem cortar texto. */
   .oq-cf-footer__actions-esquerda {
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .oq-cf-footer__actions-esquerda .oq-cf-footer__btn {
+    justify-content: center;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 10px;
+    text-align: center;
+    white-space: normal;
   }
 
   .oq-cf-footer__progress-group {

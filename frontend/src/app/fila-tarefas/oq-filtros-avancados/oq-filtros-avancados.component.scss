@@ -128,3 +128,16 @@
     }
   }
 }
+
+/* Celular: o painel ancorado no botão vazava pra esquerda — vira uma folha fixa na largura da tela. */
+@media (max-width: 639px) {
+  .oq-filtros-avancados__panel {
+    position: fixed;
+    top: 72px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - 96px);
+  }
+}

@@ -862,3 +862,28 @@
 
   .oq-toolbar__pill { flex: none; }
 }
+
+/* Celular: barra de filtros ocupa a largura toda, busca estica e nada vaza da tela. */
+@media (max-width: 639px) {
+  .oq-toolbar {
+    padding: 10px 16px;
+  }
+
+  .oq-toolbar__actions {
+    width: 100%;
+  }
+
+  .oq-toolbar__search {
+    flex: 1 1 100%;
+    min-width: 0;
+
+    input {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
+  .oq-toolbar__search--curto {
+    flex: 1 1 calc(50% - 4px);
+  }
+}

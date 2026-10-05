@@ -37,3 +37,8 @@
 .oq-carga__pedido { display: flex; flex-direction: column; gap: 10px; }
 .oq-carga__pedido + .oq-carga__pedido { padding-top: 14px; border-top: 1px solid var(--oq-border); }
 .oq-carga__pedido-topo { font-size: 14px; strong { font-family: var(--oq-font-mono); } }
+
+@media (max-width: 639px) {
+  .oq-oc-faixa { margin: 0 12px 10px; gap: 6px 12px; }
+  .oq-oc-faixa__btn { margin-left: 0; flex: 1 1 100%; padding: 10px; }
+}

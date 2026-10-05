@@ -537,6 +537,7 @@ body {
 
 .oq-modal__footer {
   display: flex;
+  flex-wrap: wrap; /* tablet também: 3-4 botões (ex.: fim da conferência) quebram em vez de cortar */
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
