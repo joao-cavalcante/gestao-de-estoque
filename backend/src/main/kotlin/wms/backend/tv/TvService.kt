@@ -377,6 +377,73 @@ object TvService {
         return composto
     }
 
+    /**
+     * TV de Ordens de Carga: uma linha por OC de SAÍDA com pedido a conferir OU pedido conferido ainda não
+     * carregado (checklist do carregamento, ver ReconferenciaService.resumoCarregamento). OC com tudo
+     * conferido e carregado sai da lista (entra em "carregadas hoje"). Motorista/placa só do cache.
+     */
+    fun carga(tenantId: UUID, tenantSlug: String?): TvCargaDto {
+        val agora = Instant.now()
+        val inicioDoDia = LocalDate.now(ZONA).atStartOfDay(ZONA).toInstant()
+        val notas = TenantTx.run(tenantId) {
+            TarefasTable.selectAll().where { TarefasTable.tenantId eq tenantId }.map { r ->
+                Nota(
+                    nunota = r[TarefasTable.nunota].toLong(),
+                    status = r[TarefasTable.statusOperacional],
+                    dados = runCatching { Json.parseToJsonElement(r[TarefasTable.dados]) as JsonObject }.getOrNull(),
+                    concluidoEm = r[TarefasTable.concluidoEm],
+                )
+            }
+        }.filter { it.movimento == "SAIDA" }
+            .mapNotNull { n -> TarefasRepository.normalizarOrdemCarga(n.campo("ORDEMCARGA"))?.let { it to n } }
+
+        val pendentes = setOf(DISPONIVEL, EM_CONFERENCIA, AGUARDANDO_LIBERACAO).flatten().toSet()
+        val prontas = notas.filter { it.second.status in PRONTO }.map { it.second.nunota }
+        val carregamento = wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, prontas, 7)
+
+        var carregadasHoje = 0
+        val linhas = notas.groupBy({ it.first }, { it.second }).mapNotNull { (oc, doGrupo) ->
+            val aConferir = doGrupo.filter { it.status in pendentes }
+            val conferidas = doGrupo.filter { it.status in PRONTO }
+            val comCarga = conferidas.mapNotNull { carregamento[it.nunota] }
+            val itensTotal = comCarga.sumOf { it.total }
+            val itensCarregados = comCarga.sumOf { it.carregados }
+            val pedidosACarregar = conferidas.count { n -> carregamento[n.nunota]?.let { it.carregados < it.total } == true }
+            if (aConferir.isEmpty() && pedidosACarregar == 0) {
+                // Tudo pronto — conta como carregada hoje se a última conclusão foi hoje.
+                if (conferidas.any { (it.concluidoEm ?: Instant.MIN) >= inicioDoDia }) carregadasHoje++
+                return@mapNotNull null
+            }
+            TvOcDto(
+                ordemCarga = oc,
+                fase = if (aConferir.isNotEmpty()) "CONFERINDO" else "A_CARREGAR",
+                pedidos = doGrupo.size,
+                pedidosConferidos = conferidas.size,
+                pedidosEmConferencia = aConferir.count { it.status in EM_CONFERENCIA },
+                itensTotal = itensTotal,
+                itensCarregados = itensCarregados,
+                pesoTotalKg = arredondar(doGrupo.sumOf { it.pesoBrutoKg }),
+                pesoASepararKg = arredondar(aConferir.sumOf { it.pesoBrutoKg }),
+                pesoAguardandoLiberacaoKg = arredondar(aConferir.filter { it.status in AGUARDANDO_LIBERACAO }.sumOf { it.pesoBrutoKg }),
+            )
+        }.sortedBy { it.ordemCarga }
+
+        val transporte = tenantSlug?.let {
+            runCatching { wms.backend.mapaseparacao.TransporteOrdemCarga.doCache(it, tenantId, linhas.map { l -> l.ordemCarga }) }.getOrNull()
+        }.orEmpty()
+        val ocs = linhas.map { l -> transporte[l.ordemCarga]?.let { t -> l.copy(motorista = t.motorista, placa = t.placa) } ?: l }
+
+        return TvCargaDto(
+            atualizadoEm = iso(agora),
+            ocsAbertas = ocs.size,
+            pesoASepararKg = arredondar(ocs.sumOf { it.pesoASepararKg }),
+            pesoAguardandoLiberacaoKg = arredondar(ocs.sumOf { it.pesoAguardandoLiberacaoKg }),
+            pedidosACarregar = notas.count { (_, n) -> n.status in PRONTO && carregamento[n.nunota]?.let { it.carregados < it.total } == true },
+            ocsCarregadasHoje = carregadasHoje,
+            ocs = ocs,
+        )
+    }
+
     private fun arredondar(kg: Double): Double = Math.round(kg * 10.0) / 10.0
 
     private fun iso(i: Instant): String = DateTimeFormatter.ISO_INSTANT.format(i)

@@ -15,6 +15,7 @@ import { authGuard } from './auth/auth.guard';
 import { adminGuard } from './auth/admin.guard';
 import { tvGuard } from './auth/tv.guard';
 import { TvComponent } from './tv/tv.component';
+import { TvOcComponent } from './tv/tv-oc.component';
 import { UsuarioListComponent } from './usuarios/usuario-list/usuario-list.component';
 import { BalancaListComponent } from './balancas/balanca-list/balanca-list.component';
 import { DownloadsComponent } from './downloads/downloads.component';
@@ -33,6 +34,8 @@ export const routes: Routes = [
   { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard] },
   // TV de acompanhamento da conferência (painel de parede) — perfil TV ou admin.
   { path: 'tv', component: TvComponent, canActivate: [tvGuard] },
+  // TV exclusiva de Ordens de Carga (conferência + carregamento por OC). Antes de 'tv/:movimento'.
+  { path: 'tv/carga', component: TvOcComponent, canActivate: [tvGuard] },
   // /tv/saida = só vendas (expedição) | /tv/entrada = só compras (recebimento)
   { path: 'tv/:movimento', component: TvComponent, canActivate: [tvGuard] },
   { path: 'conferencia/:nunota', component: ConferenciaComponent, canActivate: [authGuard] },

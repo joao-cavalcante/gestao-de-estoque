@@ -17,5 +17,14 @@ fun Route.tvRoutes() {
             // ?movimento=saida (vendas) | entrada (compras) | ausente = todos
             call.respond(TvService.resumo(claims.tenantId, call.request.queryParameters["movimento"]))
         }
+        /** TV exclusiva de Ordens de Carga (/tv/carga). */
+        get("/carga") {
+            val claims = call.exigirAuth() ?: return@get
+            if (!podeVerTv(claims)) {
+                return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "sem permissão para a TV de conferência"))
+            }
+            val slug = wms.backend.tenancy.TenantRepository.buscarPorId(claims.tenantId)?.slug
+            call.respond(TvService.carga(claims.tenantId, slug))
+        }
     }
 }

@@ -4,7 +4,7 @@
     <div class="tv__marca">
       <span class="tv__logo">LG</span>
       <div class="tv__titulos">
-        <span class="tv__titulo">{{ mostrarCarga() ? 'ORDENS DE CARGA' : 'CONFERÊNCIA AO VIVO' }} <span class="tv__mov" [attr.data-mov]="movimento">{{ rotuloMovimento }}</span></span>
+        <span class="tv__titulo">CONFERÊNCIA AO VIVO <span class="tv__mov" [attr.data-mov]="movimento">{{ rotuloMovimento }}</span></span>
         <span class="tv__vivo" [class.tv__vivo--pendente]="pendente()" [class.tv__vivo--pulso]="pulso()">
           <span class="tv__vivo-dot"></span>
           @if (pendente()) {
@@ -26,10 +26,6 @@
   </header>
 
   @if (dados(); as d) {
-    @if (mostrarCarga()) {
-      <!-- Tela 2 (saídas): ordens de carga e peso a separar — alterna com a conferência a cada 30 s -->
-      <oq-tv-carga [dados]="d" />
-    } @else {
     <!-- ═══ Nível 2: situação da operação ═══ -->
     <section class="tv__kpis">
       <div class="tv-kpi">
@@ -239,7 +235,6 @@
           </div>
         }
       </footer>
-    }
     }
   } @else if (!pendente()) {
     <div class="tv-carregando">Carregando…</div>

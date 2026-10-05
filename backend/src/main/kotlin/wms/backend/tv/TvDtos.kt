@@ -155,3 +155,37 @@ data class TvMovimentoContadoresDto(
     val aguardandoLiberacao: Int,
     val prontoTurno: Int,
 )
+
+/** TV exclusiva de Ordens de Carga (GET /api/tv/carga) — só saídas com OC, banco local + cache de transporte. */
+@Serializable
+data class TvCargaDto(
+    val atualizadoEm: String,
+    /** OCs com pedido a conferir ou a carregar. */
+    val ocsAbertas: Int,
+    /** Peso (KG) dos pedidos ainda não conferidos. */
+    val pesoASepararKg: Double,
+    /** Parte do peso a separar aguardando liberação/corte. */
+    val pesoAguardandoLiberacaoKg: Double,
+    /** Pedidos conferidos que ainda têm item a carregar. */
+    val pedidosACarregar: Int,
+    /** OCs que terminaram conferência e carregamento hoje. */
+    val ocsCarregadasHoje: Int,
+    val ocs: List<TvOcDto>,
+)
+
+@Serializable
+data class TvOcDto(
+    val ordemCarga: Long,
+    val motorista: String? = null,
+    val placa: String? = null,
+    /** "CONFERINDO" (tem pedido a conferir) | "A_CARREGAR" (tudo conferido, falta carregar). */
+    val fase: String,
+    val pedidos: Int,
+    val pedidosConferidos: Int,
+    val pedidosEmConferencia: Int,
+    val itensTotal: Int,
+    val itensCarregados: Int,
+    val pesoTotalKg: Double,
+    val pesoASepararKg: Double,
+    val pesoAguardandoLiberacaoKg: Double,
+)

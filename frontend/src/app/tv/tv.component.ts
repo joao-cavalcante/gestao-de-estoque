@@ -6,14 +6,11 @@ import { Subscription, catchError, of, switchMap, timer } from 'rxjs';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
 import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { TvConferencia, TvResumo } from './tv.model';
-import { TvCargaComponent } from './tv-carga.component';
 
 const INTERVALO_API_MS = 15_000;
 const INTERVALO_PAGINA_MS = 10_000;
 const CARDS_POR_PAGINA = 6;
 const FINALIZADOS_POR_PAGINA = 10;
-/** Saídas: a TV alterna entre a tela de conferência e a de ordens de carga a cada 30 s. */
-const INTERVALO_VISAO_MS = 30_000;
 
 const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
   1: { label: 'Secos', icone: 'seco' },
@@ -31,7 +28,7 @@ const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
 @Component({
   selector: 'app-tv',
   standalone: true,
-  imports: [OqIconComponent, OqModalidadePinsComponent, DatePipe, TvCargaComponent],
+  imports: [OqIconComponent, OqModalidadePinsComponent, DatePipe],
   templateUrl: './tv.component.html',
   styleUrl: './tv.component.scss',
   host: { 'data-theme': 'light' },
@@ -53,12 +50,6 @@ export class TvComponent implements OnInit, OnDestroy {
   readonly pagCards = signal(0);
   readonly pagFinalizados = signal(0);
   readonly telaCheia = signal(!!document.fullscreenElement);
-  /** Tela da vez: conferência (padrão) ou ordens de carga — só alterna nas saídas e quando há OC a fazer. */
-  readonly visao = signal<'conferencia' | 'carga'>('conferencia');
-  readonly mostrarCarga = computed(() => {
-    const d = this.dados();
-    return this.visao() === 'carga' && !!d && d.movimento !== 'entrada' && (d.ordensCarga?.length ?? 0) > 0;
-  });
 
   readonly etapas = ETAPAS;
 
@@ -75,7 +66,6 @@ export class TvComponent implements OnInit, OnDestroy {
   private assinatura?: Subscription;
   private relogio?: ReturnType<typeof setInterval>;
   private rotacao?: ReturnType<typeof setInterval>;
-  private alternancia?: ReturnType<typeof setInterval>;
   private readonly aoMudarTelaCheia = () => this.telaCheia.set(!!document.fullscreenElement);
 
   readonly totalPagCards = computed(() => Math.max(1, Math.ceil((this.dados()?.emConferencia.length ?? 0) / CARDS_POR_PAGINA)));
@@ -118,9 +108,6 @@ export class TvComponent implements OnInit, OnDestroy {
       this.pagCards.update((p) => (p + 1) % this.totalPagCards());
       this.pagFinalizados.update((p) => (p + 1) % this.totalPagFinalizados());
     }, INTERVALO_PAGINA_MS);
-    if (this.movimento !== 'entrada') {
-      this.alternancia = setInterval(() => this.visao.update((v) => (v === 'conferencia' ? 'carga' : 'conferencia')), INTERVALO_VISAO_MS);
-    }
     document.addEventListener('fullscreenchange', this.aoMudarTelaCheia);
   }
 
@@ -128,7 +115,6 @@ export class TvComponent implements OnInit, OnDestroy {
     this.assinatura?.unsubscribe();
     if (this.relogio) clearInterval(this.relogio);
     if (this.rotacao) clearInterval(this.rotacao);
-    if (this.alternancia) clearInterval(this.alternancia);
     document.removeEventListener('fullscreenchange', this.aoMudarTelaCheia);
     this.timersRealce.forEach(clearTimeout);
   }

@@ -88,3 +88,30 @@ export interface TvEtapaResumo {
   emConferencia: number;
   prontoHoje: number;
 }
+
+/** GET /api/tv/carga — TV exclusiva de Ordens de Carga (backend TvCargaDto). */
+export interface TvCarga {
+  atualizadoEm: string;
+  ocsAbertas: number;
+  pesoASepararKg: number;
+  pesoAguardandoLiberacaoKg: number;
+  pedidosACarregar: number;
+  ocsCarregadasHoje: number;
+  ocs: TvOc[];
+}
+
+export interface TvOc {
+  ordemCarga: number;
+  motorista: string | null;
+  placa: string | null;
+  /** "CONFERINDO" | "A_CARREGAR". */
+  fase: string;
+  pedidos: number;
+  pedidosConferidos: number;
+  pedidosEmConferencia: number;
+  itensTotal: number;
+  itensCarregados: number;
+  pesoTotalKg: number;
+  pesoASepararKg: number;
+  pesoAguardandoLiberacaoKg: number;
+}

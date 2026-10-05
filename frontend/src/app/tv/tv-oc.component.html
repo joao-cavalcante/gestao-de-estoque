@@ -1,0 +1,91 @@
+<div class="to" (click)="!telaCheia() && entrarTelaCheia()">
+  <header class="to__topo">
+    <div class="to__marca">
+      <span class="to__logo">LG</span>
+      <div class="to__titulos">
+        <span class="to__titulo">ORDENS DE CARGA</span>
+        <span class="to__vivo" [class.to__vivo--pendente]="pendente()">
+          <span class="to__vivo-dot"></span>
+          @if (pendente()) {
+            ATUALIZAÇÃO PENDENTE · última há {{ segundosDesdeAtualizacao() }}s
+          } @else if (dados()) {
+            AO VIVO · atualizado há {{ segundosDesdeAtualizacao() }}s
+          } @else {
+            CONECTANDO…
+          }
+        </span>
+      </div>
+    </div>
+    <span class="to__hora">{{ agora() | date: 'HH:mm:ss' }}</span>
+  </header>
+
+  @if (dados(); as d) {
+    <section class="to__kpis">
+      <div class="to-kpi">
+        <span class="to-kpi__rot">OCs em aberto</span>
+        <span class="to-kpi__val">{{ numero(d.ocsAbertas) }}</span>
+      </div>
+      <div class="to-kpi">
+        <span class="to-kpi__rot">Peso a separar</span>
+        <span class="to-kpi__val">{{ peso(d.pesoASepararKg) }}</span>
+      </div>
+      <div class="to-kpi" [class.to-kpi--atencao]="d.pesoAguardandoLiberacaoKg > 0">
+        <span class="to-kpi__rot">Aguard. liberação</span>
+        <span class="to-kpi__val">{{ peso(d.pesoAguardandoLiberacaoKg) }}</span>
+      </div>
+      <div class="to-kpi" [class.to-kpi--carga]="d.pedidosACarregar > 0">
+        <span class="to-kpi__rot">Pedidos a carregar</span>
+        <span class="to-kpi__val">{{ numero(d.pedidosACarregar) }}</span>
+      </div>
+      <div class="to-kpi to-kpi--ok">
+        <span class="to-kpi__rot">Carregadas hoje</span>
+        <span class="to-kpi__val">{{ numero(d.ocsCarregadasHoje) }}</span>
+      </div>
+    </section>
+
+    @if (d.ocs.length === 0) {
+      <div class="to__vazio">✓ Nenhuma ordem de carga pendente</div>
+    } @else {
+      <section class="to__grade">
+        @for (o of visiveis(); track o.ordemCarga) {
+          <article class="to-oc" [attr.data-fase]="o.fase">
+            <div class="to-oc__topo">
+              <span class="to-oc__num">OC {{ o.ordemCarga }}</span>
+              <span class="to-oc__fase">{{ rotuloFase(o) }}</span>
+            </div>
+            <span class="to-oc__transp">{{ o.placa ?? '—' }} · {{ o.motorista ?? 'Sem motorista' }}</span>
+
+            <div class="to-oc__barra-rot">
+              <span>Conferência</span>
+              <strong>{{ o.pedidosConferidos }}/{{ o.pedidos }} ped.</strong>
+            </div>
+            <span class="to-oc__barra"><span [style.width.%]="pct(o.pedidosConferidos, o.pedidos)"></span></span>
+
+            <div class="to-oc__barra-rot">
+              <span>Carregamento</span>
+              <strong>{{ o.itensTotal > 0 ? o.itensCarregados + '/' + o.itensTotal + ' itens' : '—' }}</strong>
+            </div>
+            <span class="to-oc__barra to-oc__barra--carga"><span [style.width.%]="pct(o.itensCarregados, o.itensTotal)"></span></span>
+
+            <div class="to-oc__rodape">
+              <span class="to-oc__peso">{{ o.pesoASepararKg > 0 ? peso(o.pesoASepararKg) + ' a separar' : peso(o.pesoTotalKg) + ' total' }}</span>
+              @if (o.pedidosEmConferencia > 0) { <span class="to-oc__conf">{{ o.pedidosEmConferencia }} em conferência</span> }
+              @if (o.pesoAguardandoLiberacaoKg > 0) { <span class="to-oc__lib">{{ peso(o.pesoAguardandoLiberacaoKg) }} aguard. liberação</span> }
+            </div>
+          </article>
+        }
+      </section>
+      @if (totalPaginas() > 1) {
+        <span class="to__pags">página {{ (pagina() % totalPaginas()) + 1 }} de {{ totalPaginas() }}</span>
+      }
+    }
+  } @else if (!pendente()) {
+    <div class="to__vazio">Carregando…</div>
+  } @else {
+    <div class="to__vazio">Sem conexão com o servidor — tentando novamente.</div>
+  }
+
+  @if (!telaCheia()) {
+    <span class="to__dica">toque para tela cheia</span>
+  }
+</div>
