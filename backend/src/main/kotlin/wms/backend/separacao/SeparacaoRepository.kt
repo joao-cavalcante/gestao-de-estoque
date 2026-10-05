@@ -1253,11 +1253,9 @@ object SeparacaoRepository {
 
     /** Unidades de uma linha — só pra montar os textos do relatório da sincronização. */
     private data class Unidades(val comercial: String?, val padrao: String?, val divideMultiplica: String?, val fator: BigDecimal?) {
-        fun descreverConversao(): String = when {
-            fator == null || divideMultiplica == null -> "sem conversão"
-            divideMultiplica == "M" -> "1 $comercial = ${formatarQtd(fator)} $padrao"
-            else -> "1 $padrao = ${formatarQtd(fator)} $comercial"
-        }
+        fun descreverConversao(): String =
+            SeparacaoRepository.descreverConversao(comercial, padrao, divideMultiplica, fator)
+                ?: if (fator == null || divideMultiplica == null) "sem conversão" else "$comercial com 1 $padrao"
 
         /** "2 CX (50 KG)" quando há conversão; senão "50 KG". */
         fun descreverQtd(qtdPadrao: BigDecimal): String {
@@ -1767,8 +1765,24 @@ object SeparacaoRepository {
                     quantidadeComercial = padraoParaComercial(qtdNeg, divideMult, fator).toPlainString(),
                     quantidadePadraoConferida = qtdConf.toPlainString(),
                     quantidadeComercialConferida = padraoParaComercial(qtdConf, divideMult, fator).toPlainString(),
+                    conversao = descreverConversao(unidadeComercial, unidadePadrao, divideMult, fator),
                 )
             }
+    }
+
+    /**
+     * Quantas unidades de uma cabem na outra, pra orientar o operador: "CX com 12 BI"
+     * ('M': 1 comercial = fator padrão) ou "KG com 4 PC" ('D': 1 padrão = fator comercial).
+     * null quando não há conversão (mesma unidade, sem fator ou fator 1).
+     */
+    internal fun descreverConversao(comercial: String?, padrao: String?, divideMultiplica: String?, fator: BigDecimal?): String? {
+        if (comercial.isNullOrBlank() || padrao.isNullOrBlank() || comercial.equals(padrao, ignoreCase = true)) return null
+        if (fator == null || fator.signum() <= 0 || fator.compareTo(BigDecimal.ONE) == 0) return null
+        return when (divideMultiplica) {
+            "M" -> "$comercial com ${formatarQtd(fator)} $padrao"
+            "D" -> "$padrao com ${formatarQtd(fator)} $comercial"
+            else -> null
+        }
     }
 
     /**

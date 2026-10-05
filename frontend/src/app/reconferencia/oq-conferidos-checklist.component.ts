@@ -65,6 +65,7 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
                 <span class="ck-qtd" title="Conferido / pedido na unidade do pedido">
                   {{ fmt(i.qtdConferidaComercial!, 0) }} / {{ fmt(i.qtdPedidoComercial!, 0) }} {{ i.unidadeComercial }}
                   <small class="ck-base">Base: {{ fmt(i.qtdConferida, 0) }} / {{ fmt(i.qtdPedido, 0) }} {{ i.unidade }}</small>
+                  @if (i.conversao) { <small class="ck-base">{{ i.conversao }}</small> }
                 </span>
               } @else {
                 <span class="ck-qtd">{{ fmt(i.qtdConferida, 0) }} / {{ fmt(i.qtdPedido, 0) }} {{ i.unidade }}</span>

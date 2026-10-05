@@ -18,6 +18,8 @@ export interface ConferenciaItem {
   unidadeComercial?: string;
   /** `expected` convertido pra unidade comercial (TGFVOA DIVIDEMULTIPLICA) — só display. */
   quantidadeComercial?: number;
+  /** Observação "CX com 12 BI" — quantas unidades base cabem na unidade do pedido. Só display. */
+  conversao?: string;
   /** Produto fora do pedido (qtd_neg=0, só existe porque foi bipado) — ao devolver, some, não volta pra pendentes. */
   foraPedido?: boolean;
   /** Item pesável cujo peso conferido saiu da tolerância da sessão (acima/abaixo, V50) — divergência de PESO (indicador visual próprio). */

@@ -353,6 +353,8 @@ data class ItemSeparacaoDto(
     val quantidadePadrao: String? = null,
     val quantidadeComercialConferida: String? = null,
     val quantidadePadraoConferida: String? = null,
+    /** Observação "CX com 12 BI" (fator da TGFVOA) pro operador se localizar; null = sem conversão. Só display. */
+    val conversao: String? = null,
 )
 
 /** Etiqueta de produto pesável (V42) — uma por item pesável conferido. */

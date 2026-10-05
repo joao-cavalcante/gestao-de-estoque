@@ -59,6 +59,11 @@
                 }
               </div>
             }
+            @if (exibirQtd && item.conversao) {
+              <div class="item-linha">
+                <span class="item-info-sec">{{ item.conversao }}</span>
+              </div>
+            }
             @if (item.control && item.control !== '—') {
               <div class="item-linha">
                 <span class="item-info-sec">Controle: {{ item.control }}</span>

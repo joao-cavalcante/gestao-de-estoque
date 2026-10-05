@@ -104,6 +104,88 @@ class VinculoCorteTest {
         assertEquals(mapOf(1 to 2), VinculoCorte.preverSequencias(linhas, ignorarAMaior = true).simples())
     }
 
+    // ─── Produto com controle (lote) ─────────────────────────────────────
+    // O Sankhya agrupa por CODPROD+CONTROLE: cada lote é um "produto" pra liberação.
+
+    private fun pedidoLote(cp: Int, lote: String?, vol: String, qtd: String) = LinhaDetalhe('P', cp, VinculoCorte.normControle(lote), vol, BigDecimal(qtd), 0)
+    private fun conferidoLote(cp: Int, lote: String?, vol: String, qtd: String, seqconf: Int) =
+        LinhaDetalhe('C', cp, VinculoCorte.normControle(lote), vol, BigDecimal(qtd), seqconf)
+    private fun naNotaLote(cp: Int, lote: String?) = LinhaDetalhe('N', cp, VinculoCorte.normControle(lote), null, BigDecimal.ZERO, 0)
+
+    @Test
+    fun `dois lotes do mesmo produto, mesma unidade - uma liberacao por lote na SEQCONF de cada um`() {
+        val linhas = listOf(
+            pedidoLote(700, "L1", "CX", "5"), conferidoLote(700, "L1", "CX", "4", 1),
+            pedidoLote(700, "L2", "CX", "3"), conferidoLote(700, "L2", "CX", "1", 2),
+            naNotaLote(700, "L1"), naNotaLote(700, "L2"),
+        )
+        val r = VinculoCorte.preverSequencias(linhas)
+        assertEquals(mapOf(1 to listOf(Chave(700, "L1")), 2 to listOf(Chave(700, "L2"))), r)
+    }
+
+    @Test
+    fun `dois lotes do mesmo produto pesavel (PC x KG) - contador sem colisao`() {
+        val linhas = listOf(
+            pedidoLote(800, "A", "PC", "1"), conferidoLote(800, "A", "KG", "4.2", 1),
+            pedidoLote(800, "B", "PC", "1"), conferidoLote(800, "B", "KG", "3.9", 2),
+            naNotaLote(800, "A"), naNotaLote(800, "B"),
+        )
+        // MINSEQ DESC: lote B (2) aparece antes do A (1) -> B pega 1, A pega 2 (igual ao helper).
+        val r = VinculoCorte.preverSequencias(linhas)
+        assertEquals(mapOf(1 to listOf(Chave(800, "B")), 2 to listOf(Chave(800, "A"))), r)
+    }
+
+    @Test
+    fun `lote que bate nao pede liberacao e nao rouba numero do lote divergente`() {
+        val linhas = listOf(
+            pedidoLote(900, "L1", "UN", "10"), conferidoLote(900, "L1", "UN", "10", 1), // ok
+            pedidoLote(900, "L2", "UN", "10"), conferidoLote(900, "L2", "UN", "7", 2), // a menor
+            naNotaLote(900, "L1"), naNotaLote(900, "L2"),
+        )
+        assertEquals(mapOf(2 to listOf(Chave(900, "L2"))), VinculoCorte.preverSequencias(linhas))
+    }
+
+    @Test
+    fun `pedido sem lote e conferido com lote - so o grupo sem lote (que existe na nota) gera liberacao`() {
+        // Pedido em ' ' e conferência em 'L9' viram grupos diferentes. O 'L9' (a maior) não tem item
+        // na nota -> sem liberação; o ' ' fica com conferido 0 -> liberação de corte total.
+        val linhas = listOf(
+            pedidoLote(950, null, "UN", "6"), conferidoLote(950, "L9", "UN", "6", 1),
+            naNotaLote(950, null),
+        )
+        assertEquals(mapOf(1 to listOf(Chave(950, " "))), VinculoCorte.preverSequencias(linhas))
+    }
+
+    @Test
+    fun `controle vazio, nulo e so espacos sao o mesmo grupo`() {
+        assertEquals(" ", VinculoCorte.normControle(null))
+        assertEquals(" ", VinculoCorte.normControle(""))
+        assertEquals(" ", VinculoCorte.normControle("   "))
+        assertEquals("L1", VinculoCorte.normControle(" L1 "))
+        val linhas = listOf(
+            LinhaDetalhe('P', 960, VinculoCorte.normControle(null), "UN", BigDecimal("5"), 0),
+            LinhaDetalhe('C', 960, VinculoCorte.normControle(""), "UN", BigDecimal("3"), 1),
+            LinhaDetalhe('N', 960, VinculoCorte.normControle("  "), null, BigDecimal.ZERO, 0),
+        )
+        assertEquals(mapOf(1 to listOf(Chave(960, " "))), VinculoCorte.preverSequencias(linhas))
+    }
+
+    @Test
+    fun `texto da OBSERVACAO diferencia o lote - troca de lote e detectada pela checagem`() {
+        val l1 = VinculoCorte.textoProduto("Lombo Canadense", null, "L1")
+        val l2 = VinculoCorte.textoProduto("Lombo Canadense", null, "L2")
+        assertEquals("LOMBO CANADENSE, CONTROLE: L1", l1)
+        assertTrue(l1 != l2)
+        assertEquals(
+            "LOMBO CANADENSE, CONTROLE: L2",
+            VinculoCorte.produtoDaObservacao("Prod.: LOMBO CANADENSE, Controle: L2, Qtd. total conf.: 1 PC, Qtd. total pedido/nota: 2 PC"),
+        )
+        assertEquals(
+            "LOMBO CANADENSE, COMPLEM.: FATIADO, CONTROLE: L2",
+            VinculoCorte.textoProduto("Lombo Canadense", "Fatiado", "L2"),
+        )
+    }
+
     @Test
     fun `texto do produto igual ao da OBSERVACAO`() {
         assertEquals("QUEIJO PARMESAO SCALA, COMPLEM.: 6 MESES", VinculoCorte.textoProduto("Queijo Parmesao Scala", "6 MESES", " "))

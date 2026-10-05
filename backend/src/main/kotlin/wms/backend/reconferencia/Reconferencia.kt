@@ -61,6 +61,8 @@ data class ReconferenciaItemDto(
     val qtdPedidoComercial: String? = null,
     /** Qtd conferida na unidade do pedido — item NÃO pesável vendido em CX/BI aparece nela (ex.: 20 CX, não 30 KG). */
     val qtdConferidaComercial: String? = null,
+    /** Observação "CX com 12 BI" (fator da TGFVOA); null = sem conversão. Só display. */
+    val conversao: String? = null,
     val pesavel: Boolean,
     val checado: Boolean,
     val checadoPor: String? = null,
@@ -150,6 +152,11 @@ object ReconferenciaService {
                             it[SeparacaoItensTable.qtdConferidaLocal], it[SeparacaoItensTable.divideMultiplica], it[SeparacaoItensTable.fatorConversao],
                         )
                     }.stripTrailingZeros().toPlainString(),
+                    conversao = wms.backend.separacao.SeparacaoRepository.descreverConversao(
+                        r[SeparacaoItensTable.unidadeComercial] ?: r[SeparacaoItensTable.codvol],
+                        r[SeparacaoItensTable.unidadePadrao] ?: r[SeparacaoItensTable.codvol],
+                        r[SeparacaoItensTable.divideMultiplica], r[SeparacaoItensTable.fatorConversao],
+                    ),
                     pesavel = r[SeparacaoItensTable.usaConfPeso],
                     checado = check != null,
                     checadoPor = check?.get(ReconferenciaChecksTable.checadoPor),

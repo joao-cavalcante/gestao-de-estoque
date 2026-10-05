@@ -272,6 +272,8 @@ export interface ItemSeparacao {
   quantidadePadrao: string | null;
   quantidadeComercialConferida: string | null;
   quantidadePadraoConferida: string | null;
+  /** Observação "CX com 12 BI" (fator da TGFVOA); null = sem conversão. Só display. */
+  conversao?: string | null;
 }
 
 /** Linha corrigida pelo "Atualizar com Sankhya". */
