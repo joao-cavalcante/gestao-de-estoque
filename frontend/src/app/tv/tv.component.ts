@@ -182,4 +182,14 @@ export class TvComponent implements OnInit, OnDestroy {
   numero(n: number): string {
     return String(n).padStart(2, '0');
   }
+
+  /** 12345.6 kg → "12,3" (toneladas, 1 casa). */
+  toneladas(kg: number): string {
+    return (kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  /** 845.25 kg → "845" (kg inteiros). */
+  quilos(kg: number): string {
+    return Math.round(kg).toLocaleString('pt-BR');
+  }
 }

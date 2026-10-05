@@ -48,6 +48,9 @@ object TarefaSyncService {
         // TGFCAB.AD_EXPRESS / AD_RETIRA / AD_ENTREGA ('S'/'N') — modalidade do pedido: pin no card da
         // fila, filtro rápido e ícones no Mapa de Separação.
         "AD_EXPRESS", "AD_RETIRA", "AD_ENTREGA",
+        // TGFCAB.PESOBRUTO (KG) — "peso a separar" da TV. Conferido com a soma QTDNEG x TGFPRO.PESOBRUTO
+        // dos itens em 15 pedidos com ordem de carga: bate em todos.
+        "PESOBRUTO",
         // Ponteiro pra conferência atual (NULL = nunca teve ou foi excluída —
         // fica preenchido permanentemente uma vez setado, mesmo após
         // finalização) + liberação do vendedor. Já eram usados dentro do

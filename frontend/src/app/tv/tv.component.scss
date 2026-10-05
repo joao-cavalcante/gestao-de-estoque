@@ -204,6 +204,13 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: calc(1 * var(--u));
+
+  // Saídas: + ordens de carga e peso a separar — 7 blocos, número um pouco menor pra caber.
+  &--carga {
+    grid-template-columns: repeat(7, 1fr);
+
+    .tv-kpi__val { font-size: calc(4.4 * var(--u)); }
+  }
 }
 
 .tv-kpi {

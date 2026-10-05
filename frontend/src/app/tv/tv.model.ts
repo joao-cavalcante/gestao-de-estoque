@@ -15,6 +15,10 @@ export interface TvResumo {
     tempoMedioHojeMin: number | null;
     prontoTurno: number;
     tempoMedioTurnoMin: number | null;
+    /** Ordens de carga distintas com pedido ainda não finalizado. */
+    ordensCargaPendentes: number;
+    /** Peso bruto (KG) dos pedidos ainda não finalizados. */
+    pesoPendenteKg: number;
   };
   /** Turno atual (Manhã 08–18, Noite 22–07); fora de turno = desde 00:00. */
   turno: { codigo: string | null; rotulo: string; inicioEm: string };

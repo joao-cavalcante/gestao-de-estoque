@@ -90,6 +90,10 @@ object TvService {
         }
         val numNota get() = campo("NUMNOTA")?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }
         val cliente get() = campo("Parceiro.NOMEPARC")
+        /** TGFCAB.PESOBRUTO em KG (0 enquanto o sync não trouxe o campo). Aceita "1543.22" e "1.543,22". */
+        val pesoBrutoKg: Double get() = campo("PESOBRUTO")?.let { bruto ->
+            bruto.toDoubleOrNull() ?: bruto.replace(".", "").replace(',', '.').toDoubleOrNull()
+        } ?: 0.0
     }
 
     private data class Sessao(
@@ -291,6 +295,10 @@ object TvService {
             val tempoMedio = tempoMedioMin(prontasHoje)
             val pendentes = notas.filter { it.status in DISPONIVEL || it.status in EM_CONFERENCIA || it.status in AGUARDANDO_LIBERACAO }
             fun sim(n: Nota, campo: String) = n.campo(campo)?.uppercase() == "S"
+            // Ordens de carga / peso ainda a fazer: mesmos pedidos não finalizados das modalidades.
+            // Pedido sem ordem de carga (retira, express) entra no peso mas não conta ordem.
+            val ordensCargaPendentes = pendentes.mapNotNull { TarefasRepository.normalizarOrdemCarga(it.campo("ORDEMCARGA")) }.toSet().size
+            val pesoPendenteKg = pendentes.sumOf { it.pesoBrutoKg }
 
             // ---- Faixa por etapa (etapas reais das conferências abertas + concluídas hoje) ----
             val locksAtivos = locks.filter { it.third[SeparacaoLocksTable.ultimaAtividade] >= limiteLock }
@@ -328,6 +336,8 @@ object TvService {
                     tempoMedioHojeMin = tempoMedio,
                     prontoTurno = prontasTurno.size,
                     tempoMedioTurnoMin = tempoMedioMin(prontasTurno),
+                    ordensCargaPendentes = ordensCargaPendentes,
+                    pesoPendenteKg = Math.round(pesoPendenteKg * 10.0) / 10.0,
                 ),
                 turno = TvTurnoDto(codigo = turnoCodigo, rotulo = turnoRotulo, inicioEm = iso(inicioTurno)),
                 modalidades = TvModalidadesDto(

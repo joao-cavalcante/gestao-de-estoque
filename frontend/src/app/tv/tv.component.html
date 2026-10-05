@@ -27,7 +27,7 @@
 
   @if (dados(); as d) {
     <!-- ═══ Nível 2: situação da operação ═══ -->
-    <section class="tv__kpis">
+    <section class="tv__kpis" [class.tv__kpis--carga]="d.movimento !== 'entrada'">
       <div class="tv-kpi">
         <span class="tv-kpi__rot">Disponível</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('disponivel')">{{ numero(d.resumo.disponivel) }}</span>
@@ -49,6 +49,23 @@
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('prontoTurno')">{{ numero(d.resumo.prontoTurno) }}</span>
         @if (d.porMovimento; as pm) { <span class="tv-kpi__mov">Saída {{ pm.saida.prontoTurno }} · Entrada {{ pm.entrada.prontoTurno }}</span> }
       </div>
+      <!-- A fazer na expedição: ordens de carga e peso dos pedidos ainda não finalizados (só saídas) -->
+      @if (d.movimento !== 'entrada') {
+        <div class="tv-kpi">
+          <span class="tv-kpi__rot">Ordens de carga a fazer</span>
+          <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('ordensCargaPendentes')">{{ numero(d.resumo.ordensCargaPendentes) }}</span>
+        </div>
+        <div class="tv-kpi">
+          <span class="tv-kpi__rot">Peso a separar</span>
+          <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('pesoPendenteKg')">
+            @if (d.resumo.pesoPendenteKg >= 1000) {
+              {{ toneladas(d.resumo.pesoPendenteKg) }}<small>t</small>
+            } @else {
+              {{ quilos(d.resumo.pesoPendenteKg) }}<small>kg</small>
+            }
+          </span>
+        </div>
+      }
       <div class="tv-kpi">
         <span class="tv-kpi__rot">{{ d.turno.codigo ? 'Tempo médio no turno' : 'Tempo médio hoje' }}</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('tempoMedioTurnoMin')">

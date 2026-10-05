@@ -44,6 +44,10 @@ data class TvContadoresDto(
     val prontoTurno: Int = 0,
     /** Mesmo critério do tempoMedioHojeMin, só conclusões do turno atual. */
     val tempoMedioTurnoMin: Int? = null,
+    /** Ordens de carga distintas com pedido ainda não finalizado (disponível, em conferência ou aguardando liberação). */
+    val ordensCargaPendentes: Int = 0,
+    /** Soma do TGFCAB.PESOBRUTO (KG) desses mesmos pedidos não finalizados. */
+    val pesoPendenteKg: Double = 0.0,
 )
 
 @Serializable
