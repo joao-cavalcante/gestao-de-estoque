@@ -68,6 +68,7 @@ export interface TarefaApiDto {
   entrega?: boolean;
   /** Base pro indicador de sincronização da UI ("dados de Xs atrás"). */
   segundosDesdeSync: number;
+  carregamento?: { total: number; carregados: number; sessaoId: string | null } | null;
   pendenteWriteBack: boolean;
 }
 
@@ -152,6 +153,7 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     express: !!p.express,
     retira: !!p.retira,
     entrega: !!p.entrega,
+    carregamento: p.carregamento ?? undefined,
   };
 }
 

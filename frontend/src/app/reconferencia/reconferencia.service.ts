@@ -64,6 +64,11 @@ export class ReconferenciaService {
     return this.http.get<ReconferenciaDetalhe>(`/api/reconferencia/${sessaoId}`);
   }
 
+  /** "Marcar todos" do checklist de carregamento. */
+  marcarTodos(sessaoId: string, checado: boolean): Observable<unknown> {
+    return this.http.put(`/api/reconferencia/${sessaoId}/check-todos`, { checado });
+  }
+
   marcar(sessaoId: string, codprod: number, controle: string, checado: boolean): Observable<unknown> {
     return this.http.put(`/api/reconferencia/${sessaoId}/check`, { codprod, controle, checado });
   }

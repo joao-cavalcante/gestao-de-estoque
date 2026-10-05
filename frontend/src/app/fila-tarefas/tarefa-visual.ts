@@ -1,5 +1,5 @@
 import { OqIconName } from '../shared/icons/oq-icon.component';
-import { StatusTarefa, Tarefa, TIPOS_SEPARACAO } from './tarefa.model';
+import { StatusTarefa, Tarefa, TIPOS_SEPARACAO, aCarregar } from './tarefa.model';
 
 /**
  * Apresentação de uma tarefa da fila — status (ícone/rótulo/cor) e etapas da
@@ -23,6 +23,11 @@ const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
 
 export function statusVisual(tarefa: Tarefa): StatusVisual {
   const visual = STATUS_VISUAL[tarefa.status];
+  // Conferida com OC e ainda não carregada (só aparece na fila filtrada por OC).
+  if (aCarregar(tarefa)) {
+    const c = tarefa.carregamento!;
+    return { icone: 'entrega', label: `A CARREGAR · ${c.carregados}/${c.total}`, gira: false, tom: 'andamento' };
+  }
   // "aguardando_recontagem" cai no mesmo bucket 'aguardando' de uma nota
   // nunca conferida (ver STATUS_MAP em conferencias.service.ts), mas pro
   // operador são situações bem diferentes — uma já foi conferida antes e
@@ -50,6 +55,7 @@ export interface EtapaVisual {
 
 /** Etapas da conferência por etapa (V29) — com rótulo/ícone/progresso resolvidos. Vazio = nota não segmentada. */
 export function etapasVisiveis(tarefa: Tarefa): EtapaVisual[] {
+  if (aCarregar(tarefa)) return []; // card de carregamento: um botão só, sem chips de etapa
   return (tarefa.etapas ?? [])
     .map((e) => {
       const cat = TIPOS_SEPARACAO.find((t) => t.id === e.tipo);

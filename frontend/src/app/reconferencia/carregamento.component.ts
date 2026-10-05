@@ -63,6 +63,13 @@ export class CarregamentoComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    // Vindo do "Carregar OC" da fila: já filtra a OC e mostra só o que falta carregar.
+    const oc = this.route.snapshot.queryParamMap.get('oc');
+    if (oc) {
+      this.busca.set(oc);
+      this.filtroOc.set('com');
+      this.soNaoChecadas.set(true);
+    }
     this.route.paramMap.subscribe((p) => {
       const id = p.get('sessaoId');
       this.sessaoAberta.set(id);

@@ -86,7 +86,7 @@
           [class.oq-card__btn--continuar]="tarefa.status === 'andamento'"
           (click)="conferir.emit(tarefa)"
         >
-          {{ tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+          {{ tarefa.carregamento && tarefa.status === 'concluido' ? 'Carregar' : tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
         </button>
       }
     </footer>

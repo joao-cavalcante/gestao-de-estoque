@@ -44,6 +44,21 @@ export interface Tarefa {
    * `conferencia_segmentada`. Uma entrada por tipo de separação com item na nota.
    */
   etapas?: TarefaEtapa[];
+  /** Carregamento (checklist do "Ver conferidos") — só nota conferida com OC. */
+  carregamento?: CarregamentoTarefa;
+}
+
+export interface CarregamentoTarefa {
+  /** Itens conferidos (produto+controle) e quantos já foram checados como carregados. */
+  total: number;
+  carregados: number;
+  /** Sessão a abrir no checklist (a que ainda tem item a carregar). */
+  sessaoId: string | null;
+}
+
+/** Conferida, com OC e com item ainda não carregado — vira "A CARREGAR" na fila filtrada por OC. */
+export function aCarregar(t: Tarefa): boolean {
+  return t.status === 'concluido' && t.ordemCarga != null && !!t.carregamento && t.carregamento.carregados < t.carregamento.total;
 }
 
 export interface TarefaEtapa {

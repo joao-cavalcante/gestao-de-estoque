@@ -65,7 +65,7 @@
               [class.oq-lista__btn--continuar]="linha.t.status === 'andamento'"
               (click)="abrir(linha.t)"
             >
-              {{ linha.t.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+              {{ linha.t.carregamento && linha.t.status === 'concluido' ? 'Carregar' : linha.t.status === 'andamento' ? 'Continuar' : 'Conferir' }}
             </button>
           }
         </td>

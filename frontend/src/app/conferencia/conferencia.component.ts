@@ -716,6 +716,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       this.parceiro = tarefa.cliente;
       this.vendedor = tarefa.responsavel;
       this.motorista = tarefa.motorista ?? null;
+      this.ordemCargaTarefa = tarefa.ordemCarga ?? null;
       this.veiculo = tarefa.transporte && tarefa.transporte !== '—' ? tarefa.transporte : null;
     }
     this.numeroUnico = nunota ? String(nunota) : '—';
@@ -1565,6 +1566,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   sairParaFila(): void {
     this.router.navigate(['/fila-tarefas']);
+  }
+
+  /** OC do pedido (vinda da fila) — pedido com OC passa pelo carregamento. */
+  ordemCargaTarefa: number | null = null;
+
+  /** Pop-up final: abre o checklist de carregamento desta conferência. */
+  irParaCarregamento(): void {
+    if (this.sessaoIdAtual) this.router.navigate(['/carregamento', this.sessaoIdAtual]);
   }
 }
 

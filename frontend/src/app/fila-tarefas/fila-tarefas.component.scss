@@ -1,2 +1,33 @@
 /* Estilos movidos pra src/styles/_lista-layout.scss (globais) — o mesmo layout vale pra
    Fila de Tarefas, Impressão de Etiquetas, Liberação de Corte e Mapa de Separação. */
+
+// Faixa da OC filtrada (conferência + carregamento)
+.oq-oc-faixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  font-size: 13px;
+
+  &--ok { border-color: var(--oq-concluido); }
+}
+.oq-oc-faixa__oc { font-family: var(--oq-font-mono); font-weight: 700; font-size: 15px; }
+.oq-oc-faixa__item { color: var(--oq-text-secondary); strong { color: var(--oq-text-primary); font-family: var(--oq-font-mono); } }
+.oq-oc-faixa__alerta { font-weight: 700; color: var(--oq-warning-foreground); }
+.oq-oc-faixa__btn {
+  margin-left: auto;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-brand);
+  color: var(--oq-brand-foreground, #fff);
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled { opacity: 0.5; cursor: default; }
+}

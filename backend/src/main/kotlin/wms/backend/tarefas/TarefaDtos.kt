@@ -34,7 +34,16 @@ data class TarefaApiDto(
     /** Base pro indicador de sincronização já existente na UI ("dados de Xs atrás"). */
     val segundosDesdeSync: Long,
     val pendenteWriteBack: Boolean,
+    /** Carregamento (checklist do "Ver conferidos") — só pra nota conferida com OC; null = não se aplica. */
+    val carregamento: CarregamentoResumoDto? = null,
 )
+
+/**
+ * Itens conferidos x carregados (checados) de uma nota, somando as sessões concluídas (recontagem
+ * é outra sessão). `sessaoId` = sessão a abrir no checklist (a que ainda tem item a carregar).
+ */
+@Serializable
+data class CarregamentoResumoDto(val total: Int, val carregados: Int, val sessaoId: String?)
 
 @Serializable
 data class ConcluirTarefaRequest(

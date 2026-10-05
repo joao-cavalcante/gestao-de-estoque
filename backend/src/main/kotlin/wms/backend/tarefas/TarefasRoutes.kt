@@ -35,7 +35,7 @@ fun Route.tarefasRoutes() {
                 return@get
             }
 
-            call.respond(comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))
+            call.respond(comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))
         }
 
         // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
@@ -59,7 +59,7 @@ fun Route.tarefasRoutes() {
             }
             try {
                 TarefaSyncService.sincronizarTenant(slug, tenantId)
-                call.respond(comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))
+                call.respond(comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadGateway,
@@ -108,6 +108,23 @@ private fun resolverTenantId(slug: String): UUID? =
     TenantRepository.buscarPorSlug(slug)?.id?.let { UUID.fromString(it) }
 
 /** Fila só com as notas cuja TOP a conta logada pode conferir (PermissoesRecurso; admin vê tudo). */
+/**
+ * Carregamento nas notas CONFERIDAS com OC (as únicas que a fila mostra como "a carregar", e só com o filtro
+ * de OC). Notas concluídas há mais de [DIAS_CARREGAMENTO] dias ficam de fora — não pesa na fila.
+ */
+private fun comCarregamento(tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    val conferidas = tarefas.filter { it.ordemCarga != null && it.statusOperacional in STATUS_CONFERIDA_FILA }.map { it.nunota }
+    if (conferidas.isEmpty()) return tarefas
+    val resumo = wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, conferidas, DIAS_CARREGAMENTO)
+    return tarefas.map { t -> resumo[t.nunota]?.let { t.copy(carregamento = it) } ?: t }
+}
+
+private const val DIAS_CARREGAMENTO = 7L
+private val STATUS_CONFERIDA_FILA = setOf(
+    StatusOperacional.CONCLUIDO.codigo, StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
+    StatusOperacional.RECONTAGEM_CONCLUIDA.codigo, StatusOperacional.RECONTAGEM_CONCLUIDA_DIVERGENTE.codigo,
+)
+
 /** Motorista/veículo da OC nos cards — só do cache (ver TransporteOrdemCarga.doCache), a fila continua sem esperar o Sankhya. */
 private fun comTransporte(slug: String, tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
     val ocs = tarefas.mapNotNull { it.ordemCarga }

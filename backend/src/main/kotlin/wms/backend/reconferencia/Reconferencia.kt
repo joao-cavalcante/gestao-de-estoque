@@ -101,6 +101,9 @@ data class ReconferenciaResumoDto(
 @Serializable
 data class CheckRequest(val codprod: Int, val controle: String = "", val checado: Boolean)
 
+@Serializable
+data class CheckTodosRequest(val checado: Boolean)
+
 object ReconferenciaService {
     private val iso = DateTimeFormatter.ISO_INSTANT
 
@@ -194,6 +197,98 @@ object ReconferenciaService {
         }
     }
 
+    /** "Marcar todos" do checklist: marca (ou desmarca) todos os itens conferidos da sessão de uma vez. */
+    fun marcarTodos(tenantId: UUID, sessaoId: UUID, checado: Boolean, por: String?): Int = TenantTx.run(tenantId) {
+        if (!checado) {
+            return@run ReconferenciaChecksTable.deleteWhere {
+                (ReconferenciaChecksTable.tenantId eq tenantId) and (ReconferenciaChecksTable.sessaoId eq sessaoId)
+            }
+        }
+        inserirChecks(tenantId, sessaoId, chavesConferidas(tenantId, sessaoId, null), por)
+    }
+
+    /**
+     * Carregamento automático: Secos e Congelado são conferidos já colocando no caminhão, então concluir
+     * essas etapas marca os itens dela como carregados. [tipos] null = todas; o Refrigerado (2) nunca entra
+     * aqui — ele é separado antes e carregado depois pelo checklist. Nunca derruba a conferência.
+     */
+    fun marcarCarregadoNaConferencia(tenantId: UUID, sessaoId: UUID, tipos: Set<Int>, por: String?) {
+        runCatching {
+            TenantTx.run(tenantId) { inserirChecks(tenantId, sessaoId, chavesConferidas(tenantId, sessaoId, tipos), por) }
+        }.onFailure { println("AVISO: carregamento automático (sessão $sessaoId, etapas $tipos) falhou: ${it.message}") }
+    }
+
+    /** produto+controle com algo conferido na sessão (mesma chave do checklist), opcionalmente só de [tipos]. */
+    private fun chavesConferidas(tenantId: UUID, sessaoId: UUID, tipos: Set<Int>?): Set<Pair<Int, String>> =
+        SeparacaoItensTable.selectAll()
+            .where {
+                (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) and
+                    (SeparacaoItensTable.silencioso eq false)
+            }
+            .filter { it[SeparacaoItensTable.qtdConferidaLocal].signum() > 0 }
+            .filter { tipos == null || it[SeparacaoItensTable.tipoSeparacao].toInt() in tipos }
+            .map { it[SeparacaoItensTable.codprod] to it[SeparacaoItensTable.controle].trim() }
+            .toSet()
+
+    private fun inserirChecks(tenantId: UUID, sessaoId: UUID, chaves: Set<Pair<Int, String>>, por: String?): Int {
+        val agora = Instant.now()
+        return chaves.sumOf { (cp, ctrl) ->
+            ReconferenciaChecksTable.insertIgnore {
+                it[ReconferenciaChecksTable.tenantId] = tenantId
+                it[ReconferenciaChecksTable.sessaoId] = sessaoId
+                it[codprod] = cp
+                it[controle] = ctrl
+                it[checadoPor] = por
+                it[checadoEm] = agora
+            }.insertedCount
+        }
+    }
+
+    /**
+     * Carregamento por NOTA (fila): itens conferidos x checados somando as sessões CONCLUÍDAS da nota nos
+     * últimos [dias] dias (recontagem é sessão nova, com só o que voltou). `sessaoId` = a sessão mais recente
+     * que ainda tem item a carregar (ou a mais recente, se tudo carregado).
+     */
+    fun resumoCarregamento(tenantId: UUID, nunotas: List<Long>, dias: Long): Map<Long, wms.backend.tarefas.CarregamentoResumoDto> = TenantTx.run(tenantId) {
+        if (nunotas.isEmpty()) return@run emptyMap()
+        val desde = Instant.now().minusSeconds(dias * 86_400)
+        val sessoes = SeparacaoSessoesTable.selectAll()
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.status eq SeparacaoStatus.CONCLUIDA) and
+                    (SeparacaoSessoesTable.nunota inList nunotas.map { it.toInt() }) and (SeparacaoSessoesTable.atualizadoEm greaterEq desde)
+            }
+            .orderBy(SeparacaoSessoesTable.criadoEm, SortOrder.DESC)
+            .toList()
+        if (sessoes.isEmpty()) return@run emptyMap()
+        val ids = sessoes.map { it[SeparacaoSessoesTable.id] }
+        val itensPorSessao = SeparacaoItensTable.selectAll()
+            .where {
+                (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId inList ids) and
+                    (SeparacaoItensTable.silencioso eq false)
+            }
+            .filter { it[SeparacaoItensTable.qtdConferidaLocal].signum() > 0 }
+            .groupBy({ it[SeparacaoItensTable.sessaoId] }, { it[SeparacaoItensTable.codprod] to it[SeparacaoItensTable.controle].trim() })
+            .mapValues { it.value.toSet() }
+        val checksPorSessao = ReconferenciaChecksTable.selectAll()
+            .where { (ReconferenciaChecksTable.tenantId eq tenantId) and (ReconferenciaChecksTable.sessaoId inList ids) }
+            .groupBy({ it[ReconferenciaChecksTable.sessaoId] }, { it[ReconferenciaChecksTable.codprod] to it[ReconferenciaChecksTable.controle].trim() })
+            .mapValues { it.value.toSet() }
+        sessoes.groupBy { it[SeparacaoSessoesTable.nunota].toLong() }.mapValues { (_, lista) ->
+            var total = 0
+            var carregados = 0
+            var aCarregar: UUID? = null
+            for (s in lista) { // mais recente primeiro
+                val id = s[SeparacaoSessoesTable.id]
+                val itens = itensPorSessao[id] ?: emptySet()
+                val feitos = itens.count { it in (checksPorSessao[id] ?: emptySet()) }
+                total += itens.size
+                carregados += feitos
+                if (aCarregar == null && feitos < itens.size) aCarregar = id
+            }
+            wms.backend.tarefas.CarregamentoResumoDto(total, carregados, (aCarregar ?: lista.first()[SeparacaoSessoesTable.id]).toString())
+        }
+    }
+
     /** Conferências FINALIZADAS (sessão concluída) dos últimos [dias] dias, mais recentes primeiro. */
     fun listarFinalizadas(tenantId: UUID, dias: Long): List<ReconferenciaResumoDto> = TenantTx.run(tenantId) {
         val desde = Instant.now().minusSeconds(dias * 86_400)
@@ -265,6 +360,16 @@ fun Route.reconferenciaRoutes() {
             val nome = UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
             ReconferenciaService.marcar(claims.tenantId, id, req, nome)
             call.respond(mapOf("ok" to true))
+        }
+        /** "Marcar todos" do checklist de carregamento. */
+        put("/{sessaoId}/check-todos") {
+            val claims = call.exigirAuth() ?: return@put
+            val id = call.parameters["sessaoId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "sessão inválida"))
+            val req = call.receive<CheckTodosRequest>()
+            val nome = UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
+            val n = ReconferenciaService.marcarTodos(claims.tenantId, id, req.checado, nome)
+            call.respond(mapOf("ok" to true, "itens" to n))
         }
     }
 }

@@ -11,7 +11,7 @@ import { OqTaskListComponent } from './oq-task-list/oq-task-list.component';
 import { OqEmptyStateComponent } from './oq-empty-state/oq-empty-state.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConferenciasService } from './conferencias.service';
-import { CampoOrdenacao, FILTROS_STATUS, FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Ordenacao, Tarefa, ViewMode } from './tarefa.model';
+import { aCarregar, CampoOrdenacao, FILTROS_STATUS, FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Ordenacao, Tarefa, ViewMode } from './tarefa.model';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
 import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
 import { ITENS_POR_PAGINA, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
@@ -165,6 +165,38 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
    */
   private readonly tarefasAtivas = computed(() => this.tarefas().filter((t) => t.status !== 'concluido'));
 
+  /** OC do filtro avançado (null = sem filtro de OC). */
+  readonly ocFiltrada = computed(() => this.filtrosAvancados().ordemCarga?.trim() || null);
+
+  /**
+   * Carregamento: com o filtro de OC, a nota CONFERIDA que ainda tem item a carregar continua na fila
+   * ("A CARREGAR") — sem isto a OC só de Refrigerado, conferida cedo, sumia e ninguém lembrava de carregar.
+   * Fora do filtro de OC não aparece (a fila geral continua só com trabalho de conferência).
+   */
+  private readonly tarefasACarregar = computed(() => {
+    const oc = this.ocFiltrada();
+    if (!oc) return [];
+    return this.tarefas().filter((t) => aCarregar(t) && String(t.ordemCarga) === oc);
+  });
+
+  /** Faixa da OC filtrada: pedidos conferidos e itens carregados (só pedidos da OC que a fila conhece). */
+  readonly resumoOc = computed(() => {
+    const oc = this.ocFiltrada();
+    if (!oc) return null;
+    const daOc = this.tarefas().filter((t) => String(t.ordemCarga ?? '') === oc);
+    if (daOc.length === 0) return null;
+    const conferidos = daOc.filter((t) => t.status === 'concluido');
+    const comCarga = conferidos.filter((t) => !!t.carregamento);
+    return {
+      oc,
+      pedidos: daOc.length,
+      conferidos: conferidos.length,
+      itensTotal: comCarga.reduce((s, t) => s + t.carregamento!.total, 0),
+      itensCarregados: comCarga.reduce((s, t) => s + t.carregamento!.carregados, 0),
+      pedidosACarregar: conferidos.filter((t) => aCarregar(t)).length,
+    };
+  });
+
   readonly kpis = computed(() => {
     const todas = this.tarefasAtivas();
     return {
@@ -213,8 +245,8 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const tipos = this.filtroTipoSeparacao();
     const modalidades = this.filtroModalidade();
 
-    return this.tarefasAtivas().filter((t) => {
-      const passaFiltro = filtro === 'todos' || t.status === filtro;
+    return [...this.tarefasAtivas(), ...this.tarefasACarregar()].filter((t) => {
+      const passaFiltro = filtro === 'todos' || t.status === filtro || aCarregar(t);
 
       const passaBusca =
         !termo ||
@@ -354,6 +386,12 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.dropdownFiltrosAberto.update((v) => !v);
   }
 
+  /** Carregamento da OC inteira: lista das notas da OC na tela de carregamento. */
+  carregarOc(): void {
+    const oc = this.ocFiltrada();
+    if (oc) this.router.navigate(['/carregamento'], { queryParams: { oc } });
+  }
+
   aplicarFiltrosAvancados(filtros: FiltrosAvancados): void {
     this.filtrosAvancados.set(filtros);
     this.paginaAtual.set(1);
@@ -363,6 +401,11 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   onConferir(evento: Tarefa | { tarefa: Tarefa; etapa?: number }): void {
     const tarefa = 'tarefa' in evento ? evento.tarefa : evento;
     const etapa = 'tarefa' in evento ? evento.etapa : undefined;
+    // Conferida a carregar: abre o checklist de carregamento (o "Ver conferidos" da nota).
+    if (aCarregar(tarefa) && tarefa.carregamento?.sessaoId) {
+      this.router.navigate(['/carregamento', tarefa.carregamento.sessaoId]);
+      return;
+    }
     // Conferência já cortada e aguardando liberação — o operador vai pra tela
     // de liberação de corte, não reabre a conferência.
     if (tarefa.status === 'aguardando_corte') {

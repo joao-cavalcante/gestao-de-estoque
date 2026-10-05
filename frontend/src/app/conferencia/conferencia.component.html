@@ -502,6 +502,9 @@
           @if (mostrarBotaoPesoFinal()) {
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirPesoFinal()">Etiquetas de peso</button>
           }
+          @if (ordemCargaTarefa != null) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="irParaCarregamento()">Carregar agora</button>
+          }
           <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="sairParaFila()">Finalizar</button>
         </div>
       </div>

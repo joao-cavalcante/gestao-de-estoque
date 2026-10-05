@@ -27,6 +27,16 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
   imports: [OqIconComponent],
   template: `
     <div class="ck-topo">
+      <label class="ck-todos" title="Marcar/desmarcar todos os itens">
+        <input
+          type="checkbox"
+          [checked]="itens().length > 0 && checados() === itens().length"
+          [indeterminate]="checados() > 0 && checados() < itens().length"
+          [disabled]="marcandoTodos() || itens().length === 0"
+          (change)="alternarTodos()"
+        />
+        Todos
+      </label>
       <span class="ck-prog">
         <strong>{{ checados() }}</strong> de {{ itens().length }} checados
       </span>
@@ -82,6 +92,8 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
     `
       :host { display: flex; flex-direction: column; gap: 12px; }
       .ck-topo { display: flex; align-items: center; gap: 10px; }
+      .ck-todos { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+      .ck-todos input { width: 18px; height: 18px; cursor: pointer; }
       .ck-prog { font-family: var(--oq-font-mono); font-size: 12px; white-space: nowrap; }
       .ck-barra { flex: 1; height: 6px; border-radius: 99px; background: var(--oq-border); overflow: hidden; }
       .ck-barra__fill { display: block; height: 100%; background: var(--oq-concluido); transition: width .3s ease; }
@@ -119,6 +131,7 @@ export class OqConferidosChecklistComponent implements OnChanges {
   readonly itens = signal<ReconferenciaItem[]>([]);
   readonly salvando = signal<ReadonlySet<string>>(new Set());
   readonly erro = signal<string | null>(null);
+  readonly marcandoTodos = signal(false);
 
   ngOnChanges(): void {
     this.itens.set(this.detalhe?.itens ?? []);
@@ -137,6 +150,24 @@ export class OqConferidosChecklistComponent implements OnChanges {
   readonly checados = computed(() => this.itens().filter((i) => i.checado).length);
   readonly pct = computed(() => (this.itens().length ? (this.checados() / this.itens().length) * 100 : 0));
   readonly divergentesTotal = computed(() => this.itens().filter((i) => this.motivo(i)).length);
+
+  /** Marca todos (ou desmarca, se já estão todos marcados) de uma vez. */
+  alternarTodos(): void {
+    if (this.marcandoTodos() || !this.detalhe) return;
+    const marcar = this.checados() < this.itens().length;
+    const antes = this.itens();
+    this.marcandoTodos.set(true);
+    this.erro.set(null);
+    this.itens.set(antes.map((i) => ({ ...i, checado: marcar })));
+    this.service.marcarTodos(this.detalhe.sessaoId, marcar).subscribe({
+      next: () => this.marcandoTodos.set(false),
+      error: () => {
+        this.itens.set(antes);
+        this.marcandoTodos.set(false);
+        this.erro.set('Não foi possível salvar — tente de novo.');
+      },
+    });
+  }
 
   chave(i: ReconferenciaItem): string {
     return `${i.codprod}|${i.controle}`;

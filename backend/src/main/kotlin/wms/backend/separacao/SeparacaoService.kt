@@ -803,6 +803,15 @@ object SeparacaoService {
             TarefasRepository.concluirLocalSemWriteBack(tenantId, sessao.nunota)
         }
 
+        // Carregamento: Secos e Congelado foram conferidos já no caminhão (etapas intermediárias já marcaram
+        // as delas; isto cobre a última etapa e a nota sem etapas). Refrigerado fica pro checklist.
+        withContext(Dispatchers.IO) {
+            val quem = usuarioFinalizadorId?.let { wms.backend.usuarios.UsuariosRepository.buscarPorId(tenantId, it)?.nome }
+            wms.backend.reconferencia.ReconferenciaService.marcarCarregadoNaConferencia(
+                tenantId, sessaoId, TIPOS_CARREGA_NA_CONFERENCIA, "${quem ?: "conferente"} (na conferência)",
+            )
+        }
+
         FinalizacaoProgresso.registrarConclusao(
             sessaoId, ConclusaoDto(etapa = null, conferenciaFinalizada = true, aguardandoCorte = aguardandoCorte, nuconf = nuconf),
         )
@@ -811,6 +820,9 @@ object SeparacaoService {
             FinalizacaoProgresso.limpar(sessaoId)
         }
     }
+
+    /** Etapas conferidas já colocando no caminhão (Secos 1, Congelado 3) — viram "carregado" ao concluir. */
+    private val TIPOS_CARREGA_NA_CONFERENCIA = setOf(1, 3)
 
     class ConcluirEtapaException(message: String) : Exception(message)
     /** Erro específico "ainda há itens pendentes nesta etapa" — o front abre o modal de confirmação. */
@@ -907,6 +919,11 @@ object SeparacaoService {
                     throw e
                 } finally {
                     FinalizacaoProgresso.limpar(sessaoId)
+                }
+            }
+            if (tipoSeparacao in TIPOS_CARREGA_NA_CONFERENCIA) {
+                withContext(Dispatchers.IO) {
+                    wms.backend.reconferencia.ReconferenciaService.marcarCarregadoNaConferencia(tenantId, sessaoId, setOf(tipoSeparacao), "$operador (na conferência)")
                 }
             }
             // Etapa concluída: quem quiser abrir outra etapa não é barrado por este lock.
