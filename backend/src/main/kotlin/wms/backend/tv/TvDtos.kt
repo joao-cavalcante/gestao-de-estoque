@@ -26,6 +26,8 @@ data class TvResumoDto(
     val emConferencia: List<TvConferenciaDto>,
     val recemFinalizados: List<TvFinalizadoDto>,
     val porEtapa: List<TvEtapaResumoDto>,
+    /** Ordens de carga com pedido não finalizado (só saídas), OC crescente; "sem OC" por último. */
+    val ordensCarga: List<TvOrdemCargaDto> = emptyList(),
 )
 
 @Serializable
@@ -48,6 +50,27 @@ data class TvContadoresDto(
     val ordensCargaPendentes: Int = 0,
     /** Soma do TGFCAB.PESOBRUTO (KG) desses mesmos pedidos não finalizados. */
     val pesoPendenteKg: Double = 0.0,
+    /** Parte do pesoPendenteKg aguardando liberação ou corte. */
+    val pesoAguardandoLiberacaoKg: Double = 0.0,
+)
+
+/**
+ * Uma ordem de carga com pedido ainda não finalizado (ou o grupo "sem OC", ordemCarga = null).
+ * Pesos em KG, do TGFCAB.PESOBRUTO de cada pedido.
+ */
+@Serializable
+data class TvOrdemCargaDto(
+    val ordemCarga: Long?,
+    /** Pedidos da OC no espelho (fila), finalizados ou não. */
+    val pedidos: Int,
+    val pedidosProntos: Int,
+    /** Pedidos da OC em conferência agora. */
+    val emConferencia: Int,
+    val pesoTotalKg: Double,
+    /** Peso dos pedidos não finalizados (inclui os aguardando liberação/corte). */
+    val pesoPendenteKg: Double,
+    /** Parte do pesoPendenteKg que está aguardando liberação ou corte — mostrada em destaque. */
+    val pesoAguardandoLiberacaoKg: Double,
 )
 
 @Serializable

@@ -11,6 +11,7 @@ const INTERVALO_API_MS = 15_000;
 const INTERVALO_PAGINA_MS = 10_000;
 const CARDS_POR_PAGINA = 6;
 const FINALIZADOS_POR_PAGINA = 10;
+const OC_POR_PAGINA = 6;
 
 const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
   1: { label: 'Secos', icone: 'seco' },
@@ -49,6 +50,7 @@ export class TvComponent implements OnInit, OnDestroy {
   readonly agora = signal(Date.now());
   readonly pagCards = signal(0);
   readonly pagFinalizados = signal(0);
+  readonly pagOc = signal(0);
   readonly telaCheia = signal(!!document.fullscreenElement);
 
   readonly etapas = ETAPAS;
@@ -82,6 +84,12 @@ export class TvComponent implements OnInit, OnDestroy {
     const p = this.pagFinalizados() % this.totalPagFinalizados();
     return lista.slice(p * FINALIZADOS_POR_PAGINA, (p + 1) * FINALIZADOS_POR_PAGINA);
   });
+  readonly totalPagOc = computed(() => Math.max(1, Math.ceil((this.dados()?.ordensCarga?.length ?? 0) / OC_POR_PAGINA)));
+  readonly ocVisiveis = computed(() => {
+    const lista = this.dados()?.ordensCarga ?? [];
+    const p = this.pagOc() % this.totalPagOc();
+    return lista.slice(p * OC_POR_PAGINA, (p + 1) * OC_POR_PAGINA);
+  });
   readonly paradosCount = computed(() => (this.dados()?.emConferencia ?? []).filter((c) => this.minutosParado(c) != null).length);
 
   ngOnInit(): void {
@@ -107,6 +115,7 @@ export class TvComponent implements OnInit, OnDestroy {
     this.rotacao = setInterval(() => {
       this.pagCards.update((p) => (p + 1) % this.totalPagCards());
       this.pagFinalizados.update((p) => (p + 1) % this.totalPagFinalizados());
+      this.pagOc.update((p) => (p + 1) % this.totalPagOc());
     }, INTERVALO_PAGINA_MS);
     document.addEventListener('fullscreenchange', this.aoMudarTelaCheia);
   }
@@ -183,13 +192,9 @@ export class TvComponent implements OnInit, OnDestroy {
     return String(n).padStart(2, '0');
   }
 
-  /** 12345.6 kg → "12,3" (toneladas, 1 casa). */
-  toneladas(kg: number): string {
-    return (kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  }
-
-  /** 845.25 kg → "845" (kg inteiros). */
-  quilos(kg: number): string {
-    return Math.round(kg).toLocaleString('pt-BR');
+  /** Peso pra TV: até 999 kg em kg inteiros ("845 kg"); daí pra cima em toneladas com 1 casa ("12,3 t"). */
+  peso(kg: number): string {
+    if (kg < 1000) return Math.round(kg).toLocaleString('pt-BR') + ' kg';
+    return (kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' t';
   }
 }

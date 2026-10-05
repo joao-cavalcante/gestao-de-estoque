@@ -19,6 +19,8 @@ export interface TvResumo {
     ordensCargaPendentes: number;
     /** Peso bruto (KG) dos pedidos ainda não finalizados. */
     pesoPendenteKg: number;
+    /** Parte do pesoPendenteKg aguardando liberação ou corte. */
+    pesoAguardandoLiberacaoKg: number;
   };
   /** Turno atual (Manhã 08–18, Noite 22–07); fora de turno = desde 00:00. */
   turno: { codigo: string | null; rotulo: string; inicioEm: string };
@@ -27,6 +29,18 @@ export interface TvResumo {
   emConferencia: TvConferencia[];
   recemFinalizados: TvFinalizado[];
   porEtapa: TvEtapaResumo[];
+  /** Ordens de carga com pedido não finalizado (só saídas); "sem OC" (ordemCarga null) por último. */
+  ordensCarga: TvOrdemCarga[];
+}
+
+export interface TvOrdemCarga {
+  ordemCarga: number | null;
+  pedidos: number;
+  pedidosProntos: number;
+  emConferencia: number;
+  pesoTotalKg: number;
+  pesoPendenteKg: number;
+  pesoAguardandoLiberacaoKg: number;
 }
 
 export interface TvConferencia {

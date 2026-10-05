@@ -27,7 +27,7 @@
 
   @if (dados(); as d) {
     <!-- ═══ Nível 2: situação da operação ═══ -->
-    <section class="tv__kpis" [class.tv__kpis--carga]="d.movimento !== 'entrada'">
+    <section class="tv__kpis">
       <div class="tv-kpi">
         <span class="tv-kpi__rot">Disponível</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('disponivel')">{{ numero(d.resumo.disponivel) }}</span>
@@ -49,23 +49,6 @@
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('prontoTurno')">{{ numero(d.resumo.prontoTurno) }}</span>
         @if (d.porMovimento; as pm) { <span class="tv-kpi__mov">Saída {{ pm.saida.prontoTurno }} · Entrada {{ pm.entrada.prontoTurno }}</span> }
       </div>
-      <!-- A fazer na expedição: ordens de carga e peso dos pedidos ainda não finalizados (só saídas) -->
-      @if (d.movimento !== 'entrada') {
-        <div class="tv-kpi">
-          <span class="tv-kpi__rot">Ordens de carga a fazer</span>
-          <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('ordensCargaPendentes')">{{ numero(d.resumo.ordensCargaPendentes) }}</span>
-        </div>
-        <div class="tv-kpi">
-          <span class="tv-kpi__rot">Peso a separar</span>
-          <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('pesoPendenteKg')">
-            @if (d.resumo.pesoPendenteKg >= 1000) {
-              {{ toneladas(d.resumo.pesoPendenteKg) }}<small>t</small>
-            } @else {
-              {{ quilos(d.resumo.pesoPendenteKg) }}<small>kg</small>
-            }
-          </span>
-        </div>
-      }
       <div class="tv-kpi">
         <span class="tv-kpi__rot">{{ d.turno.codigo ? 'Tempo médio no turno' : 'Tempo médio hoje' }}</span>
         <span class="tv-kpi__val" [class.tv-kpi__val--mudou]="kpiMudou().has('tempoMedioTurnoMin')">
@@ -88,7 +71,7 @@
     </section>
     }
 
-    <section class="tv__meio">
+    <section class="tv__meio" [class.tv__meio--carga]="d.movimento !== 'entrada'">
       <!-- ═══ Nível 1: o que está acontecendo agora ═══ -->
       <div class="tv-painel tv-painel--conf">
         <div class="tv-painel__topo">
@@ -188,6 +171,60 @@
           </div>
         }
       </div>
+
+      <!-- ═══ Ordens de carga a fazer (só saídas): progresso e peso por OC ═══ -->
+      @if (d.movimento !== 'entrada') {
+        <div class="tv-painel tv-painel--oc">
+          <div class="tv-painel__topo">
+            <span class="tv-painel__titulo">ORDENS DE CARGA</span>
+            @if (totalPagOc() > 1) {
+              <span class="tv-pags">
+                @for (x of [].constructor(totalPagOc()); track $index) {
+                  <span class="tv-pags__dot" [class.tv-pags__dot--on]="$index === pagOc() % totalPagOc()"></span>
+                }
+              </span>
+            }
+          </div>
+          <div class="tv-oc-total">
+            <div class="tv-oc-total__bloco">
+              <span class="tv-oc-total__val" [class.tv-kpi__val--mudou]="kpiMudou().has('ordensCargaPendentes')">{{ numero(d.resumo.ordensCargaPendentes) }}</span>
+              <span class="tv-oc-total__rot">ordens a fazer</span>
+            </div>
+            <div class="tv-oc-total__bloco">
+              <span class="tv-oc-total__val" [class.tv-kpi__val--mudou]="kpiMudou().has('pesoPendenteKg')">{{ peso(d.resumo.pesoPendenteKg) }}</span>
+              <span class="tv-oc-total__rot">peso a separar</span>
+              @if (d.resumo.pesoAguardandoLiberacaoKg > 0) {
+                <span class="tv-oc-lib">{{ peso(d.resumo.pesoAguardandoLiberacaoKg) }} aguard. liberação</span>
+              }
+            </div>
+          </div>
+          @if (d.ordensCarga.length === 0) {
+            <div class="tv-fin-vazio">
+              <span class="tv-fin-vazio__icone">✓</span>
+              <span>Nenhuma ordem de carga pendente.</span>
+            </div>
+          } @else {
+            <ul class="tv-oc">
+              @for (o of ocVisiveis(); track o.ordemCarga) {
+                <li class="tv-oc__item" [class.tv-oc__item--sem]="o.ordemCarga == null">
+                  <div class="tv-oc__linha">
+                    <span class="tv-oc__num">{{ o.ordemCarga != null ? 'OC ' + o.ordemCarga : 'Sem OC' }}</span>
+                    <span class="tv-oc__ped"><strong>{{ o.pedidosProntos }}</strong>/{{ o.pedidos }} <small>ped.</small></span>
+                    <span class="tv-oc__peso">{{ peso(o.pesoPendenteKg) }}</span>
+                  </div>
+                  <span class="tv-barra"><span class="tv-barra__fill" [style.width.%]="o.pedidos ? (o.pedidosProntos / o.pedidos) * 100 : 0"></span></span>
+                  @if (o.emConferencia > 0 || o.pesoAguardandoLiberacaoKg > 0) {
+                    <div class="tv-oc__extra">
+                      @if (o.emConferencia > 0) { <span class="tv-oc__conf">{{ o.emConferencia }} em conferência</span> }
+                      @if (o.pesoAguardandoLiberacaoKg > 0) { <span class="tv-oc-lib">{{ peso(o.pesoAguardandoLiberacaoKg) }} aguard. liberação</span> }
+                    </div>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
 
       <!-- ═══ Feed: recém finalizados ═══ -->
       <div class="tv-painel tv-painel--fin">

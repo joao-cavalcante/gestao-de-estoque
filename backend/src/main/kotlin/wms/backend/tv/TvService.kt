@@ -299,6 +299,28 @@ object TvService {
             // Pedido sem ordem de carga (retira, express) entra no peso mas não conta ordem.
             val ordensCargaPendentes = pendentes.mapNotNull { TarefasRepository.normalizarOrdemCarga(it.campo("ORDEMCARGA")) }.toSet().size
             val pesoPendenteKg = pendentes.sumOf { it.pesoBrutoKg }
+            val pesoAguardandoLiberacaoKg = pendentes.filter { it.status in AGUARDANDO_LIBERACAO }.sumOf { it.pesoBrutoKg }
+
+            // ---- Painel de ordens de carga (só saídas): uma linha por OC que ainda tem pedido a fazer ----
+            val ordensCarga = notas
+                .filter { it.movimento == "SAIDA" && (it.status in PRONTO || it in pendentes) }
+                .groupBy { TarefasRepository.normalizarOrdemCarga(it.campo("ORDEMCARGA")) }
+                .mapNotNull { (oc, doGrupo) ->
+                    val aFazer = doGrupo.filter { it in pendentes }
+                    if (aFazer.isEmpty()) return@mapNotNull null
+                    // "Sem OC" (retira/express) só conta o que ainda falta — pronto sem OC não é de nenhuma carga.
+                    val grupo = if (oc == null) aFazer else doGrupo
+                    TvOrdemCargaDto(
+                        ordemCarga = oc,
+                        pedidos = grupo.size,
+                        pedidosProntos = grupo.count { it.status in PRONTO },
+                        emConferencia = aFazer.count { it.status in EM_CONFERENCIA },
+                        pesoTotalKg = arredondar(grupo.sumOf { it.pesoBrutoKg }),
+                        pesoPendenteKg = arredondar(aFazer.sumOf { it.pesoBrutoKg }),
+                        pesoAguardandoLiberacaoKg = arredondar(aFazer.filter { it.status in AGUARDANDO_LIBERACAO }.sumOf { it.pesoBrutoKg }),
+                    )
+                }
+                .sortedWith(compareBy(nullsLast()) { it.ordemCarga })
 
             // ---- Faixa por etapa (etapas reais das conferências abertas + concluídas hoje) ----
             val locksAtivos = locks.filter { it.third[SeparacaoLocksTable.ultimaAtividade] >= limiteLock }
@@ -337,7 +359,8 @@ object TvService {
                     prontoTurno = prontasTurno.size,
                     tempoMedioTurnoMin = tempoMedioMin(prontasTurno),
                     ordensCargaPendentes = ordensCargaPendentes,
-                    pesoPendenteKg = Math.round(pesoPendenteKg * 10.0) / 10.0,
+                    pesoPendenteKg = arredondar(pesoPendenteKg),
+                    pesoAguardandoLiberacaoKg = arredondar(pesoAguardandoLiberacaoKg),
                 ),
                 turno = TvTurnoDto(codigo = turnoCodigo, rotulo = turnoRotulo, inicioEm = iso(inicioTurno)),
                 modalidades = TvModalidadesDto(
@@ -348,10 +371,13 @@ object TvService {
                 emConferencia = cards,
                 recemFinalizados = finalizados,
                 porEtapa = porEtapa,
+                ordensCarga = ordensCarga,
             )
         }
         return composto
     }
+
+    private fun arredondar(kg: Double): Double = Math.round(kg * 10.0) / 10.0
 
     private fun iso(i: Instant): String = DateTimeFormatter.ISO_INSTANT.format(i)
 }
