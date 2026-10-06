@@ -7,6 +7,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -969,20 +970,7 @@ object SeparacaoService {
         }
         if (!segmentado) return emptyMap()
 
-        val tiposPorNunota = etapasFilaCache.get(tenantId, nunotas) {
-            val raw = SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(
-                    entityName = "ItemNota",
-                    fields = listOf("NUNOTA", "Produto.AD_TIPOSEPARACAO"),
-                    criteriaExpression = "NUNOTA IN (${nunotas.joinToString(",")})",
-                ),
-            )
-            SankhyaLoadRecordsClient.parseRows(raw, listOf("NUNOTA", "Produto.AD_TIPOSEPARACAO"))
-                .mapNotNull { r -> (r["NUNOTA"]?.toLongOrNull() ?: return@mapNotNull null) to parseTipoSeparacao(r["Produto.AD_TIPOSEPARACAO"]).toInt() }
-                .groupBy({ it.first }, { it.second })
-                .mapValues { (_, v) -> v.distinct().sorted() }
-        }
+        val tiposPorNunota = itensPorTipoFila(tenantSlug, tenantId, nunotas).mapValues { (_, porTipo) -> porTipo.keys.sorted() }
 
         val concluidos = withContext(Dispatchers.IO) {
             SeparacaoRepository.etapasConcluidasPorNunota(tenantId, nunotas)
@@ -1017,61 +1005,47 @@ object SeparacaoService {
         }.filterValues { it.tipos.isNotEmpty() }
     }
 
-    /** Cache em processo p/ o breakdown de tipos da fila — TTL curto (a fila re-consulta a cada sync tick). */
-    private val etapasFilaCache = EtapasFilaCache(ttlMillis = 30_000)
-
-    private class EtapasFilaCache(private val ttlMillis: Long) {
-        private data class Entrada(val valor: Map<Long, List<Int>>, val expiraEm: Long)
-        private val mapa = java.util.concurrent.ConcurrentHashMap<String, Entrada>()
-
-        suspend fun get(tenantId: UUID, nunotas: List<Long>, carregar: suspend () -> Map<Long, List<Int>>): Map<Long, List<Int>> {
-            val chave = "$tenantId:${nunotas.sorted().joinToString(",")}"
-            val agora = System.currentTimeMillis()
-            mapa[chave]?.takeIf { it.expiraEm > agora }?.let { return it.valor }
-            val valor = carregar()
-            mapa[chave] = Entrada(valor, agora + ttlMillis)
-            return valor
-        }
-    }
-
     /**
      * Quantidade de itens (linhas de TGFITE) por nunota — pro card da Fila de
-     * Tarefas ("Itens: N"). Batelada via `ItemNota`, sem gate de módulo (ao
-     * contrário de [etapasFila] — vale pra qualquer tenant, segmentado ou não).
+     * Tarefas ("Itens: N"). Sem gate de módulo (vale pra qualquer tenant).
      */
     suspend fun itensFila(tenantSlug: String, tenantId: UUID, nunotas: List<Long>): Map<Long, Int> {
         if (nunotas.isEmpty()) return emptyMap()
-        return itensFilaCache.get(tenantId, nunotas) {
-            val raw = SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(
-                    entityName = "ItemNota",
-                    fields = listOf("NUNOTA"),
-                    criteriaExpression = "NUNOTA IN (${nunotas.joinToString(",")})",
-                ),
-            )
-            SankhyaLoadRecordsClient.parseRows(raw, listOf("NUNOTA"))
-                .mapNotNull { it["NUNOTA"]?.toLongOrNull() }
-                .groupingBy { it }
-                .eachCount()
-        }
+        return itensPorTipoFila(tenantSlug, tenantId, nunotas).mapValues { (_, porTipo) -> porTipo.values.sum() }
     }
 
-    private val itensFilaCache = ItensFilaCache(ttlMillis = 30_000)
-
-    private class ItensFilaCache(private val ttlMillis: Long) {
-        private data class Entrada(val valor: Map<Long, Int>, val expiraEm: Long)
-        private val mapa = java.util.concurrent.ConcurrentHashMap<String, Entrada>()
-
-        suspend fun get(tenantId: UUID, nunotas: List<Long>, carregar: suspend () -> Map<Long, Int>): Map<Long, Int> {
-            val chave = "$tenantId:${nunotas.sorted().joinToString(",")}"
+    /**
+     * nunota → (tipo de separação → qtd de itens), base dos cards da fila ([etapasFila] e [itensFila]).
+     * SQL agrupado (~1s) em vez de DatasetSP ItemNota (10–17s com a fila cheia, 2x a cada tick — fila lenta
+     * em 06/10/2026). Cache por nunota (30s): mudar a fila só busca as notas novas; o mutex faz as duas
+     * chamadas paralelas da tela dividirem a mesma consulta.
+     */
+    private suspend fun itensPorTipoFila(tenantSlug: String, tenantId: UUID, nunotas: List<Long>): Map<Long, Map<Int, Int>> =
+        itensFilaMutex.withLock {
             val agora = System.currentTimeMillis()
-            mapa[chave]?.takeIf { it.expiraEm > agora }?.let { return it.valor }
-            val valor = carregar()
-            mapa[chave] = Entrada(valor, agora + ttlMillis)
-            return valor
+            itensFilaCache.entries.removeIf { it.value.expiraEm <= agora }
+            val faltando = nunotas.distinct().filter { "$tenantId:$it" !in itensFilaCache }
+            for (lote in faltando.chunked(500)) {
+                val linhas = SankhyaDbExplorerClient.executarQuery(
+                    tenantSlug,
+                    "SELECT I.NUNOTA, P.AD_TIPOSEPARACAO, COUNT(*) AS QTD FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
+                        "WHERE I.NUNOTA IN (${lote.joinToString(",")}) GROUP BY I.NUNOTA, P.AD_TIPOSEPARACAO",
+                )
+                val porNota = mutableMapOf<Long, MutableMap<Int, Int>>()
+                for (r in linhas) {
+                    val nunota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: continue
+                    val qtd = r["QTD"]?.toBigDecimalOrNull()?.toInt() ?: continue
+                    porNota.getOrPut(nunota) { mutableMapOf() }.merge(parseTipoSeparacao(r["AD_TIPOSEPARACAO"]).toInt(), qtd, Int::plus)
+                }
+                // nota sem item também entra no cache (vazia) — senão seria reconsultada a cada tick
+                lote.forEach { itensFilaCache["$tenantId:$it"] = EntradaItensFila(porNota[it] ?: emptyMap(), agora + 30_000) }
+            }
+            nunotas.associateWith { itensFilaCache["$tenantId:$it"]?.valor ?: emptyMap() }.filterValues { it.isNotEmpty() }
         }
-    }
+
+    private data class EntradaItensFila(val valor: Map<Int, Int>, val expiraEm: Long)
+    private val itensFilaCache = java.util.concurrent.ConcurrentHashMap<String, EntradaItensFila>()
+    private val itensFilaMutex = kotlinx.coroutines.sync.Mutex()
 
     /** TGFCON2.STATUS da conferência (via CabecalhoConferencia) — 'F' concluída, 'C' aguardando liberação de corte, 'D' cancelada. */
     private suspend fun statusConferencia(tenantSlug: String, nuconf: Int): String? {
