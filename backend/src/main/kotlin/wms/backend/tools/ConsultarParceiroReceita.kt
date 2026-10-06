@@ -99,6 +99,8 @@ private suspend fun processar(
     val diff = gravaveis.mapNotNull { c ->
         val novo = receita[c]
         if (novo.isNullOrBlank()) return@mapNotNull null
+        // no lote, telefone só preenche vazio/zerado — o da Receita costuma ser do contador
+        if (c == "TELEFONE" && gravaveis === GRAVAVEIS_LOTE && digitos(atual[c]).trim('0').isNotEmpty()) return@mapNotNull null
         if (normalizar(c, novo) == normalizar(c, atual[c])) null else Triple(c, atual[c], novo)
     }
     if (diff.isEmpty()) return Resultado("SEM_MUDANCA", diff)
