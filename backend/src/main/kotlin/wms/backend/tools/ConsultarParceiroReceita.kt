@@ -43,6 +43,9 @@ private val GRAVAVEIS = listOf(
     "TELEFONE", "SITCADRF", "INDCREDNFE", "INDCREDCTE", "DTINIATIV", "DTULTSIT", "DTBAIXA", "REGAPUR",
 )
 
+/** Lote: só endereço, telefone e situação — a Receita põe o nome fantasia no NOMEPARC, não serve em massa. */
+private val GRAVAVEIS_LOTE = listOf("CEP", "CODEND", "NUMEND", "COMPLEMENTO", "CODBAI", "CODCID", "TELEFONE", "SITCADRF")
+
 private fun digitos(s: String?) = s.orEmpty().filter { it.isDigit() }
 
 private fun normalizar(campo: String, v: String?): String {
@@ -64,7 +67,9 @@ private val EVENTOS = buildJsonObject {
 private data class Resultado(val situacao: String, val diff: List<Triple<String, String?, String>>, val obs: String = "")
 
 /** Um parceiro: lê, consulta a Receita, compara e (se [gravar]) grava só o que mudou. Lança erro nas travas. */
-private suspend fun processar(tenant: String, codparc: Long, cnpj: String, gravar: Boolean): Resultado {
+private suspend fun processar(
+    tenant: String, codparc: Long, cnpj: String, gravar: Boolean, gravaveis: List<String> = GRAVAVEIS,
+): Resultado {
     require(codparc > 1) { "codparc $codparc bloqueado" }
     val colunas = (listOf("CODPARC", "CGC_CPF") + GRAVAVEIS).joinToString(",")
     val atual = SankhyaDbExplorerClient.executarQuery(tenant, "SELECT $colunas FROM TGFPAR WHERE CODPARC = $codparc").firstOrNull()
@@ -91,7 +96,7 @@ private suspend fun processar(tenant: String, codparc: Long, cnpj: String, grava
         error("a Receita devolveu outro CNPJ (${receita["CGC_CPF"]})")
     }
 
-    val diff = GRAVAVEIS.mapNotNull { c ->
+    val diff = gravaveis.mapNotNull { c ->
         val novo = receita[c]
         if (novo.isNullOrBlank()) return@mapNotNull null
         if (normalizar(c, novo) == normalizar(c, atual[c])) null else Triple(c, atual[c], novo)
@@ -134,20 +139,24 @@ fun main(args: Array<String>) {
 
     // ─── Lote: parceiros com CNPJ e sem endereço (CODEND 0/nulo) ───
     if (args.getOrNull(1) == "--sem-endereco") {
-        val alvos = runBlocking {
+        // --intervalo=<seg> entre consultas (a Receita limita a taxa); --limite=<n> pra testar com poucos
+        val intervalo = args.firstNotNullOfOrNull { it.removePrefix("--intervalo=").takeIf { v -> v != it }?.toLongOrNull() } ?: 10
+        val limite = args.firstNotNullOfOrNull { it.removePrefix("--limite=").takeIf { v -> v != it }?.toIntOrNull() }
+        val todos = runBlocking {
             SankhyaDbExplorerClient.executarQuery(
                 tenant,
                 "SELECT CODPARC, CGC_CPF FROM TGFPAR WHERE (CODEND = 0 OR CODEND IS NULL) AND CODPARC > 1 " +
                     "AND LENGTH(REGEXP_REPLACE(CGC_CPF, '[^0-9]', '')) = 14 ORDER BY CODPARC",
             )
         }.mapNotNull { r -> r["CODPARC"]?.toBigDecimalOrNull()?.toLong()?.let { it to digitos(r["CGC_CPF"]) } }
-        System.err.println("${alvos.size} parceiro(s) — ${if (gravar) "GRAVANDO" else "só prévia"}")
+        val alvos = if (limite != null) todos.take(limite) else todos
+        System.err.println("${alvos.size} parceiro(s), ${intervalo}s entre consultas — ${if (gravar) "GRAVANDO" else "só prévia"}")
         println("CODPARC;CNPJ;SITUACAO;ALTERACOES;OBS")
         val contagem = mutableMapOf<String, Int>()
         runBlocking {
             for ((codparc, cnpj) in alvos) {
                 val linha = try {
-                    val r = processar(tenant, codparc, cnpj, gravar)
+                    val r = processar(tenant, codparc, cnpj, gravar, GRAVAVEIS_LOTE)
                     contagem.merge(r.situacao, 1, Int::plus)
                     "$codparc;$cnpj;${r.situacao};${formatar(r.diff)};${r.obs}"
                 } catch (e: Exception) {
@@ -156,7 +165,7 @@ fun main(args: Array<String>) {
                 }
                 println(linha)
                 System.out.flush()
-                delay(800) // ritmo: um por vez, sem estourar o Sankhya/Receita
+                delay(intervalo * 1000) // a Receita só responde poucas consultas por minuto
             }
         }
         System.err.println("Resumo: $contagem")
