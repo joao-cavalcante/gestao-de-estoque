@@ -1024,7 +1024,7 @@ object SeparacaoService {
         itensFilaMutex.withLock {
             val agora = System.currentTimeMillis()
             itensFilaCache.entries.removeIf { it.value.expiraEm <= agora }
-            val faltando = nunotas.distinct().filter { "$tenantId:$it" !in itensFilaCache }
+            val faltando = nunotas.distinct().filter { !itensFilaCache.containsKey("$tenantId:$it") }
             for (lote in faltando.chunked(500)) {
                 val linhas = SankhyaDbExplorerClient.executarQuery(
                     tenantSlug,
