@@ -97,7 +97,8 @@ private suspend fun processar(
     }
 
     val diff = gravaveis.mapNotNull { c ->
-        val novo = receita[c]
+        // TGFPAR.COMPLEMENTO tem 30 posições; a Receita manda até ~70 ("largura acima do limite" no save)
+        val novo = receita[c]?.let { if (c == "COMPLEMENTO") it.trim().take(30).trim() else it }
         if (novo.isNullOrBlank()) return@mapNotNull null
         // no lote, telefone só preenche vazio/zerado — o da Receita costuma ser do contador
         if (c == "TELEFONE" && gravaveis === GRAVAVEIS_LOTE && digitos(atual[c]).trim('0').isNotEmpty()) return@mapNotNull null

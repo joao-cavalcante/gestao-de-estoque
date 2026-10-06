@@ -843,6 +843,21 @@ object SeparacaoService {
     private suspend fun registrarConferenteSankhya(tenantSlug: String, tenantId: UUID, nuconf: Int, usuarioId: UUID?) {
         if (usuarioId == null) return
         val codusu = withContext(Dispatchers.IO) { wms.backend.usuarios.UsuariosRepository.codusuSankhya(tenantId, usuarioId) } ?: return
+        gravarConferenteSankhya(tenantSlug, nuconf, codusu)
+    }
+
+    /** TGFCON2.CODUSUCONF atual — a liberação de corte lê antes de decidir pra devolver depois (ver [gravarConferenteSankhya]). */
+    internal suspend fun conferenteSankhya(tenantSlug: String, nuconf: Int): Int? =
+        runCatching {
+            SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT CODUSUCONF FROM TGFCON2 WHERE NUCONF = $nuconf")
+                .firstOrNull()?.get("CODUSUCONF")?.toBigDecimalOrNull()?.toInt()
+        }.getOrNull()
+
+    /**
+     * Grava TGFCON2.CODUSUCONF. Também usado pela liberação de corte: quando o liberador aprova, o Sankhya
+     * fecha a conferência (C→F) e carimba o usuário da integração por cima do conferente (conferência 1691, 06/10).
+     */
+    internal suspend fun gravarConferenteSankhya(tenantSlug: String, nuconf: Int, codusu: Int) {
         runCatching {
             SankhyaSpClient.chamarRaw(
                 tenantSlug, "CRUDServiceProvider.saveRecord", "mge",

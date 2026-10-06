@@ -537,6 +537,8 @@ object LiberacaoCorteService {
         // quando chega o NEGAR. Loga o STATUS da conferência antes e depois de
         // cada ação pra achar o que move o status entre uma ação e a outra.
         println("INFO: corte $nuconf — $acao ${selecionados.size} de ${pendentes.size} pendente(s); ${statusParaLog(tenantSlug, nuconf, nunotaLog)} (antes)")
+        // Liberar fecha a conferência no Sankhya e troca o conferente pelo usuário da integração — devolve depois.
+        val conferenteAntes = wms.backend.separacao.SeparacaoService.conferenteSankhya(tenantSlug, nuconf)
         try {
             if (liberarNorm == "N") {
                 // A tela nativa nega UM item por chamada (payload capturado, nota
@@ -569,6 +571,9 @@ object LiberacaoCorteService {
             throw e
         }
         println("INFO: corte $nuconf — $acao OK; ${statusParaLog(tenantSlug, nuconf, nunotaLog)} (depois); pendentes depois=${runCatching { buscarPendentesRaw(tenantSlug, nuconf).size }.getOrNull()}")
+        if (conferenteAntes != null && wms.backend.separacao.SeparacaoService.conferenteSankhya(tenantSlug, nuconf).let { it != null && it != conferenteAntes }) {
+            wms.backend.separacao.SeparacaoService.gravarConferenteSankhya(tenantSlug, nuconf, conferenteAntes)
+        }
 
         val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
 
