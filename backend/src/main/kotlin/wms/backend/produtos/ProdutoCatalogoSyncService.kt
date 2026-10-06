@@ -1,6 +1,7 @@
 package wms.backend.produtos
 
 import wms.backend.erp.LoadRecordsRequest
+import wms.backend.erp.SankhyaDbExplorerClient
 import wms.backend.erp.SankhyaLoadRecordsClient
 import wms.backend.tenancy.TenantRepository
 import java.util.UUID
@@ -14,8 +15,8 @@ import java.util.UUID
  * primeira sincronização, por exemplo), então é mais seguro e mais simples comparar linha a
  * linha na mesma passada de paginação.
  *
- * Via CRUDServiceProvider (paginação real com offsetPage/hasMoreResult) — NÃO
- * SankhyaDbExplorerClient, reservado pro caso excepcional de TGFEST (estoque ao vivo).
+ * Lê a tabela inteira por SQL (DbExplorer) numa chamada só; CRUDServiceProvider paginado fica de
+ * reserva se o SQL falhar — ver [lerCatalogo].
  *
  * TGFVOA fica de fora daqui de propósito — sem campo de auditoria, não compensa varrer a tabela
  * inteira; ela é populada só sob demanda (ver SeparacaoService/ProdutoCatalogoRepository.upsertVoa).
@@ -36,25 +37,16 @@ object ProdutoCatalogoSyncService {
         val semCodvol = ProdutoCatalogoRepository.codprodsSemCodvol(tenantId)
         val alterados = mutableListOf<Map<String, String?>>()
         val vistos = mutableSetOf<Int>()
-        var pagina = 0
-        while (true) {
-            val raw = SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(entityName = "Produto", fields = CAMPOS_PRODUTO, usarCrudServiceProvider = true, offsetPage = pagina),
-            )
-            SankhyaLoadRecordsClient.parseRows(raw, CAMPOS_PRODUTO).forEach { linha ->
-                val codprod = linha["CODPROD"]?.toIntOrNull()
-                if (codprod != null) {
-                    vistos += codprod
-                    if (!dtalterLocal.containsKey(codprod) || dtalterLocal[codprod] != linha["DTALTER"] ||
-                        (codprod in semCodvol && !linha["CODVOL"].isNullOrBlank())
-                    ) {
-                        alterados += linha
-                    }
+        lerCatalogo(tenantSlug, "Produto", "TGFPRO", CAMPOS_PRODUTO, "DTALTER").forEach { linha ->
+            val codprod = linha["CODPROD"]?.toIntOrNull()
+            if (codprod != null) {
+                vistos += codprod
+                if (!dtalterLocal.containsKey(codprod) || dtalterLocal[codprod] != linha["DTALTER"] ||
+                    (codprod in semCodvol && !linha["CODVOL"].isNullOrBlank())
+                ) {
+                    alterados += linha
                 }
             }
-            if (!SankhyaLoadRecordsClient.hasMoreResult(raw)) break
-            pagina++
         }
 
         // Quem estava local mas não apareceu em NENHUMA página desta varredura completa foi
@@ -69,25 +61,16 @@ object ProdutoCatalogoSyncService {
         val dhalterLocal = ProdutoCatalogoRepository.mapaDhalterBar(tenantId)
         val alterados = mutableListOf<Map<String, String?>>()
         val vistos = mutableSetOf<Triple<Int, String, String>>()
-        var pagina = 0
-        while (true) {
-            val raw = SankhyaLoadRecordsClient.loadRecords(
-                tenantSlug,
-                LoadRecordsRequest(entityName = "CodigoBarras", fields = CAMPOS_BAR, usarCrudServiceProvider = true, offsetPage = pagina),
-            )
-            SankhyaLoadRecordsClient.parseRows(raw, CAMPOS_BAR).forEach { linha ->
-                val codprod = linha["CODPROD"]?.toIntOrNull()
-                val codbarra = linha["CODBARRA"]?.trim()
-                if (codprod != null && !codbarra.isNullOrEmpty()) {
-                    val chave = Triple(codprod, linha["CODVOL"] ?: "", codbarra)
-                    vistos += chave
-                    if (!dhalterLocal.containsKey(chave) || dhalterLocal[chave] != linha["DHALTER"]) {
-                        alterados += linha
-                    }
+        lerCatalogo(tenantSlug, "CodigoBarras", "TGFBAR", CAMPOS_BAR, "DHALTER").forEach { linha ->
+            val codprod = linha["CODPROD"]?.toIntOrNull()
+            val codbarra = linha["CODBARRA"]?.trim()
+            if (codprod != null && !codbarra.isNullOrEmpty()) {
+                val chave = Triple(codprod, linha["CODVOL"] ?: "", codbarra)
+                vistos += chave
+                if (!dhalterLocal.containsKey(chave) || dhalterLocal[chave] != linha["DHALTER"]) {
+                    alterados += linha
                 }
             }
-            if (!SankhyaLoadRecordsClient.hasMoreResult(raw)) break
-            pagina++
         }
 
         // Mesmo raciocínio de sincronizarProdutos — código de barras que sumiu de todas as
@@ -96,6 +79,46 @@ object ProdutoCatalogoSyncService {
         if (removidos.isNotEmpty()) ProdutoCatalogoRepository.removerBarPorChave(tenantId, removidos)
 
         return if (alterados.isEmpty()) 0 else ProdutoCatalogoRepository.upsertBar(tenantId, alterados)
+    }
+
+    /**
+     * A tabela inteira de uma vez via SQL (DbExplorer: ~1,5s pros 1.487 produtos da negri) em vez de
+     * paginar o CRUDServiceProvider de ~50 em ~50 (67 chamadas, ~70s de Sankhya ocupado a cada 15 min,
+     * disputando com a conferência). Falhou o SQL (ex.: tenant sem permissão no DbExplorer) → paginação antiga.
+     * A data de auditoria volta no formato do CRUD ("dd/MM/yyyy HH:mm:ss") — é o que está gravado local
+     * e o que a comparação usa; sem isso a 1ª passada regravaria o catálogo inteiro.
+     */
+    private suspend fun lerCatalogo(tenantSlug: String, entidade: String, tabela: String, campos: List<String>, campoData: String): List<Map<String, String?>> {
+        val viaSql = runCatching {
+            val linhas = SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT ${campos.joinToString(", ")} FROM $tabela")
+            // Varredura completa decide REMOÇÃO local — resposta cortada (limite de linhas) apagaria catálogo.
+            val total = SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT COUNT(*) AS N FROM $tabela")
+                .firstOrNull()?.get("N")?.toBigDecimalOrNull()?.toInt()
+            check(total == linhas.size) { "SQL devolveu ${linhas.size} de $total linhas" }
+            linhas.map { linha -> linha + (campoData to dataNoFormatoCrud(linha[campoData])) }
+        }.onFailure { println("AVISO: sync catálogo $tabela via SQL falhou ($tenantSlug) — paginando: ${it.message}") }
+            .getOrNull()
+        if (viaSql != null) return viaSql
+
+        val linhas = mutableListOf<Map<String, String?>>()
+        var pagina = 0
+        while (true) {
+            val raw = SankhyaLoadRecordsClient.loadRecords(
+                tenantSlug,
+                LoadRecordsRequest(entityName = entidade, fields = campos, usarCrudServiceProvider = true, offsetPage = pagina),
+            )
+            linhas += SankhyaLoadRecordsClient.parseRows(raw, campos)
+            if (!SankhyaLoadRecordsClient.hasMoreResult(raw)) break
+            pagina++
+        }
+        return linhas
+    }
+
+    /** "23092026 08:30:47" (DbExplorer) → "23/09/2026 08:30:47" (CRUDServiceProvider). Outro formato passa direto. */
+    private fun dataNoFormatoCrud(v: String?): String? {
+        val m = v?.let { Regex("""^(\d{2})(\d{2})(\d{4})( .*)?$""").find(it.trim()) } ?: return v
+        val (d, mes, a, hora) = m.destructured
+        return "$d/$mes/$a$hora"
     }
 
     /** Chamado pelo worker periódico — ignora silenciosamente tenant sem conexão Sankhya configurada. */

@@ -1019,7 +1019,8 @@ object SeparacaoService {
     /**
      * nunota → (tipo de separação → qtd de itens), base dos cards da fila ([etapasFila] e [itensFila]).
      * SQL agrupado (~1s) em vez de DatasetSP ItemNota (10–17s com a fila cheia, 2x a cada tick — fila lenta
-     * em 06/10/2026). Cache por nunota (30s): mudar a fila só busca as notas novas; o mutex faz as duas
+     * em 06/10/2026). Cache por nunota (2 min — item incluído/excluído leva até isso pra mudar o
+     * card; a conferência em si sempre lê o pedido ao vivo): mudar a fila só busca as notas novas; o mutex faz as duas
      * chamadas paralelas da tela dividirem a mesma consulta.
      */
     private suspend fun itensPorTipoFila(tenantSlug: String, tenantId: UUID, nunotas: List<Long>): Map<Long, Map<Int, Int>> =
@@ -1040,7 +1041,7 @@ object SeparacaoService {
                     porNota.getOrPut(nunota) { mutableMapOf() }.merge(parseTipoSeparacao(r["AD_TIPOSEPARACAO"]).toInt(), qtd, Int::plus)
                 }
                 // nota sem item também entra no cache (vazia) — senão seria reconsultada a cada tick
-                lote.forEach { itensFilaCache["$tenantId:$it"] = EntradaItensFila(porNota[it] ?: emptyMap(), agora + 30_000) }
+                lote.forEach { itensFilaCache["$tenantId:$it"] = EntradaItensFila(porNota[it] ?: emptyMap(), agora + 120_000) }
             }
             nunotas.associateWith { itensFilaCache["$tenantId:$it"]?.valor ?: emptyMap() }.filterValues { it.isNotEmpty() }
         }
@@ -1521,20 +1522,28 @@ object SeparacaoService {
         codprodsNegados: Set<Pair<Int, String>>,
         recontagem: Boolean,
     ): ItensDaNota {
-        val raw = SankhyaLoadRecordsClient.loadRecords(
-            tenantSlug,
-            LoadRecordsRequest(
-                entityName = "ItemNota",
-                fields = FIELDS_ITEM,
-                criteriaExpression = "NUNOTA = $nunota",
-                orderByExpression = "SEQUENCIA ASC",
-            ),
-        )
-        val qtdConferidaPorProduto = nuconf?.let {
-            runCatching { buscarQtdConferidaPorProduto(tenantSlug, it) }
-                .onFailure { e -> println("AVISO: falha ao buscar DetalhesConferencia (nuconf $it): ${e.message}") }
-                .getOrDefault(emptyMap())
-        } ?: emptyMap()
+        // Itens da nota e conferido do NUCONF não dependem um do outro — em paralelo (cada um ~1s no Sankhya).
+        val (raw, qtdConferidaPorProduto) = coroutineScope {
+            val itensAsync = async {
+                SankhyaLoadRecordsClient.loadRecords(
+                    tenantSlug,
+                    LoadRecordsRequest(
+                        entityName = "ItemNota",
+                        fields = FIELDS_ITEM,
+                        criteriaExpression = "NUNOTA = $nunota",
+                        orderByExpression = "SEQUENCIA ASC",
+                    ),
+                )
+            }
+            val conferidoAsync = async {
+                nuconf?.let {
+                    runCatching { buscarQtdConferidaPorProduto(tenantSlug, it) }
+                        .onFailure { e -> println("AVISO: falha ao buscar DetalhesConferencia (nuconf $it): ${e.message}") }
+                        .getOrDefault(emptyMap())
+                } ?: emptyMap()
+            }
+            itensAsync.await() to conferidoAsync.await()
+        }
 
         val todasAsLinhas = SankhyaLoadRecordsClient.parseRows(raw, FIELDS_ITEM)
             .filter { it["Produto.EXCLUIRCONF"]?.trim()?.uppercase() != "S" }
@@ -1875,11 +1884,17 @@ object SeparacaoService {
         val sequenciasPendentes = carga.pendentes
         val codprods = itensNota.map { it.codprod }.distinct()
         // Aqui falha de leitura TRAVA (diferente da abertura): corrigir com dado incompleto pioraria a sessão.
-        val codvolProduto = buscarCodvolProduto(tenantSlug, codprods)
-        val decisor = wms.backend.produtos.RegraPesavel.decisor(
-            tenantSlug, tenantId, wms.backend.produtos.RegraPesavel.filtroCodprods(codprods),
-        )
-        val voaRows = buscarVoa(tenantSlug, tenantId, codprods, aoVivo = true)
+        // As três leituras só dependem dos produtos — em paralelo (conclusão de etapa espera por isto).
+        val (codvolProduto, decisor, voaRows) = coroutineScope {
+            val codvolAsync = async { buscarCodvolProduto(tenantSlug, codprods) }
+            val decisorAsync = async {
+                wms.backend.produtos.RegraPesavel.decisor(
+                    tenantSlug, tenantId, wms.backend.produtos.RegraPesavel.filtroCodprods(codprods),
+                )
+            }
+            val voaAsync = async { buscarVoa(tenantSlug, tenantId, codprods, aoVivo = true) }
+            Triple(codvolAsync.await(), decisorAsync.await(), voaAsync.await())
+        }
         val voaPorChave = montarVoaPorChave(voaRows)
         val itensSankhya = itensNota.map { enriquecerItem(it, voaPorChave, codvolProduto, decisor.pesavel(it.codprod, it.codvol)) }
 
