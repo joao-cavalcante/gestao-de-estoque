@@ -1,4 +1,4 @@
-<section class="pv">
+<section class="pv" [class.pv--primeiro]="primeiro">
   @if (pedido.erro) {
     <div class="pv__erro">Pedido de Venda {{ pedido.nunota }}: {{ pedido.erro }}</div>
   } @else {

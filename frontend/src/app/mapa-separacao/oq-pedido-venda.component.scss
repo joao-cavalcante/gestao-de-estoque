@@ -1,13 +1,14 @@
 /* Pedido de Venda (porte do Jasper V8): A4 paisagem, uma página por pedido, logo depois do mapa. */
 @page pedido-venda {
   size: A4 landscape;
-  margin: 6mm 7mm;
+  margin: 5mm 6mm;
 }
 
 :host { display: block; }
 
 .pv {
   page: pedido-venda;
+  /* Um pedido por página (como o Jasper). Layout compacto pra caber numa folha sem sobrar pedaço pra outra. */
   break-before: page;
   page-break-before: always;
   margin-top: 24px;
@@ -23,9 +24,9 @@
 .pv__erro { padding: 12px; border: 1px dashed #b42318; color: #b42318; font-size: 12px; }
 
 .pv__topo { display: grid; grid-template-columns: 90px minmax(0, 417fr) minmax(0, 295fr); }
-.pv__caixa { border: 1px solid #444; padding: 4px 6px; min-height: 66px; box-sizing: border-box; }
+.pv__caixa { border: 1px solid #444; padding: 3px 6px; min-height: 56px; box-sizing: border-box; }
 .pv__caixa + .pv__caixa { border-left: 0; }
-.pv__logo { display: grid; place-items: center; img { max-width: 64px; max-height: 58px; } }
+.pv__logo { display: grid; place-items: center; img { max-width: 54px; max-height: 50px; } }
 .pv__empresa { display: flex; flex-direction: column; gap: 1px; justify-content: center; }
 .pv__empresa-nome { font-size: 13px; }
 .pv__pedido { display: flex; flex-direction: column; gap: 1px; }
@@ -59,7 +60,7 @@
   font-weight: 700;
   text-align: center;
 }
-.pv__tabela td { border-bottom: 1px solid #ddd; padding: 2px 3px; text-align: center; vertical-align: top; }
+.pv__tabela td { border-bottom: 1px solid #ddd; padding: 1px 3px; line-height: 1.2; text-align: center; vertical-align: top; }
 .pv__tabela tr { break-inside: avoid; }
 .pv__tabela thead { display: table-header-group; }
 // Larguras das colunas do relatório (pontos, total 802).
@@ -79,15 +80,15 @@
 .pv__esq { text-align: left !important; }
 .pv__dir { text-align: right !important; }
 
-.pv__rodape { display: grid; grid-template-columns: 492fr 10fr 300fr; margin-top: 6px; break-inside: avoid; }
-.pv__obs { grid-column: 1; border: 1px solid #444; padding: 3px 5px; min-height: 100px; p { margin: 4px 0 0; white-space: pre-wrap; font-size: 9px; } }
-.pv__totais { grid-column: 3; border-collapse: collapse; font-size: 9px; td { padding: 1px 4px; border-bottom: 1px solid #eee; } td:last-child { text-align: right; } }
+.pv__rodape { display: grid; grid-template-columns: 492fr 10fr 300fr; margin-top: 4px; break-inside: avoid; }
+.pv__obs { grid-column: 1; border: 1px solid #444; padding: 2px 5px; min-height: 30px; p { margin: 2px 0 0; white-space: pre-wrap; font-size: 9px; } }
+.pv__totais { grid-column: 3; border-collapse: collapse; font-size: 8.5px; td { padding: 0 4px; border-bottom: 1px solid #eee; } td:last-child { text-align: right; } }
 .pv__total td { background: #e8e8e8; font-weight: 700; }
 
-.pv__secao { margin-top: 8px; padding: 6px; background: #efefef; font-weight: 700; font-size: 10px; }
-.pv__linha-sec { display: flex; gap: 40px; padding: 4px 6px; border-bottom: 1px solid #eee; font-size: 9px; }
+.pv__secao { margin-top: 4px; padding: 3px 6px; background: #efefef; font-weight: 700; font-size: 9px; }
+.pv__linha-sec { display: flex; gap: 40px; padding: 2px 6px; border-bottom: 1px solid #eee; font-size: 9px; }
 
-.pv__pe { margin-top: 8px; padding-top: 3px; border-top: 1px solid #ccc; font-size: 8px; color: #666; }
+.pv__pe { margin-top: 4px; padding-top: 2px; border-top: 1px solid #ccc; font-size: 7px; color: #666; }
 
 @media print {
   .pv { margin-top: 0; padding: 0; }

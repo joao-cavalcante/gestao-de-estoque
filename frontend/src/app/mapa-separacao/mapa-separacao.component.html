@@ -402,7 +402,7 @@
     </main>
   </div>
 } @else {
-<div class="ms-page">
+<div class="ms-page" [class.ms-so-mapa]="modoImpressao() === 'mapa'" [class.ms-so-pedidos]="modoImpressao() === 'pedidos'">
     <!-- ─── Relatório: uma OC escolhida, ou N pedidos S/ OC (um mapa independente por Número Único) ─── -->
     <div class="ms-toolbar no-print">
       <h1 class="ms-toolbar__title">{{ tituloRelatorio() }}</h1>
@@ -411,8 +411,14 @@
           <oq-icon name="arrow-left" [size]="14" />
           Voltar ao painel
         </button>
-        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="carregandoPedidosVenda()" (click)="imprimir()">
-          {{ carregandoPedidosVenda() ? 'Carregando pedidos…' : 'Imprimir / PDF' }}
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="imprimir('mapa')">Imprimir mapa</button>
+        <button
+          type="button"
+          class="oq-admin-btn oq-admin-btn--outline"
+          [disabled]="carregandoPedidosVenda() || pedidosVenda().length === 0"
+          (click)="imprimir('pedidos')"
+        >
+          {{ carregandoPedidosVenda() ? 'Carregando pedidos…' : 'Imprimir pedidos (' + pedidosVenda().length + ')' }}
         </button>
       </div>
     </div>
@@ -659,8 +665,8 @@
     }
 
     <!-- Pedido de Venda de cada Nº Único do mapa (porte do Jasper), um por página em paisagem -->
-    @for (pv of pedidosVenda(); track pv.nunota) {
-      <oq-pedido-venda [pedido]="pv" />
+    @for (pv of pedidosVenda(); track pv.nunota; let primeiroPv = $first) {
+      <oq-pedido-venda [pedido]="pv" [primeiro]="primeiroPv" />
     }
     </div>
 </div>

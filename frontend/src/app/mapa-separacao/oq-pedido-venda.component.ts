@@ -16,6 +16,8 @@ type Linha = Record<string, string | null>;
 })
 export class OqPedidoVendaComponent {
   @Input({ required: true }) pedido!: PedidoVenda;
+  /** Só o 1º pedido abre folha nova depois do mapa; os outros seguem na mesma folha (não desperdiça papel). */
+  @Input() primeiro = false;
 
   readonly logo = 'assets/logos/pedido-venda-negri.png';
 

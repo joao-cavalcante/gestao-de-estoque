@@ -674,3 +674,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Botões separados: só o mapa ou só os pedidos vão pro papel. */
+@media print {
+  .ms-so-mapa oq-pedido-venda,
+  .ms-so-pedidos .ms-report { display: none !important; }
+}

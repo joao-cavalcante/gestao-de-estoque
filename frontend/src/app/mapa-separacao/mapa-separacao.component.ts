@@ -464,23 +464,31 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
       : `S/ Ordem de Carga — ${mapas.length} mapas`;
   }
 
-  imprimir(): void {
+  /** O que vai pro papel: só o mapa ou só os Pedidos de Venda (botões separados). */
+  readonly modoImpressao = signal<'mapa' | 'pedidos' | null>(null);
+
+  imprimir(modo: 'mapa' | 'pedidos' = 'mapa'): void {
     const mapas = this.mapas();
     if (mapas.length === 0) return;
+    if (modo === 'pedidos' && this.pedidosVenda().length === 0) return;
 
     const tituloOriginal = document.title;
-    document.title = mapas[0].semOrdemCarga
+    const base = mapas[0].semOrdemCarga
       ? mapas.length === 1
         ? `S-OC NU ${mapas[0].nunota}`
         : `S-OC ${mapas.length} mapas`
       : `O.C. ${mapas[0].ordemCarga}`;
+    document.title = modo === 'pedidos' ? `${base} - Pedidos` : base;
+    this.modoImpressao.set(modo);
     const restaurar = () => {
       document.title = tituloOriginal;
+      this.modoImpressao.set(null);
       window.removeEventListener('afterprint', restaurar);
     };
     window.addEventListener('afterprint', restaurar, { once: true });
     setTimeout(() => window.print(), 50);
-    this.registrarImpressao(mapas);
+    // Selo IMPRESSO é do mapa (separação); imprimir só os pedidos não marca.
+    if (modo === 'mapa') this.registrarImpressao(mapas);
   }
 
   /** Grava a impressão no backend e já marca IMPRESSO na lista local (sem recarregar o painel). */
