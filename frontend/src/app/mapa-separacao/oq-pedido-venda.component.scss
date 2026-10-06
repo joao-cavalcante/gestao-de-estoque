@@ -90,6 +90,12 @@
 
 .pv__pe { margin-top: 4px; padding-top: 2px; border-top: 1px solid #ccc; font-size: 7px; color: #666; }
 
+/* O 1º pedido é o começo da impressão ("Imprimir pedidos"): sem quebra antes, senão sai folha em branco. */
+.pv--primeiro {
+  break-before: auto;
+  page-break-before: auto;
+}
+
 @media print {
   .pv { margin-top: 0; padding: 0; }
 }

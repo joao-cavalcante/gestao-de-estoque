@@ -679,4 +679,7 @@
 @media print {
   .ms-so-mapa oq-pedido-venda,
   .ms-so-pedidos .ms-report { display: none !important; }
+  /* Só pedidos: a tela toda na página paisagem do pedido — trocar de página nomeada força quebra (folha em branco no início e no fim). */
+  .ms-so-pedidos,
+  .ms-so-pedidos .ms-scroll { page: pedido-venda; }
 }
