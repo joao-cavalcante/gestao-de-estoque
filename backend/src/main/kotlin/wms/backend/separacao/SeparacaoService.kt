@@ -657,10 +657,6 @@ object SeparacaoService {
         // igual ao legado (ConferenciaSP.cortar recebe { nuNota, peso, qtdVol }).
         val qtdVol = withContext(Dispatchers.IO) { SeparacaoRepository.totalQtdVol(tenantId, sessaoId) }
 
-        // Conferente no Sankhya = quem finalizou no WMS (vínculo CODUSU no cadastro de usuários).
-        // Antes do corte/finalização (depois a conferência fecha). Falha aqui NÃO trava a finalização.
-        registrarConferenteSankhya(tenantSlug, tenantId, nuconf, usuarioFinalizadorId)
-
         // "Finalizar divergente" (botão do pop-up de divergência) = o MESMO que a tela nativa do
         // Sankhya: SÓ ConferenciaSP.finalizarConferencia com os eventos de confirmação — sem
         // `cortar`. A conferência fecha como 'D' (Finalizada divergente) sem ajustar a nota.
@@ -680,6 +676,7 @@ object SeparacaoService {
                     CLIENT_EVENT_FINALIZAR_DIVERGENTE.forEach { (k, v) -> put(k, v) }
                 },
             )
+            registrarConferenteSankhya(tenantSlug, tenantId, nuconf, usuarioFinalizadorId)
             withContext(Dispatchers.IO) {
                 SeparacaoRepository.marcarConcluida(tenantId, sessaoId)
                 SeparacaoLockRepository.liberarTodos(tenantId, sessaoId)
@@ -787,6 +784,11 @@ object SeparacaoService {
                 // Non-fatal — o corte (obrigatório) já aconteceu; o lado financeiro pode ser retomado depois.
             }
         }
+
+        // Conferente no Sankhya = quem finalizou no WMS (vínculo CODUSU no cadastro de usuários).
+        // DEPOIS do cortar/finalizarConferencia: eles carimbam CODUSUCONF com o usuário da integração
+        // (conferência 1644, 06/10 — gravou 31 antes e ficou 39). Falha aqui NÃO trava a finalização.
+        registrarConferenteSankhya(tenantSlug, tenantId, nuconf, usuarioFinalizadorId)
 
         withContext(Dispatchers.IO) {
             SeparacaoRepository.marcarConcluida(tenantId, sessaoId)
