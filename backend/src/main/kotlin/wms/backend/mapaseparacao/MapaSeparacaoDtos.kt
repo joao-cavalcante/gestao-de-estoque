@@ -36,6 +36,8 @@ data class MapaSeparacaoDto(
     val pesoMaxOc: String?,
     /** TGFORD.DTALTER — data/hora da última alteração da OC ("dd/MM/yyyy HH:mm:ss"); null no mapa S/ OC. */
     val ultimaAlteracaoOc: String? = null,
+    /** Nº Único de cada pedido do mapa — o Pedido de Venda de cada um é impresso junto. */
+    val nunotasPedidos: List<Long> = emptyList(),
     val totalPedidos: Int,
     val quantidadeTotal: String,
     val pesoTotal: String,

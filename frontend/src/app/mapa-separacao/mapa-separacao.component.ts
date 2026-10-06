@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
+import { OqPedidoVendaComponent } from './oq-pedido-venda.component';
 import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +15,7 @@ import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.compon
 import { ITENS_POR_PAGINA, ViewMode, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
 import { MapaSeparacaoService } from './mapa-separacao.service';
 import {
+  PedidoVenda,
   CategoriaSeparacaoDto,
   MapaSeparacaoDto,
   OrdemCargaResumoDto,
@@ -63,7 +65,7 @@ const CHAVE_VIEW_MODE = 'mapa-separacao-view-mode';
 @Component({
   selector: 'app-mapa-separacao',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent, OqModalidadePinsComponent],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent, OqModalidadePinsComponent, OqPedidoVendaComponent],
   templateUrl: './mapa-separacao.component.html',
   styleUrl: './mapa-separacao.component.scss',
 })
@@ -147,6 +149,39 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
 
   /** Mapas abertos: 1 (Ordem de Carga) ou N independentes (S/ Ordem de Carga, um por Número Único). */
   readonly mapas = signal<MapaSeparacaoDto[]>([]);
+
+  /** Pedido de Venda (porte do Jasper) de cada Nº Único dos mapas abertos — impresso junto, um por pedido. */
+  readonly pedidosVenda = signal<PedidoVenda[]>([]);
+  readonly carregandoPedidosVenda = signal(false);
+  private pedidosVendaSub?: Subscription;
+  private readonly aoMudarMapas = effect(
+    () => {
+      const nunotas = [...new Set(this.mapas().flatMap((m) => m.nunotasPedidos ?? []))];
+      untracked(() => this.buscarPedidosVenda(nunotas));
+    },
+    { allowSignalWrites: true },
+  );
+
+  private buscarPedidosVenda(nunotas: number[]): void {
+    this.pedidosVendaSub?.unsubscribe();
+    this.pedidosVenda.set([]);
+    if (nunotas.length === 0) {
+      this.carregandoPedidosVenda.set(false);
+      return;
+    }
+    this.carregandoPedidosVenda.set(true);
+    this.pedidosVendaSub = this.service.pedidosVenda(nunotas).subscribe({
+      next: (lista) => {
+        const ordem = new Map(nunotas.map((n, i) => [n, i]));
+        this.pedidosVenda.set([...lista].sort((a, b) => (ordem.get(a.nunota) ?? 0) - (ordem.get(b.nunota) ?? 0)));
+        this.carregandoPedidosVenda.set(false);
+      },
+      error: () => {
+        this.pedidosVenda.set(nunotas.map((n) => ({ nunota: n, cabecalho: {}, itens: [], parcelas: [], comissoes: [], erro: 'falha ao buscar o pedido no Sankhya' })));
+        this.carregandoPedidosVenda.set(false);
+      },
+    });
+  }
   readonly dados = computed(() => this.mapas()[0] ?? null);
   readonly carregando = signal(false);
   readonly erro = signal<string | null>(null);

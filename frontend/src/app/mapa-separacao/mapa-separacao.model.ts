@@ -14,6 +14,8 @@ export interface MapaSeparacaoDto {
   codParcMotorista: number | null;
   nomeMotorista: string | null;
   pesoMaxOc: string | null;
+  /** Nº Único de cada pedido do mapa — o Pedido de Venda de cada um é impresso junto. */
+  nunotasPedidos?: number[];
   /** TGFORD.DTALTER — última alteração da OC ("dd/MM/yyyy HH:mm:ss"); null no mapa S/ OC. */
   ultimaAlteracaoOc?: string | null;
   totalPedidos: number;
@@ -140,4 +142,14 @@ export function formatarPeso(valor: string): string {
   const n = Number(valor);
   if (!isFinite(n)) return valor;
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+}
+
+/** Pedido de Venda (porte do Jasper) — GET /api/mapa-separacao/pedidos-venda. Valores em texto do Sankhya. */
+export interface PedidoVenda {
+  nunota: number;
+  cabecalho: Record<string, string | null>;
+  itens: Record<string, string | null>[];
+  parcelas: Record<string, string | null>[];
+  comissoes: Record<string, string | null>[];
+  erro?: string | null;
 }

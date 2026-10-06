@@ -411,7 +411,9 @@
           <oq-icon name="arrow-left" [size]="14" />
           Voltar ao painel
         </button>
-        <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="imprimir()">Imprimir / PDF</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="carregandoPedidosVenda()" (click)="imprimir()">
+          {{ carregandoPedidosVenda() ? 'Carregando pedidos…' : 'Imprimir / PDF' }}
+        </button>
       </div>
     </div>
 
@@ -654,6 +656,11 @@
       </div>
       <div class="ms-rodape-nota">Gerado no WMS — Mapa de Separação{{ mapa.semOrdemCarga ? ' S/ Ordem de Carga' : '' }}</div>
     </div>
+    }
+
+    <!-- Pedido de Venda de cada Nº Único do mapa (porte do Jasper), um por página em paisagem -->
+    @for (pv of pedidosVenda(); track pv.nunota) {
+      <oq-pedido-venda [pedido]="pv" />
     }
     </div>
 </div>

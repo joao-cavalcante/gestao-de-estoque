@@ -1,0 +1,112 @@
+<section class="pv">
+  @if (pedido.erro) {
+    <div class="pv__erro">Pedido de Venda {{ pedido.nunota }}: {{ pedido.erro }}</div>
+  } @else {
+    <!-- ─── Cabeçalho: logo | empresa | pedido ─── -->
+    <div class="pv__topo">
+      <div class="pv__caixa pv__logo"><img [src]="logo" alt="" /></div>
+      <div class="pv__caixa pv__empresa">
+        <strong class="pv__empresa-nome">{{ c('RAZAOEMP') }}</strong>
+        <span>{{ c('EMP_ENDERECO') }}</span>
+        <span>{{ enderecoEmpresa() }}</span>
+        <span>CNPJ: {{ doc(c('EMP_CGC')) }} &nbsp;|&nbsp; Tel.: {{ c('EMP_TELEFONE') }}</span>
+      </div>
+      <div class="pv__caixa pv__pedido">
+        <strong class="pv__pedido-num">PEDIDO DE VENDA Nº {{ c('NUMNOTA') }}</strong>
+        <div class="pv__pedido-linha"><span>Nº único: {{ c('NUNOTA') }}</span><span>OC: {{ c('ORDEMCARGA') }}</span></div>
+        <div><span class="pv__rot-inline">Emissão:</span> {{ data(c('DTNEG')) }}</div>
+        <div><span class="pv__rot-inline">Entrega:</span> {{ data(c('DTPREVENT')) }}</div>
+        <div><span class="pv__rot-inline">Vendedor:</span> {{ c('CODVEND') }} - {{ c('APELIDO') }}</div>
+      </div>
+    </div>
+
+    <!-- ─── Cliente ─── -->
+    <div class="pv__grade pv__grade--3">
+      <div class="pv__campo"><span class="pv__rot">CLIENTE / RAZÃO SOCIAL</span><span>{{ c('CODPARC') }} - {{ c('RAZAOSOCIAL') || c('NOMEPARC') }}</span></div>
+      <div class="pv__campo"><span class="pv__rot">CNPJ / CPF</span><span>{{ doc(c('CGC_CPF')) }}</span></div>
+      <div class="pv__campo"><span class="pv__rot">IE / RG</span><span>{{ c('INSCESTADNAUF') }}</span></div>
+    </div>
+    <div class="pv__grade pv__grade--end">
+      <div class="pv__campo"><span class="pv__rot">ENDEREÇO</span><span>{{ enderecoCliente() }}</span></div>
+      <div class="pv__campo"><span class="pv__rot">CONTATO</span><span>{{ c('CONTATO') }}</span></div>
+      <div class="pv__campo"><span class="pv__rot">TELEFONE</span><span>{{ c('TELCONTATO') || c('TELEFONE') }}</span></div>
+    </div>
+    <div class="pv__grade pv__grade--transp">
+      <div class="pv__campo"><span class="pv__rot">TRANSPORTADORA</span><span>{{ c('TRANSPORTADORA') }}</span></div>
+      <div class="pv__campo"><span class="pv__rot">PESO TOTAL (kg)</span><span>{{ num(c('PESOBRUTO'), 3) }}</span></div>
+      <div class="pv__campo"><span class="pv__rot">VOLUMES</span><span>{{ c('QTDVOL') }}</span></div>
+      <div class="pv__campo"><span class="pv__rot">CONDIÇÃO DE VENDA</span><span>{{ c('CONDICAO') }}</span></div>
+    </div>
+
+    <!-- ─── Itens ─── -->
+    <table class="pv__tabela">
+      <thead>
+        <tr>
+          <th>Item</th><th>Código</th><th class="pv__esq">Descrição do produto / serviço</th><th>Controle</th>
+          <th>Complemento do produto</th><th>Qtde.</th><th>Un.</th><th>Vlr. unitário</th><th>IPI %</th>
+          <th>Valor IPI</th><th>ICMS ST</th><th>Unitário c/ IPI</th><th>Total líquido c/ IPI</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (i of itensOrdenados; track v(i, 'SEQUENCIA')) {
+          <tr>
+            <td>{{ v(i, 'SEQUENCIA') }}</td>
+            <td>{{ v(i, 'CODPROD') }}</td>
+            <td class="pv__esq">{{ v(i, 'DESCRPROD') }}</td>
+            <td>{{ controle(i) }}</td>
+            <td>{{ v(i, 'COMPLDESC') }}</td>
+            <td class="pv__dir">{{ num(i['QTDNEG'], 4) }}</td>
+            <td>{{ v(i, 'CODVOL') }}</td>
+            <td class="pv__dir">{{ num(i['VLRUNIT'], 4) }}</td>
+            <td class="pv__dir">{{ num(i['ALIQIPI']) }}</td>
+            <td class="pv__dir">{{ num(i['VLRIPI']) }}</td>
+            <td class="pv__dir">{{ num(i['VLRSUBST']) }}</td>
+            <td class="pv__dir">{{ num(i['UNIT_IPI'], 4) }}</td>
+            <td class="pv__dir">{{ num(i['TOTAL_IPI_ITEM']) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <!-- ─── Observações + totais ─── -->
+    <div class="pv__rodape">
+      <div class="pv__obs">
+        <span class="pv__rot">OUTRAS INFORMAÇÕES / OBSERVAÇÕES</span>
+        <p>{{ c('OBSERVACAO') }}</p>
+      </div>
+      <table class="pv__totais">
+        <tr><td>Total dos produtos sem IPI / ST</td><td>{{ num(c('TOTAL_PRODUTO')) }}</td></tr>
+        <tr><td>Total dos serviços</td><td>{{ num(c('TOTAL_SERVICO')) }}</td></tr>
+        <tr><td>Descontos dos itens</td><td>{{ num(c('TOTAL_DESCONTO')) }}</td></tr>
+        <tr><td>Desconto do pedido</td><td>{{ num(c('VLRDESCTOT')) }}</td></tr>
+        <tr><td>Frete</td><td>{{ num(c('VLRFRETE')) }}</td></tr>
+        <tr><td>Total do IPI</td><td>{{ num(c('TOTAL_IPI')) }}</td></tr>
+        <tr><td>Total de ICMS ST</td><td>{{ num(c('TOTAL_ST')) }}</td></tr>
+        <tr class="pv__total"><td>VALOR TOTAL DO PEDIDO</td><td>{{ num(c('VLRNOTA')) }}</td></tr>
+      </table>
+    </div>
+
+    <!-- ─── Parcelas e comissões ─── -->
+    @if (pedido.parcelas.length) {
+      <div class="pv__secao">PAGAMENTO / PARCELAS</div>
+      @for (p of pedido.parcelas; track $index) {
+        <div class="pv__linha-sec">
+          <span>Parcela: {{ v(p, 'DESDOBRAMENTO') }}</span>
+          <span>Vencimento: {{ data(p['DTVENC']) }}</span>
+          <span>Valor (R$): {{ num(p['VLRDESDOB']) }}</span>
+        </div>
+      }
+    }
+    @if (pedido.comissoes.length) {
+      <div class="pv__secao">COMISSÕES</div>
+      @for (cm of pedido.comissoes; track $index) {
+        <div class="pv__linha-sec">
+          <span>{{ v(cm, 'COM_CODVEND') }} - {{ v(cm, 'COM_APELIDO') }}</span>
+          <span>{{ num(cm['PERCCOM']) }} %</span>
+        </div>
+      }
+    }
+
+    <div class="pv__pe">Negri Atacadista | Pedido de venda {{ c('NUMNOTA') }}</div>
+  }
+</section>

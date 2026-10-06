@@ -1,12 +1,17 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { MapaSeparacaoDto, OrdemCargaResumoDto, PedidoSemOrdemCargaDto } from './mapa-separacao.model';
+import { MapaSeparacaoDto, OrdemCargaResumoDto, PedidoSemOrdemCargaDto, PedidoVenda } from './mapa-separacao.model';
 
 @Injectable({ providedIn: 'root' })
 export class MapaSeparacaoService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = '/api/mapa-separacao';
+
+  /** Pedido de Venda de cada Nº Único (impresso junto do mapa). */
+  pedidosVenda(nunotas: number[]): Observable<PedidoVenda[]> {
+    return this.http.get<PedidoVenda[]>(`${this.baseUrl}/pedidos-venda`, { params: { nunotas: nunotas.join(',') } });
+  }
 
   consultar(ordemCarga: number): Observable<MapaSeparacaoDto> {
     return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/${ordemCarga}`);

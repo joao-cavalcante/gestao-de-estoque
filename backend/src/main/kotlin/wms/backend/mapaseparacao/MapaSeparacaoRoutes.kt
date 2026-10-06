@@ -36,6 +36,16 @@ fun Route.mapaSeparacaoRoutes() {
             call.respond(mapOf("ok" to true))
         }
 
+        /** Pedido de Venda (porte do Jasper) de cada Nº Único — impresso junto do mapa, um por pedido. */
+        get("/pedidos-venda") {
+            val claims = call.exigirAuth() ?: return@get
+            val nunotas = call.request.queryParameters["nunotas"].orEmpty().split(",").mapNotNull { it.trim().toLongOrNull() }.distinct().take(100)
+            if (nunotas.isEmpty()) return@get call.respond(emptyList<PedidoVendaDto>())
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
+                ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+            call.respond(PedidoVendaService.buscar(slug, nunotas))
+        }
+
         /** Pedidos SEM Ordem de Carga (mirror local) — painel do filtro "S/ Ordem de Carga". */
         get("/sem-ordem-carga") {
             val claims = call.exigirAuth() ?: return@get

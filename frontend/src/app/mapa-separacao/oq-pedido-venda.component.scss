@@ -1,0 +1,94 @@
+/* Pedido de Venda (porte do Jasper V8): A4 paisagem, uma página por pedido, logo depois do mapa. */
+@page pedido-venda {
+  size: A4 landscape;
+  margin: 6mm 7mm;
+}
+
+:host { display: block; }
+
+.pv {
+  page: pedido-venda;
+  break-before: page;
+  page-break-before: always;
+  margin-top: 24px;
+  padding: 10px;
+  background: #fff;
+  color: #222;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.pv__erro { padding: 12px; border: 1px dashed #b42318; color: #b42318; font-size: 12px; }
+
+.pv__topo { display: grid; grid-template-columns: 90px minmax(0, 417fr) minmax(0, 295fr); }
+.pv__caixa { border: 1px solid #444; padding: 4px 6px; min-height: 66px; box-sizing: border-box; }
+.pv__caixa + .pv__caixa { border-left: 0; }
+.pv__logo { display: grid; place-items: center; img { max-width: 64px; max-height: 58px; } }
+.pv__empresa { display: flex; flex-direction: column; gap: 1px; justify-content: center; }
+.pv__empresa-nome { font-size: 13px; }
+.pv__pedido { display: flex; flex-direction: column; gap: 1px; }
+.pv__pedido-num { font-size: 12px; }
+.pv__pedido-linha { display: flex; justify-content: space-between; }
+.pv__rot-inline { display: inline-block; width: 52px; font-weight: 700; }
+
+.pv__grade { display: grid; margin-top: 5px; }
+.pv__grade + .pv__grade { margin-top: 0; }
+.pv__grade--3 { grid-template-columns: 470fr 180fr 152fr; }
+.pv__grade--end { grid-template-columns: 570fr 112fr 120fr; }
+.pv__grade--transp { grid-template-columns: 370fr 120fr 100fr 212fr; }
+.pv__campo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1px 3px 3px;
+  border: 1px solid #444;
+  margin: 0 0 -1px -1px;
+  font-size: 10px;
+  span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+.pv__rot { font-size: 7px; font-weight: 700; color: #555; }
+
+.pv__tabela { width: 100%; margin-top: 6px; border-collapse: collapse; table-layout: fixed; }
+.pv__tabela th {
+  background: #efefef;
+  border: 1px solid #999;
+  padding: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+}
+.pv__tabela td { border-bottom: 1px solid #ddd; padding: 2px 3px; text-align: center; vertical-align: top; }
+.pv__tabela tr { break-inside: avoid; }
+.pv__tabela thead { display: table-header-group; }
+// Larguras das colunas do relatório (pontos, total 802).
+.pv__tabela th:nth-child(1) { width: 25px; }
+.pv__tabela th:nth-child(2) { width: 43px; }
+.pv__tabela th:nth-child(3) { width: 200px; }
+.pv__tabela th:nth-child(4) { width: 49px; }
+.pv__tabela th:nth-child(5) { width: 70px; }
+.pv__tabela th:nth-child(6) { width: 54px; }
+.pv__tabela th:nth-child(7) { width: 30px; }
+.pv__tabela th:nth-child(8) { width: 60px; }
+.pv__tabela th:nth-child(9) { width: 34px; }
+.pv__tabela th:nth-child(10) { width: 48px; }
+.pv__tabela th:nth-child(11) { width: 52px; }
+.pv__tabela th:nth-child(12) { width: 66px; }
+.pv__tabela th:nth-child(13) { width: 71px; }
+.pv__esq { text-align: left !important; }
+.pv__dir { text-align: right !important; }
+
+.pv__rodape { display: grid; grid-template-columns: 492fr 10fr 300fr; margin-top: 6px; break-inside: avoid; }
+.pv__obs { grid-column: 1; border: 1px solid #444; padding: 3px 5px; min-height: 100px; p { margin: 4px 0 0; white-space: pre-wrap; font-size: 9px; } }
+.pv__totais { grid-column: 3; border-collapse: collapse; font-size: 9px; td { padding: 1px 4px; border-bottom: 1px solid #eee; } td:last-child { text-align: right; } }
+.pv__total td { background: #e8e8e8; font-weight: 700; }
+
+.pv__secao { margin-top: 8px; padding: 6px; background: #efefef; font-weight: 700; font-size: 10px; }
+.pv__linha-sec { display: flex; gap: 40px; padding: 4px 6px; border-bottom: 1px solid #eee; font-size: 9px; }
+
+.pv__pe { margin-top: 8px; padding-top: 3px; border-top: 1px solid #ccc; font-size: 8px; color: #666; }
+
+@media print {
+  .pv { margin-top: 0; padding: 0; }
+}
