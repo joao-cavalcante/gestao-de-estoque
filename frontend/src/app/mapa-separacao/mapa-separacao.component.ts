@@ -472,13 +472,18 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     if (mapas.length === 0) return;
     if (modo === 'pedidos' && this.pedidosVenda().length === 0) return;
 
+    if (modo === 'pedidos') {
+      this.imprimirPedidosIsolado(mapas);
+      return;
+    }
+
     const tituloOriginal = document.title;
     const base = mapas[0].semOrdemCarga
       ? mapas.length === 1
         ? `S-OC NU ${mapas[0].nunota}`
         : `S-OC ${mapas.length} mapas`
       : `O.C. ${mapas[0].ordemCarga}`;
-    document.title = modo === 'pedidos' ? `${base} - Pedidos` : base;
+    document.title = base;
     this.modoImpressao.set(modo);
     const restaurar = () => {
       document.title = tituloOriginal;
@@ -487,8 +492,43 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     };
     window.addEventListener('afterprint', restaurar, { once: true });
     setTimeout(() => window.print(), 50);
-    // Selo IMPRESSO é do mapa (separação); imprimir só os pedidos não marca.
-    if (modo === 'mapa') this.registrarImpressao(mapas);
+    this.registrarImpressao(mapas);
+  }
+
+  /**
+   * "Imprimir pedidos": janela própria só com os Pedidos de Venda (A4 paisagem, um por página). Imprimir de
+   * dentro da tela do app trocava de página nomeada no meio do layout (menu, rolagem) e soltava folha em
+   * branco no início e no fim — documento isolado não tem nada em volta.
+   */
+  private imprimirPedidosIsolado(mapas: MapaSeparacaoDto[]): void {
+    const pedidos = Array.from(document.querySelectorAll('oq-pedido-venda'));
+    if (pedidos.length === 0) return;
+    const janela = window.open('', '_blank');
+    if (!janela) {
+      this.erro.set('O navegador bloqueou a janela de impressão — libere pop-ups deste site.');
+      return;
+    }
+    const titulo = mapas[0].semOrdemCarga ? `Pedidos S-OC` : `Pedidos O.C. ${mapas[0].ordemCarga}`;
+    const estilos = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map((e) => e.outerHTML).join('');
+    janela.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><base href="${location.origin}/">${estilos}` +
+        '<style>@page{size:A4 landscape;margin:5mm 6mm}' +
+        'html,body{height:auto!important;overflow:visible!important;background:#fff!important;margin:0!important}' +
+        '.pv{page:auto!important;margin-top:0!important;padding:0!important}</style></head><body>' +
+        pedidos.map((p) => p.outerHTML).join('') +
+        '</body></html>',
+    );
+    janela.document.close();
+    const imprimir = () => {
+      janela.focus();
+      janela.print();
+      setTimeout(() => janela.close(), 300);
+    };
+    // Espera o logo carregar antes de imprimir.
+    const imagens = Array.from(janela.document.images);
+    Promise.all(
+      imagens.map((img) => (img.complete ? Promise.resolve() : new Promise((ok) => { img.onload = img.onerror = () => ok(null); }))),
+    ).then(() => setTimeout(imprimir, 150));
   }
 
   /** Grava a impressão no backend e já marca IMPRESSO na lista local (sem recarregar o painel). */
