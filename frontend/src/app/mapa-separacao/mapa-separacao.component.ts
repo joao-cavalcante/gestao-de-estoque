@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { OqPedidoVendaComponent } from './oq-pedido-venda.component';
 import { OqMapaKpisComponent } from './oq-mapa-kpis.component';
+import { exportarMapaExcel } from './mapa-separacao.excel';
 import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -411,6 +412,27 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   alternarImpressas(): void {
     this.impressasRecolhidas.set(!this.impressasRecolhidas());
     this.filtrosSalvos.salvar('mapa-separacao-blocos', { impressasRecolhidas: this.impressasRecolhidas() });
+  }
+
+  readonly exportando = signal(false);
+
+  /** Excel do que está na tela (busca + filtros), na mesma ordem dos blocos. */
+  async exportarExcel(): Promise<void> {
+    if (this.exportando()) return;
+    this.exportando.set(true);
+    try {
+      const d = new Date();
+      const p2 = (n: number) => String(n).padStart(2, '0');
+      const carimbo = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}`;
+      const ocs = this.semOrdemCarga ? [] : [...this.ocsComPedidoNovo, ...this.ocsASeparar, ...this.ocsImpressas];
+      const pedidos = this.semOrdemCarga ? this.pedidosSemOcFiltrados : [...this.pedidosUrgentes, ...this.pedidosOutrosSemOc];
+      await exportarMapaExcel(ocs, pedidos, `mapa-separacao_${carimbo}.xlsx`);
+    } catch (e) {
+      console.error(e);
+      this.erroAbertas.set('Falha ao gerar o arquivo Excel.');
+    } finally {
+      this.exportando.set(false);
+    }
   }
 
   consultarNovosDaOc(oc: OrdemCargaResumoDto): void {

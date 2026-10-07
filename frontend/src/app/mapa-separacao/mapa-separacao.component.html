@@ -56,6 +56,17 @@
 
           <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
 
+          <button
+            type="button"
+            class="oq-toolbar__filters-btn"
+            (click)="exportarExcel()"
+            [disabled]="exportando() || carregandoAbertas() || (listaFiltrada.length === 0 && pedidosSemOcFiltrados.length === 0)"
+            title="Exporta pra Excel o que está na tela (com a busca e os filtros aplicados)"
+          >
+            <oq-icon name="download" [size]="12" />
+            {{ exportando() ? 'Gerando…' : 'Excel' }}
+          </button>
+
           <button type="button" class="oq-toolbar__filters-btn" (click)="carregarPainel()">
             <oq-icon name="sync" [size]="12" />
             Atualizar
