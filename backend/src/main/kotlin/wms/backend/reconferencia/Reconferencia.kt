@@ -45,6 +45,13 @@ object ReconferenciaChecksTable : Table("app.reconferencia_checks") {
     override val primaryKey = PrimaryKey(tenantId, sessaoId, codprod, controle)
 }
 
+/**
+ * Resposta do "Marcar todos" / "Carregado". Tipado de propósito: mapOf("ok" to true, "itens" to n) mistura
+ * Boolean e Int e o kotlinx não serializa — a rota gravava e respondia 500, a tela desfazia o check (07/10/2026).
+ */
+@Serializable
+data class MarcacaoResultadoDto(val ok: Boolean = true, val itens: Int)
+
 @Serializable
 data class ReconferenciaItemDto(
     val codprod: Int,
@@ -395,7 +402,7 @@ fun Route.reconferenciaRoutes() {
             val req = call.receive<CarregarPedidosRequest>()
             val nome = UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
             val n = ReconferenciaService.carregarPedidos(claims.tenantId, req.nunotas.distinct().take(200), nome)
-            call.respond(mapOf("ok" to true, "itens" to n))
+            call.respond(MarcacaoResultadoDto(itens = n))
         }
         /** "Marcar todos" do checklist de carregamento. */
         put("/{sessaoId}/check-todos") {
@@ -405,7 +412,7 @@ fun Route.reconferenciaRoutes() {
             val req = call.receive<CheckTodosRequest>()
             val nome = UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
             val n = ReconferenciaService.marcarTodos(claims.tenantId, id, req.checado, nome)
-            call.respond(mapOf("ok" to true, "itens" to n))
+            call.respond(MarcacaoResultadoDto(itens = n))
         }
     }
 }

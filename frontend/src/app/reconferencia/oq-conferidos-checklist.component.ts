@@ -173,7 +173,9 @@ export class OqConferidosChecklistComponent implements OnChanges {
   /** Marca todos (ou desmarca, se já estão todos marcados) de uma vez. */
   alternarTodos(): void {
     if (this.marcandoTodos() || !this.detalhe) return;
-    const marcar = this.checados() < this.itens().length;
+    // Conta só os conferidos (não conferido nunca marca) — contando todos, com item não conferido na nota o
+    // "Desmarcar todos" mandava marcar de novo.
+    const marcar = this.checados() < this.conferidos().length;
     const antes = this.itens();
     this.marcandoTodos.set(true);
     this.erro.set(null);
