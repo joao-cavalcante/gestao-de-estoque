@@ -268,6 +268,12 @@ h2 {
     white-space: nowrap;
   }
 
+  &__padrao {
+    display: block;
+    font-size: 9px;
+    color: var(--oq-text-secondary);
+  }
+
   &__cod {
     font-family: var(--oq-font-mono);
     color: var(--oq-text-secondary);

@@ -122,10 +122,9 @@ export class AuditoriaPedidoComponent implements OnInit {
     return v == null ? '—' : FORMATO_VALOR.format(v);
   }
 
-  /** Conferido difere do negociado? (só quando a unidade é a mesma — pesável confere em KG). */
+  /** Conferido difere do pedido? (as duas quantidades já vêm na mesma unidade). */
   divergente(i: AuditoriaItem): boolean {
     if (i.qtdConferida == null || i.qtdNegociada == null) return false;
-    if (i.unidadeConferida && i.unidade && i.unidadeConferida !== i.unidade) return false;
     return Math.abs(i.qtdConferida - i.qtdNegociada) > 0.0005;
   }
 

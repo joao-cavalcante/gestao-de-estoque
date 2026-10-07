@@ -22,6 +22,11 @@ data class AuditoriaCabecalhoDto(
     val nuconfAtual: Int? = null,
 )
 
+/**
+ * Quantidades em duas unidades: a de EXIBIÇÃO (comercial do pedido — FD, CX…; em KG quando a unidade padrão
+ * é KG) e a padrão do produto (o Sankhya guarda QTDNEG/QTDCONF nela). Ex.: farinha vendida em FD (FD = 5 PT):
+ * 15 FD / 75 PT.
+ */
 @Serializable
 data class AuditoriaItemDto(
     val sequencia: Int,
@@ -29,9 +34,11 @@ data class AuditoriaItemDto(
     val produto: String,
     val unidade: String? = null,
     val qtdNegociada: Double? = null,
-    /** TGFCOI2 da conferência atual (unidade da conferência — pode ser KG em pesável). */
     val qtdConferida: Double? = null,
-    val unidadeConferida: String? = null,
+    /** Unidade padrão (TGFPRO.CODVOL) e as quantidades nela — só preenchidas quando difere da exibida. */
+    val unidadePadrao: String? = null,
+    val qtdNegociadaPadrao: Double? = null,
+    val qtdConferidaPadrao: Double? = null,
     val valorUnitario: Double? = null,
     val valorTotal: Double? = null,
 )

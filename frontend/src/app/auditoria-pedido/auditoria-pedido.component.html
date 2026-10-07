@@ -122,8 +122,16 @@
               @for (i of d.itens; track i.sequencia) {
                 <tr [class.ap-itens--div]="divergente(i)">
                   <td><span class="ap-itens__cod">{{ i.codprod }}</span> {{ i.produto }}</td>
-                  <td class="num">{{ qtd(i.qtdNegociada) }} {{ i.unidade }}</td>
-                  <td class="num">{{ i.qtdConferida == null ? '—' : qtd(i.qtdConferida) + ' ' + (i.unidadeConferida ?? '') }}</td>
+                  <td class="num">
+                    {{ qtd(i.qtdNegociada) }} {{ i.unidade }}
+                    @if (i.unidadePadrao) { <small class="ap-itens__padrao">{{ qtd(i.qtdNegociadaPadrao) }} {{ i.unidadePadrao }}</small> }
+                  </td>
+                  <td class="num">
+                    @if (i.qtdConferida == null) { — } @else {
+                      {{ qtd(i.qtdConferida) }} {{ i.unidade }}
+                      @if (i.unidadePadrao) { <small class="ap-itens__padrao">{{ qtd(i.qtdConferidaPadrao) }} {{ i.unidadePadrao }}</small> }
+                    }
+                  </td>
                   <td class="num">{{ valor(i.valorTotal) }}</td>
                 </tr>
               }

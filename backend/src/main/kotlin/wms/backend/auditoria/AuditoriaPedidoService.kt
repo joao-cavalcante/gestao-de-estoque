@@ -9,8 +9,12 @@ import wms.backend.tenancy.TenantTx
 import java.util.UUID
 
 /**
- * Auditoria de um pedido — tudo o que aconteceu com ele, do Sankhya e do WMS, numa linha do tempo só.
- * Só leitura. Cada fonte é independente: a que falhar vira aviso e o resto aparece mesmo assim.
+ * Auditoria de um pedido — tudo o que aconteceu com ele, do Sankhya e da Torre de Operação, numa linha do tempo
+ * só. Só leitura. Cada fonte é independente: a que falhar vira aviso e o resto aparece mesmo assim.
+ *
+ * QUANTIDADES: o Sankhya (QTDNEG/QTDCONF) e o WMS (leituras) guardam na UNIDADE PADRÃO do produto. A tela mostra
+ * na unidade comercial do pedido (FD, CX…) com a padrão entre parênteses — ex. farinha FD = 5 PT: "15 FD (75 PT)".
+ * Produto com unidade padrão KG mostra em kg (peso é o que importa).
  */
 object AuditoriaPedidoService {
 
@@ -18,9 +22,44 @@ object AuditoriaPedidoService {
 
     private val ETAPA = mapOf(1 to "Seco", 2 to "Refrigerado", 3 to "Congelado")
     private val STATUS_CONF = mapOf(
-        "A" to "em andamento", "F" to "finalizada", "R" to "aguardando recontagem",
-        "C" to "aguardando liberação de corte", "D" to "finalizada divergente",
+        "A" to "em andamento", "F" to "finalizada", "R" to "enviada para recontagem",
+        "C" to "aguardando liberação de corte", "D" to "finalizada com divergência",
     )
+
+    /** Usuário de serviço que a Torre de Operação usa na liberação automática de peso dentro da tolerância. */
+    private const val LIBERADOR_AUTOMATICO = "LIBERADOR"
+
+    /**
+     * Conversão padrão ↔ unidade de exibição de um produto (TGFVOA da unidade do pedido).
+     * Multiplica (M, Q): 1 unidade comercial = Q padrão. Divide (D, Q): 1 unidade comercial = 1/Q padrão.
+     */
+    private data class Unidades(val comercial: String?, val padrao: String?, val divideMultiplica: String?, val fator: Double?) {
+        val emKg get() = padrao?.uppercase() == "KG"
+        /** Unidade em que a tela mostra: KG quando o padrão é KG, senão a comercial do pedido. */
+        val exibicao get() = if (emKg) padrao else comercial ?: padrao
+        /** Vendido numa unidade alternativa com fator cadastrado. */
+        private val temFator get() = comercial != null && padrao != null && comercial != padrao && (fator ?: 0.0) > 0.0
+
+        fun deComercialParaPadrao(v: Double): Double = if (!temFator) v else if (divideMultiplica == "D") v / fator!! else v * fator!!
+        private fun dePadraoParaComercial(v: Double): Double = if (!temFator) v else if (divideMultiplica == "D") v * fator!! else v / fator!!
+        fun dePadraoParaExibicao(v: Double): Double = if (emKg) v else dePadraoParaComercial(v)
+
+        /**
+         * [padrao] na unidade padrão do produto → "15 FD (75 PT)" (alternativa) / "42 kg (2 CX)" (padrão KG vendido
+         * em CX) / "27,64 kg" / "4 PT".
+         */
+        fun texto(padrao: Double): String {
+            val principal = "${qtd(dePadraoParaExibicao(padrao))} ${rotulo(exibicao)}".trim()
+            if (!temFator) return principal
+            return if (emKg) "$principal (${qtd(dePadraoParaComercial(padrao))} $comercial)" else "$principal (${qtd(padrao)} ${this.padrao})"
+        }
+
+        companion object {
+            val NENHUMA = Unidades(null, null, null, null)
+        }
+    }
+
+    private fun rotulo(un: String?) = if (un?.uppercase() == "KG") "kg" else un.orEmpty()
 
     suspend fun auditar(tenantSlug: String, tenantId: UUID, nunotaOuNumero: Long): AuditoriaPedidoDto = coroutineScope {
         val avisos = mutableListOf<String>()
@@ -28,35 +67,57 @@ object AuditoriaPedidoService {
             ?: throw PedidoNaoEncontradoException("Pedido $nunotaOuNumero não encontrado no Sankhya (nem como número único, nem como número do pedido).")
         val nunota = cab.nunota
 
-        val itensAsync = async { runCatching { buscarItens(tenantSlug, nunota, cab.nuconfAtual) } }
         val confsAsync = async { runCatching { buscarConferencias(tenantSlug, nunota) } }
         val notasAsync = async { runCatching { buscarNotasGeradas(tenantSlug, nunota) } }
-        val locaisAsync = async { runCatching { withContext(Dispatchers.IO) { eventosWms(tenantId, nunota) } } }
-
-        val itens = itensAsync.await().onFailure { avisos += "Itens do Sankhya: ${it.message}" }.getOrDefault(emptyList())
+        val itensRes = runCatching { buscarItens(tenantSlug, nunota, cab.nuconfAtual) }
+        val (itens, unidades) = itensRes.onFailure { avisos += "Itens do Sankhya: ${it.message}" }
+            .getOrDefault(emptyList<AuditoriaItemDto>() to emptyMap())
         val nomes = itens.associate { it.codprod to it.produto }
-        val (conferencias, liberacoes) = confsAsync.await().onFailure { avisos += "Conferências do Sankhya: ${it.message}" }
+        // Liberação só traz a descrição do produto: casa com o item pra converter a unidade (pesável → kg).
+        val porNome = itens.associate { normalizarNome(it.produto) to it.codprod }
+
+        val locais = runCatching { withContext(Dispatchers.IO) { eventosWms(tenantId, nunota, unidades) } }
+            .onFailure { avisos += "Histórico da Torre de Operação: ${it.message}" }.getOrDefault(emptyList())
+            .map { ev ->
+                ev.copy(
+                    titulo = ev.titulo.replace(PROD) { m -> nomeProduto(m.groupValues[1].toInt(), nomes) },
+                    detalhe = ev.detalhe?.replace(PROD) { m -> nomeProduto(m.groupValues[1].toInt(), nomes) },
+                )
+            }
+        val (conferencias, libsBrutas) = confsAsync.await().onFailure { avisos += "Conferências do Sankhya: ${it.message}" }
             .getOrDefault(emptyList<AuditoriaEventoDto>() to emptyList())
+        val liberacoes = libsBrutas.flatMap { eventosLiberacao(it, unidades, porNome) }
         val notas = notasAsync.await().onFailure { avisos += "Notas geradas: ${it.message}" }.getOrDefault(emptyList())
-        val locais = locaisAsync.await().onFailure { avisos += "Histórico da Torre de Operação: ${it.message}" }.getOrDefault(emptyList())
-            .map { ev -> ev.copy(titulo = ev.titulo.replace(Regex("""\{prod:(\d+)\}""")) { m -> nomeProduto(m.groupValues[1].toInt(), nomes) }) }
 
         val eventos = buildList {
             cab.incluidoEm?.let {
-                add(AuditoriaEventoDto(it, "SANKHYA", "pedido", "Pedido incluído", "${cab.top ?: "TOP ${cab.codtipoper}"} · ${itens.size} item(ns)", cab.vendedor))
+                add(
+                    AuditoriaEventoDto(
+                        it, "SANKHYA", "pedido", "Pedido incluído no Sankhya",
+                        listOfNotNull(cab.top ?: "TOP ${cab.codtipoper}", "${itens.size} item(ns)", cab.valor?.let(::reais)).joinToString(" · "),
+                        cab.vendedor?.let { v -> "vendedor $v" },
+                    ),
+                )
             }
             addAll(conferencias)
             addAll(liberacoes)
             addAll(locais)
             notas.forEach { n ->
                 n.geradaEm?.let {
-                    add(AuditoriaEventoDto(it, "SANKHYA", "nota", "Nota ${n.numnota ?: n.nunota} gerada", "${n.top ?: ""} · nº único ${n.nunota}".trim(' ', '·'), nivel = "sucesso"))
+                    add(
+                        AuditoriaEventoDto(
+                            it, "SANKHYA", "nota", "Nota ${n.numnota ?: n.nunota} gerada a partir do pedido",
+                            listOfNotNull(n.top, "nº único ${n.nunota}", n.valor?.let(::reais)).joinToString(" · "), nivel = "sucesso",
+                        ),
+                    )
                 }
             }
         }.sortedWith(compareBy({ it.quando }, { ORDEM_TIPO.indexOf(it.tipo) }))
 
         AuditoriaPedidoDto(cab, itens, notas, eventos, avisos)
     }
+
+    private val PROD = Regex("""\{prod:(\d+)\}""")
 
     /** Desempate de eventos no mesmo segundo — ordem natural do fluxo. */
     private val ORDEM_TIPO = listOf(
@@ -65,6 +126,9 @@ object AuditoriaPedidoService {
     )
 
     private fun nomeProduto(codprod: Int, nomes: Map<Int, String>) = nomes[codprod]?.let { "$codprod · $it" } ?: "produto $codprod"
+
+    /** "DESCR - COMPL" (itens) e "DESCR, Complem.: COMPL" (liberação) na mesma forma. */
+    private fun normalizarNome(n: String) = n.replace(", Complem.: ", " - ").trim().uppercase()
 
     // ─── Sankhya ─────────────────────────────────────────────────────────────
 
@@ -102,37 +166,54 @@ object AuditoriaPedidoService {
         )
     }
 
-    private suspend fun buscarItens(tenantSlug: String, nunota: Long, nuconf: Int?): List<AuditoriaItemDto> {
+    /** Itens (na unidade de exibição + padrão) e a conversão de cada produto, usada também nos eventos. */
+    private suspend fun buscarItens(tenantSlug: String, nunota: Long, nuconf: Int?): Pair<List<AuditoriaItemDto>, Map<Int, Unidades>> {
         val itens = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             """
-            SELECT I.SEQUENCIA, I.CODPROD, P.DESCRPROD, P.COMPLDESC, I.CODVOL, I.QTDNEG, I.VLRUNIT, I.VLRTOT
-            FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD
+            SELECT I.SEQUENCIA, I.CODPROD, P.DESCRPROD, P.COMPLDESC, I.CODVOL, P.CODVOL AS CODVOLPAD, I.QTDNEG, I.VLRUNIT, I.VLRTOT,
+                   V.DIVIDEMULTIPLICA, V.QUANTIDADE
+            FROM TGFITE I
+            JOIN TGFPRO P ON P.CODPROD = I.CODPROD
+            LEFT JOIN TGFVOA V ON V.CODPROD = I.CODPROD AND V.CODVOL = I.CODVOL AND V.CODVOL <> P.CODVOL AND NVL(V.CONTROLE, ' ') = ' '
             WHERE I.NUNOTA = $nunota ORDER BY P.DESCRPROD, I.SEQUENCIA
             """.trimIndent(),
         )
         val conferido = if (nuconf == null) emptyMap() else SankhyaDbExplorerClient.executarQuery(
-            tenantSlug, "SELECT CODPROD, CODVOL, SUM(QTDCONF) AS QTD FROM TGFCOI2 WHERE NUCONF = $nuconf GROUP BY CODPROD, CODVOL",
-        ).mapNotNull { r -> r["CODPROD"].int()?.let { it to (r["QTD"].dbl() to r["CODVOL"]) } }.toMap()
-        return itens.mapNotNull { r ->
+            tenantSlug, "SELECT CODPROD, SUM(QTDCONFVOLPAD) AS QTD FROM TGFCOI2 WHERE NUCONF = $nuconf GROUP BY CODPROD",
+        ).mapNotNull { r -> r["CODPROD"].int()?.let { it to (r["QTD"].dbl() ?: 0.0) } }.toMap()
+
+        val unidades = mutableMapOf<Int, Unidades>()
+        val lista = itens.mapNotNull { r ->
             val codprod = r["CODPROD"].int() ?: return@mapNotNull null
+            val un = Unidades(r["CODVOL"]?.trim(), r["CODVOLPAD"]?.trim(), r["DIVIDEMULTIPLICA"]?.trim(), r["QUANTIDADE"].dbl())
+            unidades.putIfAbsent(codprod, un)
             val compl = r["COMPLDESC"]?.trim()?.takeIf { it.isNotEmpty() }
+            val pedidoPadrao = r["QTDNEG"].dbl()
+            val conferidoPadrao = conferido[codprod]
+            val mostraPadrao = un.exibicao != un.padrao
             AuditoriaItemDto(
                 sequencia = r["SEQUENCIA"].int() ?: 0,
                 codprod = codprod,
                 produto = listOfNotNull(r["DESCRPROD"]?.trim(), compl).joinToString(" - "),
-                unidade = r["CODVOL"],
-                qtdNegociada = r["QTDNEG"].dbl(),
-                qtdConferida = conferido[codprod]?.first,
-                unidadeConferida = conferido[codprod]?.second,
+                unidade = rotulo(un.exibicao),
+                qtdNegociada = pedidoPadrao?.let(un::dePadraoParaExibicao),
+                qtdConferida = conferidoPadrao?.let(un::dePadraoParaExibicao),
+                unidadePadrao = un.padrao.takeIf { mostraPadrao },
+                qtdNegociadaPadrao = pedidoPadrao.takeIf { mostraPadrao },
+                qtdConferidaPadrao = conferidoPadrao.takeIf { mostraPadrao },
                 valorUnitario = r["VLRUNIT"].dbl(),
                 valorTotal = r["VLRTOT"].dbl(),
             )
         }
+        return lista to unidades
     }
 
-    /** Conferências (início/fim) + liberações de corte (pedida/decidida) — eventos do lado do Sankhya. */
-    private suspend fun buscarConferencias(tenantSlug: String, nunota: Long): Pair<List<AuditoriaEventoDto>, List<AuditoriaEventoDto>> {
+    /** Linha crua de liberação (TSILIB) — o texto é montado depois, com a conversão do produto. */
+    private data class LiberacaoBruta(val solicitada: String?, val decidida: String?, val negada: Boolean, val liberador: String?, val observacao: String?)
+
+    /** Conferências (início/fim) + liberações de corte cruas — lado do Sankhya. */
+    private suspend fun buscarConferencias(tenantSlug: String, nunota: Long): Pair<List<AuditoriaEventoDto>, List<LiberacaoBruta>> {
         val confs = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             """
@@ -145,11 +226,12 @@ object AuditoriaPedidoService {
             val nuconf = c["NUCONF"]
             val status = c["STATUS"]?.trim().orEmpty()
             listOfNotNull(
-                dataSankhya(c["DHINICONF"])?.let { AuditoriaEventoDto(it, "SANKHYA", "conferencia", "Conferência $nuconf iniciada") },
+                dataSankhya(c["DHINICONF"])?.let { AuditoriaEventoDto(it, "SANKHYA", "conferencia", "Conferência nº $nuconf aberta no Sankhya") },
                 dataSankhya(c["DHFINCONF"])?.let {
                     AuditoriaEventoDto(
-                        it, "SANKHYA", "conferencia", "Conferência $nuconf ${STATUS_CONF[status] ?: "status $status"}",
-                        c["QTDVOL"].int()?.let { v -> "$v volume(s)" }, c["NOMEUSU"],
+                        it, "SANKHYA", "conferencia", "Conferência nº $nuconf ${STATUS_CONF[status] ?: "com status $status"} no Sankhya",
+                        c["QTDVOL"].int()?.let { v -> "$v volume(s) informado(s)" },
+                        c["NOMEUSU"]?.let { u -> "conferente $u" },
                         nivel = when (status) { "F" -> "sucesso"; "D", "C" -> "alerta"; "R" -> "erro"; else -> "info" },
                     )
                 },
@@ -161,30 +243,52 @@ object AuditoriaPedidoService {
         val libs = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             """
-            SELECT L.NUCHAVE, L.SEQUENCIA, L.DHSOLICIT, L.DHLIB, L.REPROVADO, L.OBSERVACAO, U.NOMEUSU
+            SELECT L.DHSOLICIT, L.DHLIB, L.REPROVADO, L.OBSERVACAO, U.NOMEUSU
             FROM TSILIB L LEFT JOIN TSIUSU U ON U.CODUSU = L.CODUSULIB
             WHERE L.EVENTO = 64 AND L.TABELA = 'TGFCOI2' AND L.NUCHAVE IN (${nuconfs.joinToString(",")})
             """.trimIndent(),
-        )
-        val eventosLib = libs.flatMap { l ->
-            val obs = Observacao.ler(l["OBSERVACAO"])
-            val diferenca = obs.descricaoDiferenca()
-            listOfNotNull(
-                dataSankhya(l["DHSOLICIT"])?.let {
-                    AuditoriaEventoDto(it, "SANKHYA", "liberacao", "Corte pedido: ${obs.produto ?: "item"}", diferenca, nivel = "alerta")
-                },
-                dataSankhya(l["DHLIB"])?.let {
-                    val negado = l["REPROVADO"]?.trim() == "S"
-                    AuditoriaEventoDto(
-                        it, "SANKHYA", "liberacao",
-                        (if (negado) "Corte NEGADO: " else "Corte liberado: ") + (obs.produto ?: "item"),
-                        if (negado) "nota volta pra recontagem" else diferenca, l["NOMEUSU"],
-                        nivel = if (negado) "erro" else "sucesso",
-                    )
-                },
-            )
+        ).map { l ->
+            LiberacaoBruta(dataSankhya(l["DHSOLICIT"]), dataSankhya(l["DHLIB"]), l["REPROVADO"]?.trim() == "S", l["NOMEUSU"], l["OBSERVACAO"])
         }
-        return eventosConf to eventosLib
+        return eventosConf to libs
+    }
+
+    /**
+     * A observação vem na unidade do pedido ("1,52 CX de 2 CX"). Pesável (padrão KG) vira kg; o resto fica na
+     * comercial com a padrão entre parênteses.
+     */
+    private fun eventosLiberacao(l: LiberacaoBruta, unidades: Map<Int, Unidades>, porNome: Map<String, Int>): List<AuditoriaEventoDto> {
+        val obs = Observacao.ler(l.observacao)
+        val produto = obs.produto?.replace(", Complem.: ", " - ") ?: "item"
+        val un = obs.produto?.let { porNome[normalizarNome(it)] }?.let { unidades[it] } ?: Unidades.NENHUMA
+        val diferenca = if (obs.conferido == null || obs.pedido == null) null else {
+            val ped = un.deComercialParaPadrao(obs.pedido)
+            val conf = un.deComercialParaPadrao(obs.conferido)
+            val semConversao = un === Unidades.NENHUMA
+            fun t(v: Double) = if (semConversao) "${qtd(v)} ${obs.unidade.orEmpty()}".trim() else un.texto(v)
+            val dif = conf - ped
+            "pedido ${t(ped)} · conferido ${t(conf)} · " + if (dif > 0) "a maior ${t(dif)}" else "faltou ${t(-dif)}"
+        }
+        val automatico = l.liberador?.trim()?.uppercase() == LIBERADOR_AUTOMATICO
+        return listOfNotNull(
+            l.solicitada?.let { AuditoriaEventoDto(it, "SANKHYA", "liberacao", "Liberação de corte solicitada: $produto", diferenca, nivel = "alerta") },
+            l.decidida?.let {
+                AuditoriaEventoDto(
+                    it, "SANKHYA", "liberacao",
+                    if (l.negada) "Corte NEGADO: $produto" else "Corte liberado: $produto",
+                    when {
+                        l.negada -> "a nota volta para recontagem deste item"
+                        automatico -> listOfNotNull("automático — peso dentro da tolerância", diferenca).joinToString(" · ")
+                        else -> diferenca
+                    },
+                    when {
+                        automatico -> "Torre de Operação (automático)"
+                        else -> l.liberador?.let { u -> "liberador $u" }
+                    },
+                    nivel = if (l.negada) "erro" else "sucesso",
+                )
+            },
+        )
     }
 
     private suspend fun buscarNotasGeradas(tenantSlug: String, nunota: Long): List<AuditoriaNotaGeradaDto> =
@@ -210,30 +314,22 @@ object AuditoriaPedidoService {
 
     /** "Prod.: X, Qtd. total conf.: 1.2563… CX, Qtd. total pedido/nota: 1E+1 CX" (o Sankhya grava redondo em notação científica). */
     private data class Observacao(val produto: String?, val conferido: Double?, val pedido: Double?, val unidade: String?) {
-        fun descricaoDiferenca(): String? {
-            if (conferido == null || pedido == null) return null
-            val dif = conferido - pedido
-            val un = unidade?.let { " $it" }.orEmpty()
-            return "pedido ${qtd(pedido)}$un · conferido ${qtd(conferido)}$un · " +
-                (if (dif > 0) "a maior ${qtd(dif)}$un" else "falta ${qtd(-dif)}$un")
-        }
-
         companion object {
             private val RE = Regex("""Prod\.: (.*), Qtd\. total conf\.: (\S+) (\S+), Qtd\. total pedido/nota: (\S+) (\S+)""")
             fun ler(texto: String?): Observacao {
-                val m = texto?.let { RE.find(it) } ?: return Observacao(texto?.removePrefix("Prod.: ")?.substringBefore(","), null, null, null)
+                val m = texto?.let { RE.find(it) } ?: return Observacao(texto?.removePrefix("Prod.: ")?.substringBefore(", Qtd"), null, null, null)
                 val (produto, conf, unConf, ped, _) = m.destructured
                 return Observacao(produto.trim(), conf.toBigDecimalOrNull()?.toDouble(), ped.toBigDecimalOrNull()?.toDouble(), unConf)
             }
         }
     }
 
-    // ─── WMS ─────────────────────────────────────────────────────────────────
+    // ─── Torre de Operação (banco do WMS) ────────────────────────────────────
 
     private const val BR = "to_char(%s at time zone 'America/Sao_Paulo', 'YYYY-MM-DD\"T\"HH24:MI:SS')"
 
     /** Produto aparece como "{prod:123}" e é trocado pelo nome (vindo do Sankhya) depois. */
-    private fun eventosWms(tenantId: UUID, nunota: Long): List<AuditoriaEventoDto> = TenantTx.run(tenantId, statementTimeoutMs = 10_000) {
+    private fun eventosWms(tenantId: UUID, nunota: Long, unidades: Map<Int, Unidades>): List<AuditoriaEventoDto> = TenantTx.run(tenantId, statementTimeoutMs = 10_000) {
         val eventos = mutableListOf<AuditoriaEventoDto>()
         fun consulta(sql: String, linha: (java.sql.ResultSet) -> AuditoriaEventoDto?) {
             exec(sql) { rs -> while (rs.next()) linha(rs)?.let { eventos += it } }
@@ -241,22 +337,30 @@ object AuditoriaPedidoService {
         val sessoes = "SELECT id FROM app.separacao_sessoes WHERE tenant_id = '$tenantId' AND nunota = $nunota"
 
         consulta("SELECT ${BR.format("impresso_em")} q, ordem_carga, impresso_por FROM app.mapa_impressoes WHERE tenant_id = '$tenantId' AND nunota = $nunota") { rs ->
-            AuditoriaEventoDto(rs.getString("q"), "WMS", "impressao", "Mapa de separação impresso", "OC ${rs.getInt("ordem_carga")}", rs.getString("impresso_por"))
+            val oc = rs.getObject("ordem_carga")
+            AuditoriaEventoDto(
+                rs.getString("q"), "WMS", "impressao",
+                if (oc != null) "Mapa de separação da OC $oc impresso" else "Mapa de separação impresso",
+                null, rs.getString("impresso_por")?.let { "impresso por $it" },
+            )
         }
         consulta(
             """
-            SELECT ${BR.format("s.criado_em")} q, s.nuconf, s.recontagem, s.conferencia_segmentada, s.status, s.erro,
-                   ${BR.format("s.atualizado_em")} fim
+            SELECT ${BR.format("s.criado_em")} q, s.nuconf, s.recontagem, s.conferencia_segmentada, s.erro
             FROM app.separacao_sessoes s WHERE s.tenant_id = '$tenantId' AND s.nunota = $nunota
             """.trimIndent(),
         ) { rs ->
-            val tipo = if (rs.getBoolean("recontagem")) "Recontagem aberta" else "Conferência aberta na Torre de Operação"
+            val recontagem = rs.getBoolean("recontagem")
             val detalhe = listOfNotNull(
-                rs.getObject("nuconf")?.let { "conferência $it" },
-                if (rs.getBoolean("conferencia_segmentada")) "por etapas" else null,
+                rs.getObject("nuconf")?.let { "conferência nº $it" },
+                if (rs.getBoolean("conferencia_segmentada")) "separada por etapas (seco / refrigerado / congelado)" else null,
                 rs.getString("erro")?.takeIf { it.isNotBlank() }?.let { "erro: $it" },
             ).joinToString(" · ").ifEmpty { null }
-            AuditoriaEventoDto(rs.getString("q"), "WMS", "abertura", tipo, detalhe, nivel = if (rs.getBoolean("recontagem")) "alerta" else "info")
+            AuditoriaEventoDto(
+                rs.getString("q"), "WMS", "abertura",
+                if (recontagem) "Recontagem iniciada na Torre de Operação" else "Conferência iniciada na Torre de Operação",
+                detalhe, nivel = if (recontagem) "alerta" else "info",
+            )
         }
         consulta(
             """
@@ -267,7 +371,10 @@ object AuditoriaPedidoService {
             WHERE h.tenant_id = '$tenantId' AND h.sessao_id IN ($sessoes)
             """.trimIndent(),
         ) { rs ->
-            AuditoriaEventoDto(rs.getString("q"), "WMS", "operador", "Operador identificado", rs.getString("estacao")?.let { "estação $it" }, rs.getString("operador"))
+            AuditoriaEventoDto(
+                rs.getString("q"), "WMS", "operador", "Operador assumiu a conferência",
+                rs.getString("estacao")?.let { "na estação $it" }, rs.getString("operador"),
+            )
         }
         consulta(
             """
@@ -281,28 +388,30 @@ object AuditoriaPedidoService {
             if (pedido == carregadas) null
             else AuditoriaEventoDto(
                 rs.getString("q"), "WMS", "diagnostico", "Itens já conferidos ficaram fora da lista (${rs.getString("origem")})",
-                "$carregadas de $pedido linha(s) carregadas", nivel = "alerta",
+                "$carregadas de $pedido linha(s) do pedido carregadas na tela", nivel = "alerta",
             )
         }
-        // Leituras agrupadas por produto — uma linha por produto, não uma por bipe.
+        // Leituras agrupadas por produto — uma linha por produto, não uma por bipe. Quantidade da leitura está na
+        // unidade padrão do produto; mostra na comercial do pedido (ou kg, pesável).
         consulta(
             """
-            SELECT ${BR.format("min(l.criado_em)")} q, ${BR.format("max(l.criado_em)")} ate, l.codprod, l.codvol,
+            SELECT ${BR.format("min(l.criado_em)")} q, ${BR.format("max(l.criado_em)")} ate, l.codprod,
                    sum(l.qtd) qtd, sum(l.peso) peso, count(*) n, s.recontagem
             FROM app.separacao_leituras l JOIN app.separacao_sessoes s ON s.id = l.sessao_id
             WHERE l.tenant_id = '$tenantId' AND s.nunota = $nunota
-            GROUP BY l.sessao_id, s.recontagem, l.codprod, l.codvol
+            GROUP BY l.sessao_id, s.recontagem, l.codprod
             """.trimIndent(),
         ) { rs ->
             val n = rs.getInt("n")
-            val peso = rs.getBigDecimal("peso")
-            val quantidade = rs.getBigDecimal("qtd")
+            val peso = rs.getBigDecimal("peso")?.toDouble() ?: 0.0
+            val quantidade = rs.getBigDecimal("qtd")?.toDouble() ?: 0.0
+            val un = unidades[rs.getInt("codprod")] ?: Unidades.NENHUMA
             val detalhe = listOfNotNull(
-                if (peso != null && peso.signum() > 0) "${qtd(peso.toDouble())} kg" else "${qtd(quantidade.toDouble())} ${rs.getString("codvol").orEmpty()}".trim(),
-                if (n > 1) "$n leituras até ${rs.getString("ate").substring(11)}" else null,
-                if (rs.getBoolean("recontagem")) "recontagem" else null,
+                if (peso > 0) "pesado ${qtd(peso)} kg" else "conferido ${un.texto(quantidade)}",
+                if (n > 1) "$n leituras, a última às ${rs.getString("ate").substring(11, 16)}" else null,
+                if (rs.getBoolean("recontagem")) "na recontagem" else null,
             ).joinToString(" · ")
-            AuditoriaEventoDto(rs.getString("q"), "WMS", "leitura", "Conferiu {prod:${rs.getInt("codprod")}}", detalhe)
+            AuditoriaEventoDto(rs.getString("q"), "WMS", "leitura", "Conferido: {prod:${rs.getInt("codprod")}}", detalhe)
         }
         consulta(
             """
@@ -313,9 +422,9 @@ object AuditoriaPedidoService {
             val correcao = rs.getBoolean("correcao")
             AuditoriaEventoDto(
                 rs.getString("q"), "WMS", "etiqueta",
-                (if (correcao) "Etiqueta de peso corrigida" else "Etiqueta de peso") + " nº ${rs.getLong("numero")}",
+                (if (correcao) "Etiqueta de peso corrigida" else "Etiqueta de peso emitida") + " — nº ${rs.getLong("numero")}",
                 "{prod:${rs.getInt("codprod")}} · ${qtd(rs.getBigDecimal("peso")?.toDouble() ?: 0.0)} kg" +
-                    (rs.getObject("substitui_numero")?.let { " · substitui a nº $it" } ?: ""),
+                    (rs.getObject("substitui_numero")?.let { " · substitui a etiqueta nº $it" } ?: ""),
             )
         }
         consulta(
@@ -328,33 +437,36 @@ object AuditoriaPedidoService {
             val divergente = rs.getBoolean("divergente")
             AuditoriaEventoDto(
                 rs.getString("q"), "WMS", "etapa",
-                "Etapa ${ETAPA[rs.getInt("tipo_separacao")] ?: rs.getInt("tipo_separacao")} concluída" + if (divergente) " com divergência" else "",
+                "Etapa ${ETAPA[rs.getInt("tipo_separacao")] ?: rs.getInt("tipo_separacao")} concluída" + if (divergente) " com divergência" else " sem divergência",
                 rs.getObject("qtd_vol")?.let { "$it volume(s)" }, rs.getString("concluida_por"),
                 nivel = if (divergente) "alerta" else "sucesso",
             )
         }
         consulta(
             """
-            SELECT ${BR.format("min(c.checado_em)")} q, ${BR.format("max(c.checado_em)")} ate, c.checado_por, count(*) n
+            SELECT ${BR.format("min(c.checado_em)")} q, c.checado_por, count(*) n
             FROM app.reconferencia_checks c WHERE c.tenant_id = '$tenantId' AND c.sessao_id IN ($sessoes)
             GROUP BY c.checado_por
             """.trimIndent(),
         ) { rs ->
+            val por = rs.getString("checado_por")
+            val naConferencia = por?.endsWith("(na conferência)") == true
             AuditoriaEventoDto(
                 rs.getString("q"), "WMS", "carregamento", "Carregado no veículo",
-                "${rs.getInt("n")} item(ns) marcado(s)", rs.getString("checado_por")?.removeSuffix(" (na conferência)"), "sucesso",
+                "${rs.getInt("n")} item(ns) marcado(s) como carregado(s)" + if (naConferencia) " ao concluir a etapa" else "",
+                por?.removeSuffix(" (na conferência)"), "sucesso",
             )
         }
         consulta(
             """
-            SELECT ${BR.format("criado_em")} q, status_anterior, status_novo, origem, motivo
+            SELECT ${BR.format("criado_em")} q, status_anterior, status_novo, origem
             FROM app.tarefas_auditoria WHERE tenant_id = '$tenantId' AND nunota = $nunota
             """.trimIndent(),
         ) { rs ->
             AuditoriaEventoDto(
                 rs.getString("q"), "WMS", "status",
-                "Status: ${statusTarefa(rs.getString("status_anterior"))} → ${statusTarefa(rs.getString("status_novo"))}",
-                rs.getString("origem")?.let { if (it == "sync_sankhya") "sincronização com o Sankhya" else it },
+                "Situação na fila: ${statusTarefa(rs.getString("status_anterior"))} → ${statusTarefa(rs.getString("status_novo"))}",
+                rs.getString("origem")?.let { if (it == "sync_sankhya") "atualizado pela sincronização com o Sankhya" else it },
             )
         }
         eventos
@@ -362,9 +474,9 @@ object AuditoriaPedidoService {
 
     private fun statusTarefa(s: String?) = when (s) {
         null -> "—"
-        "aguardando" -> "aguardando"
+        "aguardando" -> "aguardando conferência"
         "andamento" -> "em conferência"
-        "aguardando_corte" -> "aguardando corte"
+        "aguardando_corte" -> "aguardando liberação de corte"
         "aguardando_liberacao" -> "aguardando liberação"
         "concluida", "concluido" -> "concluída"
         else -> s.replace('_', ' ')
@@ -374,6 +486,9 @@ object AuditoriaPedidoService {
 
     private fun qtd(v: Double): String =
         java.math.BigDecimal(v).setScale(3, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', ',')
+
+    private fun reais(v: Double): String =
+        java.text.NumberFormat.getCurrencyInstance(java.util.Locale.forLanguageTag("pt-BR")).format(v)
 
     /** DbExplorer devolve data como "07102026 04:42:29" (já em Brasília) → "2026-10-07T04:42:29". */
     private fun dataSankhya(v: String?): String? {

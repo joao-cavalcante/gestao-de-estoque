@@ -23,8 +23,12 @@ export interface AuditoriaItem {
   produto: string;
   unidade: string | null;
   qtdNegociada: number | null;
+  /** Na unidade de exibição (comercial do pedido; kg quando a unidade padrão é KG). */
   qtdConferida: number | null;
-  unidadeConferida: string | null;
+  /** Unidade padrão do produto e as quantidades nela — só quando difere da exibida (ex.: 15 FD = 75 PT). */
+  unidadePadrao: string | null;
+  qtdNegociadaPadrao: number | null;
+  qtdConferidaPadrao: number | null;
   valorUnitario: number | null;
   valorTotal: number | null;
 }
