@@ -634,6 +634,54 @@ object TarefasRepository {
             .groupBy({ it.first }, { it.second })
     }
 
+    /** Pedido de saída de uma OC no mirror local — peso e identificação pro painel do Mapa de Separação. */
+    data class PedidoDaOc(
+        val nunota: Long,
+        val numNota: Long?,
+        val nomeParceiro: String?,
+        val pesoKg: Double,
+        val statusOperacional: String,
+    )
+
+    /** TGFCAB.PESOBRUTO (KG) do mirror — mesmo cálculo da TV. Aceita "1543.22" e "1.543,22". */
+    fun pesoBrutoKg(dados: JsonObject?): Double =
+        dados?.get("PESOBRUTO")?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let { bruto ->
+            bruto.toDoubleOrNull() ?: bruto.replace(".", "").replace(',', '.').toDoubleOrNull()
+        } ?: 0.0
+
+    /** Pedidos de saída de cada OC (mirror local, todos os status) — mesmo universo do mapa da OC. */
+    fun pedidosPorOrdemCarga(tenantId: UUID, ordensCarga: Set<Long>): Map<Long, List<PedidoDaOc>> = TenantTx.run(tenantId) {
+        if (ordensCarga.isEmpty()) return@run emptyMap()
+        TarefasTable.selectAll()
+            .where { TarefasTable.tenantId eq tenantId }
+            .mapNotNull { row ->
+                val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                if (!ehSaida(dados)) return@mapNotNull null
+                val oc = normalizarOrdemCarga(dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull) ?: return@mapNotNull null
+                if (oc !in ordensCarga) return@mapNotNull null
+                fun campo(nome: String) = dados?.get(nome)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+                oc to PedidoDaOc(
+                    nunota = row[TarefasTable.nunota].toLong(),
+                    numNota = campo("NUMNOTA")?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() },
+                    nomeParceiro = campo("Parceiro.NOMEPARC"),
+                    pesoKg = pesoBrutoKg(dados),
+                    statusOperacional = row[TarefasTable.statusOperacional],
+                )
+            }
+            .groupBy({ it.first }, { it.second })
+    }
+
+    /** Peso bruto (KG) por NUNOTA — painel S/ Ordem de Carga do Mapa. */
+    fun pesoPorNunota(tenantId: UUID, nunotas: Collection<Long>): Map<Long, Double> = TenantTx.run(tenantId) {
+        val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }
+        if (ints.isEmpty()) return@run emptyMap()
+        TarefasTable.selectAll()
+            .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList ints) }
+            .associate { row ->
+                row[TarefasTable.nunota].toLong() to pesoBrutoKg(runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull())
+            }
+    }
+
     fun nunotasComConferencia(tenantId: UUID, nunotas: Collection<Long>): Set<Long> = TenantTx.run(tenantId) {
         val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }
         if (ints.isEmpty()) return@run emptySet()

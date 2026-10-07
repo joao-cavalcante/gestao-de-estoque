@@ -13,8 +13,10 @@ export class MapaSeparacaoService {
     return this.http.get<PedidoVenda[]>(`${this.baseUrl}/pedidos-venda`, { params: { nunotas: nunotas.join(',') } });
   }
 
-  consultar(ordemCarga: number): Observable<MapaSeparacaoDto> {
-    return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/${ordemCarga}`);
+  /** [somentePedidos] = mapa da OC só com esses Nº Únicos ("Imprimir só os pedidos novos"). */
+  consultar(ordemCarga: number, somentePedidos?: number[]): Observable<MapaSeparacaoDto> {
+    const params = somentePedidos?.length ? { nunotas: somentePedidos.join(',') } : undefined;
+    return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/${ordemCarga}`, { params });
   }
 
   /** OCs do painel: abertas + fechadas que ainda têm nota na fila de conferência. */
@@ -32,8 +34,11 @@ export class MapaSeparacaoService {
     return this.http.get<MapaSeparacaoDto>(`${this.baseUrl}/sem-ordem-carga/${nunota}`);
   }
 
-  /** Registra a impressão (selo IMPRESSO e filtro "Não impressos"). */
-  registrarImpressao(ordensCarga: number[], nunotas: number[]): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/impressoes`, { ordensCarga, nunotas });
+  /**
+   * Registra a impressão (selo IMPRESSO e filtro "Não impressos"). [pedidosPorOc] = pedidos que saíram no
+   * mapa de cada OC — é a fotografia que detecta pedido incluído depois na OC impressa.
+   */
+  registrarImpressao(ordensCarga: number[], nunotas: number[], pedidosPorOc: Record<string, number[]> = {}): Observable<unknown> {
+    return this.http.post(`${this.baseUrl}/impressoes`, { ordensCarga, nunotas, pedidosPorOc });
   }
 }

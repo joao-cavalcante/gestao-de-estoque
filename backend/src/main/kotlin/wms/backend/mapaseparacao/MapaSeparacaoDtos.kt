@@ -58,6 +58,8 @@ data class MapaSeparacaoDto(
     val nomeParceiro: String? = null,
     /** Mapa S/ OC: modalidade do pedido (AD_EXPRESS / AD_RETIRA / AD_ENTREGA). */
     val modalidade: ModalidadePedido = ModalidadePedido(),
+    /** Mapa da OC só com parte dos pedidos ("Imprimir só os pedidos novos"). */
+    val somenteAlgunsPedidos: Boolean = false,
 )
 
 /** Pedido do painel "S/ Ordem de Carga" (mirror local, mesmo universo da Fila de Tarefas). */
@@ -76,6 +78,8 @@ data class PedidoSemOrdemCargaDto(
     /** Última impressão do mapa deste Nº Único (ISO) e por quem — null = nunca impresso. */
     val impressoEm: String? = null,
     val impressoPor: String? = null,
+    /** TGFCAB.PESOBRUTO (KG) do pedido. */
+    val pesoKg: Double = 0.0,
 )
 
 /** Refrigerados de UM pedido (NUNOTA) da OC — bloco próprio por pedido, com o cliente dele; `nunotas` tem só esse NUNOTA. */
@@ -121,6 +125,20 @@ data class OrdemCargaResumoDto(
     /** Última impressão do mapa desta OC (ISO) e por quem — null = nunca impresso. */
     val impressoEm: String? = null,
     val impressoPor: String? = null,
+    /** Soma do TGFCAB.PESOBRUTO (KG) de todos os pedidos de saída da OC / só dos ainda não conferidos. */
+    val pesoTotalKg: Double = 0.0,
+    val pesoPendenteKg: Double = 0.0,
+    /** OC já impressa que ganhou pedido DEPOIS da impressão — caso de extrema atenção no painel. */
+    val pedidosNovos: List<PedidoNovoOcDto> = emptyList(),
+)
+
+/** Pedido que entrou na OC depois do último mapa impresso dela (não saiu em nenhum mapa). */
+@Serializable
+data class PedidoNovoOcDto(
+    val nunota: Long,
+    val numNota: Long? = null,
+    val nomeParceiro: String? = null,
+    val pesoKg: Double = 0.0,
 )
 
 @Serializable
@@ -153,6 +171,8 @@ data class ItemSeparacaoDto(
 data class RegistrarImpressaoRequest(
     val ordensCarga: List<Long> = emptyList(),
     val nunotas: List<Long> = emptyList(),
+    /** OC → pedidos que saíram no mapa impresso (chave = nº da OC em texto, JSON). */
+    val pedidosPorOc: Map<String, List<Long>> = emptyMap(),
 )
 
 @Serializable

@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { OqPedidoVendaComponent } from './oq-pedido-venda.component';
+import { OqMapaKpisComponent } from './oq-mapa-kpis.component';
 import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +37,8 @@ const CONCORRENCIA_MAPAS = 3;
 
 const CHAVE_VIEW_MODE = 'mapa-separacao-view-mode';
 
+type SituacaoFiltro = 'todas' | 'nao-impressas' | 'impressas' | 'complementar';
+
 /**
  * Mapa de Separação por Ordem de Carga — porte do Dashboard HTML5/JSP que
  * substituiu o iReport 513 no Sankhya (ver backend MapaSeparacaoService).
@@ -65,7 +68,7 @@ const CHAVE_VIEW_MODE = 'mapa-separacao-view-mode';
 @Component({
   selector: 'app-mapa-separacao',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent, OqModalidadePinsComponent, OqPedidoVendaComponent],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent, OqModalidadePinsComponent, OqPedidoVendaComponent, OqMapaKpisComponent],
   templateUrl: './mapa-separacao.component.html',
   styleUrl: './mapa-separacao.component.scss',
 })
@@ -83,7 +86,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     this.filtrosSalvos.salvar('mapa-separacao', {
       semOrdemCarga: this.semOrdemCarga,
       modalidades: [...this.filtroModalidade],
-      naoImpressos: this.filtroNaoImpressos,
+      situacao: this.filtroSituacao,
     });
   }
 
@@ -98,7 +101,18 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
       ['express', 'retira', 'entrega'].includes(m),
     ),
   );
-  filtroNaoImpressos = this.filtrosSalvos.ler<{ naoImpressos?: boolean }>('mapa-separacao')?.naoImpressos === true;
+  /** Situação da impressão (substituiu o "Não impressos"); o antigo naoImpressos salvo vira 'nao-impressas'. */
+  readonly opcoesSituacao: { id: SituacaoFiltro; label: string }[] = [
+    { id: 'todas', label: 'Todas' },
+    { id: 'nao-impressas', label: 'Não impressas' },
+    { id: 'impressas', label: 'Impressas' },
+    { id: 'complementar', label: 'Com complementar' },
+  ];
+  filtroSituacao: SituacaoFiltro = (() => {
+    const salvo = this.filtrosSalvos.ler<{ situacao?: SituacaoFiltro; naoImpressos?: boolean }>('mapa-separacao');
+    if (salvo?.situacao && ['todas', 'nao-impressas', 'impressas', 'complementar'].includes(salvo.situacao)) return salvo.situacao;
+    return salvo?.naoImpressos ? 'nao-impressas' : 'todas';
+  })();
 
   alternarModalidade(id: string): void {
     if (this.filtroModalidade.has(id)) this.filtroModalidade.delete(id);
@@ -108,8 +122,57 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     this.salvarFiltros();
   }
 
-  alternarNaoImpressos(): void {
-    this.filtroNaoImpressos = !this.filtroNaoImpressos;
+  setSituacao(s: SituacaoFiltro): void {
+    this.filtroSituacao = s;
+    this.pagina.set(1);
+    this.salvarFiltros();
+  }
+
+  private passaSituacaoOc(oc: OrdemCargaResumoDto): boolean {
+    const novos = (oc.pedidosNovos?.length ?? 0) > 0;
+    switch (this.filtroSituacao) {
+      case 'nao-impressas': return !oc.impressoEm;
+      case 'impressas': return !!oc.impressoEm && !novos;
+      case 'complementar': return novos;
+      default: return true;
+    }
+  }
+
+  private passaSituacaoPedido(p: PedidoSemOrdemCargaDto): boolean {
+    switch (this.filtroSituacao) {
+      case 'nao-impressas': return !p.impressoEm;
+      case 'impressas': return !!p.impressoEm;
+      case 'complementar': return false; // complementar é só de OC
+      default: return true;
+    }
+  }
+
+  /** Quantidade de cada opção de situação — conta o que está na tela com a busca e a modalidade, sem a própria situação. */
+  contagemSituacao(s: SituacaoFiltro): number {
+    const atual = this.filtroSituacao;
+    this.filtroSituacao = s;
+    const n = this.semOrdemCarga ? this.pedidosSemOcFiltrados.length : this.listaFiltrada.length + this.pedidosSemOcFiltrados.length;
+    this.filtroSituacao = atual;
+    return n;
+  }
+
+  /** Quantidade de cada modalidade (OCs que têm pedido dela + pedidos sem OC dela), com busca e situação aplicadas. */
+  contagemModalidade(m: string): number {
+    const atual = this.filtroModalidade;
+    this.filtroModalidade = new Set([m]);
+    const n = this.semOrdemCarga ? this.pedidosSemOcFiltrados.length : this.listaFiltrada.length + this.pedidosSemOcFiltrados.length;
+    this.filtroModalidade = atual;
+    return n;
+  }
+
+  get temFiltroAtivo(): boolean {
+    return this.filtroSituacao !== 'todas' || this.filtroModalidade.size > 0 || this.filtroLista.trim() !== '';
+  }
+
+  limparFiltros(): void {
+    this.filtroSituacao = 'todas';
+    this.filtroModalidade = new Set();
+    this.filtroLista = '';
     this.pagina.set(1);
     this.salvarFiltros();
   }
@@ -272,7 +335,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
           !!oc.placa?.toLowerCase().includes(termo) ||
           !!oc.nomeMotorista?.toLowerCase().includes(termo)) &&
         this.passaModalidadeOc(oc) &&
-        (!this.filtroNaoImpressos || !oc.impressoEm),
+        this.passaSituacaoOc(oc),
     );
   }
 
@@ -286,8 +349,78 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
           (p.codParc != null && String(p.codParc).includes(termo)) ||
           !!p.nomeParceiro?.toLowerCase().includes(termo)) &&
         this.passaModalidadePedido(p) &&
-        (!this.filtroNaoImpressos || !p.impressoEm),
+        this.passaSituacaoPedido(p),
     );
+  }
+
+  // ─── Painel com OC em blocos por prioridade (pedido do usuário: hierarquia visual pro separador) ───
+
+  /** OCs da busca/filtro em ordem de saída (dd/MM/yyyy) e depois número. */
+  private get ocsOrdenadas(): OrdemCargaResumoDto[] {
+    const chave = (d: string) => {
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d ?? '');
+      return m ? `${m[3]}${m[2]}${m[1]}` : '99999999';
+    };
+    return [...this.listaFiltrada].sort((a, b) => chave(a.dataPrevSaida).localeCompare(chave(b.dataPrevSaida)) || a.ordemCarga - b.ordemCarga);
+  }
+
+  /** OC já impressa que ganhou pedido depois — extrema atenção, primeiro bloco. */
+  get ocsComPedidoNovo(): OrdemCargaResumoDto[] {
+    return this.ocsOrdenadas.filter((oc) => (oc.pedidosNovos?.length ?? 0) > 0);
+  }
+
+  get ocsASeparar(): OrdemCargaResumoDto[] {
+    return this.ocsOrdenadas.filter((oc) => !oc.impressoEm && !(oc.pedidosNovos?.length ?? 0));
+  }
+
+  get ocsImpressas(): OrdemCargaResumoDto[] {
+    return this.ocsOrdenadas.filter((oc) => !!oc.impressoEm && !(oc.pedidosNovos?.length ?? 0));
+  }
+
+  /** Sem OC: express primeiro, depois retira; dentro de cada um, não impresso primeiro. */
+  get pedidosUrgentes(): PedidoSemOrdemCargaDto[] {
+    return this.pedidosSemOcFiltrados
+      .filter((p) => p.modalidade?.express || p.modalidade?.retira)
+      .sort((a, b) => Number(!a.modalidade?.express) - Number(!b.modalidade?.express) || Number(!!a.impressoEm) - Number(!!b.impressoEm) || a.nunota - b.nunota);
+  }
+
+  get pedidosOutrosSemOc(): PedidoSemOrdemCargaDto[] {
+    return this.pedidosSemOcFiltrados.filter((p) => !p.modalidade?.express && !p.modalidade?.retira);
+  }
+
+  get kgOcsASeparar(): number {
+    return this.ocsASeparar.reduce((t, oc) => t + (oc.pesoPendenteKg ?? 0), 0);
+  }
+
+  get kgOcsImpressas(): number {
+    return this.ocsImpressas.reduce((t, oc) => t + (oc.pesoPendenteKg ?? 0), 0);
+  }
+
+  get kgUrgentes(): number {
+    return this.pedidosUrgentes.reduce((t, p) => t + (p.pesoKg ?? 0), 0);
+  }
+
+  /** Bloco "Impressas" recolhido — lembrado no navegador. */
+  readonly impressasRecolhidas = signal(this.filtrosSalvos.ler<{ impressasRecolhidas?: boolean }>('mapa-separacao-blocos')?.impressasRecolhidas === true);
+
+  alternarImpressas(): void {
+    this.impressasRecolhidas.set(!this.impressasRecolhidas());
+    this.filtrosSalvos.salvar('mapa-separacao-blocos', { impressasRecolhidas: this.impressasRecolhidas() });
+  }
+
+  consultarNovosDaOc(oc: OrdemCargaResumoDto): void {
+    this.consultarNovos({ ordemCarga: oc.ordemCarga, nunotas: (oc.pedidosNovos ?? []).map((p) => p.nunota) });
+  }
+
+  /** Card/lista: tonelada a partir de 1 t, abaixo disso kg. */
+  peso(kg: number | null | undefined): string {
+    const v = kg ?? 0;
+    if (v <= 0) return '—';
+    return v >= 1000 ? this.toneladas(v) : `${Math.round(v).toLocaleString('pt-BR')} kg`;
+  }
+
+  toneladas(kg: number): string {
+    return (kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' t';
   }
 
   /** Selecionados que ainda aparecem na lista filtrada (todas as páginas) — é o que o botão gera. */
@@ -355,6 +488,8 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   carregarAbertas(silencioso = false): void {
     if (!silencioso) this.carregandoAbertas.set(true);
     this.erroAbertas.set(null);
+    // Express / retira sem OC aparecem no painel com OC também (bloco próprio, sem precisar de filtro).
+    this.service.listarSemOrdemCarga().subscribe({ next: (l) => this.pedidosSemOc.set(l), error: () => undefined });
     this.service.listarAbertas().subscribe({
       next: (lista) => {
         // Defesa: OC sem pedido pendente (0/0 ou 100% conferida) não tem o que separar.
@@ -413,6 +548,23 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** "Imprimir só os pedidos novos": mapa da OC só com os pedidos que entraram depois da última impressão. */
+  consultarNovos(e: { ordemCarga: number; nunotas: number[] }): void {
+    this.carregando.set(true);
+    this.erro.set(null);
+    this.mapas.set([]);
+    this.service.consultar(e.ordemCarga, e.nunotas).subscribe({
+      next: (r) => {
+        this.mapas.set([r]);
+        this.carregando.set(false);
+      },
+      error: (err) => {
+        this.erro.set(err?.error?.erro ?? 'Falha ao consultar os pedidos complementares da Ordem de Carga.');
+        this.carregando.set(false);
+      },
+    });
+  }
+
   /**
    * Um mapa por Número Único — cada pedido é buscado e montado SOZINHO no backend (nunca soma
    * entre pedidos). Pedido que falhar não derruba os outros: sai no aviso, os demais abrem.
@@ -458,6 +610,9 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     const mapas = this.mapas();
     const primeiro = mapas[0];
     if (!primeiro) return '';
+    if (!primeiro.semOrdemCarga && primeiro.somenteAlgunsPedidos) {
+      return `Ordem de Carga ${primeiro.ordemCarga} — Mapa Complementar (pedidos ${primeiro.nunotasPedidos?.join(', ')})`;
+    }
     if (!primeiro.semOrdemCarga) return `Ordem de Carga ${primeiro.ordemCarga}`;
     return mapas.length === 1
       ? `S/ Ordem de Carga — Nro. Único ${primeiro.nunota}`
@@ -536,10 +691,21 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     const ocs = mapas.filter((m) => !m.semOrdemCarga && m.ordemCarga != null).map((m) => m.ordemCarga as number);
     const nunotas = mapas.filter((m) => m.semOrdemCarga && m.nunota != null).map((m) => m.nunota as number);
     if (!ocs.length && !nunotas.length) return;
+    // Fotografia: quais pedidos saíram no mapa de cada OC — detecta pedido incluído depois.
+    const pedidosPorOc: Record<string, number[]> = {};
+    for (const m of mapas) {
+      if (!m.semOrdemCarga && m.ordemCarga != null) pedidosPorOc[String(m.ordemCarga)] = m.nunotasPedidos ?? [];
+    }
     const agora = new Date().toISOString();
-    this.service.registrarImpressao(ocs, nunotas).subscribe({
+    this.service.registrarImpressao(ocs, nunotas, pedidosPorOc).subscribe({
       next: () => {
-        this.abertas.update((l) => l.map((oc) => (ocs.includes(oc.ordemCarga) ? { ...oc, impressoEm: agora } : oc)));
+        this.abertas.update((l) =>
+          l.map((oc) => {
+            if (!ocs.includes(oc.ordemCarga)) return oc;
+            const saiu = new Set(pedidosPorOc[String(oc.ordemCarga)] ?? []);
+            return { ...oc, impressoEm: agora, pedidosNovos: (oc.pedidosNovos ?? []).filter((p) => !saiu.has(p.nunota)) };
+          }),
+        );
         this.pedidosSemOc.update((l) => l.map((p) => (nunotas.includes(p.nunota) ? { ...p, impressoEm: agora } : p)));
       },
       error: () => undefined, // registro de impressão não pode atrapalhar a impressão

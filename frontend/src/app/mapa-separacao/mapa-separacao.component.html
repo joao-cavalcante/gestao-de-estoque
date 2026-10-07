@@ -2,6 +2,15 @@
   <!-- ─── Painel: mesmo layout da Fila de Tarefas (estilos globais em styles/_lista-layout.scss) ─── -->
   <div class="oq-page no-print">
     <header class="oq-page__header">
+      @if (!semOrdemCarga) {
+        <oq-mapa-kpis
+          [aSeparar]="ocsASeparar.length"
+          [kgASeparar]="kgOcsASeparar"
+          [impressas]="ocsImpressas.length"
+          [urgentes]="pedidosUrgentes.length"
+          [ocsComPedidoNovo]="ocsComPedidoNovo.length"
+        />
+      }
       <div class="oq-toolbar">
         <!-- Título fixo; o contexto (com / sem OC) é secundário — o filtro não pode parecer o título da tela. -->
         <div class="oq-toolbar__title-block">
@@ -30,32 +39,6 @@
             S/ Ordem de Carga
           </label>
 
-          <!-- Filtros rápidos: mesmos da Fila (Express, Cliente retira, Entrega) + Não impressos -->
-          <div class="oq-toolbar__pills" role="group" aria-label="Filtro por modalidade do pedido">
-            @for (m of modalidadesFiltro; track m.id) {
-              <button
-                type="button"
-                class="oq-toolbar__pill oq-toolbar__pill--icon"
-                [class.oq-toolbar__pill--active]="filtroModalidade.has(m.id)"
-                (click)="alternarModalidade(m.id)"
-              >
-                <oq-icon [name]="m.icone" [size]="12" />
-                {{ m.label }}
-              </button>
-            }
-          </div>
-          <div class="oq-toolbar__pills" role="group" aria-label="Filtro de impressão">
-            <button
-              type="button"
-              class="oq-toolbar__pill oq-toolbar__pill--icon"
-              [class.oq-toolbar__pill--active]="filtroNaoImpressos"
-              (click)="alternarNaoImpressos()"
-            >
-              <oq-icon name="impressora" [size]="12" />
-              Não impressos
-            </button>
-          </div>
-
           <!-- Busca única: filtra a lista; número + Enter abre o mapa direto (mesmo fora da lista, ex.: reimprimir já conferido). -->
           <label
             class="oq-toolbar__search"
@@ -64,7 +47,7 @@
             <oq-icon name="search" [size]="12" />
             <input
               type="text"
-              [placeholder]="semOrdemCarga ? 'BUSCAR Nº ÚNICO / NOTA / PARCEIRO' : 'BUSCAR OC / PLACA / MOTORISTA'"
+              [placeholder]="semOrdemCarga ? 'BUSCAR Nº ÚNICO / NOTA / PARCEIRO' : 'BUSCAR OC / PLACA / MOTORISTA / PEDIDO S/ OC'"
               [(ngModel)]="filtroLista"
               (ngModelChange)="onBuscaChange()"
               (keyup.enter)="consultarManual()"
@@ -79,6 +62,51 @@
           </button>
         </div>
       </div>
+
+      <!-- Segunda linha: filtros com a quantidade de cada opção (situação da impressão + modalidade) -->
+      <div class="ms-filtros">
+        <div class="ms-filtros__grupo">
+          <span class="ms-filtros__rotulo">Situação</span>
+          <div class="oq-toolbar__pills" role="group" aria-label="Filtro por situação da impressão">
+            @for (o of opcoesSituacao; track o.id) {
+              @if (o.id !== 'complementar' || !semOrdemCarga) {
+                <button
+                  type="button"
+                  class="oq-toolbar__pill"
+                  [class.oq-toolbar__pill--active]="filtroSituacao === o.id"
+                  [class.ms-pill--alerta]="o.id === 'complementar' && contagemSituacao(o.id) > 0"
+                  (click)="setSituacao(o.id)"
+                >
+                  {{ o.label }} <span class="ms-filtros__qtd">{{ contagemSituacao(o.id) }}</span>
+                </button>
+              }
+            }
+          </div>
+        </div>
+
+        <div class="ms-filtros__grupo">
+          <span class="ms-filtros__rotulo">Modalidade</span>
+          <div class="oq-toolbar__pills" role="group" aria-label="Filtro por modalidade do pedido">
+            @for (m of modalidadesFiltro; track m.id) {
+              <button
+                type="button"
+                class="oq-toolbar__pill oq-toolbar__pill--icon"
+                [class.oq-toolbar__pill--active]="filtroModalidade.has(m.id)"
+                (click)="alternarModalidade(m.id)"
+              >
+                <oq-icon [name]="m.icone" [size]="12" />
+                {{ m.label }} <span class="ms-filtros__qtd">{{ contagemModalidade(m.id) }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (temFiltroAtivo) {
+          <button type="button" class="ms-filtros__limpar" (click)="limparFiltros()">
+            <oq-icon name="x" [size]="11" /> Limpar filtros
+          </button>
+        }
+      </div>
     </header>
 
     <!-- Badge padronizado do tipo do pedido: [OC 12345] ou [S/ ORDEM DE CARGA] — secundário ao Nro. Único. -->
@@ -90,7 +118,7 @@
       }
     </ng-template>
 
-    <main class="oq-page__content">
+    <main class="oq-page__content" [class.ms-blocos]="!semOrdemCarga">
       @if (erro()) {
         <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
       }
@@ -253,36 +281,67 @@
             (itensPorPaginaChange)="onItensPorPaginaChange($event)"
           />
         }
-      } @else if (listaFiltrada.length === 0) {
-        <div class="oq-page__status">
-          {{ abertas().length === 0 ? 'Nenhuma Ordem de Carga com conferência pendente no momento.' : 'Nenhum resultado para essa busca.' }}
-          @if (numeroBusca) {
-            <button type="button" class="oq-toolbar__filters-btn" (click)="consultarManual()">Abrir mapa da OC {{ numeroBusca }}</button>
-          }
-        </div>
       } @else {
+        <!-- Com OC: blocos por prioridade — pedido novo em OC impressa → express/retira s/ OC → a separar → impressas → outros s/ OC.
+             Mesmos cards/lista do resto do sistema; o modo (cards ↔ lista) vale pra todos os blocos. -->
+        @if (listaFiltrada.length === 0 && pedidosSemOcFiltrados.length === 0) {
+          <div class="oq-page__status">
+            {{ abertas().length === 0 && pedidosSemOc().length === 0 ? 'Nenhuma Ordem de Carga ou pedido com separação pendente no momento.' : 'Nenhum resultado para essa busca.' }}
+            @if (numeroBusca) {
+              <button type="button" class="oq-toolbar__filters-btn" (click)="consultarManual()">Abrir mapa da OC {{ numeroBusca }}</button>
+            }
+          </div>
+        }
+
+        @if (ocsComPedidoNovo.length) {
+          <h2 class="ms-secao ms-secao--alerta">
+            <oq-icon name="triangle" [size]="13" />
+            Atenção — OC já impressa com pedidos complementares ({{ ocsComPedidoNovo.length }})
+          </h2>
+          <ng-container [ngTemplateOutlet]="blocoOcs" [ngTemplateOutletContext]="{ ocs: ocsComPedidoNovo }" />
+        }
+
+        @if (pedidosUrgentes.length) {
+          <h2 class="ms-secao">Express e Cliente retira — sem Ordem de Carga ({{ pedidosUrgentes.length }} · {{ toneladas(kgUrgentes) }})</h2>
+          <ng-container [ngTemplateOutlet]="blocoPedidos" [ngTemplateOutletContext]="{ pedidos: pedidosUrgentes }" />
+        }
+
+        @if (ocsASeparar.length) {
+          <h2 class="ms-secao">A separar — OCs não impressas ({{ ocsASeparar.length }} · {{ toneladas(kgOcsASeparar) }})</h2>
+          <ng-container [ngTemplateOutlet]="blocoOcs" [ngTemplateOutletContext]="{ ocs: ocsASeparar }" />
+        }
+
+        @if (ocsImpressas.length) {
+          <h2 class="ms-secao">
+            Impressas — em separação ({{ ocsImpressas.length }} · {{ toneladas(kgOcsImpressas) }})
+            <button type="button" class="ms-secao__acao" (click)="alternarImpressas()">{{ impressasRecolhidas() ? 'mostrar' : 'recolher' }}</button>
+          </h2>
+          @if (!impressasRecolhidas()) {
+            <ng-container [ngTemplateOutlet]="blocoOcs" [ngTemplateOutletContext]="{ ocs: ocsImpressas }" />
+          }
+        }
+
+        @if (pedidosOutrosSemOc.length) {
+          <h2 class="ms-secao">Outros pedidos sem Ordem de Carga ({{ pedidosOutrosSemOc.length }})</h2>
+          <ng-container [ngTemplateOutlet]="blocoPedidos" [ngTemplateOutletContext]="{ pedidos: pedidosOutrosSemOc }" />
+        }
+      }
+
+      <!-- Bloco de OCs (cards ou lista) -->
+      <ng-template #blocoOcs let-ocs="ocs">
         @if (viewMode() === 'cards') {
-          <div class="oq-page__grid">
-            @for (oc of ocsDaPagina; track oc.ordemCarga) {
+          <div class="oq-page__grid ms-grid">
+            @for (oc of ocs; track oc.ordemCarga) {
               <article
                 class="oq-card"
-                [class.ms-card--express]="(oc.qtdExpress ?? 0) > 0"
-                [class.ms-card--retira]="(oc.qtdRetira ?? 0) > 0 && !((oc.qtdExpress ?? 0) > 0)"
+                [class.ms-card--novo]="oc.pedidosNovos?.length"
+                [class.ms-card--express]="(oc.qtdExpress ?? 0) > 0 && !oc.pedidosNovos?.length"
+                [class.ms-card--retira]="(oc.qtdRetira ?? 0) > 0 && !((oc.qtdExpress ?? 0) > 0) && !oc.pedidosNovos?.length"
               >
                 <header class="oq-card__header">
                   <span class="oq-card__client">Ordem de Carga {{ oc.ordemCarga }}</span>
                   <div class="oq-card__status-line">
-                    @if (oc.impressoEm) {
-                      <span class="oq-status-pin oq-status-pin--concluido" [title]="'Mapa impresso' + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
-                        <oq-icon name="impressora" [size]="12" />
-                        Impresso {{ horaImpressao(oc.impressoEm) }}
-                      </span>
-                    } @else {
-                      <span class="oq-status-pin oq-status-pin--aguardando">
-                        <oq-icon name="box" [size]="12" />
-                        Pronta pra separar
-                      </span>
-                    }
+                    <ng-container [ngTemplateOutlet]="statusOc" [ngTemplateOutletContext]="{ oc: oc }" />
                     @if (oc.situacao === 'F') {
                       <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
                     }
@@ -292,21 +351,33 @@
                 <div class="oq-card__divider"></div>
                 <div class="oq-card__grid">
                   <div class="oq-card__field">
-                    <span class="oq-card__field-label">Data prevista saída</span>
-                    <span class="oq-card__field-value">{{ oc.dataPrevSaida }}</span>
+                    <span class="oq-card__field-label">Peso a separar</span>
+                    <span class="oq-card__field-value ms-peso">{{ peso(oc.pesoPendenteKg) }}</span>
                   </div>
                   <div class="oq-card__field">
-                    <span class="oq-card__field-label">Última alteração</span>
-                    <span class="oq-card__field-value">{{ oc.ultimaAlteracao ?? '—' }}</span>
+                    <span class="oq-card__field-label">Data prevista saída</span>
+                    <span class="oq-card__field-value">{{ oc.dataPrevSaida }}</span>
                   </div>
                   <div class="oq-card__field">
                     <span class="oq-card__field-label">Placa</span>
                     <span class="oq-card__field-value">{{ oc.placa ?? '—' }}</span>
                   </div>
+                  <div class="oq-card__field">
+                    <span class="oq-card__field-label">Última alteração</span>
+                    <span class="oq-card__field-value">{{ oc.ultimaAlteracao ?? '—' }}</span>
+                  </div>
                   <div class="oq-card__field oq-card__field--full">
                     <span class="oq-card__field-label">Motorista</span>
                     <span class="oq-card__field-value">{{ oc.nomeMotorista ?? '—' }}</span>
                   </div>
+                  @if (oc.pedidosNovos?.length) {
+                    <div class="oq-card__field oq-card__field--full">
+                      <span class="oq-card__field-label ms-novos__label">Pedidos complementares (incluídos depois da impressão)</span>
+                      @for (p of oc.pedidosNovos; track p.nunota) {
+                        <span class="oq-card__field-value ms-novos__item">Nº {{ p.nunota }} · {{ p.nomeParceiro ?? '—' }} · {{ peso(p.pesoKg) }}</span>
+                      }
+                    </div>
+                  }
                 </div>
 
                 <div class="ms-progresso">
@@ -321,24 +392,26 @@
 
                 <div class="oq-card__actions">
                   <footer class="oq-card__footer">
-                    <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultar(oc.ordemCarga)">
-                      Ver Mapa de Separação
-                    </button>
+                    @if (oc.pedidosNovos?.length) {
+                      <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultarNovosDaOc(oc)">Imprimir pedidos complementares</button>
+                      <button type="button" class="oq-card__btn" (click)="consultar(oc.ordemCarga)">Reimprimir OC completa</button>
+                    } @else {
+                      <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultar(oc.ordemCarga)">Ver Mapa de Separação</button>
+                    }
                   </footer>
                 </div>
               </article>
             }
           </div>
         } @else {
-          <div class="oq-page__lista">
+          <div class="oq-page__lista ms-lista">
             <table class="oq-lista">
-              <caption class="oq-lista__caption">Ordens de Carga com conferência pendente</caption>
               <thead>
                 <tr>
                   <th scope="col" class="oq-lista__topo">Status</th>
                   <th scope="col" class="oq-lista__principal">Ordem de Carga</th>
+                  <th scope="col">Peso a separar</th>
                   <th scope="col">Data prev. saída</th>
-                  <th scope="col">Última alteração</th>
                   <th scope="col">Placa</th>
                   <th scope="col">Motorista</th>
                   <th scope="col">Notas conferidas</th>
@@ -346,30 +419,25 @@
                 </tr>
               </thead>
               <tbody>
-                @for (oc of ocsDaPagina; track oc.ordemCarga) {
-                  <tr class="oq-lista__linha">
+                @for (oc of ocs; track oc.ordemCarga) {
+                  <tr class="oq-lista__linha" [class.ms-linha--novo]="oc.pedidosNovos?.length">
                     <td class="oq-lista__topo" data-label="Status">
-                      <span class="oq-status-pin oq-status-pin--aguardando">
-                        <oq-icon name="box" [size]="12" />
-                        Pronta pra separar
-                      </span>
+                      <ng-container [ngTemplateOutlet]="statusOc" [ngTemplateOutletContext]="{ oc: oc }" />
                     </td>
                     <td class="oq-lista__principal" data-label="Ordem de Carga">
                       <span class="oq-lista__destaque">
                         Ordem de Carga {{ oc.ordemCarga }}
                         <oq-modalidade-pins class="ms-pins" [contagem]="{ express: oc.qtdExpress ?? 0, retira: oc.qtdRetira ?? 0, entrega: oc.qtdEntrega ?? 0 }" [compacto]="true" />
-                        @if (oc.impressoEm) {
-                          <span class="ms-impresso" [title]="'Mapa impresso' + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
-                            <oq-icon name="impressora" [size]="11" /> {{ horaImpressao(oc.impressoEm) }}
-                          </span>
-                        }
                         @if (oc.situacao === 'F') {
                           <span class="ms-badge-oc ms-badge-oc--com" title="Fechada no Sankhya, mas ainda tem nota na fila de conferência">Fechada</span>
                         }
                       </span>
+                      @for (p of oc.pedidosNovos ?? []; track p.nunota) {
+                        <span class="ms-novos__item">+ Nº {{ p.nunota }} · {{ p.nomeParceiro ?? '—' }} · {{ peso(p.pesoKg) }}</span>
+                      }
                     </td>
+                    <td data-label="Peso a separar" class="ms-peso">{{ peso(oc.pesoPendenteKg) }}</td>
                     <td data-label="Data prev. saída">{{ oc.dataPrevSaida }}</td>
-                    <td data-label="Última alteração">{{ oc.ultimaAlteracao ?? '—' }}</td>
                     <td data-label="Placa">{{ oc.placa ?? '—' }}</td>
                     <td data-label="Motorista" [title]="oc.nomeMotorista ?? ''">{{ oc.nomeMotorista ?? '—' }}</td>
                     <td data-label="Notas conferidas">
@@ -381,7 +449,12 @@
                       </div>
                     </td>
                     <td class="oq-lista__acoes" data-label="Mapa">
-                      <button type="button" class="oq-lista__btn" (click)="consultar(oc.ordemCarga)">Ver Mapa</button>
+                      @if (oc.pedidosNovos?.length) {
+                        <button type="button" class="oq-lista__btn" (click)="consultarNovosDaOc(oc)">Complementares</button>
+                        <button type="button" class="oq-lista__btn" (click)="consultar(oc.ordemCarga)">OC completa</button>
+                      } @else {
+                        <button type="button" class="oq-lista__btn" (click)="consultar(oc.ordemCarga)">Ver Mapa</button>
+                      }
                     </td>
                   </tr>
                 }
@@ -389,16 +462,114 @@
             </table>
           </div>
         }
+      </ng-template>
 
-        <oq-paginacao
-          [total]="listaFiltrada.length"
-          [pagina]="paginaExibida"
-          [itensPorPagina]="itensPorPagina()"
-          [opcoes]="opcoesItensPorPagina()"
-          (paginaChange)="pagina.set($event)"
-          (itensPorPaginaChange)="onItensPorPaginaChange($event)"
-        />
-      }
+      <!-- Status da OC: pedido novo (vermelho pulsando) > impresso > pronta pra separar -->
+      <ng-template #statusOc let-oc="oc">
+        @if (oc.pedidosNovos?.length) {
+          <span class="oq-status-pin oq-status-pin--corte oq-alert-pulse" [title]="'Impressa ' + horaImpressao(oc.impressoEm) + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
+            <oq-icon name="triangle" [size]="12" />
+            {{ oc.pedidosNovos.length }} pedido(s) complementar(es)
+          </span>
+        } @else if (oc.impressoEm) {
+          <span class="oq-status-pin oq-status-pin--concluido" [title]="'Mapa impresso' + (oc.impressoPor ? ' por ' + oc.impressoPor : '')">
+            <oq-icon name="impressora" [size]="12" />
+            Impresso {{ horaImpressao(oc.impressoEm) }}
+          </span>
+        } @else {
+          <span class="oq-status-pin oq-status-pin--aguardando">
+            <oq-icon name="box" [size]="12" />
+            Pronta pra separar
+          </span>
+        }
+      </ng-template>
+
+      <!-- Bloco de pedidos sem OC (cards ou lista) -->
+      <ng-template #blocoPedidos let-pedidos="pedidos">
+        @if (viewMode() === 'cards') {
+          <div class="oq-page__grid ms-grid">
+            @for (p of pedidos; track p.nunota) {
+              <article class="oq-card" [class.ms-card--express]="p.modalidade?.express" [class.ms-card--retira]="p.modalidade?.retira && !p.modalidade?.express">
+                <header class="oq-card__header">
+                  <span class="oq-card__client">Nro. Único {{ p.nunota }}</span>
+                  <div class="oq-card__status-line">
+                    <ng-container [ngTemplateOutlet]="statusPedido" [ngTemplateOutletContext]="{ p: p }" />
+                    <oq-modalidade-pins class="ms-pins" [modalidade]="p.modalidade" />
+                  </div>
+                </header>
+                <div class="oq-card__divider"></div>
+                <div class="oq-card__grid">
+                  <div class="oq-card__field">
+                    <span class="oq-card__field-label">Peso</span>
+                    <span class="oq-card__field-value ms-peso">{{ peso(p.pesoKg) }}</span>
+                  </div>
+                  <div class="oq-card__field">
+                    <span class="oq-card__field-label">Nota</span>
+                    <span class="oq-card__field-value">{{ p.numNota ?? '—' }}</span>
+                  </div>
+                  <div class="oq-card__field oq-card__field--full">
+                    <span class="oq-card__field-label">Parceiro</span>
+                    <span class="oq-card__field-value" [title]="p.nomeParceiro ?? ''">{{ p.codParc ?? '' }} {{ p.nomeParceiro ? '- ' + p.nomeParceiro : '—' }}</span>
+                  </div>
+                </div>
+                <div class="oq-card__actions">
+                  <footer class="oq-card__footer">
+                    <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="consultarSemOrdemCarga([p.nunota])">Ver Mapa deste pedido</button>
+                  </footer>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="oq-page__lista ms-lista">
+            <table class="oq-lista">
+              <thead>
+                <tr>
+                  <th scope="col" class="oq-lista__topo">Status</th>
+                  <th scope="col" class="oq-lista__principal">Nº Único</th>
+                  <th scope="col">Peso</th>
+                  <th scope="col">Nota</th>
+                  <th scope="col">Parceiro</th>
+                  <th scope="col" class="oq-lista__acoes">Mapa</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of pedidos; track p.nunota) {
+                  <tr class="oq-lista__linha">
+                    <td class="oq-lista__topo" data-label="Status">
+                      <ng-container [ngTemplateOutlet]="statusPedido" [ngTemplateOutletContext]="{ p: p }" />
+                    </td>
+                    <td class="oq-lista__principal" data-label="Nº Único">
+                      <span class="oq-lista__destaque">Nro. Único {{ p.nunota }}</span>
+                      <oq-modalidade-pins class="ms-pins" [modalidade]="p.modalidade" [compacto]="true" />
+                    </td>
+                    <td data-label="Peso" class="ms-peso">{{ peso(p.pesoKg) }}</td>
+                    <td data-label="Nota">{{ p.numNota ?? '—' }}</td>
+                    <td data-label="Parceiro" [title]="p.nomeParceiro ?? ''">{{ p.codParc ?? '' }} {{ p.nomeParceiro ? '- ' + p.nomeParceiro : '—' }}</td>
+                    <td class="oq-lista__acoes" data-label="Mapa">
+                      <button type="button" class="oq-lista__btn" (click)="consultarSemOrdemCarga([p.nunota])">Ver Mapa</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </ng-template>
+
+      <ng-template #statusPedido let-p="p">
+        @if (p.impressoEm) {
+          <span class="oq-status-pin oq-status-pin--concluido" [title]="'Mapa impresso' + (p.impressoPor ? ' por ' + p.impressoPor : '')">
+            <oq-icon name="impressora" [size]="12" />
+            Impresso {{ horaImpressao(p.impressoEm) }}
+          </span>
+        } @else {
+          <span class="oq-status-pin oq-status-pin--aguardando">
+            <oq-icon name="box" [size]="12" />
+            Pronto pra separar
+          </span>
+        }
+      </ng-template>
     </main>
   </div>
 } @else {
@@ -465,14 +636,16 @@
           </div>
         </div>
       } @else {
-        <div class="ms-print-title">Separação de Ordem de Carga</div>
+        <div class="ms-print-title">
+          {{ mapa.somenteAlgunsPedidos ? 'Mapa Complementar — Pedidos complementares da Ordem de Carga (' + mapa.nunotasPedidos?.join(', ') + ')' : 'Separação de Ordem de Carga' }}
+        </div>
         <div class="ms-cabecalho">
           <div class="ms-cabecalho__cel">
             <span class="ms-label">Ordem de Carga</span>
             <span class="ms-valor">{{ mapa.ordemCarga }}</span>
           </div>
           <div class="ms-cabecalho__cel">
-            <span class="ms-label">Pedidos na OC</span>
+            <span class="ms-label">{{ mapa.somenteAlgunsPedidos ? 'Pedidos complementares' : 'Pedidos na OC' }}</span>
             <span class="ms-valor">{{ mapa.totalPedidos }}</span>
           </div>
           <div class="ms-cabecalho__cel">

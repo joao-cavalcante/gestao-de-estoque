@@ -112,7 +112,8 @@ object MapaSeparacaoService {
      * lento pelo usuário); só nota+ordem são independentes desde o início, e
      * veículo/motorista/itens só dependem delas, não umas das outras.
      */
-    suspend fun montar(tenantSlug: String, tenantId: UUID, ordemCarga: Long): MapaSeparacaoDto = coroutineScope {
+    /** [somentePedidos] = mapa da OC só com esses Nº Únicos ("Imprimir só os pedidos novos"); null = OC inteira. */
+    suspend fun montar(tenantSlug: String, tenantId: UUID, ordemCarga: Long, somentePedidos: Set<Long>? = null): MapaSeparacaoDto = coroutineScope {
         val notasRawDeferred = async {
             SankhyaLoadRecordsClient.parseRows(
                 SankhyaLoadRecordsClient.loadRecords(
@@ -144,7 +145,7 @@ object MapaSeparacaoService {
         val comConferencia = withContext(Dispatchers.IO) {
             TarefasRepository.nunotasComConferencia(tenantId, notasDaOc.map { it.nunota })
         }
-        val notas = notasDaOc.filter { it.nunota in comConferencia }
+        val notas = notasDaOc.filter { it.nunota in comConferencia && (somentePedidos == null || it.nunota in somentePedidos) }
         if (notas.isEmpty()) throw MapaSeparacaoException("Nenhum pedido de saída com conferência encontrado para a Ordem de Carga $ordemCarga")
 
         val ordemRaw = ordemRawDeferred.await() ?: throw MapaSeparacaoException("Ordem de Carga $ordemCarga não encontrada (TGFORD)")
@@ -183,6 +184,7 @@ object MapaSeparacaoService {
             pesoMaxOc = pesoMaxOc?.formatar(),
             ultimaAlteracaoOc = formatarDataHora(ordemRaw["DTALTER"]),
             nunotasPedidos = notas.map { it.nunota }.sorted(),
+            somenteAlgunsPedidos = somentePedidos != null,
             totalPedidos = corpo.totalPedidos,
             quantidadeTotal = corpo.quantidadeTotal,
             pesoTotal = corpo.pesoTotal,
@@ -253,6 +255,7 @@ object MapaSeparacaoService {
         val pedidos = TarefasRepository.listarSemOrdemCarga(tenantId).filter { it.statusOperacional !in STATUS_CONFERIDA }
         val modalidades = TarefasRepository.modalidadePorNunota(tenantId, pedidos.map { it.nunota })
         val impressoes = MapaImpressoesRepository.ultimaPorNunota(tenantId, pedidos.map { it.nunota })
+        val pesos = TarefasRepository.pesoPorNunota(tenantId, pedidos.map { it.nunota })
         return pedidos.map {
             PedidoSemOrdemCargaDto(
                 nunota = it.nunota,
@@ -264,6 +267,7 @@ object MapaSeparacaoService {
                 modalidade = modalidades[it.nunota] ?: wms.backend.tarefas.ModalidadePedido(),
                 impressoEm = impressoes[it.nunota]?.em,
                 impressoPor = impressoes[it.nunota]?.por,
+                pesoKg = arredondarKg(pesos[it.nunota] ?: 0.0),
             )
         }
     }
@@ -522,6 +526,8 @@ object MapaSeparacaoService {
         val modalidadesPorOc = withContext(Dispatchers.IO) {
             TarefasRepository.modalidadePorOrdemCarga(tenantId, ordensCarga.toSet())
         }
+        val pedidosPorOc = withContext(Dispatchers.IO) { TarefasRepository.pedidosPorOrdemCarga(tenantId, ordensCarga.toSet()) }
+        val novosPorOc = withContext(Dispatchers.IO) { pedidosNovosPorOc(tenantId, pedidosPorOc, impressoesPorOc) }
 
         raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -542,9 +548,39 @@ object MapaSeparacaoService {
                 qtdEntrega = modalidadesPorOc[ordemCarga].orEmpty().count { it.entrega },
                 impressoEm = impressoesPorOc[ordemCarga]?.em,
                 impressoPor = impressoesPorOc[ordemCarga]?.por,
+                pesoTotalKg = arredondarKg(pedidosPorOc[ordemCarga].orEmpty().sumOf { it.pesoKg }),
+                pesoPendenteKg = arredondarKg(pedidosPorOc[ordemCarga].orEmpty().filter { it.statusOperacional !in STATUS_CONFERIDA }.sumOf { it.pesoKg }),
+                pedidosNovos = novosPorOc[ordemCarga].orEmpty(),
             )
         }
     }
+
+    /**
+     * Pedido NOVO numa OC já impressa = pedido de saída da OC (ainda não conferido) que não saiu em nenhum mapa
+     * impresso dela. OC impressa antes de existir a fotografia ganha a fotografia agora (com os pedidos atuais).
+     */
+    private fun pedidosNovosPorOc(
+        tenantId: UUID,
+        pedidosPorOc: Map<Long, List<TarefasRepository.PedidoDaOc>>,
+        impressoesPorOc: Map<Long, MapaImpressoesRepository.Ultima>,
+    ): Map<Long, List<PedidoNovoOcDto>> {
+        val impressas = impressoesPorOc.keys.filter { it in pedidosPorOc }
+        if (impressas.isEmpty()) return emptyMap()
+        val fotografias = MapaImpressoesRepository.pedidosImpressosPorOc(tenantId, impressas)
+        return impressas.associateWith { oc ->
+            val pedidos = pedidosPorOc[oc].orEmpty()
+            val impressos = fotografias[oc]
+            if (impressos == null) {
+                MapaImpressoesRepository.completarFotografia(tenantId, oc, pedidos.map { it.nunota }, impressoesPorOc.getValue(oc))
+                return@associateWith emptyList()
+            }
+            pedidos.filter { it.nunota !in impressos && it.statusOperacional !in STATUS_CONFERIDA }
+                .sortedBy { it.nunota }
+                .map { PedidoNovoOcDto(it.nunota, it.numNota, it.nomeParceiro, arredondarKg(it.pesoKg)) }
+        }.filterValues { it.isNotEmpty() }
+    }
+
+    private fun arredondarKg(v: Double) = Math.round(v * 10) / 10.0
 
     private suspend fun buscarPlacas(tenantSlug: String, codigos: List<Int>): Map<Int, String> {
         if (codigos.isEmpty()) return emptyMap()

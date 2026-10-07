@@ -37,6 +37,8 @@ export interface MapaSeparacaoDto {
   totalItens?: number;
   /** Peso total por etapa (Frio / Refrigerado / Seco). */
   pesoPorEtapa?: PesoEtapaDto[];
+  /** Mapa da OC só com parte dos pedidos ("Imprimir só os pedidos novos"). */
+  somenteAlgunsPedidos?: boolean;
 }
 
 /** Item de GET /api/mapa-separacao/sem-ordem-carga — pedido da fila de conferência sem Ordem de Carga. */
@@ -53,6 +55,16 @@ export interface PedidoSemOrdemCargaDto {
   /** Última impressão do mapa deste Nº Único (ISO) — null = nunca impresso. */
   impressoEm?: string | null;
   impressoPor?: string | null;
+  /** TGFCAB.PESOBRUTO (KG). */
+  pesoKg?: number;
+}
+
+/** Pedido que entrou na OC depois do último mapa impresso dela. */
+export interface PedidoNovoOcDto {
+  nunota: number;
+  numNota: number | null;
+  nomeParceiro: string | null;
+  pesoKg: number;
 }
 
 export interface PesoEtapaDto {
@@ -94,6 +106,11 @@ export interface OrdemCargaResumoDto {
   /** Última impressão do mapa desta OC (ISO) — null = nunca impresso. */
   impressoEm?: string | null;
   impressoPor?: string | null;
+  /** Peso bruto (KG) de todos os pedidos da OC / só dos ainda não conferidos. */
+  pesoTotalKg?: number;
+  pesoPendenteKg?: number;
+  /** Pedidos que entraram na OC DEPOIS do último mapa impresso — caso de extrema atenção. */
+  pedidosNovos?: PedidoNovoOcDto[];
 }
 
 export interface CategoriaSeparacaoDto {

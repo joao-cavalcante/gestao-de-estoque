@@ -32,7 +32,8 @@ fun Route.mapaSeparacaoRoutes() {
             val claims = call.exigirAuth() ?: return@post
             val req = call.receive<RegistrarImpressaoRequest>()
             val nome = wms.backend.usuarios.UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome
-            MapaImpressoesRepository.registrar(claims.tenantId, req.ordensCarga, req.nunotas, nome)
+            val pedidosPorOc = req.pedidosPorOc.mapNotNull { (oc, pedidos) -> oc.toLongOrNull()?.let { it to pedidos } }.toMap()
+            MapaImpressoesRepository.registrar(claims.tenantId, req.ordensCarga, req.nunotas, nome, pedidosPorOc)
             call.respond(mapOf("ok" to true))
         }
 
@@ -76,7 +77,9 @@ fun Route.mapaSeparacaoRoutes() {
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
 
             try {
-                call.respond(MapaSeparacaoService.montar(slug, claims.tenantId, ordemCarga))
+                // ?nunotas=1,2 → mapa da OC só com esses pedidos ("Imprimir só os pedidos novos").
+                val somente = call.request.queryParameters["nunotas"]?.split(",")?.mapNotNull { it.trim().toLongOrNull() }?.toSet()?.takeIf { it.isNotEmpty() }
+                call.respond(MapaSeparacaoService.montar(slug, claims.tenantId, ordemCarga, somente))
             } catch (e: MapaSeparacaoService.MapaSeparacaoException) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to (e.message ?: "Ordem de Carga não encontrada")))
             } catch (e: Exception) {
