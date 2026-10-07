@@ -1,0 +1,139 @@
+<div class="oq-page">
+  <header class="oq-page__header">
+    <div class="oq-toolbar">
+      <div class="oq-toolbar__title-block">
+        <h1 class="oq-toolbar__title">Auditoria de Pedidos</h1>
+        @if (dados()) {
+          <span class="oq-toolbar__counter">[ {{ totalEventos() }} eventos ]</span>
+        }
+      </div>
+
+      <form class="oq-toolbar__actions" (ngSubmit)="buscar()">
+        <label class="oq-toolbar__search">
+          <oq-icon name="search" [size]="12" />
+          <input
+            type="text"
+            inputmode="numeric"
+            name="numero"
+            placeholder="NÚMERO ÚNICO OU Nº DO PEDIDO"
+            autocomplete="off"
+            [ngModel]="numero()"
+            (ngModelChange)="numero.set($event)"
+          />
+        </label>
+        <button type="submit" class="oq-toolbar__filters-btn" [disabled]="carregando()">
+          <oq-icon name="clock" [size]="12" />
+          {{ carregando() ? 'Buscando…' : 'Ver histórico' }}
+        </button>
+      </form>
+    </div>
+  </header>
+
+  <main class="ap-corpo">
+    @if (erro()) {
+      <p class="ap-msg ap-msg--erro">{{ erro() }}</p>
+    }
+
+    @if (carregando()) {
+      <oq-skeleton [count]="8" height="18px" />
+    }
+    @if (!carregando() && dados(); as d) {
+      @for (a of d.avisos; track a) {
+        <p class="ap-msg">Parte do histórico não carregou — {{ a }}</p>
+      }
+
+      <!-- Resumo do pedido -->
+      <section class="ap-resumo">
+        <div class="ap-resumo__titulo">
+          <span class="ap-resumo__pedido">Pedido {{ d.cabecalho.numnota ?? '—' }}</span>
+          <span class="ap-tag">nº único {{ d.cabecalho.nunota }}</span>
+          @if (d.cabecalho.ordemCarga) {
+            <span class="ap-tag">OC {{ d.cabecalho.ordemCarga }}</span>
+          }
+          <span class="ap-tag">{{ statusNota(d.cabecalho.statusNota) }}</span>
+        </div>
+        <dl class="ap-resumo__campos">
+          <div><dt>Parceiro</dt><dd>{{ d.cabecalho.codparc }} · {{ d.cabecalho.parceiro }}</dd></div>
+          <div><dt>Vendedor</dt><dd>{{ d.cabecalho.vendedor ?? '—' }}</dd></div>
+          <div><dt>Operação</dt><dd>{{ d.cabecalho.codtipoper }} · {{ d.cabecalho.top ?? '—' }}</dd></div>
+          <div><dt>Valor</dt><dd>{{ valor(d.cabecalho.valor) }}</dd></div>
+          <div><dt>Incluído</dt><dd>{{ dataHora(d.cabecalho.incluidoEm) }}</dd></div>
+          <div><dt>Última alteração</dt><dd>{{ dataHora(d.cabecalho.alteradoEm) }}</dd></div>
+        </dl>
+        @if (d.notasGeradas.length) {
+          <div class="ap-notas">
+            <span class="ap-notas__label">Notas geradas</span>
+            @for (n of d.notasGeradas; track n.nunota) {
+              <span class="ap-tag ap-tag--ok">{{ n.top ?? n.tipmov }} {{ n.numnota }} · nº único {{ n.nunota }} · {{ valor(n.valor) }}</span>
+            }
+          </div>
+        }
+      </section>
+
+      <div class="ap-colunas">
+        <!-- Linha do tempo -->
+        <section class="ap-tempo">
+          <div class="ap-tempo__topo">
+            <h2>Linha do tempo</h2>
+            <div class="oq-toolbar__pills" role="group" aria-label="Origem">
+              @for (o of opcoesOrigem; track o.id) {
+                <button type="button" class="oq-toolbar__pill" [class.oq-toolbar__pill--active]="filtroOrigem() === o.id" (click)="setOrigem(o.id)">
+                  {{ o.label }}
+                </button>
+              }
+            </div>
+          </div>
+
+          @for (g of dias(); track g.dia) {
+            <h3 class="ap-dia">{{ dia(g.dia) }}</h3>
+            <ol class="ap-lista">
+              @for (e of g.eventos; track $index) {
+                <li class="ap-ev" [class]="'ap-ev--' + e.nivel">
+                  <span class="ap-ev__hora">{{ hora(e.quando) }}</span>
+                  <span class="ap-ev__ponto"></span>
+                  <div class="ap-ev__corpo">
+                    <div class="ap-ev__titulo">
+                      {{ e.titulo }}
+                      <span class="ap-origem" [class.ap-origem--snk]="e.origem === 'SANKHYA'">{{ e.origem === 'SANKHYA' ? 'Sankhya' : 'WMS' }}</span>
+                    </div>
+                    @if (e.detalhe) {
+                      <div class="ap-ev__detalhe">{{ e.detalhe }}</div>
+                    }
+                    @if (e.usuario) {
+                      <div class="ap-ev__usuario"><oq-icon name="user" [size]="10" /> {{ e.usuario }}</div>
+                    }
+                  </div>
+                </li>
+              }
+            </ol>
+          } @empty {
+            <p class="ap-msg">Nenhum evento registrado{{ filtroOrigem() !== 'todos' ? ' nesta origem' : '' }}.</p>
+          }
+        </section>
+
+        <!-- Itens -->
+        <section class="ap-itens">
+          <h2>Itens ({{ d.itens.length }})</h2>
+          <table>
+            <thead>
+              <tr><th>Produto</th><th class="num">Pedido</th><th class="num">Conferido</th><th class="num">Total</th></tr>
+            </thead>
+            <tbody>
+              @for (i of d.itens; track i.sequencia) {
+                <tr [class.ap-itens--div]="divergente(i)">
+                  <td><span class="ap-itens__cod">{{ i.codprod }}</span> {{ i.produto }}</td>
+                  <td class="num">{{ qtd(i.qtdNegociada) }} {{ i.unidade }}</td>
+                  <td class="num">{{ i.qtdConferida == null ? '—' : qtd(i.qtdConferida) + ' ' + (i.unidadeConferida ?? '') }}</td>
+                  <td class="num">{{ valor(i.valorTotal) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      </div>
+    }
+    @if (!carregando() && !dados() && !erro()) {
+      <p class="ap-msg">Digite o número único ou o número do pedido para ver tudo o que aconteceu com ele — do Sankhya e do WMS.</p>
+    }
+  </main>
+</div>

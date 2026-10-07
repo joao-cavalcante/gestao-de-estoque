@@ -571,9 +571,6 @@ object LiberacaoCorteService {
             throw e
         }
         println("INFO: corte $nuconf — $acao OK; ${statusParaLog(tenantSlug, nuconf, nunotaLog)} (depois); pendentes depois=${runCatching { buscarPendentesRaw(tenantSlug, nuconf).size }.getOrNull()}")
-        if (conferenteAntes != null && wms.backend.separacao.SeparacaoService.conferenteSankhya(tenantSlug, nuconf).let { it != null && it != conferenteAntes }) {
-            wms.backend.separacao.SeparacaoService.gravarConferenteSankhya(tenantSlug, nuconf, conferenteAntes)
-        }
 
         val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
 
@@ -657,6 +654,12 @@ object LiberacaoCorteService {
                     }
                 }.onFailure { println("AVISO: falha ao fechar a tarefa local após liberação de corte (nuconf $nuconf): ${it.message}") }
             }
+        }
+
+        // Por último: liberar e o finalizarConferencia acima carimbam o usuário da integração no conferente
+        // (nota 63486 / conferência 1868, 07/10 — devolver logo após o liberar não adiantava).
+        if (conferenteAntes != null && wms.backend.separacao.SeparacaoService.conferenteSankhya(tenantSlug, nuconf).let { it != null && it != conferenteAntes }) {
+            wms.backend.separacao.SeparacaoService.gravarConferenteSankhya(tenantSlug, nuconf, conferenteAntes)
         }
 
         // Resync imediato (mesmo do carregarEmBackground ao abrir conferência): o negar põe a nota

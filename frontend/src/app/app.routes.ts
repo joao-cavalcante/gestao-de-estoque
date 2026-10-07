@@ -27,6 +27,7 @@ import { CarregamentoComponent } from './reconferencia/carregamento.component';
 import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
 import { MapaSeparacaoComponent } from './mapa-separacao/mapa-separacao.component';
 import { ConsultaProdutosComponent } from './consulta-produtos/consulta-produtos.component';
+import { AuditoriaPedidoComponent } from './auditoria-pedido/auditoria-pedido.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -51,6 +52,9 @@ export const routes: Routes = [
   { path: 'carregamento/:sessaoId', component: CarregamentoComponent, canActivate: [authGuard] },
   { path: 'mapa-separacao', component: MapaSeparacaoComponent, canActivate: [authGuard] },
   { path: 'consulta-produtos', component: ConsultaProdutosComponent, canActivate: [authGuard] },
+  // Linha do tempo de um pedido (Sankhya + WMS); /auditoria-pedido/63486 abre direto.
+  { path: 'auditoria-pedido', component: AuditoriaPedidoComponent, canActivate: [authGuard] },
+  { path: 'auditoria-pedido/:numero', component: AuditoriaPedidoComponent, canActivate: [authGuard] },
   { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas/:sessaoId', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas-peso/:sessaoId', component: EtiquetaPesoComponent, canActivate: [authGuard] },

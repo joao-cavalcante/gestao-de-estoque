@@ -23,6 +23,7 @@ import kotlin.system.exitProcess
  *   ... ConsultarParceiroReceitaKt negri 811 50743864000171            → um parceiro: só mostra o que mudaria
  *   ... ConsultarParceiroReceitaKt negri 811 50743864000171 --gravar   → um parceiro: grava só o que mudou
  *   ... ConsultarParceiroReceitaKt negri --sem-endereco [--gravar]     → lote: parceiros com CNPJ sem endereço
+ *   ... ConsultarParceiroReceitaKt negri --desfazer 8231 'CEP=a->b|...' → volta os valores antigos da linha de backup
  *
  * Saída do lote: uma linha por parceiro, separada por ';' (CODPARC;CNPJ;SITUACAO;CAMPO=antigo->novo|...),
  * que serve de backup pra desfazer.
@@ -128,6 +129,44 @@ private suspend fun processar(
     return Resultado(if (divergentes.isEmpty()) "GRAVADO" else "GRAVADO_PARCIAL", diff, if (divergentes.isEmpty()) "" else "nao conferem: $divergentes")
 }
 
+/**
+ * Desfaz uma gravação a partir da linha de backup (ALTERACOES = "CAMPO=antigo->novo|..."). Só volta se o valor
+ * atual de CADA campo ainda for o que a ferramenta gravou — se alguém mexeu depois, não toca em nada.
+ */
+private suspend fun desfazer(tenant: String, codparc: Long, alteracoes: String): List<String> {
+    require(codparc > 1) { "codparc $codparc bloqueado" }
+    val campos = alteracoes.split("|").filter { it.isNotBlank() }.map { trecho ->
+        val (campo, resto) = trecho.split("=", limit = 2).also { require(it.size == 2) { "trecho inválido: $trecho" } }
+        val (antigo, novo) = resto.split("->", limit = 2).also { require(it.size == 2) { "trecho inválido: $trecho" } }
+        require(campo in GRAVAVEIS) { "campo $campo não pode ser desfeito" }
+        Triple(campo, antigo, novo)
+    }
+    require(campos.isNotEmpty()) { "nada pra desfazer" }
+    val colunas = (listOf("CODPARC") + campos.map { it.first }).joinToString(",")
+    val atual = SankhyaDbExplorerClient.executarQuery(tenant, "SELECT $colunas FROM TGFPAR WHERE CODPARC = $codparc").firstOrNull()
+        ?: error("parceiro $codparc não encontrado")
+    val mexidos = campos.filter { (c, _, novo) -> normalizar(c, atual[c]) != normalizar(c, novo) }
+    if (mexidos.isNotEmpty()) error("campos alterados depois da gravação, nada desfeito: ${mexidos.map { "${it.first}=${atual[it.first]}" }}")
+
+    val save = buildJsonObject {
+        put("dataSetID", "00X"); put("entityName", "Parceiro"); put("standAlone", false)
+        putJsonArray("fields") { (listOf("CODPARC") + campos.map { it.first }).forEach { add(it) } }
+        putJsonArray("records") {
+            addJsonObject {
+                putJsonObject("pk") { put("CODPARC", codparc.toString()) }
+                putJsonObject("values") { campos.forEachIndexed { i, (_, antigo, _) -> put((i + 1).toString(), antigo) } }
+            }
+        }
+        put("crudListener", "br.com.sankhya.modelcore.crudlisteners.ParceiroCrudListener")
+        put("ignoreListenerMethods", "")
+        put("clientEventList", EVENTOS)
+    }
+    SankhyaSpClient.chamarRaw(tenant, "DatasetSP.save", "mge", save, retentar = false)
+
+    val depois = SankhyaDbExplorerClient.executarQuery(tenant, "SELECT $colunas FROM TGFPAR WHERE CODPARC = $codparc").first()
+    return campos.map { (c, antigo, _) -> "$c: '${depois[c].orEmpty()}'" + if (normalizar(c, depois[c]) == normalizar(c, antigo)) "" else " (esperado '$antigo')" }
+}
+
 private fun formatar(diff: List<Triple<String, String?, String>>) =
     diff.joinToString("|") { (c, a, n) -> "$c=${a.orEmpty()}->$n" }
 
@@ -139,6 +178,25 @@ fun main(args: Array<String>) {
     }
     val gravar = "--gravar" in args
     Database.init()
+
+    // ─── Desfazer: ... negri --desfazer <codparc> '<ALTERACOES da linha de backup>' ───
+    if (args.getOrNull(1) == "--desfazer") {
+        val codparc = args.getOrNull(2)?.toLongOrNull()
+        val alteracoes = args.getOrNull(3)
+        if (codparc == null || alteracoes.isNullOrBlank()) {
+            System.err.println("uso: ConsultarParceiroReceitaKt <tenant> --desfazer <codparc> 'CAMPO=antigo->novo|...'")
+            exitProcess(2)
+        }
+        try {
+            val r = runBlocking { desfazer(tenant, codparc, alteracoes) }
+            println("Parceiro $codparc desfeito:")
+            r.forEach { println("  $it") }
+        } catch (e: Exception) {
+            System.err.println("ERRO: ${e.message}")
+            exitProcess(1)
+        }
+        exitProcess(0)
+    }
 
     // ─── Lote: parceiros com CNPJ e sem endereço (CODEND 0/nulo) ───
     if (args.getOrNull(1) == "--sem-endereco") {

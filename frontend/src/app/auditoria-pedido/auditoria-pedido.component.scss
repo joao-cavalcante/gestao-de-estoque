@@ -1,0 +1,280 @@
+// Layout de página/barra — estilos globais em src/styles/_lista-layout.scss; aqui só o conteúdo.
+:host {
+  display: block;
+  height: 100%;
+}
+
+.ap-corpo {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ap-msg {
+  margin: 0;
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+
+  &--erro {
+    padding: 10px 12px;
+    border-radius: var(--oq-radius-block);
+    background: var(--oq-critical-soft);
+    color: var(--oq-critical-foreground);
+  }
+}
+
+.ap-tag {
+  display: inline-flex;
+  padding: 2px 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: 999px;
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--oq-text-secondary);
+
+  &--ok {
+    border-color: var(--oq-success);
+    color: var(--oq-success);
+  }
+}
+
+h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+// ── resumo ──
+.ap-resumo {
+  padding: 14px 16px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+
+  &__titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__pedido {
+    font-family: var(--oq-font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--oq-text-primary);
+  }
+
+  &__campos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px 16px;
+    margin: 12px 0 0;
+
+    dt {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--oq-text-secondary);
+    }
+
+    dd {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--oq-text-primary);
+    }
+  }
+}
+
+.ap-notas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+
+  &__label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oq-text-secondary);
+  }
+}
+
+// ── linha do tempo + itens lado a lado (empilha no celular/tablet) ──
+.ap-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ap-tempo,
+.ap-itens {
+  padding: 14px 16px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+}
+
+.ap-tempo__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ap-dia {
+  margin: 18px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--oq-text-primary);
+}
+
+.ap-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// Cada evento: hora | ponto na linha vertical | texto.
+.ap-ev {
+  --ap-cor: var(--oq-border-strong);
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 14px minmax(0, 1fr);
+  gap: 8px;
+  padding-bottom: 14px;
+
+  // linha vertical ligando os pontos
+  &::before {
+    content: '';
+    position: absolute;
+    left: 58px;
+    top: 14px;
+    bottom: 0;
+    width: 2px;
+    background: var(--oq-border);
+  }
+
+  &:last-child::before {
+    display: none;
+  }
+
+  &--sucesso { --ap-cor: var(--oq-success); }
+  &--alerta { --ap-cor: var(--oq-attention); }
+  &--erro { --ap-cor: var(--oq-critical); }
+
+  &__hora {
+    font-family: var(--oq-font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    color: var(--oq-text-secondary);
+    text-align: right;
+  }
+
+  &__ponto {
+    width: 10px;
+    height: 10px;
+    margin: 3px 0 0 1px;
+    border-radius: 50%;
+    background: var(--ap-cor);
+    box-shadow: 0 0 0 3px var(--oq-surface);
+    z-index: 1;
+  }
+
+  &__titulo {
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 600;
+    color: var(--oq-text-primary);
+  }
+
+  &__detalhe,
+  &__usuario {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--oq-text-secondary);
+  }
+
+  &__usuario {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+.ap-origem {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--oq-surface-2);
+  font-family: var(--oq-font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--oq-text-secondary);
+  vertical-align: middle;
+
+  &--snk {
+    color: var(--oq-brand-text);
+  }
+}
+
+// ── itens ──
+.ap-itens {
+  table {
+    width: 100%;
+    margin-top: 10px;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  th {
+    padding: 6px;
+    text-align: left;
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oq-text-secondary);
+    border-bottom: 1px solid var(--oq-border);
+  }
+
+  td {
+    padding: 6px;
+    border-bottom: 1px solid var(--oq-border);
+    color: var(--oq-text-primary);
+    vertical-align: top;
+  }
+
+  .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  &__cod {
+    font-family: var(--oq-font-mono);
+    color: var(--oq-text-secondary);
+  }
+
+  // conferido diferente do pedido (mesma unidade)
+  &--div td {
+    background: var(--oq-warning-soft);
+  }
+}

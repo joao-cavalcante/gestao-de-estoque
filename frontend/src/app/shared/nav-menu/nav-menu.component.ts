@@ -33,6 +33,7 @@ const ITENS: ItemMenu[] = [
   { rota: '/carregamento', label: 'Carregamento', icone: 'entrega' },
   { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
   { rota: '/consulta-produtos', label: 'Consulta de Produtos', icone: 'search' },
+  { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },
   // TV de acompanhamento (painel de parede) — permissão TV: admin (a conta de TV já cai direto nela).
   {
     label: 'TV de Conferência',
