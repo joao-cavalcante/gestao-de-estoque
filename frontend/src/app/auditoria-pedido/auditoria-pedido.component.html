@@ -94,7 +94,7 @@
                   <div class="ap-ev__corpo">
                     <div class="ap-ev__titulo">
                       {{ e.titulo }}
-                      <span class="ap-origem" [class.ap-origem--snk]="e.origem === 'SANKHYA'">{{ e.origem === 'SANKHYA' ? 'Sankhya' : 'WMS' }}</span>
+                      <span class="ap-origem" [class.ap-origem--snk]="e.origem === 'SANKHYA'">{{ e.origem === 'SANKHYA' ? 'Sankhya' : 'Torre de Operação' }}</span>
                     </div>
                     @if (e.detalhe) {
                       <div class="ap-ev__detalhe">{{ e.detalhe }}</div>
@@ -133,7 +133,7 @@
       </div>
     }
     @if (!carregando() && !dados() && !erro()) {
-      <p class="ap-msg">Digite o número único ou o número do pedido para ver tudo o que aconteceu com ele — do Sankhya e do WMS.</p>
+      <p class="ap-msg">Digite o número único ou o número do pedido para ver tudo o que aconteceu com ele — do Sankhya e da Torre de Operação.</p>
     }
   </main>
 </div>

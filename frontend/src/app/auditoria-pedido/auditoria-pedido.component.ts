@@ -18,7 +18,7 @@ interface DiaLinhaTempo {
 }
 
 /**
- * Auditoria de Pedidos — tudo o que aconteceu com um pedido (Sankhya + WMS) numa linha do tempo:
+ * Auditoria de Pedidos — tudo o que aconteceu com um pedido (Sankhya + Torre de Operação) numa linha do tempo:
  * inclusão, impressão do mapa, conferência, leituras, etapas, cortes/liberações, carregamento e nota gerada.
  * A URL guarda o número (/auditoria-pedido/63486) pra dar pra mandar o link pra alguém.
  */
@@ -43,7 +43,7 @@ export class AuditoriaPedidoComponent implements OnInit {
   readonly opcoesOrigem: { id: FiltroOrigem; label: string }[] = [
     { id: 'todos', label: 'Tudo' },
     { id: 'SANKHYA', label: 'Sankhya' },
-    { id: 'WMS', label: 'WMS' },
+    { id: 'WMS', label: 'Torre de Operação' },
   ];
 
   /** Eventos filtrados, agrupados por dia (a lista já vem em ordem cronológica). */

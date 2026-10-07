@@ -38,7 +38,7 @@ object AuditoriaPedidoService {
         val (conferencias, liberacoes) = confsAsync.await().onFailure { avisos += "Conferências do Sankhya: ${it.message}" }
             .getOrDefault(emptyList<AuditoriaEventoDto>() to emptyList())
         val notas = notasAsync.await().onFailure { avisos += "Notas geradas: ${it.message}" }.getOrDefault(emptyList())
-        val locais = locaisAsync.await().onFailure { avisos += "Histórico do WMS: ${it.message}" }.getOrDefault(emptyList())
+        val locais = locaisAsync.await().onFailure { avisos += "Histórico da Torre de Operação: ${it.message}" }.getOrDefault(emptyList())
             .map { ev -> ev.copy(titulo = ev.titulo.replace(Regex("""\{prod:(\d+)\}""")) { m -> nomeProduto(m.groupValues[1].toInt(), nomes) }) }
 
         val eventos = buildList {
@@ -250,7 +250,7 @@ object AuditoriaPedidoService {
             FROM app.separacao_sessoes s WHERE s.tenant_id = '$tenantId' AND s.nunota = $nunota
             """.trimIndent(),
         ) { rs ->
-            val tipo = if (rs.getBoolean("recontagem")) "Recontagem aberta" else "Conferência aberta no WMS"
+            val tipo = if (rs.getBoolean("recontagem")) "Recontagem aberta" else "Conferência aberta na Torre de Operação"
             val detalhe = listOfNotNull(
                 rs.getObject("nuconf")?.let { "conferência $it" },
                 if (rs.getBoolean("conferencia_segmentada")) "por etapas" else null,
