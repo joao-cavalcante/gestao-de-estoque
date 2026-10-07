@@ -396,6 +396,11 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     return this.ocsImpressas.reduce((t, oc) => t + (oc.pesoPendenteKg ?? 0), 0);
   }
 
+  /** Faixa do topo: tudo que falta conferir — todas as OCs da tela (impressas ou não) + pedidos sem OC. */
+  get kgTotalASeparar(): number {
+    return this.listaFiltrada.reduce((t, oc) => t + (oc.pesoPendenteKg ?? 0), 0) + this.pedidosSemOcFiltrados.reduce((t, p) => t + (p.pesoKg ?? 0), 0);
+  }
+
   get kgUrgentes(): number {
     return this.pedidosUrgentes.reduce((t, p) => t + (p.pesoKg ?? 0), 0);
   }

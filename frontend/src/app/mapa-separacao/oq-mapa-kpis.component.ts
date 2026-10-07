@@ -23,7 +23,7 @@ import { Component, Input } from '@angular/core';
         <span class="oq-kpi-bar__value">{{ tres(ocsComPedidoNovo) }}</span>
       </div>
       <div class="oq-kpi-bar__block">
-        <span class="oq-kpi-bar__label">Peso das não impressas</span>
+        <span class="oq-kpi-bar__label">Peso total a separar</span>
         <span class="oq-kpi-bar__value">{{ toneladas(kgASeparar) }}</span>
       </div>
       <div class="oq-kpi-bar__block">
