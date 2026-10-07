@@ -27,16 +27,16 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
   imports: [OqIconComponent],
   template: `
     <div class="ck-topo">
-      <label class="ck-todos" title="Marcar/desmarcar todos os itens">
-        <input
-          type="checkbox"
-          [checked]="conferidos().length > 0 && checados() === conferidos().length"
-          [indeterminate]="checados() > 0 && checados() < conferidos().length"
-          [disabled]="marcandoTodos() || conferidos().length === 0"
-          (change)="alternarTodos()"
-        />
-        Todos
-      </label>
+      <!-- Botão grande (antes era uma caixinha "Todos" que passava despercebida); a barra fica fixa ao rolar. -->
+      <button
+        type="button"
+        class="ck-todos"
+        [class.ck-todos--desmarcar]="conferidos().length > 0 && checados() === conferidos().length"
+        [disabled]="marcandoTodos() || conferidos().length === 0"
+        (click)="alternarTodos()"
+      >
+        {{ marcandoTodos() ? 'Salvando…' : conferidos().length > 0 && checados() === conferidos().length ? '✕ Desmarcar todos' : '✓ Marcar todos' }}
+      </button>
       <span class="ck-prog">
         <strong>{{ checados() }}</strong> de {{ conferidos().length }} checados
       </span>
@@ -100,13 +100,16 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
   styles: [
     `
       :host { display: flex; flex-direction: column; gap: 12px; }
-      .ck-topo { display: flex; align-items: center; gap: 10px; }
+      .ck-topo { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+        padding: 8px 0; background: var(--oq-surface); }
       .ck-item--falta { background: color-mix(in srgb, var(--oq-critical) 10%, transparent); }
       .ck-check--falta { color: var(--oq-critical-foreground); font-weight: 700; text-align: center; }
       .ck-div--falta { color: var(--oq-critical-foreground); font-weight: 700; }
       .ck-alerta--falta { color: var(--oq-critical-foreground); }
-      .ck-todos { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-      .ck-todos input { width: 18px; height: 18px; cursor: pointer; }
+      .ck-todos { min-height: 40px; padding: 8px 16px; border: 1px solid var(--oq-concluido); border-radius: var(--oq-radius-input);
+        background: var(--oq-concluido); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+      .ck-todos--desmarcar { background: var(--oq-surface); color: var(--oq-text-primary); border-color: var(--oq-border-strong); }
+      .ck-todos:disabled { opacity: .55; cursor: default; }
       .ck-prog { font-family: var(--oq-font-mono); font-size: 12px; white-space: nowrap; }
       .ck-barra { flex: 1; height: 6px; border-radius: 99px; background: var(--oq-border); overflow: hidden; }
       .ck-barra__fill { display: block; height: 100%; background: var(--oq-concluido); transition: width .3s ease; }
