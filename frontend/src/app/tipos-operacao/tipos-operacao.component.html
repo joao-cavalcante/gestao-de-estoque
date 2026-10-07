@@ -28,6 +28,15 @@
                 <span class="top-tipmov">{{ rotuloTipmov(top.tipmov) }}</span>
               </span>
               <span class="oq-admin-row__sub">NUCCO {{ top.nucco ?? '—' }}</span>
+              <!-- Destinos do faturamento: restrição D da TOP no Sankhya (RestricaoTop), vêm na sincronização. -->
+              <span class="top-destinos" title="TOPs de destino para faturar notas deste TOP (restrições de destino no Sankhya)">
+                Fatura em:
+                @for (d of top.destinos ?? []; track d.codtop) {
+                  <span class="top-destino">{{ d.codtop }} · {{ d.descricao }}{{ d.serie ? ' (série ' + d.serie + ')' : '' }}</span>
+                } @empty {
+                  <span class="top-destino top-destino--vazio">nenhuma TOP de destino nas restrições</span>
+                }
+              </span>
             </div>
             <!-- Desligado = notas deste TOP abrem em conferência única (sem Secos/Refrigerado/Congelado). -->
             <label

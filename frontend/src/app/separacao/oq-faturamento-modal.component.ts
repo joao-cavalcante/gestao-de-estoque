@@ -101,7 +101,7 @@ export class OqFaturamentoModalComponent implements OnInit {
       next: (tops) => {
         this.tops.set(tops);
         this.codTipOper = tops.length === 1 ? tops[0].codTipOper : null;
-        if (!tops.length) this.bloqueio.set('nenhuma TOP ativa disponível para o faturamento desta nota.');
+        if (!tops.length) this.bloqueio.set('nenhuma TOP de destino cadastrada nas restrições da TOP deste pedido no Sankhya (TGFREP, destino) — cadastre a restrição para poder faturar.');
         this.carregando.set(false);
       },
       error: (err) => {
@@ -115,7 +115,9 @@ export class OqFaturamentoModalComponent implements OnInit {
     if (this.codTipOper == null || this.faturando()) return;
     this.faturando.set(true);
     this.erro.set(null);
-    this.separacaoService.faturar(this.tenant, this.sessaoId, this.codTipOper).subscribe({
+    // Série da restrição de destino (TGFREP), quando cadastrada.
+    const serie = this.tops().find((t) => t.codTipOper === this.codTipOper)?.serie ?? undefined;
+    this.separacaoService.faturar(this.tenant, this.sessaoId, this.codTipOper, serie).subscribe({
       next: (res) => {
         this.faturando.set(false);
         this.notasGeradas.set(res?.notasGeradas ?? []);

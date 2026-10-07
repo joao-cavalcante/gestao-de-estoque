@@ -39,3 +39,15 @@ object TipoOperacaoUsuariosTable : Table("app.tipo_operacao_usuarios") {
 
     override val primaryKey = PrimaryKey(tenantId, codtop, usuarioId)
 }
+
+/** app.tipo_operacao_destinos (V57) — TOPs de destino do faturamento (restrição D da TOP de origem, RestricaoTop/TGFREP). */
+object TipoOperacaoDestinosTable : Table("app.tipo_operacao_destinos") {
+    val tenantId = uuid("tenant_id")
+    val codtop = integer("codtop")
+    val codtopDestino = integer("codtop_destino")
+    val descricaoDestino = text("descricao_destino")
+    val serie = text("serie").nullable()
+    val localAtualizadoEm = timestamp("local_atualizado_em")
+
+    override val primaryKey = PrimaryKey(tenantId, codtop, codtopDestino)
+}

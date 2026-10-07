@@ -25,6 +25,9 @@ import { Usuario } from '../usuarios/usuario.model';
   templateUrl: './tipos-operacao.component.html',
   styles: [
     `
+      .top-destinos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; color: var(--oq-text-secondary); }
+      .top-destino { padding: 1px 6px; border: 1px solid var(--oq-border); border-radius: 999px; font-family: var(--oq-font-mono); color: var(--oq-text-primary); }
+      .top-destino--vazio { border-style: dashed; color: var(--oq-text-secondary); }
       .top-tipmov {
         display: inline-block;
         margin-left: 6px;

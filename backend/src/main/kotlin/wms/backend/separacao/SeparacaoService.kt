@@ -1123,30 +1123,22 @@ object SeparacaoService {
         }
     }
 
-    /** TOPs de destino possíveis pro faturamento da nota da sessão — TGFTOP ativos do mesmo TIPMOV. Portado de fila-conferencia conferencia.service.ts:1684. */
+    /**
+     * TOPs de destino do faturamento = RESTRIÇÕES de destino da TOP do pedido no Sankhya (TGFREP, TIPREST 'D',
+     * RESTRICAO 'S'; CODCOLREST = TOP destino) — mesma regra do faturamento nativo (pedido do usuário, 07/10/2026).
+     * Antes listava toda TOP ativa do mesmo TIPMOV, o que num pedido trazia outras TOPs de PEDIDO, não as de nota.
+     * Só TOP de destino ATIVA (versão mais recente). Sem restrição cadastrada = lista vazia (a tela avisa).
+     */
     suspend fun topsFaturamento(tenantSlug: String, tenantId: UUID, sessaoId: UUID): List<TopFaturamentoDto> {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
         validarFaturamento(tenantSlug, sessao)
-        val tipmov = withContext(Dispatchers.IO) { TarefasRepository.buscarTipMovLocal(tenantId, sessao.nunota) } ?: "V"
-
-        val fields = listOf("CODTIPOPER", "DESCROPER")
-        val raw = SankhyaLoadRecordsClient.loadRecords(
-            tenantSlug,
-            LoadRecordsRequest(
-                entityName = "TipoOperacao",
-                fields = fields,
-                criteriaExpression = "TIPMOV = '$tipmov' AND ATIVO = 'S'",
-                orderByExpression = "DESCROPER ASC",
-            ),
-        )
-        return SankhyaLoadRecordsClient.parseRows(raw, fields).mapNotNull { r ->
-            val cod = r["CODTIPOPER"]?.toIntOrNull()?.takeIf { it > 0 } ?: return@mapNotNull null
-            val desc = r["DESCROPER"]?.trim().orEmpty()
-            // O Sankhya devolve uma linha placeholder "<SEM TOP>" (CODTIPOPER 0) — nunca faturável.
-            if (desc.equals("<SEM TOP>", ignoreCase = true)) return@mapNotNull null
-            TopFaturamentoDto(codTipOper = cod, descricao = desc)
-        }
+        val topOrigem = withContext(Dispatchers.IO) { TarefasRepository.codTipOperPorNunota(tenantId, listOf(sessao.nunota))[sessao.nunota] }
+            ?: throw FaturamentoException("TOP do pedido ${sessao.nunota} não encontrada na fila")
+        // Espelho sincronizado junto com as TOPs (V57); TOP sem destino no espelho (sync ainda não rodou) consulta ao vivo.
+        val destinos = withContext(Dispatchers.IO) { wms.backend.tipooperacao.TipoOperacaoRepository.destinosDe(tenantId, topOrigem) }
+            .ifEmpty { wms.backend.tipooperacao.TipoOperacaoSyncService.buscarDestinos(tenantSlug, listOf(topOrigem))[topOrigem].orEmpty() }
+        return destinos.sortedBy { it.descricao }.map { TopFaturamentoDto(codTipOper = it.codtop, descricao = it.descricao, serie = it.serie) }
     }
 
     /**

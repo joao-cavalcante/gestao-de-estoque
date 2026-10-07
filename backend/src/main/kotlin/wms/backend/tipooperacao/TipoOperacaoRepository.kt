@@ -2,6 +2,7 @@ package wms.backend.tipooperacao
 
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
@@ -16,6 +17,7 @@ object TipoOperacaoRepository {
 
     fun listar(tenantId: UUID): List<TipoOperacaoDto> = TenantTx.run(tenantId) {
         val semEtapa = topsSemConferenciaPorEtapaTx(tenantId)
+        val destinosPorTop = destinosTx(tenantId, null)
         val autorizadosPorTop = TipoOperacaoUsuariosTable.selectAll()
             .where { TipoOperacaoUsuariosTable.tenantId eq tenantId }
             .groupingBy { it[TipoOperacaoUsuariosTable.codtop] }
@@ -33,6 +35,7 @@ object TipoOperacaoRepository {
                     conferenciaPorEtapa = it[TipoOperacaoTable.codtop] !in semEtapa,
                     localAtualizadoEm = DateTimeFormatter.ISO_INSTANT.format(it[TipoOperacaoTable.localAtualizadoEm]),
                     usuariosAutorizados = autorizadosPorTop[it[TipoOperacaoTable.codtop]] ?: 0,
+                    destinos = destinosPorTop[it[TipoOperacaoTable.codtop]].orEmpty(),
                 )
             }
     }
@@ -72,6 +75,42 @@ object TipoOperacaoRepository {
             }
         }
         linhas.size
+    }
+
+    // ─── TOPs de destino do faturamento (V57) ─────────────────────────────────
+
+    /** TOP de origem → destinos (em ordem de descrição). [codtop] null = todas. */
+    private fun destinosTx(tenantId: UUID, codtop: Int?): Map<Int, List<TopDestinoDto>> =
+        TipoOperacaoDestinosTable.selectAll()
+            .where {
+                if (codtop == null) TipoOperacaoDestinosTable.tenantId eq tenantId
+                else (TipoOperacaoDestinosTable.tenantId eq tenantId) and (TipoOperacaoDestinosTable.codtop eq codtop)
+            }
+            .groupBy(
+                { it[TipoOperacaoDestinosTable.codtop] },
+                { TopDestinoDto(it[TipoOperacaoDestinosTable.codtopDestino], it[TipoOperacaoDestinosTable.descricaoDestino], it[TipoOperacaoDestinosTable.serie]) },
+            )
+            .mapValues { (_, l) -> l.sortedBy { it.descricao } }
+
+    fun destinosDe(tenantId: UUID, codtop: Int): List<TopDestinoDto> = TenantTx.run(tenantId) { destinosTx(tenantId, codtop)[codtop].orEmpty() }
+
+    /** Regrava os destinos das TOPs de origem sincronizadas (TOP que não veio na sync fica como está). */
+    fun substituirDestinos(tenantId: UUID, origens: Set<Int>, destinos: Map<Int, List<TopDestinoDto>>): Unit = TenantTx.run(tenantId) {
+        if (origens.isEmpty()) return@run
+        val agora = Instant.now()
+        TipoOperacaoDestinosTable.deleteWhere { (TipoOperacaoDestinosTable.tenantId eq tenantId) and (TipoOperacaoDestinosTable.codtop inList origens) }
+        destinos.filterKeys { it in origens }.forEach { (origem, lista) ->
+            lista.distinctBy { it.codtop }.forEach { d ->
+                TipoOperacaoDestinosTable.insert {
+                    it[TipoOperacaoDestinosTable.tenantId] = tenantId
+                    it[codtop] = origem
+                    it[codtopDestino] = d.codtop
+                    it[descricaoDestino] = d.descricao
+                    it[serie] = d.serie
+                    it[localAtualizadoEm] = agora
+                }
+            }
+        }
     }
 
     // ─── Conferência por etapa por TOP (V49) ─────────────────────────────────

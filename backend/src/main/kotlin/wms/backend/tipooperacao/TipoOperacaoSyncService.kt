@@ -33,7 +33,31 @@ object TipoOperacaoSyncService {
         }.distinctBy { it.codtop }
         // Sankhya respondeu vazio (ex.: conexão ok mas consulta sem retorno) — não apaga a lista local.
         if (tops.isEmpty()) return 0
-        return TipoOperacaoRepository.substituirDerivado(tenantId, tops)
+        val total = TipoOperacaoRepository.substituirDerivado(tenantId, tops)
+        // Destinos do faturamento de cada TOP — falha aqui não derruba a sincronização das TOPs.
+        runCatching {
+            val origens = tops.map { it.codtop }.toSet()
+            TipoOperacaoRepository.substituirDestinos(tenantId, origens, buscarDestinos(tenantSlug, origens))
+        }.onFailure { println("AVISO: sync das TOPs de destino falhou ($tenantSlug): ${it.message}") }
+        return total
+    }
+
+    /**
+     * Restrições de destino da TOP (instância RestricaoTop = TGFREP): TIPREST 'D' com RESTRICAO 'S' — CODCOLREST é a
+     * TOP de destino permitida no faturamento. Só destino ATIVO, na versão mais recente da TGFTOP.
+     */
+    suspend fun buscarDestinos(tenantSlug: String, origens: Collection<Int>): Map<Int, List<TopDestinoDto>> {
+        if (origens.isEmpty()) return emptyMap()
+        return SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            "SELECT R.CODTIPOPER, R.CODCOLREST, R.SERIE, T.DESCROPER FROM TGFREP R " +
+                "JOIN TGFTOP T ON T.CODTIPOPER = R.CODCOLREST AND T.DHALTER = (SELECT MAX(X.DHALTER) FROM TGFTOP X WHERE X.CODTIPOPER = R.CODCOLREST) " +
+                "WHERE R.TIPREST = 'D' AND R.RESTRICAO = 'S' AND T.ATIVO = 'S' AND R.CODTIPOPER IN (${origens.joinToString(",")})",
+        ).mapNotNull { r ->
+            val origem = r["CODTIPOPER"]?.toBigDecimalOrNull()?.toInt() ?: return@mapNotNull null
+            val destino = r["CODCOLREST"]?.toBigDecimalOrNull()?.toInt()?.takeIf { it > 0 } ?: return@mapNotNull null
+            origem to TopDestinoDto(destino, r["DESCROPER"]?.trim()?.takeIf { it.isNotEmpty() } ?: "TOP $destino", r["SERIE"]?.trim()?.takeIf { it.isNotEmpty() })
+        }.groupBy({ it.first }, { it.second })
     }
 
     /** Chamado pelo worker periódico — tenant sem Sankhya/fora do ar é ignorado até o próximo ciclo. */

@@ -15,6 +15,8 @@ export interface TipoOperacao {
   localAtualizadoEm: string;
   /** Qtd. de usuários autorizados (V51) — 0 = sem restrição, todos conferem. */
   usuariosAutorizados: number;
+  /** TOPs de destino do faturamento (restrição D no Sankhya — RestricaoTop), sincronizadas junto com as TOPs. */
+  destinos?: { codtop: number; descricao: string; serie?: string | null }[];
 }
 
 export interface SincronizarTipoOperacaoResponse {

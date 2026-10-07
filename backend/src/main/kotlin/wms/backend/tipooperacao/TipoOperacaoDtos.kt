@@ -15,7 +15,12 @@ data class TipoOperacaoDto(
     val localAtualizadoEm: String,
     /** Qtd. de usuários autorizados (V51) — 0 = sem restrição, todos usam. */
     val usuariosAutorizados: Int = 0,
+    /** TOPs de destino do faturamento (restrição D no Sankhya — V57). */
+    val destinos: List<TopDestinoDto> = emptyList(),
 )
+
+@Serializable
+data class TopDestinoDto(val codtop: Int, val descricao: String, val serie: String? = null)
 
 @Serializable
 data class SincronizarTipoOperacaoResponse(val ok: Boolean, val totalAtualizado: Int)

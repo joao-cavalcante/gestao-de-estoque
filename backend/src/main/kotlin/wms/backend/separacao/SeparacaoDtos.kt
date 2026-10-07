@@ -151,7 +151,8 @@ data class FilaEtapasDto(
 data class EtapaProgressoDto(val total: Int, val conferidos: Int)
 
 @Serializable
-data class TopFaturamentoDto(val codTipOper: Int, val descricao: String)
+/** TOP de destino do faturamento (restrição D da TOP do pedido, TGFREP) — [serie] quando a restrição define uma. */
+data class TopFaturamentoDto(val codTipOper: Int, val descricao: String, val serie: String? = null)
 
 @Serializable
 data class FaturarRequest(val codTipOper: Int, val serie: String? = null)

@@ -76,6 +76,8 @@ export interface ConcluirEtapaResultado {
 export interface TopFaturamento {
   codTipOper: number;
   descricao: string;
+  /** Série definida na restrição de destino (TGFREP) — vai junto no faturamento. */
+  serie?: string | null;
 }
 
 /** Dados da etiqueta de volume (GET /sessoes/{id}/etiquetas). */
