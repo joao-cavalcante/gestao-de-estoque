@@ -236,8 +236,12 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     this.carregandoPedidosVenda.set(true);
     this.pedidosVendaSub = this.service.pedidosVenda(nunotas).subscribe({
       next: (lista) => {
-        const ordem = new Map(nunotas.map((n, i) => [n, i]));
-        this.pedidosVenda.set([...lista].sort((a, b) => (ordem.get(a.nunota) ?? 0) - (ordem.get(b.nunota) ?? 0)));
+        // Pedidos em ordem alfabética do cliente (mesmo nome do cabeçalho impresso: razão social, senão nome);
+        // empate (mesmo cliente) pelo Nº Único.
+        const cliente = (p: PedidoVenda) => (p.cabecalho?.['RAZAOSOCIAL'] || p.cabecalho?.['NOMEPARC'] || '').trim();
+        this.pedidosVenda.set(
+          [...lista].sort((a, b) => cliente(a).localeCompare(cliente(b), 'pt-BR', { sensitivity: 'base', numeric: true }) || a.nunota - b.nunota),
+        );
         this.carregandoPedidosVenda.set(false);
       },
       error: () => {

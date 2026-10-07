@@ -696,10 +696,7 @@ object SeparacaoService {
         // cortar ser recusado e a finalização quebrar sem ir pra liberação de corte
         // (nota 58933, 01/10).
         // Compra (TIPMOV 'C'/'O') segue o MESMO cortar da venda (payload nativo capturado pelo
-        // usuário, nota 58915, 01/10 — com a config certa no Sankhya); a única diferença é não ter
-        // corte silencioso (ver auto-liberação abaixo).
-        val ehCompra = withContext(Dispatchers.IO) { TarefasRepository.buscarTipMovLocal(tenantId, sessao.nunota) }
-            ?.trim()?.uppercase() in setOf("C", "O")
+        // usuário, nota 58915, 01/10 — com a config certa no Sankhya) e a mesma auto-liberação por tolerância.
         try {
             SankhyaSpClient.chamarRaw(
                 tenantSlug, "ConferenciaSP.cortar", "mgecom",
@@ -742,8 +739,10 @@ object SeparacaoService {
         // quando o operador escolhe "Cortar" no pop-up de finalização divergente
         // (esse clique não é autorização de liberação — ver LiberacaoCorteService).
         var resolvidoViaAutoLiberacao = false
-        // Compra: sem corte silencioso — toda divergência vai pra liberação manual.
-        if (aguardandoCorte && !ehCompra) {
+        // Compra segue o MESMO parâmetro de tolerância do NUCCO que a venda (regra do usuário, 07/10/2026 — antes a
+        // compra pulava a auto-liberação e pesável A MAIOR de 0,4–2% ficava horas esperando liberação manual).
+        // Não pesável continua sempre na liberação manual (ver autoLiberarPesoDentroTolerancia).
+        if (aguardandoCorte) {
             FinalizacaoProgresso.atualizar(sessaoId, "liberacao")
             val liberouTudo = runCatching {
                 LiberacaoCorteService.autoLiberarPesoDentroTolerancia(tenantSlug, tenantId, nuconf, sessaoId)
