@@ -914,7 +914,7 @@ object SeparacaoService {
             // Pendente que é só pesável a menor dentro da tolerância não pinta de vermelho (divergente=false).
             SeparacaoRepository.concluirEtapa(tenantId, sessaoId, tipo, operador, divergente = divergente)
         }
-        if (!marcou) throw ConcluirEtapaException("etapa $tipoSeparacao não encontrada ou já concluída")
+        if (!marcou) return repeticaoConcluirEtapa(tenantSlug, tenantId, sessaoId, tipoSeparacao)
 
         val todasConcluidas = withContext(Dispatchers.IO) {
             SeparacaoRepository.todasEtapasConcluidas(tenantId, sessaoId)
@@ -971,6 +971,41 @@ object SeparacaoService {
             aguardandoCorte = res.aguardandoCorte,
             nuconf = res.nuconf,
         )
+    }
+
+    /**
+     * "Concluir etapa" repetido pra uma etapa que JÁ está concluída — 2º toque, tela reaberta ou resposta perdida
+     * enquanto o servidor ainda finalizava (pedido 65236, 08/10/2026: a finalização entrou e foi pra liberação de
+     * corte, mas a 2ª tentativa mostrou "etapa 1 não encontrada ou já concluída"). Não é erro: devolve o resultado
+     * que já existe. Só é erro se a finalização ainda estiver rodando (aguardar) ou se a etapa não existir.
+     */
+    private suspend fun repeticaoConcluirEtapa(tenantSlug: String, tenantId: UUID, sessaoId: UUID, tipoSeparacao: Int): ConcluirEtapaResultadoDto {
+        FinalizacaoProgresso.conclusao(sessaoId)?.let { c ->
+            if (c.conferenciaFinalizada || c.etapa == tipoSeparacao) {
+                return ConcluirEtapaResultadoDto(
+                    etapaConcluida = true, conferenciaFinalizada = c.conferenciaFinalizada,
+                    aguardandoCorte = c.aguardandoCorte ?: false, nuconf = c.nuconf,
+                )
+            }
+        }
+        if (FinalizacaoProgresso.obter(sessaoId) != null) {
+            throw ConcluirEtapaException("a conclusão desta etapa já está sendo enviada ao Sankhya — aguarde alguns segundos")
+        }
+        val etapas = withContext(Dispatchers.IO) { SeparacaoRepository.listarEtapas(tenantId, sessaoId) }
+        if (etapas.none { it.tipoSeparacao == tipoSeparacao && it.status == SeparacaoEtapaStatus.CONCLUIDA }) {
+            throw ConcluirEtapaException("etapa $tipoSeparacao não encontrada nesta conferência")
+        }
+        if (etapas.any { it.status != SeparacaoEtapaStatus.CONCLUIDA }) {
+            // Outras etapas ainda pendentes: esta já tinha sido concluída — segue como sucesso.
+            return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = false)
+        }
+        // Todas concluídas e sem registro em memória (ex.: servidor reiniciou): quem diz como terminou é o Sankhya.
+        val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
+        val status = nuconf?.let { runCatching { statusConferencia(tenantSlug, it) }.getOrNull()?.trim() }
+        if (status == null || status !in setOf("C", "F", "D", "RF", "RD")) {
+            throw ConcluirEtapaException("etapa $tipoSeparacao já concluída, mas a conferência não está finalizada no Sankhya (status '${status ?: "?"}') — confira a nota")
+        }
+        return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = true, aguardandoCorte = status == "C", nuconf = nuconf)
     }
 
     /**
