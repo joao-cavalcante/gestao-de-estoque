@@ -1150,9 +1150,11 @@ object SeparacaoService {
      * Antes: bloqueia sessão não concluída, nota já faturada e corte aguardando liberação.
      * A chamada vai SEM retry (faturar não é idempotente); se ela falhar sem resposta clara,
      * relê o Sankhya — se a nota gerada apareceu, o faturamento entrou e é tratado como sucesso.
-     * Devolve os NUNOTA das notas geradas.
+     * Depois do faturar, confirma cada nota gerada com `CACSP.confirmarNota` (pedido do usuário, 07/10/2026 —
+     * o faturar sozinho deixa a nota sem confirmar). Falha na confirmação NÃO desfaz o faturamento: volta como aviso.
+     * Devolve os NUNOTA das notas geradas e o aviso (null = tudo confirmado).
      */
-    suspend fun faturar(tenantSlug: String, tenantId: UUID, sessaoId: UUID, codTipOper: Int, serie: String?): List<Long> {
+    suspend fun faturar(tenantSlug: String, tenantId: UUID, sessaoId: UUID, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
             ?: throw FaturamentoException("sessão não encontrada")
         validarFaturamento(tenantSlug, sessao)
@@ -1187,9 +1189,52 @@ object SeparacaoService {
                 )
             }
             println("AVISO: faturar nunota ${sessao.nunota} falhou (${e.message}), mas a nota foi gerada: $geradas")
-            return geradas
+            return geradas to confirmarNotasGeradas(tenantSlug, geradas)
         }
-        return runCatching { situacaoFaturamento(tenantSlug, sessao.nunota).notasGeradas }.getOrDefault(emptyList())
+        val geradas = runCatching { situacaoFaturamento(tenantSlug, sessao.nunota).notasGeradas }.getOrDefault(emptyList())
+        if (geradas.isEmpty()) {
+            return geradas to "o Sankhya aceitou o faturamento mas a nota gerada não foi encontrada — confira na Central de Notas e confirme por lá."
+        }
+        return geradas to confirmarNotasGeradas(tenantSlug, geradas)
+    }
+
+    /**
+     * `CACSP.confirmarNota` (mgecom) em cada nota gerada ainda não confirmada (STATUSNOTA <> 'L').
+     * Sem retry: confirmar não é idempotente. Devolve o motivo das que falharam (null = todas confirmadas).
+     */
+    private suspend fun confirmarNotasGeradas(tenantSlug: String, notas: List<Long>): String? {
+        if (notas.isEmpty()) return null
+        val pendentes = SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            "SELECT NUNOTA FROM TGFCAB WHERE NUNOTA IN (${notas.joinToString()}) AND NVL(STATUSNOTA, ' ') <> 'L'",
+        ).mapNotNull { it["NUNOTA"]?.toBigDecimalOrNull()?.toLong() }
+        val falhas = pendentes.mapNotNull { nunota ->
+            runCatching {
+                SankhyaSpClient.chamarRaw(
+                    tenantSlug, "CACSP.confirmarNota", "mgecom",
+                    buildJsonObject {
+                        putJsonObject("nota") {
+                            put("confirmacaoCentralNota", "true")
+                            put("ehPedidoWeb", "false")
+                            put("atualizaPrecoItemPedCompra", "false")
+                            putJsonObject("NUNOTA") { put("$", nunota) }
+                        }
+                        putJsonObject("clientEventList") {
+                            putJsonArray("clientEvent") {
+                                add(buildJsonObject { put("$", "br.com.sankhya.actionbutton.clientconfirm") })
+                                add(buildJsonObject { put("$", "br.com.sankhya.mgecomercial.event.estoque.insuficiente.produto") })
+                                add(buildJsonObject { put("$", "br.com.sankhya.mgecom.msg.nao.possui.itens.pendentes") })
+                            }
+                        }
+                    },
+                    retentar = false,
+                )
+            }.exceptionOrNull()?.let { e ->
+                println("AVISO: CACSP.confirmarNota nunota $nunota falhou: ${e.message}")
+                "nota $nunota gerada mas não confirmada (${e.message}) — confirme na Central de Notas"
+            }
+        }
+        return falhas.takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
 
     /** Dados pra etiqueta de volume (uma por volume) — cliente/UF/número/qtd de volumes. Portado de fila-conferencia arquivo.helper.ts. */

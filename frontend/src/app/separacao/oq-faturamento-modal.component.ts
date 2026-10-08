@@ -30,6 +30,7 @@ import { TopFaturamento } from './separacao.model';
               Nota faturada com sucesso.
               @if (notasGeradas().length) { Nota gerada: {{ notasGeradas().join(', ') }}. }
             </span>
+            @if (aviso()) { <span class="oq-form-hint oq-form-hint--erro">{{ aviso() }}</span> }
           } @else if (bloqueio()) {
             <span class="oq-form-hint oq-form-hint--erro">Não é possível faturar: {{ bloqueio() }}</span>
           } @else {
@@ -85,6 +86,8 @@ export class OqFaturamentoModalComponent implements OnInit {
   readonly sucesso = signal(false);
   /** NUNOTA das notas geradas pelo faturamento. */
   readonly notasGeradas = signal<number[]>([]);
+  /** Nota gerada mas não confirmada no Sankhya (CACSP.confirmarNota recusou) — motivo vindo do backend. */
+  readonly aviso = signal<string | null>(null);
   /** Faturamento bloqueado (nota já faturada, corte pendente, recontagem…) — só mostra o motivo. */
   readonly bloqueio = signal<string | null>(null);
 
@@ -121,6 +124,7 @@ export class OqFaturamentoModalComponent implements OnInit {
       next: (res) => {
         this.faturando.set(false);
         this.notasGeradas.set(res?.notasGeradas ?? []);
+        this.aviso.set(res?.aviso ?? null);
         this.sucesso.set(true);
         this.feedback.trigger('SUCESSO_SANKHYA');
       },

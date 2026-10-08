@@ -157,9 +157,12 @@ data class TopFaturamentoDto(val codTipOper: Int, val descricao: String, val ser
 @Serializable
 data class FaturarRequest(val codTipOper: Int, val serie: String? = null)
 
-/** `notasGeradas` = NUNOTA das notas criadas pelo faturamento (TGFVAR), pro operador conferir. */
+/**
+ * `notasGeradas` = NUNOTA das notas criadas pelo faturamento (TGFVAR), pro operador conferir.
+ * `aviso` = nota gerada mas o CACSP.confirmarNota recusou (motivo do Sankhya) — confirmar na Central de Notas.
+ */
 @Serializable
-data class FaturarResponse(val ok: Boolean, val notasGeradas: List<Long>)
+data class FaturarResponse(val ok: Boolean, val notasGeradas: List<Long>, val aviso: String? = null)
 
 @Serializable
 data class ConferenciaFinalizadaDto(

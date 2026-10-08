@@ -731,11 +731,13 @@ fun Route.separacaoRoutes() {
             // Sem lock aqui: o faturamento roda DEPOIS do finalizar, que já liberou os locks da sessão concluída.
             val body = call.receive<FaturarRequest>()
             try {
-                val notas = SeparacaoService.faturar(slug, tenantId, sessaoId, body.codTipOper, body.serie)
-                call.respond(FaturarResponse(ok = true, notasGeradas = notas))
+                val (notas, aviso) = SeparacaoService.faturar(slug, tenantId, sessaoId, body.codTipOper, body.serie)
+                call.respond(FaturarResponse(ok = true, notasGeradas = notas, aviso = aviso))
             } catch (e: SeparacaoService.FaturamentoException) {
+                println("AVISO: faturar sessao $sessaoId TOP ${body.codTipOper} bloqueado: ${e.message}")
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível faturar")))
             } catch (e: Exception) {
+                println("AVISO: faturar sessao $sessaoId TOP ${body.codTipOper} recusado pelo Sankhya: ${e.message}")
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao faturar no Sankhya")))
             }
         }
