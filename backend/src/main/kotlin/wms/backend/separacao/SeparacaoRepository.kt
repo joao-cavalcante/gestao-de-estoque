@@ -2196,6 +2196,35 @@ object SeparacaoRepository {
      * a etapa presa "concluída" sem o corte ter acontecido de verdade (ver V29
      * SeparacaoService.concluirEtapa e o caso real da nota 57355).
      */
+    /** Sessão aberta com TODAS as etapas concluídas (finalização que ficou pela metade). */
+    data class SessaoTravada(val sessaoId: UUID, val nunota: Long, val nuconf: Int?, val ultimaEtapa: Short, val concluidaEm: Instant)
+
+    /**
+     * Sessões 'pronta' (últimos 2 dias) cuja última etapa foi concluída há mais de [minutosParada] min e que não têm
+     * nenhuma etapa pendente — o processo caiu entre "marcar a etapa" e "finalizar no Sankhya" (pedido 65277).
+     */
+    fun listarSessoesTravadas(tenantId: UUID, minutosParada: Long = 3): List<SessaoTravada> = TenantTx.run(tenantId) {
+        val agora = Instant.now()
+        val sessoes = SeparacaoSessoesTable.selectAll()
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.status eq SeparacaoStatus.PRONTA) and
+                    (SeparacaoSessoesTable.atualizadoEm greater agora.minusSeconds(2 * 86_400))
+            }
+            .associate { it[SeparacaoSessoesTable.id] to (it[SeparacaoSessoesTable.nunota].toLong() to it[SeparacaoSessoesTable.nuconf]) }
+        if (sessoes.isEmpty()) return@run emptyList()
+        SeparacaoEtapasTable.selectAll()
+            .where { (SeparacaoEtapasTable.tenantId eq tenantId) and (SeparacaoEtapasTable.sessaoId inList sessoes.keys.toList()) }
+            .groupBy { it[SeparacaoEtapasTable.sessaoId] }
+            .mapNotNull { (sid, etapas) ->
+                if (etapas.any { it[SeparacaoEtapasTable.status] != SeparacaoEtapaStatus.CONCLUIDA }) return@mapNotNull null
+                val ultima = etapas.maxByOrNull { it[SeparacaoEtapasTable.concluidaEm] ?: Instant.EPOCH } ?: return@mapNotNull null
+                val em = ultima[SeparacaoEtapasTable.concluidaEm] ?: return@mapNotNull null
+                if (em.isAfter(agora.minusSeconds(minutosParada * 60))) return@mapNotNull null
+                val (nunota, nuconf) = sessoes[sid] ?: return@mapNotNull null
+                SessaoTravada(sid, nunota, nuconf, ultima[SeparacaoEtapasTable.tipoSeparacao], em)
+            }
+    }
+
     fun reabrirEtapa(tenantId: UUID, sessaoId: UUID, tipoSeparacao: Short): Unit = TenantTx.run(tenantId) {
         SeparacaoEtapasTable.update({
             (SeparacaoEtapasTable.tenantId eq tenantId) and

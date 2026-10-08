@@ -122,6 +122,10 @@ object TarefaSyncService {
             revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
         }
 
+        // Sessão com todas as etapas concluídas mas sem finalização (processo caiu no meio): destrava.
+        runCatching { wms.backend.separacao.SeparacaoService.destravarSessoesSemFinalizacao(tenantSlug, tenantId) }
+            .onFailure { println("AVISO: destravar sessões (tenant $tenantSlug) falhou: ${it.message}") }
+
         // Situação (aberta/fechada) das OCs que estão na fila — reflete abrir/fechar no Sankhya em ~1 ciclo.
         runCatching {
             val ocs = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }.mapNotNull { it.ordemCarga }

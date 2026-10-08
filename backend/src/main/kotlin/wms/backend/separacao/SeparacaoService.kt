@@ -922,7 +922,18 @@ object SeparacaoService {
             // Pendente que é só pesável a menor dentro da tolerância não pinta de vermelho (divergente=false).
             SeparacaoRepository.concluirEtapa(tenantId, sessaoId, tipo, operador, divergente = divergente)
         }
-        if (!marcou) return repeticaoConcluirEtapa(tenantSlug, tenantId, sessaoId, tipoSeparacao)
+        if (!marcou) {
+            return repeticaoConcluirEtapa(tenantSlug, tenantId, sessaoId, tipoSeparacao) {
+                // Etapas todas 'C' mas a finalização nunca terminou (processo reiniciado no meio — pedido 65277,
+                // 08/10/2026): refaz a finalização; se falhar, reabre a etapa pra tentar de novo pela tela.
+                try {
+                    finalizar(tenantSlug, tenantId, sessaoId, semCorte = finalizarSemCorte, usuarioFinalizadorId = usuarioFinalizadorId, verificarPedido = false)
+                } catch (e: Exception) {
+                    withContext(Dispatchers.IO) { SeparacaoRepository.reabrirEtapa(tenantId, sessaoId, tipo) }
+                    throw e
+                }
+            }
+        }
 
         val todasConcluidas = withContext(Dispatchers.IO) {
             SeparacaoRepository.todasEtapasConcluidas(tenantId, sessaoId)
@@ -982,12 +993,43 @@ object SeparacaoService {
     }
 
     /**
+     * Destrava sessão com todas as etapas concluídas mas sem finalização (processo reiniciado no meio — pedido 65277,
+     * 08/10/2026: chip da etapa "OK", conferência aberta no Sankhya, nada pra tocar na tela). Roda no ciclo de sync:
+     * conferência já finalizada/em corte no Sankhya = só fecha a sessão aqui; aberta = reabre a última etapa pra o
+     * operador concluir de novo. Ignora sessão com finalização em andamento.
+     */
+    suspend fun destravarSessoesSemFinalizacao(tenantSlug: String, tenantId: UUID) {
+        val travadas = withContext(Dispatchers.IO) { SeparacaoRepository.listarSessoesTravadas(tenantId) }
+            .filter { FinalizacaoProgresso.obter(it.sessaoId) == null }
+        for (t in travadas) {
+            val status = t.nuconf?.let { runCatching { statusConferencia(tenantSlug, it) }.getOrNull()?.trim() }
+            withContext(Dispatchers.IO) {
+                if (status != null && status in setOf("C", "F", "D", "RF", "RD")) {
+                    SeparacaoRepository.marcarConcluida(tenantId, t.sessaoId)
+                    SeparacaoLockRepository.liberarTodos(tenantId, t.sessaoId)
+                    TarefasRepository.concluirLocalSemWriteBack(tenantId, t.nunota)
+                    println("INFO: sessão travada ${t.sessaoId} (nunota ${t.nunota}) já finalizada no Sankhya ('$status') — fechada localmente")
+                } else if (status != null) {
+                    SeparacaoRepository.reabrirEtapa(tenantId, t.sessaoId, t.ultimaEtapa)
+                    println("INFO: sessão travada ${t.sessaoId} (nunota ${t.nunota}) com conferência '$status' — etapa ${t.ultimaEtapa} reaberta pra concluir de novo")
+                }
+            }
+        }
+    }
+
+    /**
      * "Concluir etapa" repetido pra uma etapa que JÁ está concluída — 2º toque, tela reaberta ou resposta perdida
      * enquanto o servidor ainda finalizava (pedido 65236, 08/10/2026: a finalização entrou e foi pra liberação de
      * corte, mas a 2ª tentativa mostrou "etapa 1 não encontrada ou já concluída"). Não é erro: devolve o resultado
      * que já existe. Só é erro se a finalização ainda estiver rodando (aguardar) ou se a etapa não existir.
      */
-    private suspend fun repeticaoConcluirEtapa(tenantSlug: String, tenantId: UUID, sessaoId: UUID, tipoSeparacao: Int): ConcluirEtapaResultadoDto {
+    private suspend fun repeticaoConcluirEtapa(
+        tenantSlug: String,
+        tenantId: UUID,
+        sessaoId: UUID,
+        tipoSeparacao: Int,
+        refinalizar: suspend () -> FinalizarResultadoDto,
+    ): ConcluirEtapaResultadoDto {
         FinalizacaoProgresso.conclusao(sessaoId)?.let { c ->
             if (c.conferenciaFinalizada || c.etapa == tipoSeparacao) {
                 return ConcluirEtapaResultadoDto(
@@ -1010,10 +1052,13 @@ object SeparacaoService {
         // Todas concluídas e sem registro em memória (ex.: servidor reiniciou): quem diz como terminou é o Sankhya.
         val nuconf = withContext(Dispatchers.IO) { SeparacaoRepository.buscarNuconf(tenantId, sessaoId) }
         val status = nuconf?.let { runCatching { statusConferencia(tenantSlug, it) }.getOrNull()?.trim() }
-        if (status == null || status !in setOf("C", "F", "D", "RF", "RD")) {
-            throw ConcluirEtapaException("etapa $tipoSeparacao já concluída, mas a conferência não está finalizada no Sankhya (status '${status ?: "?"}') — confira a nota")
+        if (status != null && status in setOf("C", "F", "D", "RF", "RD")) {
+            return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = true, aguardandoCorte = status == "C", nuconf = nuconf)
         }
-        return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = true, aguardandoCorte = status == "C", nuconf = nuconf)
+        // Conferência ainda aberta no Sankhya e ninguém finalizando: a finalização ficou pela metade — refaz.
+        println("INFO: sessão $sessaoId com todas as etapas concluídas e conferência '$status' no Sankhya — refazendo a finalização")
+        val res = refinalizar()
+        return ConcluirEtapaResultadoDto(etapaConcluida = true, conferenciaFinalizada = true, aguardandoCorte = res.aguardandoCorte, nuconf = res.nuconf)
     }
 
     /**
