@@ -91,8 +91,9 @@ interface FechamentoOc {
                           <span class="fec__falha" [title]="p.erro ?? ''"><oq-icon name="circle-alert" [size]="12" /> {{ p.erro }}</span>
                         } @else if (p.situacao === 'faturar') {
                           <span class="fec__neutro">a faturar</span>
+                          @if (p.motivo) { <span class="fec__obs">{{ p.motivo }}</span> }
                         } @else if (p.situacao === 'pronto') {
-                          <span class="fec__ok fec__ok--leve"><oq-icon name="check" [size]="12" /> já tem nota / sem faturamento</span>
+                          <span class="fec__ok fec__ok--leve"><oq-icon name="check" [size]="12" /> já tem nota {{ p.notasGeradas.join(', ') }}</span>
                         } @else {
                           <span class="fec__falha"><oq-icon name="circle-alert" [size]="12" /> {{ p.motivo }}</span>
                         }
@@ -160,6 +161,7 @@ interface FechamentoOc {
     .fec__ok--leve { font-weight: 400; }
     .fec__falha { color: var(--oq-critical-foreground); }
     .fec__neutro { color: var(--oq-text-secondary); }
+    .fec__obs { display: block; margin-top: 2px; font-size: 11px; color: var(--oq-warning-foreground); }
     .fec__caixa { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45;
       border: 1px solid var(--oq-border); border-radius: var(--oq-radius-block); color: var(--oq-success-foreground); background: var(--oq-success-soft); }
     .fec__caixa oq-icon { flex: none; margin-top: 1px; }

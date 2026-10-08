@@ -1112,13 +1112,22 @@ object SeparacaoService {
         if (sessao.status == SeparacaoStatus.CANCELADA) {
             throw FaturamentoException("esta conferência foi cancelada")
         }
-        val situacao = situacaoFaturamento(tenantSlug, sessao.nunota)
+        validarFaturamentoPedido(tenantSlug, tenantId, sessao.nunota)
+    }
+
+    /**
+     * Bloqueios de faturamento do PEDIDO, lidos do Sankhya (vale também pra pedido conferido fora do WMS, sem sessão):
+     * nota já gerada (sem confirmar = NotaSemConfirmacaoException), corte pendente, conferência não finalizada e
+     * carregamento incompleto (pedido com OC).
+     */
+    private suspend fun validarFaturamentoPedido(tenantSlug: String, tenantId: UUID, nunota: Long) {
+        val situacao = situacaoFaturamento(tenantSlug, nunota)
         if (situacao.notasGeradas.isNotEmpty()) {
             val naoConfirmadas = notasNaoConfirmadas(tenantSlug, situacao.notasGeradas)
             if (naoConfirmadas.isNotEmpty()) throw NotaSemConfirmacaoException(naoConfirmadas)
             // Faturada e confirmada (pelo WMS ou direto no Sankhya): sai do "aguardando nota".
-            withContext(Dispatchers.IO) { SeparacaoRepository.atualizarNota(tenantId, UUID.fromString(sessao.id), NotaStatus.OK, null) }
-            throw FaturamentoException("a nota ${sessao.nunota} já foi faturada e confirmada (nota gerada: ${situacao.notasGeradas.joinToString()})")
+            withContext(Dispatchers.IO) { SeparacaoRepository.marcarNotaOkPorNunota(tenantId, nunota) }
+            throw FaturamentoException("a nota $nunota já foi faturada e confirmada (nota gerada: ${situacao.notasGeradas.joinToString()})")
         }
         if (situacao.statusConferencia == "C" || situacao.liberacoesPendentes > 0) {
             throw FaturamentoException("há corte aguardando liberação nesta conferência — libere o corte antes de faturar")
@@ -1131,8 +1140,8 @@ object SeparacaoService {
         }
         // Fluxo (usuário, 08/10/2026): conferir → carregar → nota. Pedido com OC só fatura com tudo carregado.
         val carregamento = withContext(Dispatchers.IO) {
-            if (TarefasRepository.buscarOrdemCargaLocal(tenantId, sessao.nunota) == null) null
-            else wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, listOf(sessao.nunota), 7)[sessao.nunota]
+            if (TarefasRepository.buscarOrdemCargaLocal(tenantId, nunota) == null) null
+            else wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, listOf(nunota), 7)[nunota]
         }
         if (carregamento != null && carregamento.carregados < carregamento.total) {
             throw FaturamentoException(
@@ -1185,13 +1194,38 @@ object SeparacaoService {
             ?: throw FaturamentoException("sessão não encontrada")
         validarFaturamento(tenantSlug, tenantId, sessao)
         val resultado = try {
-            faturarNoSankhya(tenantSlug, sessao, codTipOper, serie)
+            faturarNoSankhya(tenantSlug, sessao.nunota, codTipOper, serie)
         } catch (e: Exception) {
             withContext(Dispatchers.IO) { SeparacaoRepository.registrarErroNota(tenantId, sessaoId, e.message ?: "falha ao faturar no Sankhya") }
             throw e
         }
         registrarResultadoNota(tenantId, sessaoId, resultado)
         return resultado
+    }
+
+    /**
+     * Fatura + confirma um PEDIDO pelo NUNOTA (Fechar OC): não depende de sessão do WMS — pedido conferido na tela
+     * nativa do Sankhya também fatura. Mesmas travas do [faturar] (lidas do Sankhya). Nota já gerada sem confirmar
+     * só é confirmada. Marca como 'ok' qualquer sessão "aguardando nota" do pedido.
+     */
+    suspend fun faturarPedido(tenantSlug: String, tenantId: UUID, nunota: Long, codTipOper: Int): Pair<List<Long>, String?> {
+        val resultado = try {
+            validarFaturamentoPedido(tenantSlug, tenantId, nunota)
+            faturarNoSankhya(tenantSlug, nunota, codTipOper, null)
+        } catch (e: NotaSemConfirmacaoException) {
+            val geradas = situacaoFaturamento(tenantSlug, nunota).notasGeradas
+            geradas to confirmarNotasGeradas(tenantSlug, geradas)
+        }
+        if (resultado.first.isNotEmpty() && resultado.second == null) {
+            withContext(Dispatchers.IO) { SeparacaoRepository.marcarNotaOkPorNunota(tenantId, nunota) }
+        }
+        return resultado
+    }
+
+    /** Notas do pedido (TGFVAR) e quais ainda não estão confirmadas — usado pela trava final do Fechar OC. */
+    suspend fun notasDoPedido(tenantSlug: String, nunota: Long): Pair<List<Long>, List<Long>> {
+        val geradas = situacaoFaturamento(tenantSlug, nunota).notasGeradas
+        return geradas to notasNaoConfirmadas(tenantSlug, geradas)
     }
 
     /**
@@ -1217,7 +1251,7 @@ object SeparacaoService {
         }
     }
 
-    private suspend fun faturarNoSankhya(tenantSlug: String, sessao: SessaoSeparacaoDto, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
+    private suspend fun faturarNoSankhya(tenantSlug: String, nunota: Long, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
         val hoje = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
         val requestBody = buildJsonObject {
             putJsonObject("notas") {
@@ -1226,7 +1260,7 @@ object SeparacaoService {
                 put("tipoFaturamento", "FaturamentoNormal")
                 put("dataValidada", true)
                 putJsonObject("notasComMoeda") {}
-                putJsonArray("nota") { add(buildJsonObject { put("$", sessao.nunota) }) }
+                putJsonArray("nota") { add(buildJsonObject { put("$", nunota) }) }
                 put("serie", serie?.takeIf { it.isNotBlank() } ?: "1")
                 put("faturarTodosItens", true)
                 put("umaNotaParaCada", "false")
@@ -1241,16 +1275,16 @@ object SeparacaoService {
         } catch (e: Exception) {
             // Recusa de regra do Sankhya é definitiva; já timeout/5xx pode ter faturado mesmo assim.
             if (e is SankhyaSpClient.SankhyaSpException && e !is SankhyaSpClient.SankhyaSpErroTransitorio) throw e
-            val geradas = runCatching { situacaoFaturamento(tenantSlug, sessao.nunota).notasGeradas }.getOrNull()
+            val geradas = runCatching { situacaoFaturamento(tenantSlug, nunota).notasGeradas }.getOrNull()
             if (geradas.isNullOrEmpty()) {
                 throw FaturamentoException(
-                    "o Sankhya não confirmou o faturamento (${e.message}). Confira no Sankhya se a nota ${sessao.nunota} foi faturada antes de tentar de novo.",
+                    "o Sankhya não confirmou o faturamento (${e.message}). Confira no Sankhya se a nota $nunota foi faturada antes de tentar de novo.",
                 )
             }
-            println("AVISO: faturar nunota ${sessao.nunota} falhou (${e.message}), mas a nota foi gerada: $geradas")
+            println("AVISO: faturar nunota $nunota falhou (${e.message}), mas a nota foi gerada: $geradas")
             return geradas to confirmarNotasGeradas(tenantSlug, geradas)
         }
-        val geradas = runCatching { situacaoFaturamento(tenantSlug, sessao.nunota).notasGeradas }.getOrDefault(emptyList())
+        val geradas = runCatching { situacaoFaturamento(tenantSlug, nunota).notasGeradas }.getOrDefault(emptyList())
         if (geradas.isEmpty()) {
             return geradas to "o Sankhya aceitou o faturamento mas a nota gerada não foi encontrada — confira na Central de Notas e confirme por lá."
         }

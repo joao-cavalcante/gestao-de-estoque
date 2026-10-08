@@ -89,7 +89,9 @@ export function faseTarefa(t: Tarefa): FasePedido {
   if (t.status === 'aguardando_corte') return 'corte';
   if (t.status !== 'concluido') return 'conferir';
   if (aCarregar(t)) return 'carregar';
-  if (t.notaPendente) return t.ordemCarga != null ? 'fechamento' : 'nota';
+  // Com OC: depois de carregado, TODO pedido espera o "Fechar OC" (que fatura no Sankhya) — independente da CCO.
+  if (t.ordemCarga != null) return 'fechamento';
+  if (t.notaPendente) return 'nota';
   return 'pronto';
 }
 

@@ -96,60 +96,94 @@ object FechamentoOcService {
         withContext(Dispatchers.IO) { TipoOperacaoRepository.destinosDe(tenantId, topOrigem) }
             .ifEmpty { TipoOperacaoSyncService.buscarDestinos(tenantSlug, listOf(topOrigem))[topOrigem].orEmpty() }
 
-    /** Prévia do fechamento: um item por pedido da OC, com a TOP que vai ser usada e o que bloqueia. */
-    suspend fun previa(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
-        val daOc = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }.filter { it.ordemCarga == oc }
-        if (daOc.isEmpty()) return FechamentoOcDto(oc, emptyList(), podeFechar = false, mensagem = "nenhum pedido da OC $oc na fila")
-        val nunotas = daOc.map { it.nunota }
-        val carregamento = withContext(Dispatchers.IO) { ReconferenciaService.resumoCarregamento(tenantId, nunotas, 7) }
-        val pendentes = withContext(Dispatchers.IO) { AguardandoNotaService.pendentesLocal(tenantId) }
-        val aFaturar = nunotas.filter { it in pendentes }
-        val nfce = runCatching { nfcePorNunota(tenantSlug, aFaturar) }.getOrElse { emptyMap() }
-        val topOrigem = withContext(Dispatchers.IO) { TarefasRepository.codTipOperPorNunota(tenantId, aFaturar) }
-        val destinosPorTop = topOrigem.values.distinct().associateWith { destinos(tenantSlug, tenantId, it) }
+    /** Pedido de venda da OC como está no Sankhya agora (fonte da verdade do fechamento). */
+    private data class PedidoOc(
+        val nunota: Long, val numNota: Long?, val cliente: String?, val codTipOper: Int?, val nfce: Boolean,
+        val statusConf: String?, val liberacoesPendentes: Int, val notas: List<Long>, val notasSemConfirmar: List<Long>,
+    )
 
-        val pedidos = daOc.sortedBy { it.nomeParceiro ?: "" }.map { t ->
-            val base = FechamentoPedidoDto(nunota = t.nunota, numeroNota = t.numeroNota, cliente = t.nomeParceiro, situacao = "pronto")
-            val c = carregamento[t.nunota]
+    private suspend fun pedidosDaOc(tenantSlug: String, oc: Long): List<PedidoOc> {
+        val cab = SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            "SELECT C.NUNOTA, C.NUMNOTA, C.CODTIPOPER, P.NOMEPARC, " +
+                "CASE WHEN EXISTS (SELECT 1 FROM TGFPAR PAR WHERE PAR.CODPARC = C.CODPARC AND PAR.CODTIPPARC = $CODTIPPARC_NFCE) THEN 'S' ELSE 'N' END AS NFCE, " +
+                "(SELECT F.STATUS FROM TGFCON2 F WHERE F.NUCONF = C.NUCONFATUAL) AS STATUS_CONF, " +
+                "(SELECT COUNT(*) FROM TSILIB L WHERE L.NUCHAVE = C.NUCONFATUAL AND L.TABELA = 'TGFCOI2' AND L.EVENTO = 64 AND L.DHLIB IS NULL) AS LIB_PEND " +
+                "FROM TGFCAB C JOIN TGFPAR P ON P.CODPARC = C.CODPARC WHERE C.ORDEMCARGA = $oc AND C.TIPMOV = 'P'",
+        )
+        if (cab.isEmpty()) return emptyList()
+        val nunotas = cab.mapNotNull { it["NUNOTA"]?.toBigDecimalOrNull()?.toLong() }
+        val notas = SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            "SELECT DISTINCT V.NUNOTAORIG, V.NUNOTA, N.STATUSNOTA FROM TGFVAR V JOIN TGFCAB N ON N.NUNOTA = V.NUNOTA " +
+                "WHERE V.NUNOTAORIG IN (${nunotas.joinToString()}) AND V.NUNOTA <> V.NUNOTAORIG",
+        ).mapNotNull { r ->
+            val orig = r["NUNOTAORIG"]?.toBigDecimalOrNull()?.toLong() ?: return@mapNotNull null
+            val nota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: return@mapNotNull null
+            Triple(orig, nota, r["STATUSNOTA"]?.trim() == "L")
+        }.groupBy { it.first }
+        return cab.mapNotNull { r ->
+            val nunota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: return@mapNotNull null
+            val n = notas[nunota].orEmpty()
+            PedidoOc(
+                nunota = nunota,
+                numNota = r["NUMNOTA"]?.toBigDecimalOrNull()?.toLong(),
+                cliente = r["NOMEPARC"]?.trim(),
+                codTipOper = r["CODTIPOPER"]?.toBigDecimalOrNull()?.toInt(),
+                nfce = r["NFCE"]?.trim() == "S",
+                statusConf = r["STATUS_CONF"]?.trim()?.takeIf { it.isNotEmpty() },
+                liberacoesPendentes = r["LIB_PEND"]?.toBigDecimalOrNull()?.toInt() ?: 0,
+                notas = n.map { it.second }.distinct().sorted(),
+                notasSemConfirmar = n.filter { !it.third }.map { it.second }.distinct().sorted(),
+            )
+        }.sortedBy { it.cliente ?: "" }
+    }
+
+    private val STATUS_CONF_FINALIZADA = setOf("F", "D", "RF", "RD")
+
+    /**
+     * Prévia do fechamento — TODO pedido de venda da OC no Sankhya (inclusive conferido fora do WMS), independente
+     * da CCO (usuário, 08/10/2026: OC 333 fechou sem faturar porque a regra antiga dependia de FATAOCONCLUIR):
+     * já com nota confirmada = pronto; senão fatura (ou só confirma) na TOP NF-e/NFC-e do parceiro.
+     */
+    suspend fun previa(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
+        val pedidos = pedidosDaOc(tenantSlug, oc)
+        if (pedidos.isEmpty()) return FechamentoOcDto(oc, emptyList(), podeFechar = false, mensagem = "nenhum pedido de venda na OC $oc no Sankhya")
+        val carregamento = withContext(Dispatchers.IO) { ReconferenciaService.resumoCarregamento(tenantId, pedidos.map { it.nunota }, 7) }
+        val destinosPorTop = pedidos.mapNotNull { it.codTipOper }.distinct().associateWith { destinos(tenantSlug, tenantId, it) }
+
+        val itens = pedidos.map { p ->
+            val base = FechamentoPedidoDto(nunota = p.nunota, numeroNota = p.numNota, cliente = p.cliente, nfce = p.nfce, situacao = "pronto", notasGeradas = p.notas)
+            val c = carregamento[p.nunota]
             when {
-                t.statusOperacional !in CONFERIDA -> base.copy(situacao = "bloqueado", motivo = "conferência não finalizada")
+                p.notas.isNotEmpty() && p.notasSemConfirmar.isEmpty() -> base
+                p.statusConf == "C" || p.liberacoesPendentes > 0 -> base.copy(situacao = "bloqueado", motivo = "corte aguardando liberação")
+                p.statusConf !in STATUS_CONF_FINALIZADA && p.notas.isEmpty() ->
+                    base.copy(situacao = "bloqueado", motivo = if (p.statusConf == null) "não conferido" else "conferência não finalizada (${p.statusConf})")
                 c != null && c.carregados < c.total -> base.copy(situacao = "bloqueado", motivo = "falta carregar ${c.total - c.carregados} item(ns)")
-                t.nunota !in pendentes -> base
                 else -> {
-                    val ehNfce = nfce[t.nunota]
-                    val top = ehNfce?.let { f -> topOrigem[t.nunota]?.let { escolherTop(destinosPorTop[it].orEmpty(), f) } }
-                    when {
-                        ehNfce == null -> base.copy(situacao = "bloqueado", motivo = "não foi possível consultar o parceiro no Sankhya")
-                        top == null -> base.copy(nfce = ehNfce, situacao = "bloqueado", motivo = "TOP de destino ${if (ehNfce) "NFC-e" else "NF-e"} não definida para a TOP ${topOrigem[t.nunota] ?: "?"}")
-                        else -> base.copy(nfce = ehNfce, codTipOper = top.codtop, descricaoTop = top.descricao, situacao = "faturar")
-                    }
+                    val top = p.codTipOper?.let { escolherTop(destinosPorTop[it].orEmpty(), p.nfce) }
+                    if (top == null) base.copy(situacao = "bloqueado", motivo = "TOP de destino ${if (p.nfce) "NFC-e" else "NF-e"} não definida para a TOP ${p.codTipOper ?: "?"}")
+                    else base.copy(codTipOper = top.codtop, descricaoTop = top.descricao, situacao = "faturar",
+                        motivo = if (c == null) "conferido fora do WMS (sem registro de carregamento)" else null)
                 }
             }
         }
-        val podeFechar = pedidos.none { it.situacao == "bloqueado" }
-        return FechamentoOcDto(oc, pedidos, podeFechar)
+        return FechamentoOcDto(oc, itens, podeFechar = itens.none { it.situacao == "bloqueado" })
     }
 
     /**
-     * Fecha a OC: fatura + confirma cada pedido "faturar" (um por vez, sem retry — faturar não é idempotente) e,
-     * com todos ok, fecha a OC no Sankhya. Pedido com nota gerada mas sem confirmar só é confirmado.
+     * Fecha a OC: fatura + confirma cada pedido "faturar" (um por vez, sem retry — faturar não é idempotente) e, com
+     * todos ok, fecha a OC no Sankhya. TRAVA FINAL: antes de fechar, relê no Sankhya — todo pedido da OC precisa ter
+     * nota confirmada; senão a OC NÃO fecha.
      */
     suspend fun fechar(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
         val previa = previa(tenantSlug, tenantId, oc)
         if (!previa.podeFechar) return previa.copy(mensagem = "há pedidos bloqueados — resolva antes de fechar a OC")
-        val pendentes = withContext(Dispatchers.IO) { AguardandoNotaService.pendentesLocal(tenantId) }
 
         val resultado = previa.pedidos.map { p ->
             if (p.situacao != "faturar") return@map p
-            val sessaoId = pendentes[p.nunota]?.sessaoId?.let(UUID::fromString)
-                ?: return@map p.copy(ok = false, erro = "sessão da conferência não encontrada")
-            runCatching {
-                try {
-                    SeparacaoService.faturar(tenantSlug, tenantId, sessaoId, p.codTipOper!!, null)
-                } catch (e: SeparacaoService.NotaSemConfirmacaoException) {
-                    SeparacaoService.confirmarNotaPendente(tenantSlug, tenantId, sessaoId)
-                }
-            }.fold(
+            runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
                 onSuccess = { (notas, aviso) -> p.copy(notasGeradas = notas, ok = aviso == null && notas.isNotEmpty(), erro = aviso) },
                 onFailure = { e ->
                     println("AVISO: fechamento OC $oc — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
@@ -161,6 +195,17 @@ object FechamentoOcService {
         if (falhas > 0) {
             return previa.copy(pedidos = resultado, mensagem = "$falhas pedido(s) sem nota — a OC não foi fechada. Corrija e tente de novo.")
         }
+
+        // Trava final: a OC só fecha se TODO pedido dela tiver nota confirmada no Sankhya.
+        val semNota = pedidosDaOc(tenantSlug, oc).filter { it.notas.isEmpty() || it.notasSemConfirmar.isNotEmpty() }
+        if (semNota.isNotEmpty()) {
+            println("AVISO: fechamento OC $oc — trava final: sem nota confirmada ${semNota.map { it.nunota }}; OC não fechada")
+            return previa.copy(
+                pedidos = resultado,
+                mensagem = "A OC não foi fechada: pedido(s) ${semNota.joinToString { it.nunota.toString() }} ainda sem nota confirmada no Sankhya.",
+            )
+        }
+
         // (3) Fecha a OC no Sankhya (TGFORD.SITUACAO = 'F').
         return runCatching { fecharNoSankhya(tenantSlug, tenantId, oc) }.fold(
             onSuccess = { previa.copy(pedidos = resultado, ocFechada = true, mensagem = "Notas faturadas e confirmadas e OC $oc fechada no Sankhya.") },

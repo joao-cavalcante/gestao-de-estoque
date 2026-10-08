@@ -363,6 +363,19 @@ object SeparacaoRepository {
         Unit
     }
 
+    /** Nota do pedido saiu faturada e confirmada: toda sessão "aguardando nota" dele vira 'ok'. */
+    fun marcarNotaOkPorNunota(tenantId: UUID, nunota: Long): Unit = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.update({
+            (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
+                (SeparacaoSessoesTable.notaStatus eq NotaStatus.AGUARDANDO)
+        }) {
+            it[notaStatus] = NotaStatus.OK
+            it[notaErro] = null
+            it[notaAtualizadoEm] = Instant.now()
+        }
+        Unit
+    }
+
     /** Só o motivo da última recusa, mantendo a sessão em "aguardando nota". */
     fun registrarErroNota(tenantId: UUID, sessaoId: UUID, erro: String): Unit = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.update({
