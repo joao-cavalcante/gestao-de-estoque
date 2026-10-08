@@ -30,7 +30,6 @@ import {
   Tarefa,
   ViewMode,
 } from './tarefa.model';
-import { OqFaturamentoModalComponent } from '../separacao/oq-faturamento-modal.component';
 import { OqFechamentoOcModalComponent } from './oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
@@ -70,7 +69,6 @@ function chaveData(data: string): number {
     OqEmptyStateComponent,
     OqSkeletonComponent,
     OqPaginacaoComponent,
-    OqFaturamentoModalComponent,
     OqFechamentoOcModalComponent,
     OqIconComponent,
   ],
@@ -563,11 +561,12 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   }
 
   // ─── Nota por pedido (fase NOTA): modal de faturamento com a TOP do pedido ───
-  readonly faturamento = signal<{ sessaoId: string; rotulo: string } | null>(null);
+  /** Pedido sem OC: "Gerar nota" com a mesma lógica do Fechar OC (TOP automática, fatura e confirma). */
+  readonly faturamento = signal<number | null>(null);
 
   onFaturar(tarefa: Tarefa): void {
-    if (!tarefa.notaPendente) return;
-    this.faturamento.set({ sessaoId: tarefa.notaPendente.sessaoId, rotulo: `Pedido ${tarefa.numeroUnico} — ${tarefa.cliente}` });
+    const nunota = Number(tarefa.numeroUnico);
+    if (nunota > 0) this.faturamento.set(nunota);
   }
 
   // ─── Fechar OC: fatura + confirma as notas dos pedidos e fecha a OC no Sankhya ───

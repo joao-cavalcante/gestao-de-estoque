@@ -459,7 +459,7 @@
   }
 
   @if (mostrarModalFaturamento() && sessaoIdAtual) {
-    <oq-faturamento-modal [sessaoId]="sessaoIdAtual" (notaConfirmada)="notaConfirmada.set(true)" (fechado)="fecharModalFaturamento()" />
+    <oq-fechamento-oc-modal [nunota]="numeroUnicoNum()" (concluido)="notaConfirmada.set(true)" (fechado)="fecharModalFaturamento()" />
   }
 
   @if (mostrarPainelEtapaConcluida() && etapaImpressao(); as ei) {

@@ -42,7 +42,7 @@ interface FechamentoOc {
         <div class="oq-modal__header">
           <span class="fec__cab">
             <oq-icon name="entrega" [size]="16" />
-            <span class="oq-modal__titulo">Fechar OC {{ oc }}</span>
+            <span class="oq-modal__titulo">{{ nunota ? 'Gerar nota · Pedido ' + nunota : 'Fechar OC ' + oc }}</span>
           </span>
           <button type="button" class="oq-modal__fechar" aria-label="Fechar" [disabled]="executando()" (click)="fechado.emit()">
             <oq-icon name="x" [size]="14" />
@@ -51,15 +51,17 @@ interface FechamentoOc {
 
         <div class="oq-modal__body">
           @if (carregando()) {
-            <div class="fec__carregando"><oq-spinner [size]="18" /> Montando o fechamento (pedidos, NF-e / NFC-e e TOP)…</div>
+            <div class="fec__carregando"><oq-spinner [size]="18" /> {{ nunota ? 'Consultando o pedido (NF-e / NFC-e e TOP)…' : 'Montando o fechamento (pedidos, NF-e / NFC-e e TOP)…' }}</div>
           } @else if (erro()) {
             <div class="fec__caixa fec__caixa--erro"><oq-icon name="circle-alert" [size]="16" /><span>{{ erro() }}</span></div>
           } @else {
             @if (dados(); as d) {
             <ol class="fec__passos" aria-label="O que o fechamento faz">
-              <li [class.fec__passo--feito]="executado()">1. Faturar os pedidos</li>
-              <li [class.fec__passo--feito]="executado()">2. Confirmar as notas</li>
-              <li [class.fec__passo--feito]="d.ocFechada">3. Fechar a OC no Sankhya</li>
+              <li [class.fec__passo--feito]="executado()">1. {{ nunota ? 'Faturar o pedido' : 'Faturar os pedidos' }}</li>
+              <li [class.fec__passo--feito]="executado()">2. {{ nunota ? 'Confirmar a nota' : 'Confirmar as notas' }}</li>
+              @if (!nunota) {
+                <li [class.fec__passo--feito]="d.ocFechada">3. Fechar a OC no Sankhya</li>
+              }
             </ol>
 
             <div class="fec__tabela-wrap">
@@ -124,12 +126,12 @@ interface FechamentoOc {
             {{ executado() ? 'Concluir' : 'Cancelar' }}
           </button>
           @if (dados(); as d) {
-            @if (d.podeFechar && !d.ocFechada) {
+            @if (d.podeFechar && !d.ocFechada && !(nunota && executado() && falhas() === 0)) {
               <button type="button" class="oq-admin-btn oq-admin-btn--primary fec__btn" [disabled]="executando()" (click)="executar()">
                 @if (executando()) {
-                  <oq-spinner [size]="12" /> Faturando e fechando…
+                  <oq-spinner [size]="12" /> {{ nunota ? 'Faturando…' : 'Faturando e fechando…' }}
                 } @else {
-                  {{ executado() ? 'Tentar de novo' : 'Faturar notas e fechar OC' }}
+                  {{ executado() ? 'Tentar de novo' : nunota ? 'Faturar e confirmar' : 'Faturar notas e fechar OC' }}
                 }
               </button>
             }
@@ -174,8 +176,13 @@ export class OqFechamentoOcModalComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly feedback = inject(ActionFeedbackService);
 
-  @Input({ required: true }) oc!: number;
+  /** Fechar OC: a OC inteira. */
+  @Input() oc: number | null = null;
+  /** Pedido SEM OC (retira/express): a mesma lógica pra um pedido só — TOP automática, fatura e confirma. */
+  @Input() nunota: number | null = null;
   @Output() fechado = new EventEmitter<void>();
+  /** Tudo faturado e confirmado (e a OC fechada, no modo OC). */
+  @Output() concluido = new EventEmitter<void>();
 
   readonly carregando = signal(true);
   readonly executando = signal(false);
@@ -188,7 +195,8 @@ export class OqFechamentoOcModalComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.http.get<FechamentoOc>(`/api/ordens-carga/${this.oc}/fechamento`).subscribe({
+    const url = this.nunota ? `/api/pedidos/${this.nunota}/nota` : `/api/ordens-carga/${this.oc}/fechamento`;
+    this.http.get<FechamentoOc>(url).subscribe({
       next: (d) => {
         this.dados.set(d);
         this.carregando.set(false);
@@ -203,12 +211,15 @@ export class OqFechamentoOcModalComponent implements OnInit {
   executar(): void {
     if (this.executando()) return;
     this.executando.set(true);
-    this.http.post<FechamentoOc>(`/api/ordens-carga/${this.oc}/fechar`, {}).subscribe({
+    const url = this.nunota ? `/api/pedidos/${this.nunota}/nota` : `/api/ordens-carga/${this.oc}/fechar`;
+    this.http.post<FechamentoOc>(url, {}).subscribe({
       next: (d) => {
         this.dados.set(d);
         this.executando.set(false);
         this.executado.set(true);
-        this.feedback.trigger(d.pedidos.some((p) => p.ok === false) ? 'ERRO_SANKHYA' : 'SUCESSO_SANKHYA', { toast: false });
+        const falhou = d.pedidos.some((p) => p.ok === false);
+        this.feedback.trigger(falhou ? 'ERRO_SANKHYA' : 'SUCESSO_SANKHYA', { toast: false });
+        if (!falhou && (this.nunota || d.ocFechada)) this.concluido.emit();
       },
       error: (err) => {
         this.executando.set(false);

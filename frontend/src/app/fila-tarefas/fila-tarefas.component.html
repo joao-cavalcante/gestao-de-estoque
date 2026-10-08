@@ -316,7 +316,7 @@
     <oq-fechamento-oc-modal [oc]="oc" (fechado)="fecharFechamentoOc()" />
   }
 
-  @if (faturamento(); as f) {
-    <oq-faturamento-modal [sessaoId]="f.sessaoId" [rotulo]="f.rotulo" (fechado)="fecharFaturamento()" />
+  @if (faturamento(); as nunota) {
+    <oq-fechamento-oc-modal [nunota]="nunota" (fechado)="fecharFaturamento()" />
   }
 </div>

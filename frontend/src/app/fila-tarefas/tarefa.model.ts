@@ -115,8 +115,18 @@ export function faseTarefa(t: Tarefa): FasePedido {
   if (t.notaFiscal?.confirmada) return 'pronto';
   // Com OC: depois de carregado, TODO pedido espera o "Fechar OC" (que fatura no Sankhya) — independente da CCO.
   if (t.ordemCarga != null) return 'fechamento';
-  if (t.notaPendente) return 'nota';
+  // Sem OC (retira/express): conferido e sem nota confirmada = gerar nota (independe da CCO, igual ao Fechar OC).
+  // Só os recentes (o cache de notas cobre 15 dias) — antigos sem nota no cache contam como concluídos.
+  if (t.notaPendente || recente(t.data, 15)) return 'nota';
   return 'pronto';
+}
+
+/** "dd/mm/aaaa ..." dentro dos últimos [dias] dias. Data ilegível = não. */
+function recente(data: string, dias: number): boolean {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec((data ?? '').trim());
+  if (!m) return false;
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  return Date.now() - d.getTime() <= dias * 86_400_000;
 }
 
 /** Nota pendente de pedido SEM OC (conferido, sem nota confirmada) — card com "Gerar nota". */

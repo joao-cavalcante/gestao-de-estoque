@@ -708,10 +708,18 @@ object SeparacaoService {
                     }
                     CLIENT_EVENT_FINALIZAR_DIVERGENTE.forEach { (k, v) -> put(k, v) }
                 },
+                // SEM retry: cortar não é idempotente — o 2º envio depois de um timeout falhava porque o Sankhya
+                // já tinha processado o 1º, e a etapa era reaberta no WMS com a conferência finalizada lá (65331).
+                retentar = false,
             )
         } catch (e: Exception) {
             println("AVISO: ConferenciaSP.cortar falhou (nunota ${sessao.nunota}, nuconf $nuconf): ${e.message}")
-            throw e
+            // Timeout/queda/5xx: o Sankhya pode ter processado mesmo assim — confere antes de dar erro.
+            // Recusa de regra do Sankhya (status != 1) é definitiva e continua sendo erro.
+            val incerto = e is java.io.IOException || e is SankhyaSpClient.SankhyaSpErroTransitorio
+            val status = if (incerto) runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()?.trim() else null
+            if (status !in setOf("F", "D", "C", "RF", "RD")) throw e
+            println("INFO: cortar da nunota ${sessao.nunota} sem resposta, mas a conferência $nuconf já está '$status' no Sankhya — segue como concluído")
         }
 
         // Se a CCO exige liberação de corte (LIBCORTE='S') e houve divergência, o

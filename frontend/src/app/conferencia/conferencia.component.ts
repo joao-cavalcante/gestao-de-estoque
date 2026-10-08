@@ -22,7 +22,7 @@ import {
   SincronizacaoSankhya,
 } from '../separacao/separacao.model';
 import { OqLiberacaoCorteModalComponent } from '../liberacao-corte/oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
-import { OqFaturamentoModalComponent } from '../separacao/oq-faturamento-modal.component';
+import { OqFechamentoOcModalComponent } from '../fila-tarefas/oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
 import { FormsModule } from '@angular/forms';
 import { Tarefa, rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
 import { AuthService } from '../auth/auth.service';
@@ -159,7 +159,7 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
     OqConferenciaFooterComponent,
     OqIconComponent,
     OqLiberacaoCorteModalComponent,
-    OqFaturamentoModalComponent,
+    OqFechamentoOcModalComponent,
     OqSpinnerComponent,
     OqSkeletonComponent,
     OqConferidosChecklistComponent,
@@ -1417,7 +1417,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   }
 
   /** Antes de mostrar erro de envio: confere uma vez se o servidor concluiu mesmo assim (ex.: conexão caiu). */
-  private verificarConclusaoAntesDoErro(mostrarErro: () => void): void {
+  private verificarConclusaoAntesDoErro(mostrarErro: () => void, tentativa = 0): void {
     const sessaoId = this.sessaoIdAtual;
     if (!sessaoId) return mostrarErro();
     this.separacaoService
@@ -1425,6 +1425,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       .pipe(catchError(() => of(null)))
       .subscribe((p) => {
         if (p?.concluido && this.recuperarConclusao(p.concluido)) return;
+        // Servidor ainda finalizando (timeout do proxy / resposta perdida com o Sankhya lento — pedido 65331):
+        // continua "Enviando…" e acompanha o progresso por até ~3 min, em vez de mostrar erro e o operador repetir.
+        if (p?.fase && tentativa < 60) {
+          setTimeout(() => this.verificarConclusaoAntesDoErro(mostrarErro, tentativa + 1), 3000);
+          return;
+        }
         mostrarErro();
       });
   }
@@ -1508,8 +1514,15 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    */
   proximoPasso(): 'carregar' | 'nota' | null {
     if (this.ordemCargaTarefa != null) return 'carregar';
-    if (this.fatAoConcluir === 'S' && !this.notaConfirmada()) return 'nota';
+    // Sem OC: a nota sai aqui mesmo (TOP automática, fatura e confirma) — independe da CCO (usuário, 08/10/2026).
+    if (!this.notaConfirmada()) return 'nota';
     return null;
+  }
+
+  /** NUNOTA do pedido aberto, pro modal de nota. */
+  numeroUnicoNum(): number | null {
+    const n = Number(this.numeroUnico);
+    return n > 0 ? n : null;
   }
 
   faturarDoPainel(): void {

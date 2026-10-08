@@ -102,14 +102,17 @@ object FechamentoOcService {
         val statusConf: String?, val liberacoesPendentes: Int, val notas: List<Long>, val notasSemConfirmar: List<Long>,
     )
 
-    private suspend fun pedidosDaOc(tenantSlug: String, oc: Long): List<PedidoOc> {
+    private suspend fun pedidosDaOc(tenantSlug: String, oc: Long): List<PedidoOc> = pedidosVenda(tenantSlug, "C.ORDEMCARGA = $oc")
+
+    /** Pedidos de venda (TIPMOV 'P') que atendem [filtro] (SQL sobre TGFCAB C), com conferência, notas e NF-e/NFC-e. */
+    private suspend fun pedidosVenda(tenantSlug: String, filtro: String): List<PedidoOc> {
         val cab = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             "SELECT C.NUNOTA, C.NUMNOTA, C.CODTIPOPER, P.NOMEPARC, " +
                 "CASE WHEN EXISTS (SELECT 1 FROM TGFPAR PAR WHERE PAR.CODPARC = C.CODPARC AND PAR.CODTIPPARC = $CODTIPPARC_NFCE) THEN 'S' ELSE 'N' END AS NFCE, " +
                 "(SELECT F.STATUS FROM TGFCON2 F WHERE F.NUCONF = C.NUCONFATUAL) AS STATUS_CONF, " +
                 "(SELECT COUNT(*) FROM TSILIB L WHERE L.NUCHAVE = C.NUCONFATUAL AND L.TABELA = 'TGFCOI2' AND L.EVENTO = 64 AND L.DHLIB IS NULL) AS LIB_PEND " +
-                "FROM TGFCAB C JOIN TGFPAR P ON P.CODPARC = C.CODPARC WHERE C.ORDEMCARGA = $oc AND C.TIPMOV = 'P'",
+                "FROM TGFCAB C JOIN TGFPAR P ON P.CODPARC = C.CODPARC WHERE $filtro AND C.TIPMOV = 'P'",
         )
         if (cab.isEmpty()) return emptyList()
         val nunotas = cab.mapNotNull { it["NUNOTA"]?.toBigDecimalOrNull()?.toLong() }
@@ -149,6 +152,12 @@ object FechamentoOcService {
     suspend fun previa(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
         val pedidos = pedidosDaOc(tenantSlug, oc)
         if (pedidos.isEmpty()) return FechamentoOcDto(oc, emptyList(), podeFechar = false, mensagem = "nenhum pedido de venda na OC $oc no Sankhya")
+        val itens = avaliar(tenantSlug, tenantId, pedidos)
+        return FechamentoOcDto(oc, itens, podeFechar = itens.none { it.situacao == "bloqueado" })
+    }
+
+    /** Situação de cada pedido pro faturamento: pronto (já tem nota confirmada) · faturar (TOP automática) · bloqueado. */
+    private suspend fun avaliar(tenantSlug: String, tenantId: UUID, pedidos: List<PedidoOc>): List<FechamentoPedidoDto> {
         val carregamento = withContext(Dispatchers.IO) { ReconferenciaService.resumoCarregamento(tenantId, pedidos.map { it.nunota }, 7) }
         val destinosPorTop = pedidos.mapNotNull { it.codTipOper }.distinct().associateWith { destinos(tenantSlug, tenantId, it) }
 
@@ -169,7 +178,42 @@ object FechamentoOcService {
                 }
             }
         }
-        return FechamentoOcDto(oc, itens, podeFechar = itens.none { it.situacao == "bloqueado" })
+        return itens
+    }
+
+    /** Fatura + confirma cada item "faturar" (um por vez, sem retry). Falha num não para os outros. */
+    private suspend fun faturarItens(tenantSlug: String, tenantId: UUID, itens: List<FechamentoPedidoDto>, contexto: String): List<FechamentoPedidoDto> =
+        itens.map { p ->
+            if (p.situacao != "faturar") return@map p
+            runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
+                onSuccess = { (notas, aviso) -> p.copy(notasGeradas = notas, ok = aviso == null && notas.isNotEmpty(), erro = aviso) },
+                onFailure = { e ->
+                    println("AVISO: $contexto — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
+                    p.copy(ok = false, erro = e.message ?: "falha ao faturar no Sankhya")
+                },
+            )
+        }
+
+    /**
+     * Pedido SEM OC (retira/express): mesma lógica do Fechar OC (usuário, 08/10/2026) — TOP automática pelo
+     * parceiro (NF-e/NFC-e), fatura e confirma num toque, independente da CCO. Devolve no formato do fechamento (oc = 0).
+     */
+    suspend fun previaPedido(tenantSlug: String, tenantId: UUID, nunota: Long): FechamentoOcDto {
+        val pedidos = pedidosVenda(tenantSlug, "C.NUNOTA = $nunota")
+        if (pedidos.isEmpty()) return FechamentoOcDto(0, emptyList(), podeFechar = false, mensagem = "pedido $nunota não encontrado no Sankhya")
+        val itens = avaliar(tenantSlug, tenantId, pedidos)
+        return FechamentoOcDto(0, itens, podeFechar = itens.none { it.situacao == "bloqueado" })
+    }
+
+    suspend fun faturarPedidoAvulso(tenantSlug: String, tenantId: UUID, nunota: Long): FechamentoOcDto {
+        val previa = previaPedido(tenantSlug, tenantId, nunota)
+        if (!previa.podeFechar) return previa.copy(mensagem = "pedido bloqueado — resolva antes de gerar a nota")
+        val resultado = faturarItens(tenantSlug, tenantId, previa.pedidos, "nota do pedido $nunota")
+        val falha = resultado.any { it.ok == false }
+        return previa.copy(
+            pedidos = resultado,
+            mensagem = if (falha) "A nota não saiu — veja o motivo e tente de novo." else "Nota faturada e confirmada.",
+        )
     }
 
     /**
@@ -181,16 +225,7 @@ object FechamentoOcService {
         val previa = previa(tenantSlug, tenantId, oc)
         if (!previa.podeFechar) return previa.copy(mensagem = "há pedidos bloqueados — resolva antes de fechar a OC")
 
-        val resultado = previa.pedidos.map { p ->
-            if (p.situacao != "faturar") return@map p
-            runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
-                onSuccess = { (notas, aviso) -> p.copy(notasGeradas = notas, ok = aviso == null && notas.isNotEmpty(), erro = aviso) },
-                onFailure = { e ->
-                    println("AVISO: fechamento OC $oc — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
-                    p.copy(ok = false, erro = e.message ?: "falha ao faturar no Sankhya")
-                },
-            )
-        }
+        val resultado = faturarItens(tenantSlug, tenantId, previa.pedidos, "fechamento OC $oc")
         val falhas = resultado.count { it.ok == false }
         if (falhas > 0) {
             return previa.copy(pedidos = resultado, mensagem = "$falhas pedido(s) sem nota — a OC não foi fechada. Corrija e tente de novo.")
@@ -253,6 +288,37 @@ object FechamentoOcService {
 }
 
 fun Route.fechamentoOcRoutes() {
+    route("/api/pedidos/{nunota}/nota") {
+        /** Prévia da nota do pedido sem OC: NF-e/NFC-e, TOP automática e bloqueios. */
+        get {
+            val claims = call.exigirAuth() ?: return@get
+            val nunota = call.parameters["nunota"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "pedido inválido"))
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
+                ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+            try {
+                call.respond(FechamentoOcService.previaPedido(slug, claims.tenantId, nunota))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao consultar o Sankhya")))
+            }
+        }
+
+        /** Fatura + confirma o pedido sem OC na TOP automática. */
+        post {
+            val claims = call.exigirAuth() ?: return@post
+            val nunota = call.parameters["nunota"]?.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "pedido inválido"))
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+            try {
+                call.respond(FechamentoOcService.faturarPedidoAvulso(slug, claims.tenantId, nunota))
+            } catch (e: Exception) {
+                println("AVISO: nota do pedido $nunota falhou: ${e.message}")
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao gerar a nota")))
+            }
+        }
+    }
+
     route("/api/ordens-carga/{oc}") {
         /** Prévia do "Fechar OC": pedidos, NF-e/NFC-e, TOP de destino e bloqueios. */
         get("/fechamento") {
