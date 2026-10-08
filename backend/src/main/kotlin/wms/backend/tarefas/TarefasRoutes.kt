@@ -35,7 +35,7 @@ fun Route.tarefasRoutes() {
                 return@get
             }
 
-            call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))))
+            call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, comOcAtual(tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))))
         }
 
         // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
@@ -59,7 +59,7 @@ fun Route.tarefasRoutes() {
             }
             try {
                 TarefaSyncService.sincronizarTenant(slug, tenantId)
-                call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))))
+                call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, comOcAtual(tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))))
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadGateway,
@@ -117,6 +117,17 @@ private fun comCarregamento(tenantId: UUID, tarefas: List<TarefaApiDto>): List<T
     if (conferidas.isEmpty()) return tarefas
     val resumo = wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, conferidas, DIAS_CARREGAMENTO)
     return tarefas.map { t -> resumo[t.nunota]?.let { t.copy(carregamento = it) } ?: t }
+}
+
+/** OC atual do pedido conferido (o espelho local fica com a antiga se o pedido trocou de OC depois de conferido). */
+private fun comOcAtual(tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    val atual = NotasFiscaisPedido.ocAtualDoCache(tenantId)
+    if (atual.isEmpty()) return tarefas
+    return tarefas.map { t ->
+        val oc = atual[t.nunota] ?: return@map t
+        val nova = oc.takeIf { it > 0 }
+        if (nova == t.ordemCarga) t else t.copy(ordemCarga = nova)
+    }
 }
 
 /** Nota fiscal de cada pedido (cache do sync de fundo — ver NotasFiscaisPedido). */

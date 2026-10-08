@@ -418,9 +418,11 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
         // OC / sem OC já são o escopo (tarefasDoEscopo); "só com OC" continua valendo na visão de todas.
         (avancados.vinculoOrdemCarga !== 'com' || t.ordemCarga != null);
 
-      // Filtro de tipo de separação: passa se tem etapa PENDENTE de algum tipo selecionado.
+      // Filtro de tipo de separação: em conferência, passa se tem etapa PENDENTE do tipo; depois de conferido,
+      // passa se o pedido TEM itens do tipo (ex.: Refrigerado a carregar — antes sumia com o filtro ligado).
+      const emConferencia = faseTarefa(t) === 'conferir' || faseTarefa(t) === 'corte';
       const passaTipoSeparacao =
-        tipos.size === 0 || (t.etapas ?? []).some((e) => e.status === 'P' && tipos.has(e.tipo));
+        tipos.size === 0 || (t.etapas ?? []).some((e) => tipos.has(e.tipo) && (!emConferencia || e.status === 'P'));
 
       const passaModalidade =
         modalidades.size === 0 ||

@@ -37,7 +37,16 @@ object NotasFiscaisPedido {
 
     private val cache = ConcurrentHashMap<UUID, Map<Long, NotaFiscalPedidoDto>>()
 
+    /**
+     * OC ATUAL de cada pedido conferido (TGFCAB.ORDEMCARGA; 0 = sem OC). Pedido conferido sai do critério do
+     * sync, então o espelho local ficava com a OC antiga — pedido trocado de OC depois da conferência sumia da
+     * OC nova na fila (pedido 65276: espelho 313, Sankhya 334 — 08/10/2026).
+     */
+    private val ocAtual = ConcurrentHashMap<UUID, Map<Long, Long>>()
+
     fun doCache(tenantId: UUID): Map<Long, NotaFiscalPedidoDto> = cache[tenantId].orEmpty()
+
+    fun ocAtualDoCache(tenantId: UUID): Map<Long, Long> = ocAtual[tenantId].orEmpty()
 
     /** Relê no Sankhya as notas dos [pedidos] (em lotes) e troca o cache do tenant. */
     suspend fun atualizar(tenantSlug: String, tenantId: UUID, pedidos: Collection<Long>) {
@@ -46,7 +55,15 @@ object NotasFiscaisPedido {
             return
         }
         val novo = HashMap<Long, NotaFiscalPedidoDto>()
+        val ocs = HashMap<Long, Long>()
         for (lote in pedidos.distinct().chunked(500)) {
+            SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT NUNOTA, NVL(ORDEMCARGA, 0) AS ORDEMCARGA FROM TGFCAB WHERE NUNOTA IN (${lote.joinToString()})",
+            ).forEach { r ->
+                val n = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: return@forEach
+                ocs[n] = r["ORDEMCARGA"]?.toBigDecimalOrNull()?.toLong() ?: 0L
+            }
             SankhyaDbExplorerClient.executarQuery(
                 tenantSlug,
                 "SELECT V.NUNOTAORIG, N.NUNOTA, N.NUMNOTA, N.SERIENOTA, N.STATUSNFE, N.STATUSNOTA, " +
@@ -71,5 +88,6 @@ object NotasFiscaisPedido {
             }
         }
         cache[tenantId] = novo
+        ocAtual[tenantId] = ocs
     }
 }
