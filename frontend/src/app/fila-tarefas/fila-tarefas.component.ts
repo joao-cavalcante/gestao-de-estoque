@@ -351,8 +351,8 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   }
 
   readonly rotuloFase = ROTULO_FASE;
-  /** Seção "Prontos" da OC começa recolhida (só mostra o avanço). */
-  readonly prontosAbertos = signal(false);
+  /** Seção "Pronto" da OC começa ABERTA — recolhida, o pedido sumia da tela e a régua (1/4) não batia com os cards. */
+  readonly prontosAbertos = signal(true);
 
   /** Dentro da OC: os pedidos agrupados pela fase, na ordem do fluxo (sem paginação — uma OC é pequena). */
   readonly gruposOc = computed(() => {
