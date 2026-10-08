@@ -1298,17 +1298,68 @@ object SeparacaoService {
      */
     suspend fun faturarPedido(tenantSlug: String, tenantId: UUID, nunota: Long, codTipOper: Int): Pair<List<Long>, String?> {
         val resultado = try {
-            validarFaturamentoPedido(tenantSlug, tenantId, nunota)
-            faturarNoSankhya(tenantSlug, nunota, codTipOper, null)
-        } catch (e: NotaSemConfirmacaoException) {
-            val geradas = situacaoFaturamento(tenantSlug, nunota).notasGeradas
-            geradas to confirmarNotasGeradas(tenantSlug, geradas)
+            try {
+                validarFaturamentoPedido(tenantSlug, tenantId, nunota)
+                faturarNoSankhya(tenantSlug, nunota, codTipOper, null)
+            } catch (e: NotaSemConfirmacaoException) {
+                val geradas = situacaoFaturamento(tenantSlug, nunota).notasGeradas
+                geradas to confirmarNotasGeradas(tenantSlug, geradas)
+            }
+        } catch (e: Exception) {
+            registrarFeedbackFaturamento(tenantSlug, nunota, emptyList(), e.message ?: "falha ao faturar no Sankhya")
+            throw e
         }
+        registrarFeedbackFaturamento(tenantSlug, nunota, resultado.first, resultado.second)
         if (resultado.first.isNotEmpty() && resultado.second == null) {
             withContext(Dispatchers.IO) { SeparacaoRepository.marcarNotaOkPorNunota(tenantId, nunota) }
         }
         return resultado
     }
+
+    /**
+     * TGFCAB.AD_FEEDBACK do PEDIDO ("Feedback Fila de Conferencia") com uma frase pro humano dizendo se o WMS faturou
+     * ou não, e por quê (usuário, 08/10/2026). Nunca derruba o faturamento — falha aqui só vai pro log.
+     */
+    private suspend fun registrarFeedbackFaturamento(tenantSlug: String, nunota: Long, notas: List<Long>, problema: String?) {
+        val quando = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+        val motivo = problema?.let(::motivoLegivel)
+        val texto = runCatching {
+            val numeros = if (notas.isEmpty()) emptyList() else SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT N.NUMNOTA, (SELECT T.DESCROPER FROM TGFTOP T WHERE T.CODTIPOPER = N.CODTIPOPER AND T.DHALTER = N.DHTIPOPER) AS DESCROPER " +
+                    "FROM TGFCAB N WHERE N.NUNOTA IN (${notas.joinToString()})",
+            ).map { r -> "${r["NUMNOTA"]?.trim() ?: "?"} (${if (r["DESCROPER"]?.uppercase()?.contains("NFC") == true) "NFC-e" else "NF-e"})" }
+            val notasTxt = numeros.joinToString(", ").ifEmpty { notas.joinToString(", ") }
+            when {
+                notas.isNotEmpty() && motivo == null -> "Faturado pelo WMS em $quando — nota $notasTxt confirmada."
+                notas.isNotEmpty() -> "Faturado pelo WMS em $quando, mas a nota $notasTxt NÃO foi confirmada: $motivo. Confirme na Central de Notas."
+                else -> "NÃO faturado pelo WMS em $quando: ${motivo ?: "o Sankhya não gerou a nota"}. Fature de novo pela fila ou pelo Sankhya."
+            }
+        }.getOrElse { "${if (notas.isEmpty()) "NÃO faturado" else "Faturado"} pelo WMS em $quando${motivo?.let { ": $it" } ?: "."}" }
+        runCatching {
+            SankhyaSpClient.chamarRaw(
+                tenantSlug, "CRUDServiceProvider.saveRecord", "mge",
+                buildJsonObject {
+                    putJsonObject("dataSet") {
+                        put("rootEntity", "CabecalhoNota")
+                        put("includePresentationFields", "N")
+                        putJsonObject("dataRow") {
+                            putJsonObject("localFields") { putJsonObject("AD_FEEDBACK") { put("\$", texto.take(4000)) } }
+                            putJsonObject("key") { putJsonObject("NUNOTA") { put("\$", nunota.toString()) } }
+                        }
+                        putJsonObject("entity") { putJsonObject("fieldset") { put("list", "NUNOTA,AD_FEEDBACK") } }
+                    }
+                },
+                retentar = false,
+            )
+        }.onFailure { println("AVISO: AD_FEEDBACK do pedido $nunota não gravado: ${it.message}") }
+    }
+
+    /** Tira o prefixo técnico ("Sankhya X falhou para tenant 'y': Erro interno: ...") e deixa só o motivo. */
+    private fun motivoLegivel(bruto: String): String =
+        bruto.substringAfter("falhou para tenant", bruto).substringAfter("': ", bruto.substringAfter("falhou para tenant", bruto))
+            .removePrefix("Erro interno: ").replace(Regex("""\s+"""), " ").trim().trimEnd('.').ifEmpty { bruto.trim() }
 
     /** Notas do pedido (TGFVAR) e quais ainda não estão confirmadas — usado pela trava final do Fechar OC. */
     suspend fun notasDoPedido(tenantSlug: String, nunota: Long): Pair<List<Long>, List<Long>> {

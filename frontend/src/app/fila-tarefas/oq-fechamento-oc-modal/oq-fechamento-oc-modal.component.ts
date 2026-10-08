@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
@@ -17,6 +17,14 @@ interface FechamentoPedido {
   notasGeradas: number[];
   ok: boolean | null;
   erro: string | null;
+}
+
+/** Progresso da emissão no servidor (GET .../progresso) enquanto o POST não volta. */
+interface ProgressoEmissao {
+  fase: 'faturando' | 'fechando' | null;
+  feitos: number;
+  total: number;
+  atual: string | null;
 }
 
 interface FechamentoOc {
@@ -56,6 +64,20 @@ interface FechamentoOc {
             <div class="fec__caixa fec__caixa--erro"><oq-icon name="circle-alert" [size]="16" /><span>{{ erro() }}</span></div>
           } @else {
             @if (dados(); as d) {
+            @if (executando()) {
+              <div class="fec__progresso" role="status" aria-live="polite">
+                <div class="fec__progresso-texto">
+                  <oq-spinner [size]="14" />
+                  <span>{{ textoProgresso() }}</span>
+                  @if (progresso().total > 0) {
+                    <span class="fec__progresso-num">{{ percentual() }}%</span>
+                  }
+                </div>
+                <div class="fec__barra" [class.fec__barra--indeterminada]="progresso().total === 0">
+                  <span class="fec__barra-fill" [style.width.%]="progresso().total > 0 ? percentual() : 35"></span>
+                </div>
+              </div>
+            }
             <ol class="fec__passos" aria-label="O que o fechamento faz">
               <li [class.fec__passo--feito]="executado()">1. {{ nunota ? 'Faturar o pedido' : 'Faturar os pedidos' }}</li>
               <li [class.fec__passo--feito]="executado()">2. {{ nunota ? 'Confirmar a nota' : 'Confirmar as notas' }}</li>
@@ -144,6 +166,14 @@ interface FechamentoOc {
     .fec { max-width: 920px; }
     .fec__cab { display: flex; align-items: center; gap: 8px; color: var(--oq-brand-accent); }
     .fec__carregando { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 28px 0; font-size: 13px; color: var(--oq-text-secondary); }
+    .fec__progresso { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--oq-border);
+      border-radius: var(--oq-radius-block); background: var(--oq-surface-2); }
+    .fec__progresso-texto { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--oq-text-primary); }
+    .fec__progresso-num { margin-left: auto; font-family: var(--oq-font-mono); font-weight: 700; color: var(--oq-brand); }
+    .fec__barra { position: relative; height: 8px; border-radius: 999px; background: var(--oq-border); overflow: hidden; }
+    .fec__barra-fill { display: block; height: 100%; border-radius: 999px; background: var(--oq-brand); transition: width 0.6s ease; }
+    .fec__barra--indeterminada .fec__barra-fill { position: absolute; animation: fec-indet 1.2s ease-in-out infinite; }
+    @keyframes fec-indet { from { left: -35%; } to { left: 100%; } }
     .fec__passos { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none;
       font-family: var(--oq-font-display); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--oq-text-secondary); }
     .fec__passo--feito { color: var(--oq-success-foreground); }
@@ -172,7 +202,7 @@ interface FechamentoOc {
     .fec__btn { min-height: 40px; padding: 9px 16px; font-size: 12px; }
   `],
 })
-export class OqFechamentoOcModalComponent implements OnInit {
+export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly feedback = inject(ActionFeedbackService);
 
@@ -189,6 +219,42 @@ export class OqFechamentoOcModalComponent implements OnInit {
   readonly executado = signal(false);
   readonly erro = signal<string | null>(null);
   readonly dados = signal<FechamentoOc | null>(null);
+  /** Progresso vindo do servidor enquanto fatura (barra). */
+  readonly progresso = signal<ProgressoEmissao>({ fase: null, feitos: 0, total: 0, atual: null });
+  private pollProgresso: ReturnType<typeof setInterval> | null = null;
+
+  percentual(): number {
+    const p = this.progresso();
+    return p.total > 0 ? Math.round((p.feitos / p.total) * 100) : 0;
+  }
+
+  textoProgresso(): string {
+    const p = this.progresso();
+    if (p.fase === 'fechando') return 'Notas emitidas — fechando a OC no Sankhya…';
+    if (p.fase === 'faturando' && p.total > 0) {
+      const n = Math.min(p.feitos + 1, p.total);
+      return `Faturando e confirmando ${n} de ${p.total}${p.atual ? ' · Pedido ' + p.atual : ''}`;
+    }
+    return 'Conferindo os pedidos no Sankhya…';
+  }
+
+  private iniciarPoll(): void {
+    const url = this.nunota ? `/api/pedidos/${this.nunota}/nota/progresso` : `/api/ordens-carga/${this.oc}/fechamento/progresso`;
+    this.pararPoll();
+    this.progresso.set({ fase: null, feitos: 0, total: 0, atual: null });
+    this.pollProgresso = setInterval(() => {
+      this.http.get<ProgressoEmissao>(url).subscribe({ next: (p) => { if (p?.fase) this.progresso.set(p); }, error: () => {} });
+    }, 1500);
+  }
+
+  private pararPoll(): void {
+    if (this.pollProgresso) clearInterval(this.pollProgresso);
+    this.pollProgresso = null;
+  }
+
+  ngOnDestroy(): void {
+    this.pararPoll();
+  }
 
   falhas(): number {
     return this.dados()?.pedidos.filter((p) => p.ok === false).length ?? 0;
@@ -211,9 +277,11 @@ export class OqFechamentoOcModalComponent implements OnInit {
   executar(): void {
     if (this.executando()) return;
     this.executando.set(true);
+    this.iniciarPoll();
     const url = this.nunota ? `/api/pedidos/${this.nunota}/nota` : `/api/ordens-carga/${this.oc}/fechar`;
     this.http.post<FechamentoOc>(url, {}).subscribe({
       next: (d) => {
+        this.pararPoll();
         this.dados.set(d);
         this.executando.set(false);
         this.executado.set(true);
@@ -222,6 +290,7 @@ export class OqFechamentoOcModalComponent implements OnInit {
         if (!falhou && (this.nunota || d.ocFechada)) this.concluido.emit();
       },
       error: (err) => {
+        this.pararPoll();
         this.executando.set(false);
         this.erro.set(err?.error?.erro ?? 'Falha ao fechar a OC.');
         this.feedback.trigger('ERRO_SANKHYA', { toast: false });

@@ -66,6 +66,25 @@ data class FechamentoOcDto(
     val mensagem: String? = null,
 )
 
+/** Progresso da emissão (Fechar OC / Gerar nota) — a tela consulta enquanto o POST não volta. */
+@Serializable
+data class ProgressoEmissaoDto(
+    /** faturando | fechando | null (nada em andamento) */
+    val fase: String? = null,
+    val feitos: Int = 0,
+    val total: Int = 0,
+    /** Pedido sendo faturado agora ("65326 — PIZZARIA TRIUNFO"). */
+    val atual: String? = null,
+)
+
+/** Em memória, por chave "oc:333" / "pedido:65528". */
+object ProgressoEmissao {
+    private val estados = java.util.concurrent.ConcurrentHashMap<String, ProgressoEmissaoDto>()
+    fun atualizar(chave: String, estado: ProgressoEmissaoDto) { estados[chave] = estado }
+    fun limpar(chave: String) { estados.remove(chave) }
+    fun obter(chave: String): ProgressoEmissaoDto = estados[chave] ?: ProgressoEmissaoDto()
+}
+
 object FechamentoOcService {
     private const val CODTIPPARC_NFCE = 10401002L
     private val CONFERIDA = setOf(
@@ -182,17 +201,30 @@ object FechamentoOcService {
     }
 
     /** Fatura + confirma cada item "faturar" (um por vez, sem retry). Falha num não para os outros. */
-    private suspend fun faturarItens(tenantSlug: String, tenantId: UUID, itens: List<FechamentoPedidoDto>, contexto: String): List<FechamentoPedidoDto> =
-        itens.map { p ->
+    private suspend fun faturarItens(
+        tenantSlug: String,
+        tenantId: UUID,
+        itens: List<FechamentoPedidoDto>,
+        contexto: String,
+        chaveProgresso: String,
+    ): List<FechamentoPedidoDto> {
+        val total = itens.count { it.situacao == "faturar" }
+        var feitos = 0
+        return itens.map { p ->
             if (p.situacao != "faturar") return@map p
-            runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
+            ProgressoEmissao.atualizar(chaveProgresso, ProgressoEmissaoDto("faturando", feitos, total, "${p.nunota}${p.cliente?.let { " — $it" } ?: ""}"))
+            val r = runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
                 onSuccess = { (notas, aviso) -> p.copy(notasGeradas = notas, ok = aviso == null && notas.isNotEmpty(), erro = aviso) },
                 onFailure = { e ->
                     println("AVISO: $contexto — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
                     p.copy(ok = false, erro = e.message ?: "falha ao faturar no Sankhya")
                 },
             )
+            feitos++
+            ProgressoEmissao.atualizar(chaveProgresso, ProgressoEmissaoDto("faturando", feitos, total, null))
+            r
         }
+    }
 
     /**
      * Pedido SEM OC (retira/express): mesma lógica do Fechar OC (usuário, 08/10/2026) — TOP automática pelo
@@ -208,7 +240,12 @@ object FechamentoOcService {
     suspend fun faturarPedidoAvulso(tenantSlug: String, tenantId: UUID, nunota: Long): FechamentoOcDto {
         val previa = previaPedido(tenantSlug, tenantId, nunota)
         if (!previa.podeFechar) return previa.copy(mensagem = "pedido bloqueado — resolva antes de gerar a nota")
-        val resultado = faturarItens(tenantSlug, tenantId, previa.pedidos, "nota do pedido $nunota")
+        val chave = "pedido:$nunota"
+        val resultado = try {
+            faturarItens(tenantSlug, tenantId, previa.pedidos, "nota do pedido $nunota", chave)
+        } finally {
+            ProgressoEmissao.limpar(chave)
+        }
         val falha = resultado.any { it.ok == false }
         return previa.copy(
             pedidos = resultado,
@@ -221,11 +258,18 @@ object FechamentoOcService {
      * todos ok, fecha a OC no Sankhya. TRAVA FINAL: antes de fechar, relê no Sankhya — todo pedido da OC precisa ter
      * nota confirmada; senão a OC NÃO fecha.
      */
-    suspend fun fechar(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
+    suspend fun fechar(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto =
+        try {
+            fecharComProgresso(tenantSlug, tenantId, oc)
+        } finally {
+            ProgressoEmissao.limpar("oc:$oc")
+        }
+
+    private suspend fun fecharComProgresso(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
         val previa = previa(tenantSlug, tenantId, oc)
         if (!previa.podeFechar) return previa.copy(mensagem = "há pedidos bloqueados — resolva antes de fechar a OC")
 
-        val resultado = faturarItens(tenantSlug, tenantId, previa.pedidos, "fechamento OC $oc")
+        val resultado = faturarItens(tenantSlug, tenantId, previa.pedidos, "fechamento OC $oc", "oc:$oc")
         val falhas = resultado.count { it.ok == false }
         if (falhas > 0) {
             return previa.copy(pedidos = resultado, mensagem = "$falhas pedido(s) sem nota — a OC não foi fechada. Corrija e tente de novo.")
@@ -242,6 +286,8 @@ object FechamentoOcService {
         }
 
         // (3) Fecha a OC no Sankhya (TGFORD.SITUACAO = 'F').
+        val faturados = resultado.count { it.situacao == "faturar" }
+        ProgressoEmissao.atualizar("oc:$oc", ProgressoEmissaoDto("fechando", faturados, faturados, null))
         return runCatching { fecharNoSankhya(tenantSlug, tenantId, oc) }.fold(
             onSuccess = { previa.copy(pedidos = resultado, ocFechada = true, mensagem = "Notas faturadas e confirmadas e OC $oc fechada no Sankhya.") },
             onFailure = { e ->
@@ -303,6 +349,14 @@ fun Route.fechamentoOcRoutes() {
             }
         }
 
+        /** Progresso da emissão em andamento (a tela consulta enquanto o POST não volta). */
+        get("/progresso") {
+            call.exigirAuth() ?: return@get
+            val nunota = call.parameters["nunota"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "pedido inválido"))
+            call.respond(ProgressoEmissao.obter("pedido:$nunota"))
+        }
+
         /** Fatura + confirma o pedido sem OC na TOP automática. */
         post {
             val claims = call.exigirAuth() ?: return@post
@@ -332,6 +386,14 @@ fun Route.fechamentoOcRoutes() {
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao consultar o Sankhya")))
             }
+        }
+
+        /** Progresso do fechamento em andamento (a tela consulta enquanto o POST não volta). */
+        get("/fechamento/progresso") {
+            call.exigirAuth() ?: return@get
+            val oc = call.parameters["oc"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "OC inválida"))
+            call.respond(ProgressoEmissao.obter("oc:$oc"))
         }
 
         /** Fecha a OC: fatura + confirma os pedidos e, com todos ok, fecha no Sankhya. */
