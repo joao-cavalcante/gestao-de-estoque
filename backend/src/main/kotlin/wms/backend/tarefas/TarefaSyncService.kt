@@ -122,6 +122,12 @@ object TarefaSyncService {
             revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
         }
 
+        // Situação (aberta/fechada) das OCs que estão na fila — reflete abrir/fechar no Sankhya em ~1 ciclo.
+        runCatching {
+            val ocs = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }.mapNotNull { it.ordemCarga }
+            wms.backend.mapaseparacao.TransporteOrdemCarga.atualizarSituacoes(tenantSlug, tenantId, ocs)
+        }.onFailure { println("AVISO: situação das OCs (tenant $tenantSlug) falhou: ${it.message}") }
+
         // Nota fiscal de cada pedido conferido (número + situação) pra fila.
         runCatching {
             val conferidos = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }

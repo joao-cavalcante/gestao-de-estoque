@@ -28,6 +28,27 @@ object TransporteOrdemCarga {
     private val cache = ConcurrentHashMap<Pair<UUID, Long>, Pair<Instant, Transporte>>()
     private val emVoo = ConcurrentHashMap.newKeySet<Pair<UUID, Long>>()
 
+    /**
+     * TGFORD.SITUACAO relida a cada ciclo de sync (~60s) — o cache de motorista/veículo vale 10 min, curto
+     * demais pra "aberta/fechada": OC reaberta no Sankhya sumia da fila até o cache vencer (OC 317, 08/10/2026).
+     */
+    private val situacoes = ConcurrentHashMap<Pair<UUID, Long>, String>()
+
+    /** Relê a situação (A/F) das [ocs] numa consulta só. Chamado pelo ciclo de sync de fundo. */
+    suspend fun atualizarSituacoes(tenantSlug: String, tenantId: UUID, ocs: Collection<Long>) {
+        val distintas = ocs.distinct()
+        if (distintas.isEmpty()) return
+        for (lote in distintas.chunked(500)) {
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT ORDEMCARGA, MIN(NVL(SITUACAO, 'A')) AS SITUACAO FROM TGFORD WHERE ORDEMCARGA IN (${lote.joinToString()}) GROUP BY ORDEMCARGA",
+            ).forEach { r ->
+                val oc = r["ORDEMCARGA"]?.toBigDecimalOrNull()?.toLong() ?: return@forEach
+                r["SITUACAO"]?.trim()?.takeIf { it.isNotEmpty() }?.let { situacoes[tenantId to oc] = it }
+            }
+        }
+    }
+
     private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO")
     private val FIELDS_VEICULO = listOf("CODVEICULO", "MARCAMODELO", "PLACA")
     private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
@@ -50,13 +71,23 @@ object TransporteOrdemCarga {
                 }
             }
         }
-        // Valor vencido ainda serve enquanto o novo não chega (motorista raramente muda).
-        return distintas.mapNotNull { oc -> cache[tenantId to oc]?.second?.let { oc to it } }.toMap()
+        // Valor vencido ainda serve enquanto o novo não chega (motorista raramente muda). A situação
+        // (aberta/fechada) vem do ciclo de sync quando já lida — é mais recente que o cache de 10 min.
+        return distintas.mapNotNull { oc ->
+            val t = cache[tenantId to oc]?.second
+            val sit = situacoes[tenantId to oc]
+            when {
+                t != null -> oc to (if (sit != null) t.copy(situacao = sit) else t)
+                sit != null -> oc to Transporte(motorista = null, placa = null, veiculo = null, situacao = sit)
+                else -> null
+            }
+        }.toMap()
     }
 
     /** Esquece a OC (ex.: acabou de ser fechada) — o próximo poll da fila busca de novo. */
     fun invalidar(tenantId: UUID, oc: Long) {
         cache.remove(tenantId to oc)
+        situacoes.remove(tenantId to oc)
     }
 
     /** Espera a consulta (etiqueta). Null se a OC não existe ou o Sankhya falhou. */
