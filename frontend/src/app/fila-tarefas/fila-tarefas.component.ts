@@ -213,8 +213,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
    * Pedidos que valem no escopo, pela fase do fluxo (conferir → corte → carregar → nota → pronto):
    * - dentro da OC: tudo da OC (inclusive PRONTO, até a OC ser fechada no Sankhya);
    * - sem OC: conferir, corte e nota (não há carregamento controlado);
-   * - todas: conferir e corte de qualquer pedido + nota dos pedidos sem OC — carregar/nota/pronto de
-   *   pedido com OC só aparecem dentro da OC.
+   * - todas: tudo que ainda não terminou (conferência, corte, carregamento, fechamento da OC, nota).
    */
   private readonly tarefasDoEscopo = computed(() => {
     const e = this.escopo();
@@ -222,7 +221,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       const fase = faseTarefa(t);
       if (e.tipo === 'oc') return String(t.ordemCarga ?? '') === e.oc && !t.ordemCargaFechada;
       if (e.tipo === 'sem') return t.ordemCarga == null && fase !== 'pronto' && fase !== 'carregar';
-      return fase === 'conferir' || fase === 'corte' || (fase === 'nota' && t.ordemCarga == null);
+      // Todas: tudo que ainda não terminou — inclusive carregamento e fechamento de OC (usuário, 08/10/2026:
+      // pedido não carregado e sem nota sumia da fila geral). Concluído e OC fechada ficam de fora.
+      return fase !== 'pronto' && !t.ordemCargaFechada;
     });
   });
 
