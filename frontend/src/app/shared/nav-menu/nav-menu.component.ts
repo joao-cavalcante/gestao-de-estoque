@@ -30,7 +30,6 @@ const ITENS: ItemMenu[] = [
   { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
   { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
   { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
-  { rota: '/carregamento', label: 'Carregamento', icone: 'entrega' },
   { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
   { rota: '/consulta-produtos', label: 'Consulta de Produtos', icone: 'search' },
   { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },
@@ -40,8 +39,6 @@ const ITENS: ItemMenu[] = [
     icone: 'tv',
     somenteAdmin: true,
     subItens: [
-      { rota: '/tv/saida', label: 'Saídas (vendas)', icone: 'tv' },
-      { rota: '/tv/entrada', label: 'Entradas (compras)', icone: 'tv' },
       { rota: '/tv', label: 'Entradas e saídas', icone: 'tv' },
       { rota: '/tv/carga', label: 'Ordens de carga', icone: 'tv' },
     ],
