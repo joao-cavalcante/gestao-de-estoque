@@ -61,10 +61,10 @@ export class OqToolbarComponent {
 
   readonly pills: PillFiltro[] = [
     { valor: 'todos', label: 'Todos' },
-    { valor: 'conferir', label: 'Conferir' },
+    { valor: 'conferir', label: 'Conferência' },
     { valor: 'corte', label: 'Corte' },
-    { valor: 'carregar', label: 'Carregar' },
-    { valor: 'nota', label: 'Nota' },
+    { valor: 'carregar', label: 'Carregamento' },
+    { valor: 'nota', label: 'Nota pendente' },
   ];
 
   readonly tiposSeparacao = TIPOS_SEPARACAO;

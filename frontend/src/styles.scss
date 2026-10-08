@@ -546,6 +546,13 @@ body {
   background: var(--oq-surface-2);
 }
 
+/* Botões do rodapé do modal: mesma altura e conteúdo centralizado — quando quebram de linha em tela
+   menor, não ficam "tortos" (alturas e larguras diferentes lado a lado). */
+.oq-modal__footer .oq-admin-btn {
+  min-height: 40px;
+  justify-content: center;
+}
+
 /* Celular: modal encosta no topo (longe do teclado virtual) e os botões
    do rodapé podem quebrar (ex.: modal de conferência divergente tem 3). */
 @media (max-width: 639px) {
@@ -560,6 +567,12 @@ body {
 
   .oq-modal__footer {
     flex-wrap: wrap;
+  }
+
+  /* Celular: botões empilhados em largura total (o principal fica embaixo, perto do polegar). */
+  .oq-modal__footer .oq-admin-btn {
+    flex: 1 1 100%;
+    min-height: 44px;
   }
 }
 

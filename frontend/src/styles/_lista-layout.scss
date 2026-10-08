@@ -978,3 +978,9 @@ a.oq-lista__btn {
 }
 .oq-card__fechamento { flex: 1; padding: 6px 8px; font-size: 11px; }
 .oq-lista__fechamento { font-size: 10px; }
+
+/* Situação da nota fiscal do pedido (card e lista): verde aprovada · âmbar aguardando · vermelho com problema. */
+.oq-nota { font-weight: 600; }
+.oq-nota--ok { color: var(--oq-success-foreground); }
+.oq-nota--espera { color: var(--oq-warning-foreground); }
+.oq-nota--erro { color: var(--oq-critical-foreground); }

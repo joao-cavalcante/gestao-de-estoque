@@ -50,6 +50,27 @@ export interface Tarefa {
   notaPendente?: NotaPendente;
   /** TGFORD.SITUACAO = 'F' — OC fechada no Sankhya: os pedidos dela saem da fila. */
   ordemCargaFechada?: boolean;
+  /** Nota fiscal gerada a partir do pedido — número e situação no Sankhya (STATUSNFE). */
+  notaFiscal?: NotaFiscalPedido;
+}
+
+export interface NotaFiscalPedido {
+  nunota: number;
+  numero: number | null;
+  serie: string | null;
+  /** TGFCAB.STATUSNFE cru — A aprovada, E/I/P aguardando, R/D/V problema; null = não enviada. */
+  statusNfe: string | null;
+  /** Rótulo do Sankhya (ex.: "Aprovada", "Aguardando Correção"). */
+  situacao: string;
+  confirmada: boolean;
+  nfce: boolean;
+}
+
+/** Tom da situação da nota: verde aprovada · vermelho com problema · âmbar no meio do caminho. */
+export function tomNota(n: NotaFiscalPedido): 'ok' | 'erro' | 'espera' {
+  if (n.statusNfe === 'A') return 'ok';
+  if (n.statusNfe === 'R' || n.statusNfe === 'D' || n.statusNfe === 'V') return 'erro';
+  return 'espera';
 }
 
 export interface NotaPendente {
@@ -76,19 +97,22 @@ export type FasePedido = 'conferir' | 'corte' | 'carregar' | 'fechamento' | 'not
 
 export const FASES: readonly FasePedido[] = ['conferir', 'corte', 'carregar', 'fechamento', 'nota', 'pronto'];
 
+/** Um nome por etapa, igual em pílulas, KPIs, títulos das seções e régua (usuário, 08/10/2026). */
 export const ROTULO_FASE: Record<FasePedido, string> = {
-  conferir: 'Conferir',
+  conferir: 'Conferência',
   corte: 'Corte',
-  carregar: 'Carregar',
-  fechamento: 'Aguardando fechamento da OC',
+  carregar: 'Carregamento',
+  fechamento: 'Fechamento da OC',
   nota: 'Nota',
-  pronto: 'Pronto',
+  pronto: 'Concluído',
 };
 
 export function faseTarefa(t: Tarefa): FasePedido {
   if (t.status === 'aguardando_corte') return 'corte';
   if (t.status !== 'concluido') return 'conferir';
   if (aCarregar(t)) return 'carregar';
+  // Já tem nota confirmada no Sankhya (pelo WMS ou faturada por fora): concluído, com ou sem OC.
+  if (t.notaFiscal?.confirmada) return 'pronto';
   // Com OC: depois de carregado, TODO pedido espera o "Fechar OC" (que fatura no Sankhya) — independente da CCO.
   if (t.ordemCarga != null) return 'fechamento';
   if (t.notaPendente) return 'nota';

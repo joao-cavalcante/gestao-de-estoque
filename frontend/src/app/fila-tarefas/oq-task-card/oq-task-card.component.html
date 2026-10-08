@@ -40,8 +40,18 @@
       <span class="oq-card__field-value">{{ tarefa.numeroUnico }}</span>
     </div>
     <div class="oq-card__field">
-      <span class="oq-card__field-label">NF</span>
+      <span class="oq-card__field-label">Pedido</span>
       <span class="oq-card__field-value">{{ tarefa.nf }}</span>
+    </div>
+    <div class="oq-card__field oq-card__field--full">
+      <span class="oq-card__field-label">Nota fiscal</span>
+      @if (tarefa.notaFiscal; as n) {
+        <span class="oq-card__field-value oq-nota" [class]="'oq-card__field-value oq-nota oq-nota--' + tomNota(n)" [title]="n.situacao">
+          {{ n.numero ?? n.nunota }} · {{ n.nfce ? 'NFC-e' : 'NF-e' }} · {{ n.situacao }}
+        </span>
+      } @else {
+        <span class="oq-card__field-value">—</span>
+      }
     </div>
     <div class="oq-card__field">
       <span class="oq-card__field-label">Ordem de Carga</span>
@@ -88,7 +98,7 @@
     <footer class="oq-card__footer">
       @switch (fase) {
         @case ('carregar') {
-          <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="carregado.emit(tarefa)">✓ Carregado</button>
+          <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="carregado.emit(tarefa)">✓ Marcar carregado</button>
           <button type="button" class="oq-card__btn" (click)="conferir.emit(tarefa)">Ver itens</button>
         }
         @case ('nota') {

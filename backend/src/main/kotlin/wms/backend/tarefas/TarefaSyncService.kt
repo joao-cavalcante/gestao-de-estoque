@@ -122,6 +122,13 @@ object TarefaSyncService {
             revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
         }
 
+        // Nota fiscal de cada pedido conferido (número + situação) pra fila.
+        runCatching {
+            val conferidos = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }
+                .filter { it.statusOperacional in STATUS_CONFERIDA_NOTA && recente(it.dataMovimento) }.map { it.nunota }
+            NotasFiscaisPedido.atualizar(tenantSlug, tenantId, conferidos)
+        }.onFailure { println("AVISO: notas fiscais dos pedidos (tenant $tenantSlug) falhou: ${it.message}") }
+
         // "Aguardando nota" (V58): nota faturada/confirmada direto no Sankhya, ou conferência reaberta, sai da fila.
         runCatching { wms.backend.aguardandonota.AguardandoNotaService.revalidarTodos(tenantSlug, tenantId) }
             .onFailure { println("AVISO: revalidação de aguardando nota (tenant $tenantSlug) falhou: ${it.message}") }
@@ -226,4 +233,18 @@ object TarefaSyncService {
             }
             .toMap()
     }
+}
+
+/** Status de tarefa conferida — só esses pedidos podem ter nota (NotasFiscaisPedido). */
+private val STATUS_CONFERIDA_NOTA = setOf(
+    StatusOperacional.CONCLUIDO.codigo, StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
+    StatusOperacional.RECONTAGEM_CONCLUIDA.codigo, StatusOperacional.RECONTAGEM_CONCLUIDA_DIVERGENTE.codigo,
+)
+
+/** DTNEG ("dd/MM/yyyy ...") nos últimos 15 dias — o que a fila ainda mostra. Data ilegível = entra. */
+private fun recente(dataMovimento: String?): Boolean {
+    val m = Regex("""^(\d{2})/(\d{2})/(\d{4})""").find(dataMovimento?.trim() ?: return true) ?: return true
+    val (d, mes, a) = m.destructured
+    val data = runCatching { java.time.LocalDate.of(a.toInt(), mes.toInt(), d.toInt()) }.getOrNull() ?: return true
+    return !data.isBefore(java.time.LocalDate.now().minusDays(15))
 }

@@ -49,7 +49,14 @@
           <oq-modalidade-pins [modalidade]="linha.t" [compacto]="true" />
         </td>
         <td data-label="Nº Único">{{ linha.t.numeroUnico }}</td>
-        <td data-label="NF">{{ linha.t.nf }}</td>
+        <td data-label="Pedido">{{ linha.t.nf }}</td>
+        <td data-label="Nota fiscal">
+          @if (linha.t.notaFiscal; as n) {
+            <span class="oq-nota" [class]="'oq-nota oq-nota--' + tomNota(n)" [title]="n.situacao">{{ n.numero ?? n.nunota }} · {{ n.situacao }}</span>
+          } @else {
+            —
+          }
+        </td>
         <td data-label="Ordem de Carga">{{ linha.t.ordemCarga ?? '—' }}</td>
         <td data-label="Data">{{ linha.t.data }}</td>
         <td class="oq-lista__direita" data-label="Itens">{{ linha.t.itens }}</td>
@@ -57,7 +64,7 @@
         <td class="oq-lista__acoes" data-label="Ação">
           @switch (linha.fase) {
             @case ('carregar') {
-              <button type="button" class="oq-lista__btn" (click)="carregado.emit(linha.t)">✓ Carregado</button>
+              <button type="button" class="oq-lista__btn" (click)="carregado.emit(linha.t)">✓ Marcar carregado</button>
               <button type="button" class="oq-lista__btn oq-lista__btn--continuar" (click)="abrir(linha.t)">Ver itens</button>
             }
             @case ('nota') {

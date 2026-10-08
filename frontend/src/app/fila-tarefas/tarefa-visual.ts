@@ -1,5 +1,5 @@
 import { OqIconName } from '../shared/icons/oq-icon.component';
-import { StatusTarefa, Tarefa, TIPOS_SEPARACAO, faseTarefa } from './tarefa.model';
+import { StatusTarefa, Tarefa, TIPOS_SEPARACAO, faseTarefa, tomNota } from './tarefa.model';
 
 /**
  * Apresentação de uma tarefa da fila — status (ícone/rótulo/cor) e etapas da
@@ -16,7 +16,7 @@ export interface StatusVisual {
 
 const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
   aguardando: { icone: 'circle', label: 'AGUARDANDO CONFERÊNCIA', gira: false, tom: 'aguardando' },
-  andamento: { icone: 'gear', label: 'EM ANDAMENTO', gira: true, tom: 'andamento' },
+  andamento: { icone: 'gear', label: 'EM CONFERÊNCIA', gira: true, tom: 'andamento' },
   aguardando_corte: { icone: 'circle-alert', label: 'AGUARDANDO CORTE', gira: false, tom: 'corte' },
   concluido: { icone: 'check', label: 'CONCLUÍDO', gira: false, tom: 'concluido' },
 };
@@ -24,12 +24,23 @@ const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
 export function statusVisual(tarefa: Tarefa): StatusVisual {
   const visual = STATUS_VISUAL[tarefa.status];
   // Conferida com OC e ainda não carregada (só aparece na fila filtrada por OC).
-  // Depois de conferida, a fase do fluxo manda: CARREGAR → NOTA → PRONTO (usuário, 08/10/2026).
+  // Conferido e com nota fiscal: a nota é o que importa ("NF 3837 · APROVADA"), com a cor da situação.
   const fase = faseTarefa(tarefa);
-  if (fase === 'carregar') return { icone: 'entrega', label: 'CARREGAR', gira: false, tom: 'andamento' };
+  const nota = tarefa.notaFiscal;
+  if (tarefa.status === 'concluido' && nota) {
+    const tom = tomNota(nota);
+    return {
+      icone: tom === 'ok' ? 'check' : tom === 'erro' ? 'circle-alert' : 'receipt',
+      label: `NF ${nota.numero ?? nota.nunota} · ${nota.situacao.toUpperCase()}`,
+      gira: false,
+      tom: tom === 'ok' ? 'concluido' : tom === 'erro' ? 'corte' : 'andamento',
+    };
+  }
+  // Depois de conferida, sem nota: a etapa do fluxo (mesmos nomes de pílulas, KPIs e régua).
+  if (fase === 'carregar') return { icone: 'entrega', label: 'AGUARDANDO CARREGAMENTO', gira: false, tom: 'andamento' };
   if (fase === 'fechamento') return { icone: 'entrega', label: 'CARREGADO', gira: false, tom: 'nota' };
-  if (fase === 'nota') return { icone: 'receipt', label: 'GERAR NOTA', gira: false, tom: 'nota' };
-  if (fase === 'pronto') return { icone: 'check', label: 'PRONTO', gira: false, tom: 'concluido' };
+  if (fase === 'nota') return { icone: 'receipt', label: 'AGUARDANDO NOTA', gira: false, tom: 'nota' };
+  if (fase === 'pronto') return { icone: 'check', label: 'CONCLUÍDO', gira: false, tom: 'concluido' };
   // "aguardando_recontagem" cai no mesmo bucket 'aguardando' de uma nota
   // nunca conferida (ver STATUS_MAP em conferencias.service.ts), mas pro
   // operador são situações bem diferentes — uma já foi conferida antes e

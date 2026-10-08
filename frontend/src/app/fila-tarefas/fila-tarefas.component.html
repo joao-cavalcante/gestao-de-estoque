@@ -106,7 +106,7 @@
                   <span class="oq-progresso__marca" aria-hidden="true">
                     @if (r.conferidos === r.pedidos) { <oq-icon name="check" [size]="10" /> } @else { 1 }
                   </span>
-                  <span class="oq-progresso__rotulo">Conferidos</span>
+                  <span class="oq-progresso__rotulo">Conferência</span>
                   <span class="oq-progresso__valor">{{ r.conferidos }}/{{ r.pedidos }}</span>
                 </button>
               </li>
@@ -123,7 +123,7 @@
                   <span class="oq-progresso__marca" aria-hidden="true">
                     @if (r.carregados === r.pedidos) { <oq-icon name="check" [size]="10" /> } @else { 2 }
                   </span>
-                  <span class="oq-progresso__rotulo">Carregados</span>
+                  <span class="oq-progresso__rotulo">Carregamento</span>
                   <span class="oq-progresso__valor">{{ r.carregados }}/{{ r.pedidos }}</span>
                 </button>
               </li>
@@ -151,7 +151,7 @@
               }
               @if (r.aCarregar > 0) {
                 <button type="button" class="oq-progresso__link" (click)="carregarOc()">ver itens</button>
-                <button type="button" class="oq-progresso__btn" [disabled]="salvandoCarga()" (click)="carregarTudoOc()">✓ Carregar tudo ({{ r.aCarregar }})</button>
+                <button type="button" class="oq-progresso__btn" [disabled]="salvandoCarga()" (click)="carregarTudoOc()">✓ Marcar tudo carregado ({{ r.aCarregar }})</button>
               }
             </div>
           }

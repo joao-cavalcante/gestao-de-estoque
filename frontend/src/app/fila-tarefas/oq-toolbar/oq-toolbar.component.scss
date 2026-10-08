@@ -93,7 +93,32 @@
     padding: 8px 16px 10px;
   }
 
+  // Celular: as pílulas rolam na horizontal em vez de cortar etapas ("Nota pendente" sumia).
+  .oq-toolbar__pills {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .oq-toolbar__pill {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  // Celular: busca ocupa a linha que sobrar; alternador e Filtros ficam ao lado ou quebram — nunca saem da tela.
   .oq-toolbar__direita {
     margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .oq-toolbar__search {
+    flex: 1 1 180px;
+    min-width: 0;
+
+    input {
+      width: 100%;
+      min-width: 0;
+    }
   }
 }

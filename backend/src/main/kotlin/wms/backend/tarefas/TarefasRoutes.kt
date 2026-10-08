@@ -35,7 +35,7 @@ fun Route.tarefasRoutes() {
                 return@get
             }
 
-            call.respond(comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))
+            call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))))
         }
 
         // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
@@ -59,7 +59,7 @@ fun Route.tarefasRoutes() {
             }
             try {
                 TarefaSyncService.sincronizarTenant(slug, tenantId)
-                call.respond(comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))
+                call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))))
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadGateway,
@@ -117,6 +117,13 @@ private fun comCarregamento(tenantId: UUID, tarefas: List<TarefaApiDto>): List<T
     if (conferidas.isEmpty()) return tarefas
     val resumo = wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, conferidas, DIAS_CARREGAMENTO)
     return tarefas.map { t -> resumo[t.nunota]?.let { t.copy(carregamento = it) } ?: t }
+}
+
+/** Nota fiscal de cada pedido (cache do sync de fundo — ver NotasFiscaisPedido). */
+private fun comNotaFiscal(tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    val notas = NotasFiscaisPedido.doCache(tenantId)
+    if (notas.isEmpty()) return tarefas
+    return tarefas.map { t -> notas[t.nunota]?.let { t.copy(notaFiscal = it) } ?: t }
 }
 
 /** Pedido conferido aguardando nota fiscal confirmada (V58) — leitura local; o sync de fundo revalida no Sankhya. */

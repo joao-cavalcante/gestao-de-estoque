@@ -40,6 +40,8 @@ data class TarefaApiDto(
     val notaPendente: wms.backend.aguardandonota.NotaPendenteDto? = null,
     /** TGFORD.SITUACAO = 'F' — OC fechada: os pedidos dela saem da fila. */
     val ordemCargaFechada: Boolean = false,
+    /** Nota fiscal gerada a partir do pedido (número + situação no Sankhya) — ver NotasFiscaisPedido. */
+    val notaFiscal: NotaFiscalPedidoDto? = null,
 )
 
 /**

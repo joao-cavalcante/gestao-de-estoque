@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { OqModalidadePinsComponent } from '../../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
-import { CampoOrdenacao, FasePedido, Ordenacao, Tarefa, faseTarefa } from '../tarefa.model';
+import { CampoOrdenacao, FasePedido, Ordenacao, Tarefa, faseTarefa, tomNota } from '../tarefa.model';
 import { EtapaVisual, StatusVisual, etapasVisiveis, statusVisual } from '../tarefa-visual';
 import { OqEtapaChipsComponent } from '../oq-etapa-chips/oq-etapa-chips.component';
 
@@ -49,11 +49,14 @@ export class OqTaskListComponent {
   /** "Gerar nota" — abre o modal de faturamento (TOP por pedido). */
   @Output() faturar = new EventEmitter<Tarefa>();
 
+  readonly tomNota = tomNota;
+
   readonly colunas: Coluna[] = [
     { titulo: 'Status', classe: 'oq-lista__topo' },
     { titulo: 'Cliente', campo: 'cliente', classe: 'oq-lista__principal' },
     { titulo: 'Nº Único', campo: 'numeroUnico' },
-    { titulo: 'NF', campo: 'nf' },
+    { titulo: 'Pedido', campo: 'nf' },
+    { titulo: 'Nota fiscal' },
     { titulo: 'Ordem de Carga' },
     { titulo: 'Data', campo: 'data' },
     { titulo: 'Itens', campo: 'itens', classe: 'oq-lista__direita' },

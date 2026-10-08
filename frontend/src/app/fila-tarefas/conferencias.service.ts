@@ -71,6 +71,15 @@ export interface TarefaApiDto {
   carregamento?: { total: number; carregados: number; sessaoId: string | null } | null;
   notaPendente?: { sessaoId: string; erro?: string | null } | null;
   ordemCargaFechada?: boolean;
+  notaFiscal?: {
+    nunota: number;
+    numero: number | null;
+    serie: string | null;
+    statusNfe: string | null;
+    situacao: string;
+    confirmada: boolean;
+    nfce: boolean;
+  } | null;
   pendenteWriteBack: boolean;
 }
 
@@ -130,7 +139,8 @@ const STATUS_MAP: Record<TarefaApiDto['statusOperacional'], Tarefa['status']> = 
 };
 
 function mapearParaTarefa(p: TarefaApiDto): Tarefa {
-  const nf = p.numeroNota ? `NF-${String(p.numeroNota).padStart(6, '0')}` : '—';
+  // Número do PEDIDO (TGFCAB.NUMNOTA do pedido) — a nota fiscal gerada vem em `notaFiscal`.
+  const nf = p.numeroNota ? String(p.numeroNota) : '—';
   return {
     id: String(p.nunota),
     cliente: p.nomeParceiro ?? '—',
@@ -158,6 +168,7 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     carregamento: p.carregamento ?? undefined,
     notaPendente: p.notaPendente ? { sessaoId: p.notaPendente.sessaoId, erro: p.notaPendente.erro ?? null } : undefined,
     ordemCargaFechada: !!p.ordemCargaFechada,
+    notaFiscal: p.notaFiscal ?? undefined,
   };
 }
 
