@@ -21,6 +21,8 @@ export class OqToolbarComponent {
   @Input() total = 0;
   @Input() visiveis = 0;
   @Input() filtroAtivo: FiltroStatus = 'todos';
+  /** Quantos pedidos em cada fase (no escopo atual) — substitui a faixa de KPIs. */
+  @Input() contagens: Record<FiltroStatus, number> | null = null;
   @Input() termoBusca = '';
   @Input() filtrosAvancadosAtivos = 0;
   @Input() dropdownFiltrosAberto = false;
@@ -59,9 +61,10 @@ export class OqToolbarComponent {
 
   readonly pills: PillFiltro[] = [
     { valor: 'todos', label: 'Todos' },
-    { valor: 'aguardando', label: 'Aguard.' },
-    { valor: 'andamento', label: 'Andam.' },
-    { valor: 'aguardando_corte', label: 'Corte' },
+    { valor: 'conferir', label: 'Conferir' },
+    { valor: 'corte', label: 'Corte' },
+    { valor: 'carregar', label: 'Carregar' },
+    { valor: 'nota', label: 'Nota' },
   ];
 
   readonly tiposSeparacao = TIPOS_SEPARACAO;

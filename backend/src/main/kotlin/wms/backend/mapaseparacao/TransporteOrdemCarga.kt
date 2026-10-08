@@ -20,14 +20,15 @@ import java.util.concurrent.ConcurrentHashMap
  * chama — fica sem motorista/veículo.
  */
 object TransporteOrdemCarga {
-    data class Transporte(val motorista: String?, val placa: String?, val veiculo: String?)
+    /** [situacao] = TGFORD.SITUACAO ('A' aberta, 'F' fechada) — a fila esconde a OC fechada. */
+    data class Transporte(val motorista: String?, val placa: String?, val veiculo: String?, val situacao: String? = null)
 
     private val TTL: Duration = Duration.ofMinutes(10)
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cache = ConcurrentHashMap<Pair<UUID, Long>, Pair<Instant, Transporte>>()
     private val emVoo = ConcurrentHashMap.newKeySet<Pair<UUID, Long>>()
 
-    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODVEICULO", "CODPARCMOTORISTA")
+    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO")
     private val FIELDS_VEICULO = listOf("CODVEICULO", "MARCAMODELO", "PLACA")
     private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
 
@@ -51,6 +52,11 @@ object TransporteOrdemCarga {
         }
         // Valor vencido ainda serve enquanto o novo não chega (motorista raramente muda).
         return distintas.mapNotNull { oc -> cache[tenantId to oc]?.second?.let { oc to it } }.toMap()
+    }
+
+    /** Esquece a OC (ex.: acabou de ser fechada) — o próximo poll da fila busca de novo. */
+    fun invalidar(tenantId: UUID, oc: Long) {
+        cache.remove(tenantId to oc)
     }
 
     /** Espera a consulta (etiqueta). Null se a OC não existe ou o Sankhya falhou. */
@@ -100,6 +106,7 @@ object TransporteOrdemCarga {
                 motorista = ordem?.get("CODPARCMOTORISTA")?.toIntOrNull()?.let { motoristas[it] },
                 placa = veiculo?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() },
                 veiculo = veiculo?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() },
+                situacao = ordem?.get("SITUACAO")?.trim()?.takeIf { it.isNotEmpty() },
             )
         }
         resultado.forEach { (oc, t) -> cache[tenantId to oc] = agora to t }

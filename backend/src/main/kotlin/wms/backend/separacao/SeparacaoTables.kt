@@ -51,8 +51,19 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
      */
     val tolPesoAcimaPct = decimal("tol_peso_acima_pct", 6, 2).nullable()
     val tolPesoAbaixoPct = decimal("tol_peso_abaixo_pct", 6, 2).nullable()
+    /** V58 — 'aguardando' (CCO pede faturamento e a nota ainda não saiu confirmada) | 'ok' | NULL (não se aplica). */
+    val notaStatus = text("nota_status").nullable()
+    /** V58 — último motivo de recusa do Sankhya no faturar/confirmarNota. */
+    val notaErro = text("nota_erro").nullable()
+    val notaAtualizadoEm = timestamp("nota_atualizado_em").nullable()
 
     override val primaryKey = PrimaryKey(id)
+}
+
+/** Valores de app.separacao_sessoes.nota_status (V58). */
+object NotaStatus {
+    const val AGUARDANDO = "aguardando"
+    const val OK = "ok"
 }
 
 object SeparacaoItensTable : Table("app.separacao_itens") {

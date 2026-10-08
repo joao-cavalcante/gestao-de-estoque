@@ -1,44 +1,63 @@
+// Uma faixa de indicadores (não cinco cards): rótulo pequeno + número em destaque, separadores discretos.
+// Cor só quando informa algo (Corte > 0); o resto neutro, com o roxo no indicador principal.
 .oq-kpi-bar {
   display: flex;
   flex-wrap: wrap;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px 0;
+  padding: 6px 24px;
   background: var(--oq-kpi-strip-bg);
-  border-top: 1px solid var(--oq-border);
 }
 
-.oq-kpi-bar__block {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 10px 20px;
-  border-right: 1px solid var(--oq-border);
+.oq-kpi-bar__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 18px;
+  border-left: 1px solid var(--oq-border);
 
-  &:last-child {
-    border-right: none;
+  &:first-child {
+    padding-left: 0;
+    border-left: 0;
   }
 }
 
 .oq-kpi-bar__label {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-display);
   font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--oq-text-secondary);
 }
 
 .oq-kpi-bar__value {
   font-family: var(--oq-font-mono);
-  font-weight: 600;
-  font-size: 26px;
-  line-height: 1;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
   color: var(--oq-text-primary);
 }
 
+.oq-kpi-bar__item--principal .oq-kpi-bar__value {
+  color: var(--oq-brand);
+}
+
+// Destaque discreto só quando há corte esperando.
+.oq-kpi-bar__item--alerta {
+  .oq-kpi-bar__label,
+  .oq-kpi-bar__value {
+    color: var(--oq-critical-foreground);
+  }
+}
+
 @media (max-width: 700px) {
-  .oq-kpi-bar__block {
-    flex: 1 1 33%;
+  .oq-kpi-bar {
+    padding: 6px 16px;
+  }
+
+  .oq-kpi-bar__item {
+    padding: 0 10px;
   }
 }

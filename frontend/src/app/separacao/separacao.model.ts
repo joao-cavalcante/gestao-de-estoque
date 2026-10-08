@@ -74,6 +74,8 @@ export interface ConcluirEtapaResultado {
 
 /** TOP de destino pro faturamento (GET /sessoes/{id}/tops-faturamento). */
 export interface TopFaturamento {
+  /** TOP certa pela regra NF-e/NFC-e do parceiro — vem marcada. */
+  sugerida?: boolean;
   codTipOper: number;
   descricao: string;
   /** Série definida na restrição de destino (TGFREP) — vai junto no faturamento. */

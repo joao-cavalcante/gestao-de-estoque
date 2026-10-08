@@ -1,18 +1,23 @@
-<div class="oq-kpi-bar">
-  <div class="oq-kpi-bar__block">
-    <span class="oq-kpi-bar__label">Fila Total</span>
+<!-- 1) KPIs da operação — só leitura, uma faixa de indicadores (não são filtros: os filtros são as pílulas). -->
+<div class="oq-kpi-bar" role="group" aria-label="Indicadores da operação">
+  <div class="oq-kpi-bar__item oq-kpi-bar__item--principal">
+    <span class="oq-kpi-bar__label">{{ rotuloTotal }}</span>
     <span class="oq-kpi-bar__value">{{ formatarKpi(filaTotal) }}</span>
   </div>
-  <div class="oq-kpi-bar__block">
-    <span class="oq-kpi-bar__label">Aguardando</span>
-    <span class="oq-kpi-bar__value">{{ formatarKpi(aguardando) }}</span>
+  <div class="oq-kpi-bar__item">
+    <span class="oq-kpi-bar__label">Conferência</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(conferir) }}</span>
   </div>
-  <div class="oq-kpi-bar__block">
-    <span class="oq-kpi-bar__label">Andamento</span>
-    <span class="oq-kpi-bar__value">{{ formatarKpi(andamento) }}</span>
+  <div class="oq-kpi-bar__item" [class.oq-kpi-bar__item--alerta]="corte > 0">
+    <span class="oq-kpi-bar__label">Corte</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(corte) }}</span>
   </div>
-  <div class="oq-kpi-bar__block">
-    <span class="oq-kpi-bar__label">Aguard. Corte</span>
-    <span class="oq-kpi-bar__value">{{ formatarKpi(aguardandoCorte) }}</span>
+  <div class="oq-kpi-bar__item">
+    <span class="oq-kpi-bar__label">Carga</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(carregar) }}</span>
+  </div>
+  <div class="oq-kpi-bar__item">
+    <span class="oq-kpi-bar__label">Nota</span>
+    <span class="oq-kpi-bar__value">{{ formatarKpi(nota) }}</span>
   </div>
 </div>

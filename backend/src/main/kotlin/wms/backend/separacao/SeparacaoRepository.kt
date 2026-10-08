@@ -332,12 +332,54 @@ object SeparacaoRepository {
         Unit
     }
 
+    /**
+     * Conclui a sessão. CCO com faturamento (FATAOCONCLUIR='S') já entra em "aguardando nota" (V58):
+     * sai de lá só quando a nota for faturada E confirmada — inclusive se o operador pular o faturamento.
+     */
     fun marcarConcluida(tenantId: UUID, sessaoId: UUID): Unit = TenantTx.run(tenantId) {
-        SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
+        val filtro = (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId)
+        val fatura = SeparacaoSessoesTable.selectAll().where { filtro }
+            .firstOrNull()?.get(SeparacaoSessoesTable.fatAoConcluir)?.trim() == "S"
+        val agora = Instant.now()
+        SeparacaoSessoesTable.update({ filtro }) {
             it[status] = SeparacaoStatus.CONCLUIDA
-            it[atualizadoEm] = Instant.now()
+            it[atualizadoEm] = agora
+            if (fatura) {
+                it[notaStatus] = NotaStatus.AGUARDANDO
+                it[notaErro] = null
+                it[notaAtualizadoEm] = agora
+            }
         }
         Unit
+    }
+
+    /** Atualiza o "aguardando nota" da sessão (V58). [status] null = não se aplica mais (conferência reaberta). */
+    fun atualizarNota(tenantId: UUID, sessaoId: UUID, status: String?, erro: String?): Unit = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
+            it[notaStatus] = status
+            it[notaErro] = erro?.take(1000)
+            it[notaAtualizadoEm] = Instant.now()
+        }
+        Unit
+    }
+
+    /** Só o motivo da última recusa, mantendo a sessão em "aguardando nota". */
+    fun registrarErroNota(tenantId: UUID, sessaoId: UUID, erro: String): Unit = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.update({
+            (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) and
+                (SeparacaoSessoesTable.notaStatus eq NotaStatus.AGUARDANDO)
+        }) {
+            it[notaErro] = erro.take(1000)
+            it[notaAtualizadoEm] = Instant.now()
+        }
+        Unit
+    }
+
+    /** Linha crua da sessão — pro "aguardando nota" ler nota_status/nota_erro sem passar pelo DTO. */
+    fun notaDaSessao(tenantId: UUID, sessaoId: UUID): Pair<String?, String?>? = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.selectAll()
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
+            .firstOrNull()?.let { it[SeparacaoSessoesTable.notaStatus] to it[SeparacaoSessoesTable.notaErro] }
     }
 
     fun marcarErro(tenantId: UUID, sessaoId: UUID, mensagem: String): Unit = TenantTx.run(tenantId) {

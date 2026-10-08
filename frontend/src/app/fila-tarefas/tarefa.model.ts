@@ -46,6 +46,16 @@ export interface Tarefa {
   etapas?: TarefaEtapa[];
   /** Carregamento (checklist do "Ver conferidos") — só nota conferida com OC. */
   carregamento?: CarregamentoTarefa;
+  /** Conferida, CCO pede faturamento e a nota ainda não saiu confirmada (sessão a faturar + último erro). */
+  notaPendente?: NotaPendente;
+  /** TGFORD.SITUACAO = 'F' — OC fechada no Sankhya: os pedidos dela saem da fila. */
+  ordemCargaFechada?: boolean;
+}
+
+export interface NotaPendente {
+  sessaoId: string;
+  /** Último motivo de recusa do Sankhya (faturar ou confirmar). */
+  erro: string | null;
 }
 
 export interface CarregamentoTarefa {
@@ -54,6 +64,44 @@ export interface CarregamentoTarefa {
   carregados: number;
   /** Sessão a abrir no checklist (a que ainda tem item a carregar). */
   sessaoId: string | null;
+}
+
+/**
+ * Fase do pedido na linha de frente, sempre na ordem do fluxo (usuário, 08/10/2026):
+ * CONFERIR → CORTE → CARREGAR → FECHAMENTO (com OC: a nota sai no "Fechar OC") → PRONTO.
+ * Pedido SEM OC não tem fechamento: depois da conferência vai pra NOTA ("Gerar nota" no card).
+ * Uma fase = um botão principal no card.
+ */
+export type FasePedido = 'conferir' | 'corte' | 'carregar' | 'fechamento' | 'nota' | 'pronto';
+
+export const FASES: readonly FasePedido[] = ['conferir', 'corte', 'carregar', 'fechamento', 'nota', 'pronto'];
+
+export const ROTULO_FASE: Record<FasePedido, string> = {
+  conferir: 'Conferir',
+  corte: 'Corte',
+  carregar: 'Carregar',
+  fechamento: 'Aguardando fechamento da OC',
+  nota: 'Nota',
+  pronto: 'Pronto',
+};
+
+export function faseTarefa(t: Tarefa): FasePedido {
+  if (t.status === 'aguardando_corte') return 'corte';
+  if (t.status !== 'concluido') return 'conferir';
+  if (aCarregar(t)) return 'carregar';
+  if (t.notaPendente) return t.ordemCarga != null ? 'fechamento' : 'nota';
+  return 'pronto';
+}
+
+/** Nota pendente de pedido SEM OC (conferido, sem nota confirmada) — card com "Gerar nota". */
+export function aguardandoNota(t: Tarefa): boolean {
+  return faseTarefa(t) === 'nota';
+}
+
+/** Ainda sem nota confirmada: "Gerar nota" (sem OC) ou no fechamento da OC (com OC). */
+export function semNota(t: Tarefa): boolean {
+  const f = faseTarefa(t);
+  return f === 'nota' || f === 'fechamento';
 }
 
 /** Conferida, com OC e com item ainda não carregado — vira "A CARREGAR" na fila filtrada por OC. */
@@ -102,8 +150,12 @@ export interface FiltrosAvancados {
 
 export type VinculoOrdemCarga = 'todos' | 'com' | 'sem';
 
-export const FILTROS_STATUS = ['todos', 'aguardando', 'andamento', 'aguardando_corte'] as const;
+/** Pílulas da fila = fases do pedido ("pronto" só aparece agrupado dentro da OC). */
+export const FILTROS_STATUS = ['todos', 'conferir', 'corte', 'carregar', 'nota'] as const;
 export type FiltroStatus = (typeof FILTROS_STATUS)[number];
+
+/** Escopo da fila: todas as OCs, uma OC (número) ou só pedidos sem OC. */
+export type EscopoOc = { tipo: 'todas' } | { tipo: 'oc'; oc: string } | { tipo: 'sem' };
 
 /** Modo de exibição — compartilhado com as outras telas de fila. */
 export type { ViewMode } from '../shared/lista-layout/view-mode';

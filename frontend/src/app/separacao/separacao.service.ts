@@ -172,6 +172,15 @@ export class SeparacaoService {
     );
   }
 
+  /** Nota já gerada mas sem confirmar (CACSP.confirmarNota falhou antes): só confirma, não fatura de novo. */
+  confirmarNota(tenant: string, sessaoId: string): Observable<{ ok: boolean; notasGeradas: number[]; aviso?: string | null }> {
+    return this.http.post<{ ok: boolean; notasGeradas: number[]; aviso?: string | null }>(
+      `${this.baseUrl}/sessoes/${sessaoId}/confirmar-nota`,
+      {},
+      { params: { tenant } },
+    );
+  }
+
   /** Dados pra etiqueta de volume da sessão. */
   dadosEtiqueta(tenant: string, sessaoId: string, etapa?: number): Observable<EtiquetaDados> {
     const params: Record<string, string> = { tenant };

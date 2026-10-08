@@ -121,6 +121,10 @@ object TarefaSyncService {
         withContext(Dispatchers.IO) {
             revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
         }
+
+        // "Aguardando nota" (V58): nota faturada/confirmada direto no Sankhya, ou conferência reaberta, sai da fila.
+        runCatching { wms.backend.aguardandonota.AguardandoNotaService.revalidarTodos(tenantSlug, tenantId) }
+            .onFailure { println("AVISO: revalidação de aguardando nota (tenant $tenantSlug) falhou: ${it.message}") }
     }
 
     /**

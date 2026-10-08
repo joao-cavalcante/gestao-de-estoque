@@ -21,6 +21,7 @@ import wms.backend.consultaprodutos.consultaProdutosRoutes
 import wms.backend.downloads.downloadsRoutes
 import wms.backend.inventario.inventarioRoutes
 import wms.backend.liberacaocorte.liberacaoCorteRoutes
+import wms.backend.ordemcarga.fechamentoOcRoutes
 import wms.backend.mapaseparacao.mapaSeparacaoRoutes
 import wms.backend.produtos.ProdutoCatalogoSyncWorker
 import wms.backend.separacao.separacaoRoutes
@@ -104,6 +105,7 @@ fun Application.module() {
         configConferenciaRoutes()
         tipoOperacaoRoutes()
         liberacaoCorteRoutes()
+        fechamentoOcRoutes()
         mapaSeparacaoRoutes()
         consultaProdutosRoutes()
         auditoriaPedidoRoutes()

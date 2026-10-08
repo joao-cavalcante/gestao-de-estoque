@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { OqModalidadePinsComponent } from '../../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
-import { CampoOrdenacao, Ordenacao, Tarefa } from '../tarefa.model';
+import { CampoOrdenacao, FasePedido, Ordenacao, Tarefa, faseTarefa } from '../tarefa.model';
 import { EtapaVisual, StatusVisual, etapasVisiveis, statusVisual } from '../tarefa-visual';
 import { OqEtapaChipsComponent } from '../oq-etapa-chips/oq-etapa-chips.component';
 
@@ -9,6 +9,7 @@ interface Linha {
   t: Tarefa;
   st: StatusVisual;
   ets: EtapaVisual[];
+  fase: FasePedido;
 }
 
 interface Coluna {
@@ -36,7 +37,7 @@ interface Coluna {
 export class OqTaskListComponent {
   /** Página já filtrada/ordenada pelo pai — status/etapas resolvidos uma vez por mudança, não a cada detecção. */
   @Input({ required: true }) set tarefas(v: Tarefa[]) {
-    this.linhas = v.map((t) => ({ t, st: statusVisual(t), ets: etapasVisiveis(t) }));
+    this.linhas = v.map((t) => ({ t, st: statusVisual(t), ets: etapasVisiveis(t), fase: faseTarefa(t) }));
   }
   linhas: Linha[] = [];
   @Input() ordenacao: Ordenacao | null = null;
@@ -45,10 +46,8 @@ export class OqTaskListComponent {
   @Output() ordenar = new EventEmitter<CampoOrdenacao>();
   /** "✓ Carregado" — um toque, pedido inteiro. */
   @Output() carregado = new EventEmitter<Tarefa>();
-
-  aCarregar(t: Tarefa): boolean {
-    return t.status === 'concluido' && t.ordemCarga != null && !!t.carregamento && t.carregamento.carregados < t.carregamento.total;
-  }
+  /** "Gerar nota" — abre o modal de faturamento (TOP por pedido). */
+  @Output() faturar = new EventEmitter<Tarefa>();
 
   readonly colunas: Coluna[] = [
     { titulo: 'Status', classe: 'oq-lista__topo' },
@@ -59,7 +58,7 @@ export class OqTaskListComponent {
     { titulo: 'Data', campo: 'data' },
     { titulo: 'Itens', campo: 'itens', classe: 'oq-lista__direita' },
     { titulo: 'Período p/ entrega' },
-    { titulo: 'Conferir por etapa', classe: 'oq-lista__acoes' },
+    { titulo: 'Ação', classe: 'oq-lista__acoes' },
   ];
 
   /** aria-sort do cabeçalho — só a coluna ordenada anuncia a direção. */

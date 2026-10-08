@@ -36,6 +36,10 @@ data class TarefaApiDto(
     val pendenteWriteBack: Boolean,
     /** Carregamento (checklist do "Ver conferidos") — só pra nota conferida com OC; null = não se aplica. */
     val carregamento: CarregamentoResumoDto? = null,
+    /** V58 — conferida, CCO pede faturamento e a nota ainda não saiu confirmada: card AGUARDANDO NOTA + "Faturar". */
+    val notaPendente: wms.backend.aguardandonota.NotaPendenteDto? = null,
+    /** TGFORD.SITUACAO = 'F' — OC fechada: os pedidos dela saem da fila. */
+    val ordemCargaFechada: Boolean = false,
 )
 
 /**
@@ -43,7 +47,11 @@ data class TarefaApiDto(
  * é outra sessão). `sessaoId` = sessão a abrir no checklist (a que ainda tem item a carregar).
  */
 @Serializable
-data class CarregamentoResumoDto(val total: Int, val carregados: Int, val sessaoId: String?)
+data class CarregamentoResumoDto(
+    val total: Int,
+    val carregados: Int,
+    val sessaoId: String?,
+)
 
 @Serializable
 data class ConcluirTarefaRequest(

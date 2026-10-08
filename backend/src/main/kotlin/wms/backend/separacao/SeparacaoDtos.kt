@@ -152,7 +152,13 @@ data class EtapaProgressoDto(val total: Int, val conferidos: Int)
 
 @Serializable
 /** TOP de destino do faturamento (restrição D da TOP do pedido, TGFREP) — [serie] quando a restrição define uma. */
-data class TopFaturamentoDto(val codTipOper: Int, val descricao: String, val serie: String? = null)
+data class TopFaturamentoDto(
+    val codTipOper: Int,
+    val descricao: String,
+    val serie: String? = null,
+    /** TOP certa pela regra NF-e/NFC-e do parceiro (ver FechamentoOcService.escolherTop) — o modal já vem com ela marcada. */
+    val sugerida: Boolean = false,
+)
 
 @Serializable
 data class FaturarRequest(val codTipOper: Int, val serie: String? = null)
@@ -163,6 +169,10 @@ data class FaturarRequest(val codTipOper: Int, val serie: String? = null)
  */
 @Serializable
 data class FaturarResponse(val ok: Boolean, val notasGeradas: List<Long>, val aviso: String? = null)
+
+/** 409 do faturamento quando a nota já foi gerada mas não confirmada — a tela troca "Faturar" por "Confirmar nota". */
+@Serializable
+data class NotaSemConfirmacaoDto(val erro: String, val notas: List<Long>, val confirmarNota: Boolean = true)
 
 @Serializable
 data class ConferenciaFinalizadaDto(

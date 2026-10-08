@@ -198,6 +198,7 @@ body {
   &--recontagem { --pin-cor: var(--oq-recontagem); --pin-texto: var(--oq-recontagem-foreground); }
   &--corte { --pin-cor: var(--oq-critical); --pin-texto: var(--oq-critical-foreground); }
   &--concluido { --pin-cor: var(--oq-concluido); --pin-texto: var(--oq-concluido-foreground); }
+  &--nota { --pin-cor: var(--oq-brand-accent); --pin-texto: var(--oq-brand-accent); }
 }
 
 @keyframes oq-spin {
@@ -663,6 +664,13 @@ body {
   border: 1px solid var(--oq-critical);
   border-radius: var(--oq-radius-input);
   padding: 8px 10px;
+}
+
+/* Mesma caixa, tom de atenção (ex.: pedido aguardando nota no fim da conferência). */
+.oq-modal-erro--aviso {
+  color: var(--oq-warning-foreground);
+  background: var(--oq-warning-soft);
+  border-color: var(--oq-attention);
 }
 
 .oq-modal--delete .oq-modal__body {

@@ -8,9 +8,12 @@ import { Component, Input } from '@angular/core';
 })
 export class OqKpiBarComponent {
   @Input() filaTotal = 0;
-  @Input() aguardando = 0;
-  @Input() andamento = 0;
-  @Input() aguardandoCorte = 0;
+  /** "Fila total" na visão geral; "Pedidos da OC" dentro de uma OC. */
+  @Input() rotuloTotal = 'Fila total';
+  @Input() conferir = 0;
+  @Input() corte = 0;
+  @Input() carregar = 0;
+  @Input() nota = 0;
 
   /** Sempre 3 dígitos (008, não 8) — regra explícita da spec. */
   formatarKpi(valor: number): string {

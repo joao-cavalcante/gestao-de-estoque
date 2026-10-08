@@ -1,10 +1,12 @@
+/* Header global: identidade (quem/onde/conexão). Hierarquia por tipografia, alinhamento e divisores
+   sutis — poucas caixas. Botões de ícone sem borda em repouso (a borda aparece no hover/foco). */
 .oq-header {
   flex: none;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 24px;
-  padding: 12px 24px;
+  gap: 20px;
+  padding: 8px 24px;
   background: var(--oq-surface);
   border-bottom: 1px solid var(--oq-header-border);
 }
@@ -16,29 +18,32 @@
   min-width: 0;
 }
 
-.oq-header__nav-toggle {
-  width: 36px;
-  height: 36px;
+/* Botões de ícone do header (menu, tema): sem caixa em repouso. */
+.oq-header__nav-toggle,
+.oq-header__theme-toggle {
+  width: 34px;
+  height: 34px;
   flex: none;
   display: grid;
   place-items: center;
-  border: 1px solid var(--oq-border);
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--oq-radius-block);
   background: transparent;
   color: var(--oq-text-secondary);
   cursor: pointer;
-  transition: border-color .15s ease, color .15s ease;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
 
   &:hover,
   &:focus-visible {
-    border-color: var(--oq-brand-accent);
+    border-color: var(--oq-border);
+    background: var(--oq-surface-2);
     color: var(--oq-brand-accent);
   }
 }
 
 .oq-header__logo {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   flex: none;
   display: flex;
   align-items: center;
@@ -48,13 +53,13 @@
   border-radius: var(--oq-radius-block);
   font-family: var(--oq-font-display);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .oq-header__unit-name {
   display: flex;
   flex-direction: column;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .oq-header__unit-title {
@@ -63,18 +68,18 @@
   font-size: 13px;
   color: var(--oq-text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.03em;
 }
 
 .oq-header__version {
   font-family: var(--oq-font-mono);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--oq-text-secondary);
 }
 
 .oq-header__divider {
   width: 1px;
-  height: 40px;
+  height: 28px;
   background: var(--oq-border);
   flex: none;
 }
@@ -82,12 +87,13 @@
 .oq-header__center {
   display: flex;
   flex-direction: column;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .oq-header__center-label {
-  font-family: var(--oq-font-mono);
-  font-size: 10px;
+  font-family: var(--oq-font-display);
+  font-size: 9px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--oq-text-secondary);
@@ -96,35 +102,37 @@
 .oq-header__center-value {
   font-family: var(--oq-font-display);
   font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.025em;
+  font-size: 14px;
+  letter-spacing: -0.01em;
   color: var(--oq-text-primary);
 }
 
 .oq-header__right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   margin-left: auto;
 }
 
-/* Botão de sync: ícone (spinner enquanto sincroniza) + "há Xs" / "próximo em Ys" + barra até o próximo ciclo. */
+/* Sync discreto: "↻ Sincronizado há 43s" + "próximo em 17s · toque p/ agora" + barra fina até o próximo
+   ciclo. Sem caixa em repouso; continua sendo o botão de sincronizar agora (hover mostra que é clicável). */
 .oq-header__sync {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 36px;
   padding: 0 10px 0 4px;
-  border: 1px solid var(--oq-border);
-  border-radius: var(--oq-radius-input);
-  background: var(--oq-surface);
+  border: 1px solid transparent;
+  border-radius: var(--oq-radius-block);
+  background: transparent;
   color: var(--oq-text-secondary);
   white-space: nowrap;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 
   &:hover:not(:disabled) {
-    border-color: var(--oq-brand-accent);
+    border-color: var(--oq-border);
+    background: var(--oq-surface-2);
     color: var(--oq-brand-text);
   }
 
@@ -134,7 +142,6 @@
 }
 
 .oq-header__sync--ativo {
-  border-color: var(--oq-brand-accent);
   color: var(--oq-brand-text);
 }
 
@@ -142,33 +149,31 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--oq-radius-input);
-  background: var(--oq-surface-2);
-  color: var(--oq-brand-text);
+  width: 24px;
+  height: 24px;
+  color: var(--oq-brand-accent);
 }
 
 .oq-header__sync-texto {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
-  min-width: 132px;
+  gap: 0;
+  min-width: 128px;
 }
 
 .oq-header__sync-titulo {
-  font-family: var(--oq-font-mono);
-  font-size: 10px;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: inherit;
+  line-height: 1.25;
+  color: var(--oq-text-primary);
 }
 
 .oq-header__sync-sub {
   font-family: var(--oq-font-body);
   font-size: 10px;
+  line-height: 1.3;
   color: var(--oq-text-secondary);
 }
 
@@ -198,39 +203,20 @@
   to { opacity: 0.35; }
 }
 
-.oq-header__theme-toggle {
-  width: 36px;
-  height: 36px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--oq-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--oq-text-secondary);
-  cursor: pointer;
-  transition: border-color .15s ease, color .15s ease;
-
-  &:hover,
-  &:focus-visible {
-    border-color: var(--oq-brand-accent);
-    color: var(--oq-brand-accent);
-  }
-}
-
 .oq-header__operator {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: 4px;
+  padding-left: 14px;
   border-left: 1px solid var(--oq-border);
-  padding-left: 16px;
 }
 
 .oq-header__avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex: none;
-  border-radius: var(--oq-radius-block);
+  border-radius: 50%;
   background: var(--oq-brand);
   color: #fff;
   display: flex;
@@ -238,13 +224,13 @@
   justify-content: center;
   font-family: var(--oq-font-display);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .oq-header__operator-info {
   display: flex;
   flex-direction: column;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .oq-header__operator-name {
@@ -268,6 +254,9 @@
 
 /* Celular: só o ícone (spinner quando sincroniza) — o texto não cabe no header. */
 @media (max-width: 639px) {
+  .oq-header {
+    padding: 8px 16px;
+  }
   .oq-header__sync {
     padding: 0 3px;
   }

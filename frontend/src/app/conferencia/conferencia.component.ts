@@ -1479,20 +1479,15 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       this.mostrarModalLiberacaoCorte.set(true);
       return;
     }
-    if (this.fatAoConcluir === 'S') {
-      this.feedback.trigger('FINALIZACAO');
-      this.abrirModalFaturamento();
-      return;
-    }
+    // A nota NÃO sai aqui: o fluxo é conferir → carregar → nota (usuário, 08/10/2026). O painel final
+    // diz o próximo passo; a nota é gerada no card do pedido, na Fila, depois do carregamento.
     this.feedback.trigger('FINALIZACAO');
     this.mostrarPainelFinalizada.set(true);
   }
 
   onLiberacaoCorteFechada(): void {
     this.mostrarModalLiberacaoCorte.set(false);
-    // Segue a cadeia: faturamento (se a CCO pedir) ou o painel final.
-    if (this.fatAoConcluir === 'S') this.abrirModalFaturamento();
-    else this.mostrarPainelFinalizada.set(true);
+    this.mostrarPainelFinalizada.set(true);
   }
 
   /** O modal consulta as TOPs e mostra o bloqueio (já faturada, corte pendente, recontagem) sozinho. */
@@ -1502,6 +1497,29 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       return;
     }
     this.mostrarModalFaturamento.set(true);
+  }
+
+  /** Nota confirmada nesta tela (pedido sem OC, que fatura direto do painel final). */
+  readonly notaConfirmada = signal(false);
+
+  /**
+   * Próximo passo do fluxo, mostrado no painel final: com OC = carregar e depois gerar a nota na Fila
+   * (dentro da OC); sem OC e CCO com faturamento = gerar a nota já aqui; senão, nada a fazer.
+   */
+  proximoPasso(): 'carregar' | 'nota' | null {
+    if (this.ordemCargaTarefa != null) return 'carregar';
+    if (this.fatAoConcluir === 'S' && !this.notaConfirmada()) return 'nota';
+    return null;
+  }
+
+  faturarDoPainel(): void {
+    this.mostrarPainelFinalizada.set(false);
+    this.abrirModalFaturamento();
+  }
+
+  /** Volta pra Fila já dentro da OC deste pedido (carregar → gerar nota → fechar OC). */
+  irParaOc(): void {
+    this.router.navigate(['/fila-tarefas'], { queryParams: { oc: this.ordemCargaTarefa } });
   }
 
   fecharModalFaturamento(): void {

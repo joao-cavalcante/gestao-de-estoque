@@ -54,22 +54,42 @@
         <td data-label="Data">{{ linha.t.data }}</td>
         <td class="oq-lista__direita" data-label="Itens">{{ linha.t.itens }}</td>
         <td data-label="Período p/ entrega">{{ linha.t.periodoEntrega }}</td>
-        <td class="oq-lista__acoes" data-label="Conferir por etapa">
-          @if (aCarregar(linha.t)) {
-            <button type="button" class="oq-lista__btn" (click)="carregado.emit(linha.t)">✓ Carregado</button>
-            <button type="button" class="oq-lista__btn oq-lista__btn--continuar" (click)="abrir(linha.t)">Ver itens</button>
-          } @else if (linha.ets.length > 0) {
-            <oq-etapa-chips class="oq-lista__chips" [etapas]="linha.ets" (conferirEtapa)="conferirEtapa(linha.t, $event)" />
-          } @else {
-            <!-- Mesma ação do botão do card — só o botão/chip inicia a conferência, a linha não. -->
-            <button
-              type="button"
-              class="oq-lista__btn"
-              [class.oq-lista__btn--continuar]="linha.t.status === 'andamento'"
-              (click)="abrir(linha.t)"
-            >
-              {{ linha.t.status === 'andamento' ? 'Continuar' : 'Conferir' }}
-            </button>
+        <td class="oq-lista__acoes" data-label="Ação">
+          @switch (linha.fase) {
+            @case ('carregar') {
+              <button type="button" class="oq-lista__btn" (click)="carregado.emit(linha.t)">✓ Carregado</button>
+              <button type="button" class="oq-lista__btn oq-lista__btn--continuar" (click)="abrir(linha.t)">Ver itens</button>
+            }
+            @case ('nota') {
+              <button type="button" class="oq-lista__btn" [title]="linha.t.notaPendente?.erro ? 'Sankhya: ' + linha.t.notaPendente?.erro : ''" (click)="faturar.emit(linha.t)">Gerar nota</button>
+              @if (linha.t.notaPendente?.erro) {
+                <span class="oq-lista__alerta oq-lista__alerta--critical" [title]="linha.t.notaPendente?.erro ?? ''"><oq-icon name="circle-alert" [size]="10" /> recusada</span>
+              }
+            }
+            @case ('fechamento') {
+              <span class="oq-lista__fechamento"><oq-icon name="receipt" [size]="10" /> Nota no fechamento da OC</span>
+            }
+            @case ('corte') {
+              <button type="button" class="oq-lista__btn" (click)="abrir(linha.t)">Liberar corte</button>
+            }
+            @case ('pronto') {
+              <span class="oq-lista__pronto"><oq-icon name="check" [size]="10" /> Concluído</span>
+            }
+            @default {
+              @if (linha.ets.length > 0) {
+                <oq-etapa-chips class="oq-lista__chips" [etapas]="linha.ets" (conferirEtapa)="conferirEtapa(linha.t, $event)" />
+              } @else {
+                <!-- Mesma ação do botão do card — só o botão/chip inicia a conferência, a linha não. -->
+                <button
+                  type="button"
+                  class="oq-lista__btn"
+                  [class.oq-lista__btn--continuar]="linha.t.status === 'andamento'"
+                  (click)="abrir(linha.t)"
+                >
+                  {{ linha.t.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+                </button>
+              }
+            }
           }
         </td>
       </tr>

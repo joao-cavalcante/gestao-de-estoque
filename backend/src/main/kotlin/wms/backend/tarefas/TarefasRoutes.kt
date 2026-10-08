@@ -35,7 +35,7 @@ fun Route.tarefasRoutes() {
                 return@get
             }
 
-            call.respond(comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))
+            call.respond(comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))
         }
 
         // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
@@ -59,7 +59,7 @@ fun Route.tarefasRoutes() {
             }
             try {
                 TarefaSyncService.sincronizarTenant(slug, tenantId)
-                call.respond(comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))
+                call.respond(comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadGateway,
@@ -119,6 +119,13 @@ private fun comCarregamento(tenantId: UUID, tarefas: List<TarefaApiDto>): List<T
     return tarefas.map { t -> resumo[t.nunota]?.let { t.copy(carregamento = it) } ?: t }
 }
 
+/** Pedido conferido aguardando nota fiscal confirmada (V58) — leitura local; o sync de fundo revalida no Sankhya. */
+private fun comNotaPendente(tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    val pendentes = wms.backend.aguardandonota.AguardandoNotaService.pendentesLocal(tenantId)
+    if (pendentes.isEmpty()) return tarefas
+    return tarefas.map { t -> pendentes[t.nunota]?.let { t.copy(notaPendente = it) } ?: t }
+}
+
 private const val DIAS_CARREGAMENTO = 7L
 private val STATUS_CONFERIDA_FILA = setOf(
     StatusOperacional.CONCLUIDO.codigo, StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
@@ -131,7 +138,7 @@ private fun comTransporte(slug: String, tenantId: UUID, tarefas: List<TarefaApiD
     if (ocs.isEmpty()) return tarefas
     val transporte = wms.backend.mapaseparacao.TransporteOrdemCarga.doCache(slug, tenantId, ocs)
     return tarefas.map { t ->
-        t.ordemCarga?.let { transporte[it] }?.let { t.copy(motorista = it.motorista, placa = it.placa, veiculo = it.veiculo) } ?: t
+        t.ordemCarga?.let { transporte[it] }?.let { t.copy(motorista = it.motorista, placa = it.placa, veiculo = it.veiculo, ordemCargaFechada = it.situacao == "F") } ?: t
     }
 }
 

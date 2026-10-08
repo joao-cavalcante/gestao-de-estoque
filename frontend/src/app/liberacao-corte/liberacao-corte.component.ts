@@ -3,7 +3,6 @@ import { FormsModule } from '@angular/forms';
 import { LiberacaoCorteService } from './liberacao-corte.service';
 import { ConferenciaAguardandoCorte } from './liberacao-corte.model';
 import { OqLiberacaoCorteModalComponent } from './oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
-import { OqFaturamentoModalComponent } from '../separacao/oq-faturamento-modal.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqViewToggleComponent } from '../shared/lista-layout/oq-view-toggle.component';
@@ -22,7 +21,7 @@ const CHAVE_VIEW_MODE = 'liberacao-corte-view-mode';
 @Component({
   selector: 'app-liberacao-corte',
   standalone: true,
-  imports: [FormsModule, OqLiberacaoCorteModalComponent, OqFaturamentoModalComponent, OqSkeletonComponent, OqIconComponent, OqViewToggleComponent, OqPaginacaoComponent],
+  imports: [FormsModule, OqLiberacaoCorteModalComponent, OqSkeletonComponent, OqIconComponent, OqViewToggleComponent, OqPaginacaoComponent],
   templateUrl: './liberacao-corte.component.html',
   styleUrl: './liberacao-corte.component.scss',
 })
@@ -33,8 +32,6 @@ export class LiberacaoCorteComponent implements OnInit {
   readonly carregando = signal(true);
   readonly erro = signal<string | null>(null);
   readonly selecionada = signal<ConferenciaAguardandoCorte | null>(null);
-  /** Faturamento oferecido depois que a liberação fechou todo o corte (CCO FATAOCONCLUIR='S'). */
-  readonly faturamento = signal<{ sessaoId: string; rotulo: string } | null>(null);
 
   /** Busca por NF, Nº Único ou cliente (texto livre, em memória). */
   busca = '';
@@ -122,11 +119,6 @@ export class LiberacaoCorteComponent implements OnInit {
 
   rotulo(item: ConferenciaAguardandoCorte): string {
     return `Pedido ${item.numeroNota ?? item.nunota}${item.nomeParceiro ? ' — ' + item.nomeParceiro : ''}`;
-  }
-
-  /** A liberação fechou o corte e a CCO pede faturamento — abre o modal assim que o de liberação fechar. */
-  aoLiberarTudo(sessaoId: string, item: ConferenciaAguardandoCorte): void {
-    this.faturamento.set({ sessaoId, rotulo: this.rotulo(item) });
   }
 
   /** houveAcao = pelo menos um item foi liberado/negado — some o card na hora e revalida contra o backend. */

@@ -717,6 +717,8 @@ fun Route.separacaoRoutes() {
             val (slug, sessaoId, tenantId) = resolverSessao(call) ?: return@get
             try {
                 call.respond(SeparacaoService.topsFaturamento(slug, tenantId, sessaoId))
+            } catch (e: SeparacaoService.NotaSemConfirmacaoException) {
+                call.respond(HttpStatusCode.Conflict, NotaSemConfirmacaoDto(erro = e.message ?: "nota não confirmada", notas = e.notas))
             } catch (e: SeparacaoService.FaturamentoException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível listar TOPs")))
             } catch (e: Exception) {
@@ -733,12 +735,28 @@ fun Route.separacaoRoutes() {
             try {
                 val (notas, aviso) = SeparacaoService.faturar(slug, tenantId, sessaoId, body.codTipOper, body.serie)
                 call.respond(FaturarResponse(ok = true, notasGeradas = notas, aviso = aviso))
+            } catch (e: SeparacaoService.NotaSemConfirmacaoException) {
+                call.respond(HttpStatusCode.Conflict, NotaSemConfirmacaoDto(erro = e.message ?: "nota não confirmada", notas = e.notas))
             } catch (e: SeparacaoService.FaturamentoException) {
                 println("AVISO: faturar sessao $sessaoId TOP ${body.codTipOper} bloqueado: ${e.message}")
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível faturar")))
             } catch (e: Exception) {
                 println("AVISO: faturar sessao $sessaoId TOP ${body.codTipOper} recusado pelo Sankhya: ${e.message}")
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao faturar no Sankhya")))
+            }
+        }
+
+        /** Nota já gerada mas sem confirmar (CACSP.confirmarNota falhou antes): só confirma, não fatura de novo. */
+        post("/sessoes/{id}/confirmar-nota") {
+            val (slug, sessaoId, tenantId) = resolverSessao(call) ?: return@post
+            try {
+                val (notas, aviso) = SeparacaoService.confirmarNotaPendente(slug, tenantId, sessaoId)
+                call.respond(FaturarResponse(ok = true, notasGeradas = notas, aviso = aviso))
+            } catch (e: SeparacaoService.FaturamentoException) {
+                call.respond(HttpStatusCode.Conflict, mapOf("erro" to (e.message ?: "não foi possível confirmar a nota")))
+            } catch (e: Exception) {
+                println("AVISO: confirmar nota sessao $sessaoId falhou: ${e.message}")
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao confirmar a nota no Sankhya")))
             }
         }
 

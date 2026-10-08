@@ -151,12 +151,8 @@
     <oq-liberacao-corte-modal
       [nuconf]="sel.nuconf!"
       [rotulo]="rotulo(sel)"
-      (faturarAposLiberar)="aoLiberarTudo($event, sel)"
       (fechado)="aoFechar($event)"
     />
   }
 
-  @if (faturamento(); as f) {
-    <oq-faturamento-modal [sessaoId]="f.sessaoId" [rotulo]="f.rotulo" (fechado)="faturamento.set(null)" />
-  }
 </div>

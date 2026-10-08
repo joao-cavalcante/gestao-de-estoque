@@ -71,6 +71,13 @@
 
   <!-- Área de ação — sempre encostada na base do card (margin-top:auto) pra
        alinhar entre cards da mesma linha, independente do conteúdo acima. -->
+  @if (fase === 'nota' && tarefa.notaPendente?.erro) {
+    <div class="oq-card__nota-erro" [title]="tarefa.notaPendente?.erro ?? ''">
+      <oq-icon name="circle-alert" [size]="12" />
+      <span>Sankhya: {{ tarefa.notaPendente?.erro }}</span>
+    </div>
+  }
+
   <div class="oq-card__actions">
     @if (etapasVisiveis.length > 0) {
       <!-- Conferência por etapa (V29) — chips clicáveis, um por tipo de separação com item. -->
@@ -79,18 +86,35 @@
     }
 
     <footer class="oq-card__footer">
-      @if (aCarregar) {
-        <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="carregado.emit(tarefa)">✓ Carregado</button>
-        <button type="button" class="oq-card__btn" (click)="conferir.emit(tarefa)">Ver itens</button>
-      } @else if (etapasVisiveis.length === 0) {
-        <button
-          type="button"
-          class="oq-card__btn oq-card__btn--primary"
-          [class.oq-card__btn--continuar]="tarefa.status === 'andamento'"
-          (click)="conferir.emit(tarefa)"
-        >
-          {{ tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
-        </button>
+      @switch (fase) {
+        @case ('carregar') {
+          <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="carregado.emit(tarefa)">✓ Carregado</button>
+          <button type="button" class="oq-card__btn" (click)="conferir.emit(tarefa)">Ver itens</button>
+        }
+        @case ('nota') {
+          <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="faturar.emit(tarefa)">Gerar nota</button>
+        }
+        @case ('fechamento') {
+          <span class="oq-card__fechamento"><oq-icon name="receipt" [size]="12" /> Nota no fechamento da OC</span>
+        }
+        @case ('corte') {
+          <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="conferir.emit(tarefa)">Liberar corte</button>
+        }
+        @case ('pronto') {
+          <span class="oq-card__pronto"><oq-icon name="check" [size]="12" /> Concluído</span>
+        }
+        @default {
+          @if (etapasVisiveis.length === 0) {
+            <button
+              type="button"
+              class="oq-card__btn oq-card__btn--primary"
+              [class.oq-card__btn--continuar]="tarefa.status === 'andamento'"
+              (click)="conferir.emit(tarefa)"
+            >
+              {{ tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+            </button>
+          }
+        }
       }
     </footer>
   </div>

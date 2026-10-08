@@ -459,7 +459,7 @@
   }
 
   @if (mostrarModalFaturamento() && sessaoIdAtual) {
-    <oq-faturamento-modal [sessaoId]="sessaoIdAtual" (fechado)="fecharModalFaturamento()" />
+    <oq-faturamento-modal [sessaoId]="sessaoIdAtual" (notaConfirmada)="notaConfirmada.set(true)" (fechado)="fecharModalFaturamento()" />
   }
 
   @if (mostrarPainelEtapaConcluida() && etapaImpressao(); as ei) {
@@ -494,6 +494,19 @@
         <div class="oq-modal__body">
           <oq-icon name="check" [size]="36" />
           <span class="oq-form-hint">A conferência foi concluída no Sankhya.</span>
+          @switch (proximoPasso()) {
+            @case ('carregar') {
+              <div class="oq-modal-erro oq-modal-erro--aviso">
+                <strong>Próximo passo:</strong> carregar o pedido na OC {{ ordemCargaTarefa }}.
+                @if (fatAoConcluir === 'S') { Depois do carregamento, gere a nota no card do pedido. }
+              </div>
+            }
+            @case ('nota') {
+              <div class="oq-modal-erro oq-modal-erro--aviso">
+                <strong>Próximo passo:</strong> gerar a nota fiscal deste pedido.
+              </div>
+            }
+          }
         </div>
         <div class="oq-modal__footer">
           @if (mostrarBotaoVolumeFinal()) {
@@ -502,7 +515,11 @@
           @if (mostrarBotaoPesoFinal()) {
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="imprimirPesoFinal()">Etiquetas de peso</button>
           }
+          @if (proximoPasso() === 'nota') {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="faturarDoPainel()">Gerar nota</button>
+          }
           @if (ordemCargaTarefa != null) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="irParaOc()">Ir para a OC {{ ordemCargaTarefa }}</button>
             <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="carregadoFinal() !== 'nao'" (click)="irParaCarregamento()">
               {{ carregadoFinal() === 'ok' ? 'Carregado ✓' : carregadoFinal() === 'salvando' ? 'Salvando…' : '✓ Já carregado' }}
             </button>

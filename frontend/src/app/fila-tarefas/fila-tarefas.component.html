@@ -1,16 +1,167 @@
 <div class="oq-page">
-  <!-- KPIs + toolbar — a identidade (logo/unidade/sync/operador) virou o
-       header global (app-header.component), renderizado uma vez em
-       app.component, fora daqui. -->
-  <header class="oq-page__header">
+  <!-- Topo da fila em níveis (a identidade — logo/unidade/sync/operador — é o header global, app-header):
+       1) KPIs da operação · 2) contexto (todas / OC aberta) · 3) progresso da OC · 4) filtros. -->
+  <header class="oq-page__header oq-fila-topo">
     <oq-kpi-bar
       [filaTotal]="kpis().total"
-      [aguardando]="kpis().aguardando"
-      [andamento]="kpis().andamento"
-      [aguardandoCorte]="kpis().aguardandoCorte"
+      [rotuloTotal]="escopo().tipo === 'oc' ? 'Pedidos da OC' : escopo().tipo === 'sem' ? 'Sem OC' : 'Fila'"
+      [conferir]="kpis().conferir"
+      [corte]="kpis().corte"
+      [carregar]="kpis().carregar"
+      [nota]="kpis().nota"
     />
 
+    <!-- 2) CONTEXTO — o mesmo bloco nos dois estados: escolhendo a OC (busca + atalhos) ou dentro da OC. -->
+    <section class="oq-contexto" [class.oq-contexto--oc]="escopo().tipo === 'oc'" aria-label="Contexto da fila">
+      @if (escopo().tipo === 'oc') {
+        <button type="button" class="oq-contexto__voltar" title="Voltar para todas as OCs" aria-label="Voltar para todas as OCs" (click)="selecionarOc(null)">
+          <oq-icon name="arrow-left" [size]="16" />
+        </button>
+        <span class="oq-contexto__oc">
+          <span class="oq-contexto__oc-rotulo">OC</span>
+          <span class="oq-contexto__oc-num">{{ ocFiltrada() }}</span>
+        </span>
+        @if (resumoOc(); as r) {
+          @if (r.motorista || r.transporte) {
+            <span class="oq-contexto__transp" [title]="(r.motorista ?? '—') + ' · ' + (r.transporte ?? '—')">
+              <span class="oq-contexto__transp-nome">{{ r.motorista ?? '—' }}</span>
+              <span class="oq-contexto__transp-veic">{{ r.transporte ?? '—' }}</span>
+            </span>
+          }
+        }
+      } @else {
+        <div class="oq-contexto__campo">
+          <label class="oq-contexto__busca">
+            <span class="oq-contexto__busca-rotulo">OC</span>
+            <input
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="nº ou motorista"
+              [ngModel]="buscaOc()"
+              (ngModelChange)="buscaOc.set($event)"
+              (keydown.enter)="abrirOcDigitada()"
+              (keydown.escape)="buscaOc.set(''); listaOcsAberta.set(false)"
+            />
+            <button
+              type="button"
+              class="oq-contexto__abrir"
+              [class.oq-contexto__abrir--on]="listaOcsAberta()"
+              [attr.aria-label]="'Ver todas as OCs (' + ocsAbertas().length + ')'"
+              [title]="'Ver todas as OCs (' + ocsAbertas().length + ')'"
+              (click)="listaOcsAberta.set(!listaOcsAberta())"
+            >
+              <oq-icon name="list" [size]="14" />
+            </button>
+          </label>
+
+          @if (ocsSugeridas().length || buscaOc().trim()) {
+            <div class="oq-contexto__menu" role="listbox">
+              @for (o of ocsSugeridas(); track o.oc) {
+                <button type="button" class="oq-contexto__opcao" [class.oq-contexto__opcao--ok]="o.carregados === o.pedidos" (click)="selecionarOc(o.oc)">
+                  <span class="oq-contexto__opcao-oc">OC {{ o.oc }}</span>
+                  <span class="oq-contexto__opcao-mot">{{ o.motorista ?? 'sem motorista' }}</span>
+                  <span class="oq-contexto__opcao-prog">
+                    @if (o.carregados === o.pedidos) { pronta p/ fechar } @else { {{ o.conferidos }}/{{ o.pedidos }} conf. }
+                  </span>
+                </button>
+              } @empty {
+                <span class="oq-contexto__vazio">Nenhuma OC aberta com "{{ buscaOc().trim() }}".</span>
+              }
+            </div>
+          }
+        </div>
+
+        <span class="oq-contexto__sep" aria-hidden="true"></span>
+
+        <div class="oq-contexto__escopos" role="group" aria-label="Escopo da fila">
+          <button type="button" class="oq-contexto__escopo" [class.oq-contexto__escopo--sel]="escopo().tipo === 'todas'" (click)="selecionarOc(null)">Todas</button>
+          <button type="button" class="oq-contexto__escopo" [class.oq-contexto__escopo--sel]="escopo().tipo === 'sem'" (click)="selecionarSemOc()">Sem OC</button>
+        </div>
+      }
+
+      <span class="oq-contexto__contador" title="Pedidos visíveis / pedidos no contexto">
+        <span class="oq-contexto__contador-rotulo">pedidos</span>
+        [ {{ tarefasFiltradas().length }} / {{ kpis().total }} ]
+      </span>
+    </section>
+
+    <!-- 3) PROGRESSO DA OC — workflow, não filtro: Conferidos → Carregados → Fechar OC (a nota sai no fechamento). -->
+    @if (escopo().tipo === 'oc') {
+      @if (resumoOc(); as r) {
+        <section class="oq-progresso" [class.oq-progresso--ok]="r.completa" aria-label="Progresso da OC">
+          @if (r.fechada) {
+            <span class="oq-progresso__msg oq-progresso__msg--ok"><oq-icon name="check" [size]="12" /> OC fechada no Sankhya.</span>
+          } @else {
+            <ol class="oq-progresso__etapas">
+              <li>
+                <button
+                  type="button"
+                  class="oq-progresso__etapa"
+                  [class.oq-progresso__etapa--ok]="r.conferidos === r.pedidos"
+                  [class.oq-progresso__etapa--atual]="r.conferidos < r.pedidos"
+                  [class.oq-progresso__etapa--sel]="filtroAtivo() === 'conferir'"
+                  (click)="filtrarFase('conferir')"
+                >
+                  <span class="oq-progresso__marca" aria-hidden="true">
+                    @if (r.conferidos === r.pedidos) { <oq-icon name="check" [size]="10" /> } @else { 1 }
+                  </span>
+                  <span class="oq-progresso__rotulo">Conferidos</span>
+                  <span class="oq-progresso__valor">{{ r.conferidos }}/{{ r.pedidos }}</span>
+                </button>
+              </li>
+              <li class="oq-progresso__liga" aria-hidden="true"></li>
+              <li>
+                <button
+                  type="button"
+                  class="oq-progresso__etapa"
+                  [class.oq-progresso__etapa--ok]="r.carregados === r.pedidos"
+                  [class.oq-progresso__etapa--atual]="r.conferidos === r.pedidos && r.carregados < r.pedidos"
+                  [class.oq-progresso__etapa--sel]="filtroAtivo() === 'carregar'"
+                  (click)="filtrarFase('carregar')"
+                >
+                  <span class="oq-progresso__marca" aria-hidden="true">
+                    @if (r.carregados === r.pedidos) { <oq-icon name="check" [size]="10" /> } @else { 2 }
+                  </span>
+                  <span class="oq-progresso__rotulo">Carregados</span>
+                  <span class="oq-progresso__valor">{{ r.carregados }}/{{ r.pedidos }}</span>
+                </button>
+              </li>
+              <li class="oq-progresso__liga" aria-hidden="true"></li>
+              <li>
+                <button
+                  type="button"
+                  class="oq-progresso__fechar"
+                  [disabled]="r.carregados < r.pedidos"
+                  [title]="r.carregados < r.pedidos ? 'Termine a conferência e o carregamento de todos os pedidos' : 'Faturar e confirmar as notas e fechar a OC'"
+                  (click)="abrirFechamentoOc()"
+                >
+                  Fechar OC
+                </button>
+              </li>
+            </ol>
+
+            <div class="oq-progresso__acoes">
+              @if (r.completa) {
+                <span class="oq-progresso__msg oq-progresso__msg--ok">OC pronta para fechar.</span>
+              } @else if (r.faltaConferir.length) {
+                <span class="oq-progresso__msg" [title]="r.faltaConferir.join(', ')">Falta conferir <strong>{{ r.faltaConferir.length }}</strong></span>
+              } @else if (r.faltaCarregar.length) {
+                <span class="oq-progresso__msg" [title]="r.faltaCarregar.join(', ')">Falta carregar <strong>{{ r.faltaCarregar.length }}</strong></span>
+              }
+              @if (r.aCarregar > 0) {
+                <button type="button" class="oq-progresso__link" (click)="carregarOc()">ver itens</button>
+                <button type="button" class="oq-progresso__btn" [disabled]="salvandoCarga()" (click)="carregarTudoOc()">✓ Carregar tudo ({{ r.aCarregar }})</button>
+              }
+            </div>
+          }
+        </section>
+      }
+    }
+
+    <!-- 4) FILTROS — interação/seleção (diferente dos KPIs, que são só leitura). -->
     <oq-toolbar
+      [contagens]="contagensFase()"
       [total]="kpis().total"
       [visiveis]="tarefasFiltradas().length"
       [filtroAtivo]="filtroAtivo()"
@@ -35,21 +186,6 @@
       (viewModeChange)="onViewModeChange($event)"
     />
   </header>
-
-  @if (resumoOc(); as r) {
-    <!-- Faixa da OC filtrada: conferência + carregamento -->
-    <section class="oq-oc-faixa" [class.oq-oc-faixa--ok]="r.conferidos === r.pedidos && r.pedidosACarregar === 0">
-      <span class="oq-oc-faixa__oc">OC {{ r.oc }}</span>
-      <span class="oq-oc-faixa__item">Conferência <strong>{{ r.conferidos }}/{{ r.pedidos }}</strong> pedidos</span>
-      @if (r.pedidosACarregar > 0) {
-        <span class="oq-oc-faixa__alerta">🚚 {{ r.pedidosACarregar }} pedido(s) a carregar</span>
-        <button type="button" class="oq-oc-faixa__link" (click)="carregarOc()">ver itens</button>
-        <button type="button" class="oq-oc-faixa__btn" [disabled]="salvandoCarga()" (click)="carregarTudoOc()">✓ Carregar tudo</button>
-      } @else if (r.conferidos > 0) {
-        <span class="oq-oc-faixa__item">✓ tudo carregado</span>
-      }
-    </section>
-  }
 
   @if (carregamento(); as c) {
     <!-- Carregamento: o checklist do "Ver conferidos", aqui mesmo na fila -->
@@ -103,33 +239,84 @@
     } @else if (tarefasFiltradas().length === 0) {
       <oq-empty-state />
     } @else {
-      <!-- Mesma página já filtrada/ordenada nos dois modos — só a renderização muda. -->
-      @if (viewMode() === 'cards') {
-        <div class="oq-page__grid" #rolagem>
-          @for (tarefa of tarefasPaginadas(); track tarefa.id) {
-            <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" />
+      @if (escopo().tipo === 'oc') {
+        <!-- Dentro da OC: seções na ordem do fluxo (Prontos recolhidos), sem paginação. -->
+        <div class="oq-fases" #rolagem>
+          @for (g of gruposOc(); track g.fase) {
+            <section class="oq-fase" [class]="'oq-fase oq-fase--' + g.fase">
+              <button
+                type="button"
+                class="oq-fase__cab"
+                [disabled]="g.fase !== 'pronto'"
+                (click)="prontosAbertos.set(!prontosAbertos())"
+              >
+                <span class="oq-fase__nome">{{ rotuloFase[g.fase] }}</span>
+                <span class="oq-fase__qtd">{{ g.tarefas.length }}</span>
+                @if (g.fase === 'pronto') {
+                  <span class="oq-fase__toggle">{{ prontosAbertos() ? 'recolher' : 'mostrar' }}</span>
+                }
+              </button>
+              @if (g.fase !== 'pronto' || prontosAbertos()) {
+                @if (viewMode() === 'cards') {
+                  <div class="oq-page__grid oq-fase__grid">
+                    @for (tarefa of g.tarefas; track tarefa.id) {
+                      <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" />
+                    }
+                  </div>
+                } @else {
+                  <div class="oq-page__lista oq-fase__lista">
+                    <oq-task-list
+                      [tarefas]="g.tarefas"
+                      [ordenacao]="ordenacao()"
+                      (conferir)="onConferir($event)"
+                      (carregado)="onCarregado($event)"
+                      (faturar)="onFaturar($event)"
+                      (ordenar)="onOrdenar($event)"
+                    />
+                  </div>
+                }
+              }
+            </section>
           }
         </div>
       } @else {
-        <div class="oq-page__lista" #rolagem>
-          <oq-task-list
-            [tarefas]="tarefasPaginadas()"
-            [ordenacao]="ordenacao()"
-            (conferir)="onConferir($event)"
-            (carregado)="onCarregado($event)"
-            (ordenar)="onOrdenar($event)"
-          />
-        </div>
-      }
+        <!-- Mesma página já filtrada/ordenada nos dois modos — só a renderização muda. -->
+        @if (viewMode() === 'cards') {
+          <div class="oq-page__grid" #rolagem>
+            @for (tarefa of tarefasPaginadas(); track tarefa.id) {
+              <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" />
+            }
+          </div>
+        } @else {
+          <div class="oq-page__lista" #rolagem>
+            <oq-task-list
+              [tarefas]="tarefasPaginadas()"
+              [ordenacao]="ordenacao()"
+              (conferir)="onConferir($event)"
+              (carregado)="onCarregado($event)"
+              (faturar)="onFaturar($event)"
+              (ordenar)="onOrdenar($event)"
+            />
+          </div>
+        }
 
-      <oq-paginacao
-        [total]="tarefasFiltradas().length"
-        [pagina]="paginaAtual()"
-        [itensPorPagina]="itensPorPagina()"
-        [opcoes]="opcoesItensPorPagina()"
-        (paginaChange)="irParaPagina($event)"
-        (itensPorPaginaChange)="onItensPorPaginaChange($event)"
-      />
+        <oq-paginacao
+          [total]="tarefasFiltradas().length"
+          [pagina]="paginaAtual()"
+          [itensPorPagina]="itensPorPagina()"
+          [opcoes]="opcoesItensPorPagina()"
+          (paginaChange)="irParaPagina($event)"
+          (itensPorPaginaChange)="onItensPorPaginaChange($event)"
+        />
+      }
     }
   </main>
+
+  @if (fechamentoOc(); as oc) {
+    <oq-fechamento-oc-modal [oc]="oc" (fechado)="fecharFechamentoOc()" />
+  }
+
+  @if (faturamento(); as f) {
+    <oq-faturamento-modal [sessaoId]="f.sessaoId" [rotulo]="f.rotulo" (fechado)="fecharFaturamento()" />
+  }
 </div>

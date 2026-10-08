@@ -1,36 +1,360 @@
 /* Estilos movidos pra src/styles/_lista-layout.scss (globais) — o mesmo layout vale pra
    Fila de Tarefas, Impressão de Etiquetas, Liberação de Corte e Mapa de Separação. */
 
-// Faixa da OC filtrada (conferência + carregamento)
-.oq-oc-faixa {
+// ─── 2) CONTEXTO da fila / OC — mesma faixa nos dois estados (escolhendo OC × dentro da OC) ───
+.oq-contexto {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 18px;
-  margin: 0 0 12px;
-  padding: 10px 14px;
+  gap: 8px 12px;
+  min-height: 52px;
+  padding: 8px 24px;
+  border-top: 1px solid var(--oq-border);
+  // Marca de identidade à esquerda: diz "aqui é o lugar onde você está trabalhando".
+  box-shadow: inset 3px 0 0 var(--oq-brand-accent);
+}
+.oq-contexto--oc { box-shadow: inset 3px 0 0 var(--oq-brand); }
+
+// Estado A — campo de OC (busca), escopos e atalhos
+.oq-contexto__campo { position: relative; }
+.oq-contexto__busca {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  border: 1px solid var(--oq-border-strong);
   border-radius: var(--oq-radius-block);
   background: var(--oq-surface);
-  border: 1px solid var(--oq-border);
-  font-size: 13px;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
-  &--ok { border-color: var(--oq-concluido); }
+  &:focus-within { border-color: var(--oq-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--oq-brand) 14%, transparent); }
+
+  input {
+    width: 150px;
+    height: 100%;
+    padding: 0 10px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--oq-text-primary);
+    font-family: var(--oq-font-mono);
+    font-size: 14px;
+
+    &::placeholder { color: var(--oq-text-secondary); font-size: 12px; }
+  }
 }
-.oq-oc-faixa__oc { font-family: var(--oq-font-mono); font-weight: 700; font-size: 15px; }
-.oq-oc-faixa__item { color: var(--oq-text-secondary); strong { color: var(--oq-text-primary); font-family: var(--oq-font-mono); } }
-.oq-oc-faixa__alerta { font-weight: 700; color: var(--oq-warning-foreground); }
-.oq-oc-faixa__btn {
+.oq-contexto__busca-rotulo {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  padding: 0 10px;
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.oq-contexto__abrir {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 100%;
+  border: 0;
+  border-left: 1px solid var(--oq-border);
+  background: transparent;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover, &--on { color: var(--oq-brand-accent); background: var(--oq-surface-2); }
+}
+.oq-contexto__sep { width: 1px; height: 22px; background: var(--oq-border); }
+// Escopos: texto clicável leve (não compete com o campo nem com as pílulas de filtro)
+.oq-contexto__escopos { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.oq-contexto__escopo {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover { color: var(--oq-text-primary); background: var(--oq-surface-2); }
+  &--sel { color: var(--oq-brand); background: color-mix(in srgb, var(--oq-brand) 10%, transparent); box-shadow: inset 0 -2px 0 var(--oq-brand); }
+}
+// Menu de OCs por cima dos cards (não empurra a tela)
+.oq-contexto__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+.oq-contexto__opcao {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--oq-border);
+  box-shadow: inset 3px 0 0 var(--oq-brand-accent);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  text-align: left;
+  cursor: pointer;
+
+  &:last-child { border-bottom: 0; }
+  &:hover { background: var(--oq-surface-2); }
+  &--ok { box-shadow: inset 3px 0 0 var(--oq-concluido); }
+}
+.oq-contexto__opcao-oc { font-family: var(--oq-font-mono); font-size: 14px; font-weight: 700; }
+.oq-contexto__opcao-mot { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--oq-text-secondary); }
+.oq-contexto__opcao-prog { font-family: var(--oq-font-mono); font-size: 10px; color: var(--oq-text-secondary); white-space: nowrap; }
+.oq-contexto__vazio { padding: 10px 12px; font-size: 12px; color: var(--oq-text-secondary); }
+
+// Estado B — dentro da OC: "← OC 309  ANDRE GOMES · FESOD17"
+.oq-contexto__voltar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: transparent;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover { color: var(--oq-brand); border-color: var(--oq-brand); }
+}
+.oq-contexto__oc { display: inline-flex; align-items: baseline; gap: 6px; }
+.oq-contexto__oc-rotulo {
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--oq-text-secondary);
+}
+.oq-contexto__oc-num { font-family: var(--oq-font-mono); font-size: 22px; font-weight: 700; line-height: 1; color: var(--oq-brand); }
+.oq-contexto__transp {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 460px;
+  padding-left: 12px;
+  border-left: 1px solid var(--oq-border);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.oq-contexto__transp-nome { overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 600; color: var(--oq-text-primary); }
+.oq-contexto__transp-veic { overflow: hidden; text-overflow: ellipsis; font-family: var(--oq-font-mono); font-size: 11px; color: var(--oq-text-secondary); }
+
+// Contador — sempre à direita, nos dois estados
+.oq-contexto__contador {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   margin-left: auto;
-  padding: 7px 14px;
+  font-family: var(--oq-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+}
+.oq-contexto__contador-rotulo {
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--oq-text-secondary);
+}
+
+// ─── 3) PROGRESSO da OC — trilha de workflow (não é filtro nem KPI) ───
+.oq-progresso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 8px 24px;
+  background: var(--oq-surface-2);
+  border-top: 1px solid var(--oq-border);
+}
+.oq-progresso__etapas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.oq-progresso__liga { width: 28px; height: 2px; background: var(--oq-border-strong); opacity: 0.5; }
+.oq-progresso__etapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 10px 0 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover { background: var(--oq-surface); border-color: var(--oq-border); }
+}
+.oq-progresso__marca {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--oq-border-strong);
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--oq-text-secondary);
+}
+.oq-progresso__rotulo {
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.oq-progresso__valor { font-family: var(--oq-font-mono); font-size: 15px; font-weight: 700; color: var(--oq-text-primary); }
+// Concluída: verde contido
+.oq-progresso__etapa--ok {
+  .oq-progresso__marca { background: var(--oq-concluido); border-color: var(--oq-concluido); color: #fff; }
+  .oq-progresso__valor { color: var(--oq-success-foreground); }
+}
+// Etapa atual: o roxo diz "é aqui que a OC está"
+.oq-progresso__etapa--atual {
+  color: var(--oq-brand);
+  .oq-progresso__marca { background: var(--oq-brand); border-color: var(--oq-brand); color: var(--oq-brand-ink); }
+  .oq-progresso__valor { color: var(--oq-brand); }
+}
+// Filtrando por esta etapa
+.oq-progresso__etapa--sel { background: var(--oq-surface); border-color: var(--oq-brand); }
+.oq-progresso__fechar {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--oq-brand);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+
+  &:disabled { background: transparent; border-color: var(--oq-border-strong); color: var(--oq-text-secondary); cursor: not-allowed; }
+}
+.oq-progresso__fechar:hover:not(:disabled) { background: var(--oq-brand-hover); }
+// Ações — separadas da trilha, à direita
+.oq-progresso__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-left: auto; }
+.oq-progresso__msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--oq-warning-foreground);
+
+  strong { font-family: var(--oq-font-mono); font-size: 13px; }
+}
+.oq-progresso__msg--ok { color: var(--oq-success-foreground); font-weight: 600; }
+.oq-progresso__link { border: 0; background: none; padding: 0; color: var(--oq-brand-accent); text-decoration: underline; cursor: pointer; font-size: 12px; }
+.oq-progresso__btn {
+  height: 32px;
+  padding: 0 14px;
   border: 0;
   border-radius: var(--oq-radius-input);
   background: var(--oq-brand);
-  color: var(--oq-brand-foreground, #fff);
+  color: var(--oq-brand-ink);
+  font-family: var(--oq-font-display);
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
 
+  &:hover:not(:disabled) { background: var(--oq-brand-hover); }
   &:disabled { opacity: 0.5; cursor: default; }
 }
+
+// ─── Dentro da OC: seções por fase, na ordem do fluxo ───
+.oq-fases {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  // Dentro da OC quem rola é esta área (o conteúdo da página é overflow: hidden, igual à grade de cards).
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+.oq-fase { display: flex; flex-direction: column; gap: 10px; }
+.oq-fase__cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 6px;
+  border: 0;
+  border-bottom: 2px solid var(--fase-cor, var(--oq-border));
+  background: none;
+  color: var(--oq-text-primary);
+  text-align: left;
+  cursor: pointer;
+
+  &:disabled { cursor: default; }
+}
+.oq-fase__nome {
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.oq-fase__qtd {
+  min-width: 24px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--fase-cor, var(--oq-border));
+  color: #fff;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.oq-fase__toggle { margin-left: auto; font-family: var(--oq-font-mono); font-size: 11px; color: var(--oq-brand-accent); text-decoration: underline; }
+.oq-fase--conferir { --fase-cor: var(--oq-aguardando); }
+.oq-fase--corte { --fase-cor: var(--oq-critical); }
+.oq-fase--carregar { --fase-cor: var(--oq-attention); }
+.oq-fase--fechamento { --fase-cor: var(--oq-brand); }
+.oq-fase--nota { --fase-cor: var(--oq-brand-accent); }
+.oq-fase--pronto { --fase-cor: var(--oq-concluido); }
+// Cada seção cresce com seus cards; a rolagem é da .oq-fases inteira.
+.oq-fase__grid, .oq-fase__lista { flex: none; overflow: visible; }
 
 // Pop-up de carregamento (um bloco por pedido)
 .oq-carga__body { display: flex; flex-direction: column; gap: 18px; max-height: 70vh; overflow: auto; }
@@ -39,8 +363,10 @@
 .oq-carga__pedido-topo { font-size: 14px; strong { font-family: var(--oq-font-mono); } }
 
 @media (max-width: 639px) {
-  .oq-oc-faixa { margin: 0 12px 10px; gap: 6px 12px; }
-  .oq-oc-faixa__btn { margin-left: 0; flex: 1 1 100%; padding: 10px; }
+  .oq-contexto, .oq-progresso { padding-left: 16px; padding-right: 16px; }
+  .oq-contexto__sep { display: none; }
+  .oq-contexto__transp { max-width: 100%; }
+  .oq-progresso__liga { width: 10px; }
+  .oq-progresso__acoes { margin-left: 0; }
+  .oq-fases { padding: 0 12px; }
 }
-
-.oq-oc-faixa__link { border: 0; background: none; color: var(--oq-brand-accent); text-decoration: underline; cursor: pointer; font-size: 12px; }

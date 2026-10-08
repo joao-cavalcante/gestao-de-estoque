@@ -1,5 +1,5 @@
 import { OqIconName } from '../shared/icons/oq-icon.component';
-import { StatusTarefa, Tarefa, TIPOS_SEPARACAO, aCarregar } from './tarefa.model';
+import { StatusTarefa, Tarefa, TIPOS_SEPARACAO, faseTarefa } from './tarefa.model';
 
 /**
  * Apresentação de uma tarefa da fila — status (ícone/rótulo/cor) e etapas da
@@ -11,7 +11,7 @@ export interface StatusVisual {
   label: string;
   gira: boolean;
   /** Modificador da etiqueta colorida (.oq-status-pin--{tom}, styles.scss). */
-  tom: 'aguardando' | 'andamento' | 'corte' | 'concluido' | 'recontagem';
+  tom: 'aguardando' | 'andamento' | 'corte' | 'concluido' | 'recontagem' | 'nota';
 }
 
 const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
@@ -24,9 +24,12 @@ const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
 export function statusVisual(tarefa: Tarefa): StatusVisual {
   const visual = STATUS_VISUAL[tarefa.status];
   // Conferida com OC e ainda não carregada (só aparece na fila filtrada por OC).
-  if (aCarregar(tarefa)) {
-    return { icone: 'entrega', label: 'A CARREGAR', gira: false, tom: 'andamento' };
-  }
+  // Depois de conferida, a fase do fluxo manda: CARREGAR → NOTA → PRONTO (usuário, 08/10/2026).
+  const fase = faseTarefa(tarefa);
+  if (fase === 'carregar') return { icone: 'entrega', label: 'CARREGAR', gira: false, tom: 'andamento' };
+  if (fase === 'fechamento') return { icone: 'entrega', label: 'CARREGADO', gira: false, tom: 'nota' };
+  if (fase === 'nota') return { icone: 'receipt', label: 'GERAR NOTA', gira: false, tom: 'nota' };
+  if (fase === 'pronto') return { icone: 'check', label: 'PRONTO', gira: false, tom: 'concluido' };
   // "aguardando_recontagem" cai no mesmo bucket 'aguardando' de uma nota
   // nunca conferida (ver STATUS_MAP em conferencias.service.ts), mas pro
   // operador são situações bem diferentes — uma já foi conferida antes e
@@ -54,7 +57,7 @@ export interface EtapaVisual {
 
 /** Etapas da conferência por etapa (V29) — com rótulo/ícone/progresso resolvidos. Vazio = nota não segmentada. */
 export function etapasVisiveis(tarefa: Tarefa): EtapaVisual[] {
-  if (aCarregar(tarefa)) return []; // card de carregamento: um botão só, sem chips de etapa
+  if (faseTarefa(tarefa) !== 'conferir') return []; // depois de conferida: um botão só, sem chips de etapa
   return (tarefa.etapas ?? [])
     .map((e) => {
       const cat = TIPOS_SEPARACAO.find((t) => t.id === e.tipo);

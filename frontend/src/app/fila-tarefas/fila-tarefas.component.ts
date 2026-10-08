@@ -2,7 +2,7 @@ import { Component, ElementRef, Injector, ViewChild, afterNextRender, computed, 
 import { OqConferidosChecklistComponent } from '../reconferencia/oq-conferidos-checklist.component';
 import { ReconferenciaDetalhe, ReconferenciaService } from '../reconferencia/reconferencia.service';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { SyncTickService } from '../shared/app-header/sync-tick.service';
 import { AuthService } from '../auth/auth.service';
@@ -13,7 +13,26 @@ import { OqTaskListComponent } from './oq-task-list/oq-task-list.component';
 import { OqEmptyStateComponent } from './oq-empty-state/oq-empty-state.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConferenciasService } from './conferencias.service';
-import { aCarregar, CampoOrdenacao, FILTROS_STATUS, FiltroStatus, FiltrosAvancados, OpcaoComCodigo, Ordenacao, Tarefa, ViewMode } from './tarefa.model';
+import {
+  aCarregar,
+  semNota,
+  CampoOrdenacao,
+  EscopoOc,
+  FASES,
+  FasePedido,
+  faseTarefa,
+  FILTROS_STATUS,
+  FiltroStatus,
+  FiltrosAvancados,
+  OpcaoComCodigo,
+  Ordenacao,
+  ROTULO_FASE,
+  Tarefa,
+  ViewMode,
+} from './tarefa.model';
+import { OqFaturamentoModalComponent } from '../separacao/oq-faturamento-modal.component';
+import { OqFechamentoOcModalComponent } from './oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
+import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
 import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
 import { ITENS_POR_PAGINA, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
@@ -51,6 +70,9 @@ function chaveData(data: string): number {
     OqEmptyStateComponent,
     OqSkeletonComponent,
     OqPaginacaoComponent,
+    OqFaturamentoModalComponent,
+    OqFechamentoOcModalComponent,
+    OqIconComponent,
   ],
   templateUrl: './fila-tarefas.component.html',
   styleUrl: './fila-tarefas.component.scss',
@@ -58,6 +80,7 @@ function chaveData(data: string): number {
 export class FilaTarefasComponent implements OnInit, OnDestroy {
   private readonly conferenciasService = inject(ConferenciasService);
   private readonly router = inject(Router);
+  private readonly rota = inject(ActivatedRoute);
   readonly syncTick = inject(SyncTickService);
   private readonly authService = inject(AuthService);
   private readonly injector = inject(Injector);
@@ -138,6 +161,12 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Vindo do fim da conferência ("Ir para a OC"): abre a fila já dentro da OC do pedido.
+    const oc = Number(this.rota.snapshot.queryParamMap.get('oc'));
+    if (oc > 0) {
+      this.selecionarOc(oc);
+      this.router.navigate([], { queryParams: {}, replaceUrl: true });
+    }
     this.carregarFila();
     this.syncSub = this.syncTick.onTick.subscribe(() => this.carregarFila());
   }
@@ -162,49 +191,174 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * A fila é uma FILA DE TRABALHO — só tarefas acionáveis: aguardando
-   * conferência, conferência em andamento e aguardando corte (recontagem
-   * entra como aguardando/andamento). Concluídas e canceladas não aparecem.
+   * Conferência ainda em andamento no chão (CONFERIR/CORTE) — base das opções dos filtros avançados
+   * e da detecção de tenant segmentado. As fases depois da conferência entram por [tarefasDoEscopo].
    */
   private readonly tarefasAtivas = computed(() => this.tarefas().filter((t) => t.status !== 'concluido'));
 
-  /** OC do filtro avançado (null = sem filtro de OC). */
+  /** OC do filtro (null = sem OC escolhida). */
   readonly ocFiltrada = computed(() => this.filtrosAvancados().ordemCarga?.trim() || null);
 
   /**
-   * Carregamento: com o filtro de OC, a nota CONFERIDA que ainda tem item a carregar continua na fila
-   * ("A CARREGAR") — sem isto a OC só de Refrigerado, conferida cedo, sumia e ninguém lembrava de carregar.
-   * Fora do filtro de OC não aparece (a fila geral continua só com trabalho de conferência).
+   * Escopo da fila — a OC é o "lugar de trabalho" de quem separa (usuário, 08/10/2026): ou todas, ou
+   * uma OC, ou só os pedidos sem OC (retira/express). Fica no mesmo estado salvo dos filtros avançados.
    */
+  readonly escopo = computed<EscopoOc>(() => {
+    const oc = this.ocFiltrada();
+    if (oc) return { tipo: 'oc', oc };
+    return this.filtrosAvancados().vinculoOrdemCarga === 'sem' ? { tipo: 'sem' } : { tipo: 'todas' };
+  });
+
+  /**
+   * Pedidos que valem no escopo, pela fase do fluxo (conferir → corte → carregar → nota → pronto):
+   * - dentro da OC: tudo da OC (inclusive PRONTO, até a OC ser fechada no Sankhya);
+   * - sem OC: conferir, corte e nota (não há carregamento controlado);
+   * - todas: conferir e corte de qualquer pedido + nota dos pedidos sem OC — carregar/nota/pronto de
+   *   pedido com OC só aparecem dentro da OC.
+   */
+  private readonly tarefasDoEscopo = computed(() => {
+    const e = this.escopo();
+    return this.tarefas().filter((t) => {
+      const fase = faseTarefa(t);
+      if (e.tipo === 'oc') return String(t.ordemCarga ?? '') === e.oc && !t.ordemCargaFechada;
+      if (e.tipo === 'sem') return t.ordemCarga == null && fase !== 'pronto' && fase !== 'carregar';
+      return fase === 'conferir' || fase === 'corte' || (fase === 'nota' && t.ordemCarga == null);
+    });
+  });
+
+  /** Pedidos da OC aberta a carregar ("Carregar tudo" / "Ver itens" da OC). */
   private readonly tarefasACarregar = computed(() => {
     const oc = this.ocFiltrada();
     if (!oc) return [];
     return this.tarefas().filter((t) => aCarregar(t) && String(t.ordemCarga) === oc);
   });
 
-  /** Faixa da OC filtrada: pedidos conferidos e itens carregados (só pedidos da OC que a fila conhece). */
+  /** Progresso de um conjunto de pedidos pelas etapas do fluxo. */
+  private progresso(lista: Tarefa[]) {
+    const fases = lista.map(faseTarefa);
+    const conta = (f: FasePedido) => fases.filter((x) => x === f).length;
+    const conferidos = lista.length - conta('conferir') - conta('corte');
+    const carregados = conta('fechamento') + conta('nota') + conta('pronto');
+    return { pedidos: lista.length, conferidos, carregados, notas: conta('pronto'), aCarregar: conta('carregar'), corte: conta('corte') };
+  }
+
+  /**
+   * OCs abertas para o seletor do topo: com pedido em andamento, ou com tudo pronto há pouco (até 2 dias,
+   * esperando o "Fechar OC"). OC fechada no Sankhya some. Mais nova primeiro.
+   */
+  readonly ocsAbertas = computed(() => {
+    const limite = Number(new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10).replaceAll('-', ''));
+    const porOc = new Map<number, Tarefa[]>();
+    for (const t of this.tarefas()) {
+      if (t.ordemCarga == null || t.ordemCargaFechada) continue;
+      porOc.set(t.ordemCarga, [...(porOc.get(t.ordemCarga) ?? []), t]);
+    }
+    return [...porOc.entries()]
+      .map(([oc, lista]) => ({
+        oc,
+        motorista: lista.find((t) => t.motorista)?.motorista ?? null,
+        ...this.progresso(lista),
+        recente: lista.some((t) => chaveData(t.data) >= limite),
+      }))
+      .filter((o) => o.notas < o.pedidos || o.recente)
+      // Em andamento (já tem pedido conferido e ainda falta algo) primeiro; depois a mais nova.
+      .sort((a, b) => Number(b.conferidos > 0 && b.notas < b.pedidos) - Number(a.conferidos > 0 && a.notas < a.pedidos) || b.oc - a.oc);
+  });
+
+  // ─── Seletor de OC com busca (dezenas de OCs abertas não cabem em botões) ───
+  /** Texto do campo "OC": número da OC ou nome do motorista. */
+  readonly buscaOc = signal('');
+  /** "Ver todas": lista vertical com todas as OCs abertas. */
+  readonly listaOcsAberta = signal(false);
+
+  /** Resultado da busca (máx. 8) — ou todas, com "Ver todas". */
+  readonly ocsSugeridas = computed(() => {
+    const termo = this.buscaOc().trim().toLowerCase();
+    const todas = this.ocsAbertas();
+    if (!termo) return this.listaOcsAberta() ? todas : [];
+    return todas
+      .filter((o) => String(o.oc).includes(termo) || !!o.motorista?.toLowerCase().includes(termo))
+      .sort((a, b) => Number(String(b.oc).startsWith(termo)) - Number(String(a.oc).startsWith(termo)))
+      .slice(0, 8);
+  });
+
+  /** Enter no campo: abre a OC digitada (número exato) ou a única sugestão. */
+  abrirOcDigitada(): void {
+    const termo = this.buscaOc().trim();
+    const exata = this.ocsAbertas().find((o) => String(o.oc) === termo);
+    const unica = this.ocsSugeridas().length === 1 ? this.ocsSugeridas()[0] : null;
+    const alvo = exata ?? unica;
+    if (alvo) this.selecionarOc(alvo.oc);
+  }
+
+  /** Pedidos sem OC ainda com trabalho (conferir/corte/nota) — botão "Sem OC" do seletor. */
+  readonly pendentesSemOc = computed(
+    () => this.tarefas().filter((t) => t.ordemCarga == null && ['conferir', 'corte', 'nota'].includes(faseTarefa(t))).length,
+  );
+
+  /** Cabeçalho da OC aberta: transporte + régua conferidos → carregados → notas → Fechar OC. */
   readonly resumoOc = computed(() => {
     const oc = this.ocFiltrada();
     if (!oc) return null;
     const daOc = this.tarefas().filter((t) => String(t.ordemCarga ?? '') === oc);
     if (daOc.length === 0) return null;
-    const conferidos = daOc.filter((t) => t.status === 'concluido');
+    const p = this.progresso(daOc);
+    const faltam = (f: (t: Tarefa) => boolean) => daOc.filter(f).map((t) => t.numeroUnico);
     return {
       oc,
-      pedidos: daOc.length,
-      conferidos: conferidos.length,
-      pedidosACarregar: conferidos.filter((t) => aCarregar(t)).length,
+      fechada: daOc.some((t) => t.ordemCargaFechada),
+      motorista: daOc.find((t) => t.motorista)?.motorista ?? null,
+      transporte: daOc.find((t) => t.transporte !== '—')?.transporte ?? null,
+      ...p,
+      // Pronta pra fechar = tudo conferido e carregado (a nota sai no próprio Fechar OC).
+      completa: p.carregados === p.pedidos,
+      faltaConferir: faltam((t) => ['conferir', 'corte'].includes(faseTarefa(t))),
+      faltaCarregar: faltam((t) => faseTarefa(t) === 'carregar'),
     };
   });
 
+  /** Contagem por fase nas pílulas (substitui a faixa de KPIs). */
+  readonly contagensFase = computed(() => {
+    const k = this.kpis();
+    return { todos: k.total, conferir: k.conferir, corte: k.corte, carregar: k.carregar, nota: k.nota };
+  });
+
+  /** KPIs = fases do escopo atual (dentro da OC, os números são daquela OC). */
   readonly kpis = computed(() => {
-    const todas = this.tarefasAtivas();
-    return {
-      total: todas.length,
-      aguardando: todas.filter((t) => t.status === 'aguardando').length,
-      andamento: todas.filter((t) => t.status === 'andamento').length,
-      aguardandoCorte: todas.filter((t) => t.status === 'aguardando_corte').length,
-    };
+    const fases = this.tarefasDoEscopo().map(faseTarefa);
+    const conta = (f: FasePedido) => fases.filter((x) => x === f).length;
+    return { total: fases.length, conferir: conta('conferir'), corte: conta('corte'), carregar: conta('carregar'), nota: conta('nota') + conta('fechamento') };
+  });
+
+  selecionarOc(oc: number | null): void {
+    this.buscaOc.set('');
+    this.listaOcsAberta.set(false);
+    this.filtrosAvancados.set({ ...this.filtrosAvancados(), ordemCarga: oc == null ? null : String(oc), vinculoOrdemCarga: 'todos' });
+    this.filtroAtivo.set('todos');
+    this.paginaAtual.set(1);
+  }
+
+  selecionarSemOc(): void {
+    this.filtrosAvancados.set({ ...this.filtrosAvancados(), ordemCarga: null, vinculoOrdemCarga: 'sem' });
+    this.filtroAtivo.set('todos');
+    this.paginaAtual.set(1);
+  }
+
+  /** Toque numa etapa da régua da OC: mostra só os pedidos daquela fase (de novo = todos). */
+  filtrarFase(fase: FiltroStatus): void {
+    this.filtroAtivo.set(this.filtroAtivo() === fase ? 'todos' : fase);
+    this.paginaAtual.set(1);
+  }
+
+  readonly rotuloFase = ROTULO_FASE;
+  /** Seção "Prontos" da OC começa recolhida (só mostra o avanço). */
+  readonly prontosAbertos = signal(false);
+
+  /** Dentro da OC: os pedidos agrupados pela fase, na ordem do fluxo (sem paginação — uma OC é pequena). */
+  readonly gruposOc = computed(() => {
+    if (this.escopo().tipo !== 'oc') return [];
+    const lista = this.tarefasOrdenadas();
+    return FASES.map((fase) => ({ fase, tarefas: lista.filter((t) => faseTarefa(t) === fase) })).filter((g) => g.tarefas.length > 0);
   });
 
   /** Opções "cód - descrição" de cada select do painel avançado — só o que já aparece na fila carregada. */
@@ -245,8 +399,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const tipos = this.filtroTipoSeparacao();
     const modalidades = this.filtroModalidade();
 
-    return [...this.tarefasAtivas(), ...this.tarefasACarregar()].filter((t) => {
-      const passaFiltro = filtro === 'todos' || t.status === filtro || aCarregar(t);
+    return this.tarefasDoEscopo().filter((t) => {
+      // "Nota" = sem nota confirmada: gerar no card (sem OC) ou no fechamento da OC.
+      const passaFiltro = filtro === 'todos' || (filtro === 'nota' ? semNota(t) : faseTarefa(t) === filtro);
 
       const passaBusca =
         !termo ||
@@ -259,9 +414,8 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
         (!avancados.codigoParceiro || t.codigoCliente === avancados.codigoParceiro) &&
         (!avancados.codigoVendedor || t.codigoResponsavel === avancados.codigoVendedor) &&
         (!avancados.codigoTipoOperacao || t.codigoTipoOperacao === avancados.codigoTipoOperacao) &&
-        (!avancados.ordemCarga || String(t.ordemCarga ?? '') === avancados.ordemCarga.trim()) &&
-        (avancados.vinculoOrdemCarga === 'todos' ||
-          (avancados.vinculoOrdemCarga === 'com' ? t.ordemCarga != null : t.ordemCarga == null));
+        // OC / sem OC já são o escopo (tarefasDoEscopo); "só com OC" continua valendo na visão de todas.
+        (avancados.vinculoOrdemCarga !== 'com' || t.ordemCarga != null);
 
       // Filtro de tipo de separação: passa se tem etapa PENDENTE de algum tipo selecionado.
       const passaTipoSeparacao =
@@ -403,6 +557,33 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   /** "✓ Carregar tudo" da faixa: todos os pedidos a carregar da OC, de uma vez. */
   carregarTudoOc(): void {
     this.darBaixaCarregamento(this.tarefasACarregar().map((t) => t.numeroUnico));
+  }
+
+  // ─── Nota por pedido (fase NOTA): modal de faturamento com a TOP do pedido ───
+  readonly faturamento = signal<{ sessaoId: string; rotulo: string } | null>(null);
+
+  onFaturar(tarefa: Tarefa): void {
+    if (!tarefa.notaPendente) return;
+    this.faturamento.set({ sessaoId: tarefa.notaPendente.sessaoId, rotulo: `Pedido ${tarefa.numeroUnico} — ${tarefa.cliente}` });
+  }
+
+  // ─── Fechar OC: fatura + confirma as notas dos pedidos e fecha a OC no Sankhya ───
+  readonly fechamentoOc = signal<number | null>(null);
+
+  abrirFechamentoOc(): void {
+    const oc = Number(this.ocFiltrada());
+    if (oc > 0) this.fechamentoOc.set(oc);
+  }
+
+  fecharFechamentoOc(): void {
+    this.fechamentoOc.set(null);
+    this.carregarFila();
+  }
+
+  /** Fecha e relê a fila — pedido com nota confirmada passa pra PRONTO. */
+  fecharFaturamento(): void {
+    this.faturamento.set(null);
+    this.carregarFila();
   }
 
   private darBaixaCarregamento(nunotas: string[]): void {
