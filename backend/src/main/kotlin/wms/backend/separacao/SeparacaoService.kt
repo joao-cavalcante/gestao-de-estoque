@@ -1269,6 +1269,14 @@ object SeparacaoService {
                 put("ehPedidoWeb", false)
                 put("nfeDevolucaoViaRecusa", false)
             }
+            // Avisos que a tela nativa confirma ao faturar (usuário, 08/10/2026: "aceitar e seguir nativo").
+            // Sem isto o Sankhya cancela o faturar: "ClientEvents não registrados: ...estoque.insuficiente.produto" (OC 319).
+            putJsonObject("clientEventList") {
+                putJsonArray("clientEvent") {
+                    add(buildJsonObject { put("$", "br.com.sankhya.mgecomercial.event.estoque.insuficiente.produto") })
+                    add(buildJsonObject { put("$", "br.com.sankhya.actionbutton.clientconfirm") })
+                }
+            }
         }
         try {
             SankhyaSpClient.chamarRaw(tenantSlug, "SelecaoDocumentoSP.faturar", "mgecom", requestBody, retentar = false)
