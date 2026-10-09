@@ -17,6 +17,7 @@ import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -1407,7 +1408,12 @@ object SeparacaoService {
 
     private suspend fun faturarNoSankhya(tenantSlug: String, nunota: Long, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
         val hoje = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-        val requestBody = buildJsonObject {
+        // Confirmações já dadas (txProperties) — estoque insuficiente: o Sankhya responde status 4 com
+        // {"id":"...estoque.insuficiente.produto","event":{"codProd":"2587"}} e a tela nativa reenvia o MESMO faturar com
+        // txProperties "central.notas.pode.efetivar_2587" = true (payload capturado da tela nativa, pedido 64886, 09/10/2026).
+        // Um produto por rodada — repete até passar.
+        val confirmacoes = LinkedHashMap<String, String>()
+        fun requestBody() = buildJsonObject {
             putJsonObject("notas") {
                 put("codTipOper", codTipOper)
                 put("dtFaturamento", hoje)
@@ -1422,6 +1428,13 @@ object SeparacaoService {
                 put("dtFixaVenc", "")
                 put("ehPedidoWeb", false)
                 put("nfeDevolucaoViaRecusa", false)
+                if (confirmacoes.isNotEmpty()) {
+                    putJsonObject("txProperties") {
+                        putJsonArray("prop") {
+                            confirmacoes.forEach { (k, v) -> add(buildJsonObject { put("name", k); put("value", v) }) }
+                        }
+                    }
+                }
             }
             // Avisos que a tela nativa confirma ao faturar (usuário, 08/10/2026: "aceitar e seguir nativo").
             // Sem isto o Sankhya cancela o faturar: "ClientEvents não registrados: ...estoque.insuficiente.produto" (OC 319).
@@ -1433,7 +1446,27 @@ object SeparacaoService {
             }
         }
         try {
-            SankhyaSpClient.chamarRaw(tenantSlug, "SelecaoDocumentoSP.faturar", "mgecom", requestBody, retentar = false)
+            var rodada = 0
+            while (true) {
+                try {
+                    SankhyaSpClient.chamarRaw(tenantSlug, "SelecaoDocumentoSP.faturar", "mgecom", requestBody(), retentar = false)
+                    break
+                } catch (p: SankhyaSpClient.SankhyaConfirmacaoPendente) {
+                    val novas = p.eventos.mapNotNull { (id, ev) ->
+                        val codProd = ev["codProd"]?.jsonPrimitive?.contentOrNull?.trim()
+                        if (id == "br.com.sankhya.mgecomercial.event.estoque.insuficiente.produto" && !codProd.isNullOrEmpty()) {
+                            "central.notas.pode.efetivar_$codProd"
+                        } else null
+                    }.filter { it !in confirmacoes }
+                    if (novas.isEmpty() || ++rodada > 60) {
+                        throw FaturamentoException("o Sankhya pediu uma confirmação que o WMS não sabe responder: ${p.eventos.joinToString { it.first }}")
+                    }
+                    novas.forEach { confirmacoes[it] = "true" }
+                    println("INFO: faturar nunota $nunota — estoque insuficiente confirmado (como a tela nativa): $novas")
+                }
+            }
+        } catch (e: FaturamentoException) {
+            throw e
         } catch (e: Exception) {
             // Recusa de regra do Sankhya é definitiva; já timeout/5xx pode ter faturado mesmo assim.
             if (e is SankhyaSpClient.SankhyaSpException && e !is SankhyaSpClient.SankhyaSpErroTransitorio) throw e
@@ -1444,13 +1477,46 @@ object SeparacaoService {
                 )
             }
             println("AVISO: faturar nunota $nunota falhou (${e.message}), mas a nota foi gerada: $geradas")
-            return geradas to confirmarNotasGeradas(tenantSlug, geradas)
+            return geradas to confirmarNotasGeradas(tenantSlug, geradas).also { if (it == null) marcarPedidoNaoPendente(tenantSlug, nunota) }
         }
         val geradas = runCatching { situacaoFaturamento(tenantSlug, nunota).notasGeradas }.getOrDefault(emptyList())
         if (geradas.isEmpty()) {
             return geradas to "o Sankhya aceitou o faturamento mas a nota gerada não foi encontrada — confira na Central de Notas e confirme por lá."
         }
-        return geradas to confirmarNotasGeradas(tenantSlug, geradas)
+        return geradas to confirmarNotasGeradas(tenantSlug, geradas).also { if (it == null) marcarPedidoNaoPendente(tenantSlug, nunota) }
+    }
+
+    /**
+     * Depois de faturar e CONFIRMAR: se o pedido ainda ficou com item pendente (resíduo de corte — pesável que pesou
+     * menos, item cortado), marca como não pendente com o MESMO serviço do botão nativo do Portal de Vendas
+     * (CACSP.marcarPedidosComoNaoPendentes — payload capturado da tela, pedido 65417). Sem isto o pedido faturado
+     * continuava pendente e voltava pra Fila (09/10/2026: 17 pedidos). Nunca derruba o faturamento — só loga.
+     */
+    private suspend fun marcarPedidoNaoPendente(tenantSlug: String, nunota: Long) {
+        runCatching {
+            val pendentes = SankhyaDbExplorerClient.executarQuery(
+                tenantSlug, "SELECT COUNT(*) AS N FROM TGFITE WHERE NUNOTA = $nunota AND PENDENTE = 'S'",
+            ).firstOrNull()?.get("N")?.trim()?.toIntOrNull() ?: 0
+            if (pendentes == 0) return
+            SankhyaSpClient.chamarRaw(
+                tenantSlug, "CACSP.marcarPedidosComoNaoPendentes", "mgecom",
+                buildJsonObject {
+                    putJsonObject("nuNotas") { putJsonArray("nuNota") { add(buildJsonObject { put("$", nunota) }) } }
+                    putJsonObject("clientEventList") {
+                        putJsonArray("clientEvent") {
+                            listOf(
+                                "br.com.sankhya.actionbutton.clientconfirm",
+                                "br.com.sankhya.mgecom.msg.nao.possui.itens.pendentes",
+                                "br.com.sankhya.comercial.recalcula.pis.cofins",
+                                "br.com.sankhya.financeiro.alert.mudanca.titulo.baixa",
+                            ).forEach { e -> add(buildJsonObject { put("$", e) }) }
+                        }
+                    }
+                },
+                retentar = false,
+            )
+            println("INFO: pedido $nunota faturado com $pendentes item(ns) ainda pendente(s) — marcado como não pendente")
+        }.onFailure { println("AVISO: marcar pedido $nunota como não pendente falhou: ${it.message}") }
     }
 
     /**

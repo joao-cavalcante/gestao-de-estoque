@@ -34,6 +34,13 @@ object SankhyaSpClient {
 
     open class SankhyaSpException(message: String) : Exception(message)
 
+    /**
+     * `status 4`: o Sankhya parou pra pedir confirmação de um aviso (popup da tela nativa). [eventos] = (id, dados),
+     * ex.: ("br.com.sankhya.mgecomercial.event.estoque.insuficiente.produto", {"codProd":"2587"}). Quem chama
+     * responde reenviando com a `txProperties` que a tela nativa manda (ver SeparacaoService.faturarNoSankhya).
+     */
+    class SankhyaConfirmacaoPendente(message: String, val eventos: List<Pair<String, JsonObject>>) : SankhyaSpException(message)
+
     /** Falha transitória (5xx/408/429 do gateway) — a única de resposta HTTP que vale repetir. */
     class SankhyaSpErroTransitorio(message: String) : SankhyaSpException(message)
 
@@ -159,6 +166,16 @@ object SankhyaSpClient {
 
         val json = Json.parseToJsonElement(response.body()).jsonObject
         val status = json["status"]?.jsonPrimitive?.contentOrNull
+        if (status == "4") {
+            val eventos = (json["clientEvents"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                val id = o["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                id to ((o["event"] as? JsonObject) ?: buildJsonObject {})
+            }
+            if (eventos.isNotEmpty()) {
+                throw SankhyaConfirmacaoPendente("Sankhya $serviceName pediu confirmação: ${eventos.joinToString { "${it.first} ${it.second}" }}", eventos)
+            }
+        }
         if (status != "1") {
             // Sem statusMessage o erro ficava mudo ("Falha em SelecaoDocumentoSP.faturar" — pedido 64927, 09/10/2026):
             // traz o status, o código do tsError e loga a resposta crua pra dar pra entender o que o Sankhya disse.
