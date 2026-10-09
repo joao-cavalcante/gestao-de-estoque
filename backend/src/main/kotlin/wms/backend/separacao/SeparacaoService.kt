@@ -17,6 +17,7 @@ import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -1414,7 +1415,12 @@ object SeparacaoService {
 
     private suspend fun faturarNoSankhya(tenantSlug: String, nunota: Long, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
         val hoje = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-        val requestBody = buildJsonObject {
+        // Confirmações já dadas (txProperties) — estoque insuficiente: o Sankhya responde status 4 com
+        // {"id":"...estoque.insuficiente.produto","event":{"codProd":"2587"}} e a tela nativa reenvia o MESMO faturar com
+        // txProperties "central.notas.pode.efetivar_2587" = true (payload capturado da tela nativa, pedido 64886, 09/10/2026).
+        // Um produto por rodada — repete até passar.
+        val confirmacoes = LinkedHashMap<String, String>()
+        fun requestBody() = buildJsonObject {
             putJsonObject("notas") {
                 put("codTipOper", codTipOper)
                 put("dtFaturamento", hoje)
@@ -1429,6 +1435,13 @@ object SeparacaoService {
                 put("dtFixaVenc", "")
                 put("ehPedidoWeb", false)
                 put("nfeDevolucaoViaRecusa", false)
+                if (confirmacoes.isNotEmpty()) {
+                    putJsonObject("txProperties") {
+                        putJsonArray("prop") {
+                            confirmacoes.forEach { (k, v) -> add(buildJsonObject { put("name", k); put("value", v) }) }
+                        }
+                    }
+                }
             }
             // Avisos que a tela nativa confirma ao faturar (usuário, 08/10/2026: "aceitar e seguir nativo").
             // Sem isto o Sankhya cancela o faturar: "ClientEvents não registrados: ...estoque.insuficiente.produto" (OC 319).
@@ -1440,7 +1453,27 @@ object SeparacaoService {
             }
         }
         try {
-            SankhyaSpClient.chamarRaw(tenantSlug, "SelecaoDocumentoSP.faturar", "mgecom", requestBody, retentar = false)
+            var rodada = 0
+            while (true) {
+                try {
+                    SankhyaSpClient.chamarRaw(tenantSlug, "SelecaoDocumentoSP.faturar", "mgecom", requestBody(), retentar = false)
+                    break
+                } catch (p: SankhyaSpClient.SankhyaConfirmacaoPendente) {
+                    val novas = p.eventos.mapNotNull { (id, ev) ->
+                        val codProd = ev["codProd"]?.jsonPrimitive?.contentOrNull?.trim()
+                        if (id == "br.com.sankhya.mgecomercial.event.estoque.insuficiente.produto" && !codProd.isNullOrEmpty()) {
+                            "central.notas.pode.efetivar_$codProd"
+                        } else null
+                    }.filter { it !in confirmacoes }
+                    if (novas.isEmpty() || ++rodada > 60) {
+                        throw FaturamentoException("o Sankhya pediu uma confirmação que o WMS não sabe responder: ${p.eventos.joinToString { it.first }}")
+                    }
+                    novas.forEach { confirmacoes[it] = "true" }
+                    println("INFO: faturar nunota $nunota — estoque insuficiente confirmado (como a tela nativa): $novas")
+                }
+            }
+        } catch (e: FaturamentoException) {
+            throw e
         } catch (e: Exception) {
             // Recusa de regra do Sankhya é definitiva; já timeout/5xx pode ter faturado mesmo assim.
             if (e is SankhyaSpClient.SankhyaSpException && e !is SankhyaSpClient.SankhyaSpErroTransitorio) throw e
@@ -1898,6 +1931,15 @@ object SeparacaoService {
             )
         }
         val escondidas = ocultas.filter { it.acao == "oculto" }.map { it.sequencia }.toSet()
+        // Item que JÁ SAIU em nota (QTDENTREGUE >= QTDNEG, pedido faturado em parte) não se confere de novo:
+        // o corte do Sankhya compara com QTDNEG - QTDENTREGUE e acusava tudo "a maior" (pedido 65746 — faturado
+        // no Sankhya com a Coca 1LT cortada pendente, voltou pra Fila e reconferido inteiro: 18 liberações falsas).
+        val jaEntregues = todasAsLinhas.filter { r ->
+            val neg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO
+            val ent = r["QTDENTREGUE"].parseBigDecimalBr() ?: BigDecimal.ZERO
+            ent.signum() > 0 && ent >= neg
+        }.mapNotNull { it["SEQUENCIA"]?.toIntOrNull() }.toSet()
+        if (jaEntregues.isNotEmpty()) println("INFO: carga itens nunota=$nunota — já entregues em nota, fora da conferência: seq ${jaEntregues.sorted()}")
 
         val pendentes = todasAsLinhas
             // Critério real de "precisa reconferência", capturado ao vivo da
@@ -1913,7 +1955,7 @@ object SeparacaoService {
             // que exige nova ação; não pode sumir sozinho só porque o Sankhya
             // já espelhou um QTDCONF que parece "resolvido" pro novo ciclo.
             .mapNotNull { it["SEQUENCIA"]?.toIntOrNull() }
-            .filter { it !in escondidas }
+            .filter { it !in escondidas && it !in jaEntregues }
             .toSet()
 
         val itens = todasAsLinhas.mapNotNull { r ->
@@ -1927,7 +1969,9 @@ object SeparacaoService {
                 codprod = codprod,
                 controle = r["CONTROLE"]?.trim()?.takeIf { it.isNotEmpty() } ?: " ",
                 codvol = r["CODVOL"],
-                qtdNeg = r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO,
+                // Saldo a entregar (o que o corte do Sankhya compara) — igual ao QTDNEG quando nada saiu em nota.
+                qtdNeg = ((r["QTDNEG"].parseBigDecimalBr() ?: BigDecimal.ZERO) - (r["QTDENTREGUE"].parseBigDecimalBr() ?: BigDecimal.ZERO))
+                    .max(BigDecimal.ZERO),
                 qtdEntregue = r["QTDENTREGUE"].parseBigDecimalBr() ?: BigDecimal.ZERO,
                 dadosJson = dadosJson,
                 tipoSeparacao = parseTipoSeparacao(r["Produto.AD_TIPOSEPARACAO"]),

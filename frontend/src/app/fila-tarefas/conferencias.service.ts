@@ -138,6 +138,10 @@ const STATUS_MAP: Record<TarefaApiDto['statusOperacional'], Tarefa['status']> = 
   recontagem_concluida_divergente: 'concluido',
 };
 
+function notaComPedidoAberto(p: TarefaApiDto): boolean {
+  return !!p.notaFiscal && STATUS_MAP[p.statusOperacional] !== 'concluido';
+}
+
 function mapearParaTarefa(p: TarefaApiDto): Tarefa {
   // Número do PEDIDO (TGFCAB.NUMNOTA do pedido) — a nota fiscal gerada vem em `notaFiscal`.
   const nf = p.numeroNota ? String(p.numeroNota) : '—';
@@ -147,7 +151,11 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     codigoCliente: p.codigoParceiro,
     status: STATUS_MAP[p.statusOperacional],
     statusOperacional: p.statusOperacional,
-    alerta: null, // sem rastreamento de divergência/SLA local ainda
+    // Pedido ainda na conferência que já tem nota gerada = faturado em parte por fora (pedido 65746): avisa no card.
+    alerta: notaComPedidoAberto(p) ? 'atencao' : null,
+    motivoAlerta: notaComPedidoAberto(p)
+      ? `Já tem a nota ${p.notaFiscal!.numero || p.notaFiscal!.nunota}${p.notaFiscal!.confirmada ? '' : ' (não confirmada)'} — confira só o que falta`
+      : undefined,
     pedido: nf,
     numeroUnico: String(p.nunota),
     nf,

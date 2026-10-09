@@ -132,11 +132,12 @@ object TarefaSyncService {
             wms.backend.mapaseparacao.TransporteOrdemCarga.atualizarSituacoes(tenantSlug, tenantId, ocs)
         }.onFailure { println("AVISO: situação das OCs (tenant $tenantSlug) falhou: ${it.message}") }
 
-        // Nota fiscal de cada pedido conferido (número + situação) pra fila.
+        // Nota fiscal de cada pedido recente da fila (número + situação). Inclui os ainda não conferidos: pedido em
+        // conferência que já tem nota = faturado em parte por fora (pedido 65746) — o card avisa pra não reconferir tudo.
         runCatching {
-            val conferidos = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }
-                .filter { it.statusOperacional in STATUS_CONFERIDA_NOTA && recente(it.dataMovimento) }.map { it.nunota }
-            NotasFiscaisPedido.atualizar(tenantSlug, tenantId, conferidos)
+            val pedidos = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }
+                .filter { recente(it.dataMovimento) }.map { it.nunota }
+            NotasFiscaisPedido.atualizar(tenantSlug, tenantId, pedidos)
         }.onFailure { println("AVISO: notas fiscais dos pedidos (tenant $tenantSlug) falhou: ${it.message}") }
 
         // "Aguardando nota" (V58): nota faturada/confirmada direto no Sankhya, ou conferência reaberta, sai da fila.
@@ -244,12 +245,6 @@ object TarefaSyncService {
             .toMap()
     }
 }
-
-/** Status de tarefa conferida — só esses pedidos podem ter nota (NotasFiscaisPedido). */
-private val STATUS_CONFERIDA_NOTA = setOf(
-    StatusOperacional.CONCLUIDO.codigo, StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
-    StatusOperacional.RECONTAGEM_CONCLUIDA.codigo, StatusOperacional.RECONTAGEM_CONCLUIDA_DIVERGENTE.codigo,
-)
 
 /** DTNEG ("dd/MM/yyyy ...") nos últimos 15 dias — o que a fila ainda mostra. Data ilegível = entra. */
 private fun recente(dataMovimento: String?): Boolean {
