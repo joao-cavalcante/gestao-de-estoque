@@ -253,10 +253,12 @@ export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
   private acompanharOutraEmissao(): void {
     const url = this.nunota ? `/api/pedidos/${this.nunota}/nota/progresso` : `/api/ordens-carga/${this.oc}/fechamento/progresso`;
     this.pararPoll();
-    this.progresso.set({ fase: 'faturando', feitos: 0, total: 0, atual: 'em outro clique/aparelho' });
+    this.progresso.set({ fase: 'faturando', feitos: 0, total: 0, atual: null });
+    let falhasSeguidas = 0;
     this.pollProgresso = setInterval(() => {
       this.http.get<ProgressoEmissao>(url).subscribe({
         next: (p) => {
+          falhasSeguidas = 0;
           if (p?.fase) {
             this.progresso.set(p);
             return;
@@ -265,7 +267,13 @@ export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
           this.executando.set(false);
           this.carregarPrevia();
         },
-        error: () => {},
+        // Servidor fora do ar de verdade: não fica girando pra sempre (~30 s sem conseguir consultar).
+        error: () => {
+          if (++falhasSeguidas < 20) return;
+          this.pararPoll();
+          this.executando.set(false);
+          this.erro.set('Sem resposta do servidor. Confira a OC na fila antes de tentar de novo — pode ter sido fechada.');
+        },
       });
     }, 1500);
   }
@@ -322,6 +330,12 @@ export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
       error: (err) => {
         // Já tem emissão rodando (outro clique/aparelho): acompanha aquela pela barra e, quando acabar, mostra o resultado.
         if (err?.status === 409 && err?.error?.emAndamento) {
+          this.acompanharOutraEmissao();
+          return;
+        }
+        // Sem resposta (tempo esgotado no proxy / queda de rede): o servidor pode estar faturando ainda — acompanha
+        // pela barra e mostra o resultado real no fim, em vez de "falha" (OC 355, 09/10/2026).
+        if (err?.status === 0 || err?.status === 502 || err?.status === 503 || err?.status === 504) {
           this.acompanharOutraEmissao();
           return;
         }
