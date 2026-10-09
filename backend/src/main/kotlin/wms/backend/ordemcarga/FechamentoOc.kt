@@ -142,6 +142,8 @@ object FechamentoOcService {
         val statusConf: String?, val liberacoesPendentes: Int, val notas: List<Long>, val notasSemConfirmar: List<Long>,
         val numerosNotas: List<String> = emptyList(),
         val ordemCarga: Long? = null,
+        /** Itens no pedido (TGFITE). 0 = zerado por corte total (nada separado) — não tem nota a gerar. */
+        val itens: Int = 1,
     )
 
     private suspend fun pedidosDaOc(tenantSlug: String, oc: Long): List<PedidoOc> = pedidosVenda(tenantSlug, "C.ORDEMCARGA = $oc")
@@ -151,6 +153,7 @@ object FechamentoOcService {
         val cab = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             "SELECT C.NUNOTA, C.NUMNOTA, C.CODTIPOPER, P.NOMEPARC, NVL(C.ORDEMCARGA, 0) AS ORDEMCARGA, " +
+                "(SELECT COUNT(*) FROM TGFITE I WHERE I.NUNOTA = C.NUNOTA) AS QTD_ITENS, " +
                 "CASE WHEN EXISTS (SELECT 1 FROM TGFPAR PAR WHERE PAR.CODPARC = C.CODPARC AND PAR.CODTIPPARC = $CODTIPPARC_NFCE) THEN 'S' ELSE 'N' END AS NFCE, " +
                 "(SELECT F.STATUS FROM TGFCON2 F WHERE F.NUCONF = C.NUCONFATUAL) AS STATUS_CONF, " +
                 "(SELECT COUNT(*) FROM TSILIB L WHERE L.NUCHAVE = C.NUCONFATUAL AND L.TABELA = 'TGFCOI2' AND L.EVENTO = 64 AND L.DHLIB IS NULL) AS LIB_PEND " +
@@ -182,6 +185,7 @@ object FechamentoOcService {
                 notasSemConfirmar = n.filter { !it.confirmada }.map { it.nunota }.distinct().sorted(),
                 numerosNotas = n.sortedBy { it.nunota }.map { it.rotulo }.distinct(),
                 ordemCarga = r["ORDEMCARGA"]?.toBigDecimalOrNull()?.toLong()?.takeIf { it > 0 },
+                itens = r["QTD_ITENS"]?.toBigDecimalOrNull()?.toInt() ?: 1,
             )
         }.sortedBy { it.cliente ?: "" }
     }
@@ -239,6 +243,9 @@ object FechamentoOcService {
             val c = carregamento[p.nunota]
             when {
                 p.notas.isNotEmpty() && p.notasSemConfirmar.isEmpty() -> base
+                // Zerado por corte total (conferiu 0 porque não tinha o que separar — pedido 65777, 09/10/2026):
+                // não há nota a gerar e não pode segurar o fechamento da OC.
+                p.itens == 0 && p.notas.isEmpty() -> base.copy(motivo = "sem itens (corte total) — sem nota")
                 p.statusConf == "C" || p.liberacoesPendentes > 0 -> base.copy(situacao = "bloqueado", motivo = "corte aguardando liberação")
                 p.statusConf !in STATUS_CONF_FINALIZADA && p.notas.isEmpty() ->
                     base.copy(situacao = "bloqueado", motivo = if (p.statusConf == null) "não conferido" else "conferência não finalizada (${p.statusConf})")
@@ -349,7 +356,9 @@ object FechamentoOcService {
         }
 
         // Trava final: a OC só fecha se TODO pedido dela tiver nota confirmada no Sankhya.
-        val semNota = pedidosDaOc(tenantSlug, oc).filter { it.notas.isEmpty() || it.notasSemConfirmar.isNotEmpty() }
+        val semNota = pedidosDaOc(tenantSlug, oc)
+            .filter { it.itens > 0 || it.notas.isNotEmpty() } // zerado por corte total não tem nota a exigir
+            .filter { it.notas.isEmpty() || it.notasSemConfirmar.isNotEmpty() }
         if (semNota.isNotEmpty()) {
             println("AVISO: fechamento OC $oc — trava final: sem nota confirmada ${semNota.map { it.nunota }}; OC não fechada")
             return previa.copy(

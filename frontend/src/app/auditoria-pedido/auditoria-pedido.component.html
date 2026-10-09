@@ -58,7 +58,7 @@
           <div><dt>Operação</dt><dd>{{ d.cabecalho.codtipoper }} · {{ d.cabecalho.top ?? '—' }}</dd></div>
           <div><dt>Valor</dt><dd>{{ valor(d.cabecalho.valor) }}</dd></div>
           <div><dt>Incluído</dt><dd>{{ dataHora(d.cabecalho.incluidoEm) }}</dd></div>
-          <div><dt>Última alteração</dt><dd>{{ dataHora(d.cabecalho.alteradoEm) }}</dd></div>
+          <div><dt>Última alteração</dt><dd>{{ dataHora(d.cabecalho.alteradoEm) }}@if (d.cabecalho.alteradoPor) { · por {{ d.cabecalho.alteradoPor }} }</dd></div>
         </dl>
         @if (d.notasGeradas.length) {
           <div class="ap-notas">

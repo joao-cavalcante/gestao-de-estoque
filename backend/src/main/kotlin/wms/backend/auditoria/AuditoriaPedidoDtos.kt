@@ -19,6 +19,8 @@ data class AuditoriaCabecalhoDto(
     /** DTMOV + HRMOV (hora em que o pedido entrou), ISO local de Brasília. */
     val incluidoEm: String? = null,
     val alteradoEm: String? = null,
+    /** Quem fez a última alteração no Sankhya (TGFCAB.CODUSU → TSIUSU). */
+    val alteradoPor: String? = null,
     val nuconfAtual: Int? = null,
 )
 

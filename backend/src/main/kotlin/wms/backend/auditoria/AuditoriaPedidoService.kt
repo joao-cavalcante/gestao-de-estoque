@@ -89,7 +89,39 @@ object AuditoriaPedidoService {
         val liberacoes = libsBrutas.flatMap { eventosLiberacao(it, unidades, porNome) }
         val notas = notasAsync.await().onFailure { avisos += "Notas geradas: ${it.message}" }.getOrDefault(emptyList())
 
+        // Conferências que o WMS abriu mas não existem mais no Sankhya (excluídas depois) — antes a linha do tempo só "parava".
+        val nuconfsWms = runCatching { withContext(Dispatchers.IO) { nuconfsDoWms(tenantId, nunota) } }.getOrDefault(emptyList())
+        val nuconfsSankhya = runCatching {
+            SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT NUCONF FROM TGFCON2 WHERE NUNOTAORIG = $nunota")
+                .mapNotNull { it["NUCONF"].int() }.toSet()
+        }.getOrNull()
+
         val eventos = buildList {
+            cab.alteradoEm?.takeIf { alt -> cab.incluidoEm == null || alt > cab.incluidoEm }?.let {
+                val zerado = itens.isEmpty()
+                add(
+                    AuditoriaEventoDto(
+                        it, "SANKHYA", "pedido", "Pedido alterado no Sankhya (última alteração)",
+                        if (zerado) "pedido hoje SEM ITENS · ${cab.valor?.let(::reais) ?: "R$ 0,00"}"
+                        else "pedido hoje com ${itens.size} item(ns)${cab.valor?.let { v -> " · " + reais(v) } ?: ""}",
+                        cab.alteradoPor?.let { u -> "por $u" },
+                        nivel = if (zerado) "alerta" else "info",
+                    ),
+                )
+            }
+            if (nuconfsSankhya != null) {
+                nuconfsWms.filter { (nuconf, _) -> nuconf !in nuconfsSankhya }.forEach { (nuconf, quando) ->
+                    add(
+                        AuditoriaEventoDto(
+                            cab.alteradoEm?.takeIf { alt -> alt > quando } ?: quando, "SANKHYA", "conferencia",
+                            "Conferência $nuconf (feita no WMS) não existe mais no Sankhya — foi excluída",
+                            "excluída no Sankhya depois da conferência; o horário exato não fica registrado",
+                            cab.alteradoPor?.let { u -> "última alteração no pedido por $u" },
+                            nivel = "alerta",
+                        ),
+                    )
+                }
+            }
             cab.incluidoEm?.let {
                 add(
                     AuditoriaEventoDto(
@@ -135,7 +167,8 @@ object AuditoriaPedidoService {
     private suspend fun buscarCabecalho(tenantSlug: String, numero: Long): AuditoriaCabecalhoDto? {
         val sql = """
             SELECT C.NUNOTA, C.NUMNOTA, C.CODTIPOPER, T.DESCROPER, C.TIPMOV, C.STATUSNOTA, C.ORDEMCARGA, C.CODPARC,
-                   P.NOMEPARC, C.CODVEND, V.APELIDO, C.VLRNOTA, C.DTMOV, C.HRMOV, C.DTALTER, C.NUCONFATUAL
+                   P.NOMEPARC, C.CODVEND, V.APELIDO, C.VLRNOTA, C.DTMOV, C.HRMOV, C.DTALTER, C.NUCONFATUAL,
+                   (SELECT U.NOMEUSU FROM TSIUSU U WHERE U.CODUSU = C.CODUSU) AS ALTERADO_POR
             FROM TGFCAB C
             JOIN TGFPAR P ON P.CODPARC = C.CODPARC
             LEFT JOIN TGFVEN V ON V.CODVEND = C.CODVEND
@@ -162,6 +195,7 @@ object AuditoriaPedidoService {
             valor = linha["VLRNOTA"].dbl(),
             incluidoEm = dataComHora(linha["DTMOV"], linha["HRMOV"]),
             alteradoEm = dataSankhya(linha["DTALTER"]),
+            alteradoPor = linha["ALTERADO_POR"]?.trim()?.takeIf { it.isNotEmpty() },
             nuconfAtual = linha["NUCONFATUAL"].int(),
         )
     }
@@ -429,17 +463,30 @@ object AuditoriaPedidoService {
         }
         consulta(
             """
-            SELECT ${BR.format("e.concluida_em")} q, e.tipo_separacao, e.divergente, e.concluida_por, e.qtd_vol
+            SELECT ${BR.format("e.concluida_em")} q, e.tipo_separacao, e.divergente, e.concluida_por, e.qtd_vol,
+                   (SELECT count(*) FROM app.separacao_itens i WHERE i.sessao_id = e.sessao_id AND i.tipo_separacao = e.tipo_separacao
+                      AND NOT i.silencioso) AS itens_total,
+                   (SELECT count(*) FROM app.separacao_itens i WHERE i.sessao_id = e.sessao_id AND i.tipo_separacao = e.tipo_separacao
+                      AND NOT i.silencioso AND i.qtd_conferida_local > 0) AS itens_conferidos
             FROM app.separacao_etapas e WHERE e.tenant_id = '$tenantId' AND e.status = 'C' AND e.concluida_em IS NOT NULL
               AND e.sessao_id IN ($sessoes)
             """.trimIndent(),
         ) { rs ->
             val divergente = rs.getBoolean("divergente")
+            val total = rs.getInt("itens_total")
+            val conferidos = rs.getInt("itens_conferidos")
+            // Deixa explícito o que a divergência foi — "com divergência" sozinho era dúbio (pedido 65777: 0 conferidos).
+            val resumo = when {
+                total == 0 -> null
+                conferidos == 0 -> "nenhum item conferido — corte de todos os itens da etapa"
+                else -> "$conferidos de $total item(ns) conferido(s)"
+            }
             AuditoriaEventoDto(
                 rs.getString("q"), "WMS", "etapa",
                 "Etapa ${ETAPA[rs.getInt("tipo_separacao")] ?: rs.getInt("tipo_separacao")} concluída" + if (divergente) " com divergência" else " sem divergência",
-                rs.getObject("qtd_vol")?.let { "$it volume(s)" }, rs.getString("concluida_por"),
-                nivel = if (divergente) "alerta" else "sucesso",
+                listOfNotNull(resumo, rs.getObject("qtd_vol")?.let { "$it volume(s)" }).joinToString(" · ").ifEmpty { null },
+                rs.getString("concluida_por"),
+                nivel = if (total > 0 && conferidos == 0) "erro" else if (divergente) "alerta" else "sucesso",
             )
         }
         consulta(
@@ -470,6 +517,16 @@ object AuditoriaPedidoService {
             )
         }
         eventos
+    }
+
+    /** (nuconf, última atualização da sessão) das conferências que o WMS abriu pro pedido. */
+    private fun nuconfsDoWms(tenantId: UUID, nunota: Long): List<Pair<Int, String>> = TenantTx.run(tenantId, statementTimeoutMs = 10_000) {
+        val r = mutableListOf<Pair<Int, String>>()
+        exec(
+            "SELECT DISTINCT ON (nuconf) nuconf, ${BR.format("atualizado_em")} q FROM app.separacao_sessoes " +
+                "WHERE tenant_id = '$tenantId' AND nunota = $nunota AND nuconf IS NOT NULL ORDER BY nuconf, atualizado_em DESC",
+        ) { rs -> while (rs.next()) r += rs.getInt("nuconf") to rs.getString("q") }
+        r
     }
 
     private fun statusTarefa(s: String?) = when (s) {

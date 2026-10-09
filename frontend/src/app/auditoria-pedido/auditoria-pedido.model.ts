@@ -14,6 +14,7 @@ export interface AuditoriaCabecalho {
   valor: number | null;
   incluidoEm: string | null;
   alteradoEm: string | null;
+  alteradoPor?: string | null;
   nuconfAtual: number | null;
 }
 

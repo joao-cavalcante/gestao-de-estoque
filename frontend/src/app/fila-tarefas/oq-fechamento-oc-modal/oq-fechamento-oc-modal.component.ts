@@ -118,6 +118,8 @@ interface FechamentoOc {
                         } @else if (p.situacao === 'faturar') {
                           <span class="fec__neutro">a faturar</span>
                           @if (p.motivo) { <span class="fec__obs">{{ p.motivo }}</span> }
+                        } @else if (p.situacao === 'pronto' && !p.notasGeradas.length) {
+                          <span class="fec__neutro">{{ p.motivo ?? 'sem nota a gerar' }}</span>
                         } @else if (p.situacao === 'pronto') {
                           <span class="fec__ok fec__ok--leve"><oq-icon name="check" [size]="12" /> NF {{ (p.numerosNotas?.length ? p.numerosNotas : p.notasGeradas).join(', ') }}</span>
                         } @else {
