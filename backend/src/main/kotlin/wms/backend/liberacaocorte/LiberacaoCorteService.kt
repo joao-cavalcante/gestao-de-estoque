@@ -445,14 +445,13 @@ object LiberacaoCorteService {
         val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
         val nunota = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
         garantirVinculo(tenantSlug, tenantId, nuconf, nunota, pendentes, "tela de liberação")
-        val itemPorSeq = withContext(Dispatchers.IO) {
+        val itensSessao = withContext(Dispatchers.IO) {
             val sessao = nunota?.let { wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, it) }
-                ?: return@withContext emptyMap()
-            itensPorLiberacao(
-                tenantId, nuconf, pendentes,
-                wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id), incluirSilenciosos = true),
-            )
+                ?: return@withContext emptyList()
+            wms.backend.separacao.SeparacaoRepository.listarItens(tenantId, java.util.UUID.fromString(sessao.id), incluirSilenciosos = true)
         }
+        val itemPorSeq = withContext(Dispatchers.IO) { itensPorLiberacao(tenantId, nuconf, pendentes, itensSessao) }
+        val inclusos = incluidosPorColisao(tenantSlug, tenantId, nunota, nuconf, pendentes, itensSessao)
 
         return pendentes.map { linha ->
             val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
@@ -470,6 +469,7 @@ object LiberacaoCorteService {
                     unidadeConferida = itemPesavel.unidadePadrao,
                     diferenca = if (pedido != null && conferido != null) round3(conferido - pedido) else null,
                     pesavel = true,
+                    incluiTambem = inclusos[linha["SEQUENCIA"]?.toIntOrNull()].orEmpty(),
                 )
             } else {
                 val diferenca = if (obs.qtdConferida != null && obs.qtdPedido != null) {
@@ -485,9 +485,50 @@ object LiberacaoCorteService {
                     qtdConferida = obs.qtdConferida,
                     unidadeConferida = obs.unidadeConferida,
                     diferenca = diferenca,
+                    incluiTambem = inclusos[linha["SEQUENCIA"]?.toIntOrNull()].orEmpty(),
                 )
             }
         }.sortedWith(compareBy(wms.backend.produtos.NomeProduto.ORDEM) { it.produto })
+    }
+
+    /**
+     * SEQUENCIA -> textos dos produtos que o Sankhya juntou nela além do que aparece na OBSERVACAO
+     * (colisão — ver VinculoCorte.colisoes). Só calcula pra linha sem vínculo gravado (com colisão o
+     * vínculo nunca é gravado). Falha = lista vazia (a tela continua como antes).
+     */
+    private suspend fun incluidosPorColisao(
+        tenantSlug: String,
+        tenantId: UUID,
+        nunota: Long?,
+        nuconf: Int,
+        pendentes: List<Map<String, String?>>,
+        itensSessao: List<wms.backend.separacao.ItemSeparacaoDto>,
+    ): Map<Int, List<String>> {
+        if (nunota == null || pendentes.isEmpty()) return emptyMap()
+        val vinculados = withContext(Dispatchers.IO) { VinculoCorte.buscar(tenantId, nuconf) }.keys
+        if (pendentes.all { (it["SEQUENCIA"]?.toIntOrNull() ?: return@all true) in vinculados }) return emptyMap()
+        val colisoes = runCatching { VinculoCorte.colisoes(tenantSlug, tenantId, nunota, nuconf) }
+            .onFailure { println("AVISO: colisão de corte nuconf $nuconf — cálculo falhou: ${it.message}") }
+            .getOrNull().orEmpty()
+        if (colisoes.isEmpty()) return emptyMap()
+        val porChave = itensSessao.groupBy { VinculoCorte.Chave(it.codprod, VinculoCorte.normControle(it.controle)) }
+        val resultado = HashMap<Int, List<String>>()
+        for (linha in pendentes) {
+            val seq = linha["SEQUENCIA"]?.toIntOrNull() ?: continue
+            val chaves = colisoes[seq] ?: continue
+            val naObs = VinculoCorte.produtoDaObservacao(linha["OBSERVACAO"])
+            resultado[seq] = chaves.mapNotNull { chave ->
+                val itens = porChave[chave].orEmpty()
+                val item = itens.firstOrNull() ?: return@mapNotNull null
+                val texto = chaveDescricao(item) ?: item.codprod.toString()
+                if (texto == naObs) return@mapNotNull null
+                val pedido = itens.sumOf { it.qtdNeg.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO }.stripTrailingZeros().toPlainString()
+                val conferido = itens.sumOf { it.qtdConferidaLocal.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO }.stripTrailingZeros().toPlainString()
+                "${wms.backend.produtos.NomeProduto.daObservacaoLiberacao(texto) ?: texto} — conferido $conferido de $pedido ${item.unidadePadrao.orEmpty()}".trim()
+            }
+            println("INFO: corte $nuconf seq $seq — colisão: a liberação inclui também ${resultado[seq]}")
+        }
+        return resultado.filterValues { it.isNotEmpty() }
     }
 
     /** Aprova ('S') ou nega ('N') os itens selecionados. Se liberar e não sobrar nada pendente, finaliza a conferência. */

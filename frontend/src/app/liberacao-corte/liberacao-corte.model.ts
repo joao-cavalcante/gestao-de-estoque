@@ -19,6 +19,8 @@ export interface LiberacaoPendente {
   diferenca: number | null;
   /** true = qtdPedido/qtdConferida vieram da sessão local (peso real bipado), não do texto do Sankhya. */
   pesavel: boolean;
+  /** Outros produtos que o Sankhya juntou nesta mesma liberação — liberar esta linha libera o corte deles também. */
+  incluiTambem?: string[];
 }
 
 export interface ValidarLiberadorParams {

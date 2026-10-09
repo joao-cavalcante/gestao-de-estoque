@@ -26,6 +26,12 @@ data class LiberacaoPendenteDto(
     val diferenca: Double? = null,
     /** true = qtdPedido/qtdConferida vieram da sessão local (peso real bipado), não da ViewLiberacaoLimite do Sankhya. */
     val pesavel: Boolean = false,
+    /**
+     * Outros produtos que o Sankhya juntou NESTA mesma liberação (colisão de SEQUENCIA — ver
+     * VinculoCorte.colisoes): liberar esta linha libera o corte deles também. Ex.: "EXTRATO DE TOMATE
+     * EKMA 1,7KG — conferido 2 de 4 PH".
+     */
+    val incluiTambem: List<String> = emptyList(),
 )
 
 @Serializable
