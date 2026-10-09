@@ -878,6 +878,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.obterQtdBalanca = sessao.obterQtdBalanca;
           this.conferenciaSegmentada = sessao.conferenciaSegmentada;
           this.fatAoConcluir = sessao.fatAoConcluir;
+          // OC vem do servidor (a da fila se perde num F5/link direto e o pedido parecia "sem OC" — 65752).
+          if (sessao.ordemCarga != null) this.ordemCargaTarefa = sessao.ordemCarga;
           // V50 — tolerância de peso da sessão (%, null = sem limite). Campo ausente = regra de antes.
           this.toleranciaPeso =
             sessao.tolPesoAcimaPct === undefined && sessao.tolPesoAbaixoPct === undefined

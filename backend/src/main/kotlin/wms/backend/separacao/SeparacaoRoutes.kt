@@ -82,7 +82,10 @@ fun Route.separacaoRoutes() {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
                 return@get
             }
-            call.respond(sessao)
+            // OC atual: a releitura do Sankhya (cache do sync) ganha do espelho local, que pode estar com a OC antiga.
+            val oc = wms.backend.tarefas.NotasFiscaisPedido.ocAtualDoCache(tenantId)[sessao.nunota]?.let { it.takeIf { o -> o > 0 } }
+                ?: wms.backend.tarefas.TarefasRepository.buscarOrdemCargaLocal(tenantId, sessao.nunota)
+            call.respond(sessao.copy(ordemCarga = oc))
         }
 
         get("/sessoes/{id}/itens") {

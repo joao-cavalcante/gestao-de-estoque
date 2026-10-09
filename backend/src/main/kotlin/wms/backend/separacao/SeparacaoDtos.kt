@@ -34,6 +34,8 @@ data class SessaoSeparacaoDto(
     val conferenciaSegmentada: Boolean = false,
     /** CCO.FATAOCONCLUIR cru — 'S' = oferecer faturamento (escolha de TOP) após finalizar. */
     val fatAoConcluir: String? = null,
+    /** OC ATUAL do pedido (sync + releitura do Sankhya) — a tela não depende da navegação da fila pra saber (F5 perdia). */
+    val ordemCarga: Long? = null,
     // CCO "Comportamento da interface" cru (V28) — o front gateia painéis com isso.
     // Só 'N' explícito esconde; null/'S'/outro = mostra.
     /** CCO.EXIBIRPROD — painel de pendentes. */

@@ -16,6 +16,8 @@ export interface SessaoSeparacao {
   conferenciaSegmentada: boolean;
   /** CCO.FATAOCONCLUIR cru — 'S' = oferecer faturamento (escolha de TOP) após finalizar. */
   fatAoConcluir: string | null;
+  /** OC atual do pedido (servidor) — a conferência não depende da navegação da fila pra saber. */
+  ordemCarga?: number | null;
   // CCO "Comportamento da interface" (V28) — só 'N' explícito esconde o painel; null/'S'/outro = mostra.
   /** CCO.EXIBIRPROD — painel de pendentes. */
   exibirProd: string | null;

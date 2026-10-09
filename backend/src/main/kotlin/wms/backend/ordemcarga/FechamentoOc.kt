@@ -141,6 +141,7 @@ object FechamentoOcService {
         val nunota: Long, val numNota: Long?, val cliente: String?, val codTipOper: Int?, val nfce: Boolean,
         val statusConf: String?, val liberacoesPendentes: Int, val notas: List<Long>, val notasSemConfirmar: List<Long>,
         val numerosNotas: List<String> = emptyList(),
+        val ordemCarga: Long? = null,
     )
 
     private suspend fun pedidosDaOc(tenantSlug: String, oc: Long): List<PedidoOc> = pedidosVenda(tenantSlug, "C.ORDEMCARGA = $oc")
@@ -149,7 +150,7 @@ object FechamentoOcService {
     private suspend fun pedidosVenda(tenantSlug: String, filtro: String): List<PedidoOc> {
         val cab = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
-            "SELECT C.NUNOTA, C.NUMNOTA, C.CODTIPOPER, P.NOMEPARC, " +
+            "SELECT C.NUNOTA, C.NUMNOTA, C.CODTIPOPER, P.NOMEPARC, NVL(C.ORDEMCARGA, 0) AS ORDEMCARGA, " +
                 "CASE WHEN EXISTS (SELECT 1 FROM TGFPAR PAR WHERE PAR.CODPARC = C.CODPARC AND PAR.CODTIPPARC = $CODTIPPARC_NFCE) THEN 'S' ELSE 'N' END AS NFCE, " +
                 "(SELECT F.STATUS FROM TGFCON2 F WHERE F.NUCONF = C.NUCONFATUAL) AS STATUS_CONF, " +
                 "(SELECT COUNT(*) FROM TSILIB L WHERE L.NUCHAVE = C.NUCONFATUAL AND L.TABELA = 'TGFCOI2' AND L.EVENTO = 64 AND L.DHLIB IS NULL) AS LIB_PEND " +
@@ -180,6 +181,7 @@ object FechamentoOcService {
                 notas = n.map { it.nunota }.distinct().sorted(),
                 notasSemConfirmar = n.filter { !it.confirmada }.map { it.nunota }.distinct().sorted(),
                 numerosNotas = n.sortedBy { it.nunota }.map { it.rotulo }.distinct(),
+                ordemCarga = r["ORDEMCARGA"]?.toBigDecimalOrNull()?.toLong()?.takeIf { it > 0 },
             )
         }.sortedBy { it.cliente ?: "" }
     }
@@ -287,6 +289,18 @@ object FechamentoOcService {
     suspend fun previaPedido(tenantSlug: String, tenantId: UUID, nunota: Long): FechamentoOcDto {
         val pedidos = pedidosVenda(tenantSlug, "C.NUNOTA = $nunota")
         if (pedidos.isEmpty()) return FechamentoOcDto(0, emptyList(), podeFechar = false, mensagem = "pedido $nunota não encontrado no Sankhya")
+        // Pedido COM OC não fatura avulso — a nota dele sai no "Fechar OC" (usuário, 09/10/2026: pedido 65752 abriu
+        // o "Gerar nota" porque a tela perdeu a OC num F5). Trava aqui, independente da tela.
+        pedidos.first().ordemCarga?.let { oc ->
+            val p = pedidos.first()
+            return FechamentoOcDto(
+                0,
+                listOf(FechamentoPedidoDto(nunota = p.nunota, numeroNota = p.numNota, cliente = p.cliente, nfce = p.nfce, situacao = "bloqueado",
+                    motivo = "pedido da OC $oc — a nota sai no \"Fechar OC\"")),
+                podeFechar = false,
+                mensagem = "Este pedido é da OC $oc: a nota é gerada no \"Fechar OC\", com os demais pedidos da carga.",
+            )
+        }
         val itens = avaliar(tenantSlug, tenantId, pedidos)
         return FechamentoOcDto(0, itens, podeFechar = itens.none { it.situacao == "bloqueado" })
     }
