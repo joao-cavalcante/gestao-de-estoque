@@ -1296,7 +1296,22 @@ object SeparacaoService {
      * nativa do Sankhya também fatura. Mesmas travas do [faturar] (lidas do Sankhya). Nota já gerada sem confirmar
      * só é confirmada. Marca como 'ok' qualquer sessão "aguardando nota" do pedido.
      */
-    suspend fun faturarPedido(tenantSlug: String, tenantId: UUID, nunota: Long, codTipOper: Int): Pair<List<Long>, String?> {
+    suspend fun faturarPedido(tenantSlug: String, tenantId: UUID, nunota: Long, codTipOper: Int): Pair<List<Long>, String?> =
+        // Um faturamento por pedido de cada vez: dois "Fechar OC" juntos (cliques repetidos / outro aparelho — OC 338,
+        // 09/10/2026) não podem faturar o mesmo pedido em paralelo (risco de nota em dobro). O 2º espera e, quando
+        // entra, encontra a nota pronta — o que conta como SUCESSO, não falha.
+        travaPedido(nunota).withLock { faturarPedidoSemTrava(tenantSlug, tenantId, nunota, codTipOper) }
+
+    private val travasPedido = java.util.concurrent.ConcurrentHashMap<Long, kotlinx.coroutines.sync.Mutex>()
+    private fun travaPedido(nunota: Long) = travasPedido.computeIfAbsent(nunota) { kotlinx.coroutines.sync.Mutex() }
+
+    private suspend fun faturarPedidoSemTrava(tenantSlug: String, tenantId: UUID, nunota: Long, codTipOper: Int): Pair<List<Long>, String?> {
+        // Já tem nota confirmada (faturado por outro clique/aparelho ou no Sankhya): sucesso, sem faturar de novo.
+        val (geradasAntes, semConfirmarAntes) = notasDoPedido(tenantSlug, nunota)
+        if (geradasAntes.isNotEmpty() && semConfirmarAntes.isEmpty()) {
+            withContext(Dispatchers.IO) { SeparacaoRepository.marcarNotaOkPorNunota(tenantId, nunota) }
+            return geradasAntes to null
+        }
         val resultado = try {
             try {
                 validarFaturamentoPedido(tenantSlug, tenantId, nunota)

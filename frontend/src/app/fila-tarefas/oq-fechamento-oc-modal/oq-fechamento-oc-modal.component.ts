@@ -247,6 +247,27 @@ export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
     }, 1500);
   }
 
+  /** Espera a emissão que já estava rodando terminar (progresso some) e recarrega a prévia com o resultado. */
+  private acompanharOutraEmissao(): void {
+    const url = this.nunota ? `/api/pedidos/${this.nunota}/nota/progresso` : `/api/ordens-carga/${this.oc}/fechamento/progresso`;
+    this.pararPoll();
+    this.progresso.set({ fase: 'faturando', feitos: 0, total: 0, atual: 'em outro clique/aparelho' });
+    this.pollProgresso = setInterval(() => {
+      this.http.get<ProgressoEmissao>(url).subscribe({
+        next: (p) => {
+          if (p?.fase) {
+            this.progresso.set(p);
+            return;
+          }
+          this.pararPoll();
+          this.executando.set(false);
+          this.carregarPrevia();
+        },
+        error: () => {},
+      });
+    }, 1500);
+  }
+
   private pararPoll(): void {
     if (this.pollProgresso) clearInterval(this.pollProgresso);
     this.pollProgresso = null;
@@ -261,6 +282,13 @@ export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.carregarPrevia();
+  }
+
+  /** Prévia (GET) — no abrir e depois que um fechamento feito em outro clique/aparelho termina. */
+  private carregarPrevia(): void {
+    this.carregando.set(true);
+    this.erro.set(null);
     const url = this.nunota ? `/api/pedidos/${this.nunota}/nota` : `/api/ordens-carga/${this.oc}/fechamento`;
     this.http.get<FechamentoOc>(url).subscribe({
       next: (d) => {
@@ -290,6 +318,11 @@ export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
         if (!falhou && (this.nunota || d.ocFechada)) this.concluido.emit();
       },
       error: (err) => {
+        // Já tem emissão rodando (outro clique/aparelho): acompanha aquela pela barra e, quando acabar, mostra o resultado.
+        if (err?.status === 409 && err?.error?.emAndamento) {
+          this.acompanharOutraEmissao();
+          return;
+        }
         this.pararPoll();
         this.executando.set(false);
         this.erro.set(err?.error?.erro ?? 'Falha ao fechar a OC.');

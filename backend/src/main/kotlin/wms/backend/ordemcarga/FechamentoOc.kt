@@ -85,7 +85,26 @@ object ProgressoEmissao {
     fun obter(chave: String): ProgressoEmissaoDto = estados[chave] ?: ProgressoEmissaoDto()
 }
 
+/** Já tem emissão rodando pra esta OC/pedido (outro clique ou aparelho) — a tela acompanha o progresso. */
+class EmissaoEmAndamentoException(message: String) : Exception(message)
+
+@Serializable
+data class EmissaoEmAndamentoDto(val erro: String, val emAndamento: Boolean = true)
+
 object FechamentoOcService {
+    /** Uma emissão por OC/pedido de cada vez (OC 338, 09/10/2026: 4 "Fechar OC" simultâneos da mesma OC). */
+    private val travas = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
+
+    private suspend fun <T> comTrava(chave: String, descricao: String, bloco: suspend () -> T): T {
+        val trava = travas.computeIfAbsent(chave) { kotlinx.coroutines.sync.Mutex() }
+        if (!trava.tryLock()) throw EmissaoEmAndamentoException("$descricao já está sendo processada (outro clique ou aparelho) — aguarde terminar")
+        try {
+            return bloco()
+        } finally {
+            trava.unlock()
+        }
+    }
+
     private const val CODTIPPARC_NFCE = 10401002L
     private val CONFERIDA = setOf(
         StatusOperacional.CONCLUIDO.codigo, StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
@@ -237,7 +256,10 @@ object FechamentoOcService {
         return FechamentoOcDto(0, itens, podeFechar = itens.none { it.situacao == "bloqueado" })
     }
 
-    suspend fun faturarPedidoAvulso(tenantSlug: String, tenantId: UUID, nunota: Long): FechamentoOcDto {
+    suspend fun faturarPedidoAvulso(tenantSlug: String, tenantId: UUID, nunota: Long): FechamentoOcDto =
+        comTrava("pedido:$nunota", "A nota do pedido $nunota") { faturarPedidoAvulsoSemTrava(tenantSlug, tenantId, nunota) }
+
+    private suspend fun faturarPedidoAvulsoSemTrava(tenantSlug: String, tenantId: UUID, nunota: Long): FechamentoOcDto {
         val previa = previaPedido(tenantSlug, tenantId, nunota)
         if (!previa.podeFechar) return previa.copy(mensagem = "pedido bloqueado — resolva antes de gerar a nota")
         val chave = "pedido:$nunota"
@@ -259,10 +281,12 @@ object FechamentoOcService {
      * nota confirmada; senão a OC NÃO fecha.
      */
     suspend fun fechar(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto =
-        try {
-            fecharComProgresso(tenantSlug, tenantId, oc)
-        } finally {
-            ProgressoEmissao.limpar("oc:$oc")
+        comTrava("oc:$oc", "O fechamento da OC $oc") {
+            try {
+                fecharComProgresso(tenantSlug, tenantId, oc)
+            } finally {
+                ProgressoEmissao.limpar("oc:$oc")
+            }
         }
 
     private suspend fun fecharComProgresso(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
@@ -366,6 +390,8 @@ fun Route.fechamentoOcRoutes() {
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
                 call.respond(FechamentoOcService.faturarPedidoAvulso(slug, claims.tenantId, nunota))
+            } catch (e: EmissaoEmAndamentoException) {
+                call.respond(HttpStatusCode.Conflict, EmissaoEmAndamentoDto(erro = e.message ?: "emissão em andamento"))
             } catch (e: Exception) {
                 println("AVISO: nota do pedido $nunota falhou: ${e.message}")
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao gerar a nota")))
@@ -405,6 +431,8 @@ fun Route.fechamentoOcRoutes() {
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
                 call.respond(FechamentoOcService.fechar(slug, claims.tenantId, oc))
+            } catch (e: EmissaoEmAndamentoException) {
+                call.respond(HttpStatusCode.Conflict, EmissaoEmAndamentoDto(erro = e.message ?: "fechamento em andamento"))
             } catch (e: Exception) {
                 println("AVISO: fechamento da OC $oc falhou: ${e.message}")
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao fechar a OC")))

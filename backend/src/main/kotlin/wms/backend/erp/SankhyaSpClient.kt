@@ -160,7 +160,14 @@ object SankhyaSpClient {
         val json = Json.parseToJsonElement(response.body()).jsonObject
         val status = json["status"]?.jsonPrimitive?.contentOrNull
         if (status != "1") {
-            val msg = json["statusMessage"]?.jsonPrimitive?.contentOrNull ?: "Falha em $serviceName"
+            // Sem statusMessage o erro ficava mudo ("Falha em SelecaoDocumentoSP.faturar" — pedido 64927, 09/10/2026):
+            // traz o status, o código do tsError e loga a resposta crua pra dar pra entender o que o Sankhya disse.
+            val msg = json["statusMessage"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: run {
+                    println("AVISO: $serviceName (tenant $tenantSlug) status=$status sem statusMessage — resposta: ${response.body().take(2000)}")
+                    val ts = (json["tsError"] as? JsonObject)?.get("tsErrorCode")?.jsonPrimitive?.contentOrNull
+                    "o Sankhya recusou sem mensagem (status $status${ts?.let { ", erro $it" } ?: ""})"
+                }
             throw SankhyaSpException("Sankhya $serviceName falhou para tenant '$tenantSlug': $msg")
         }
         return json["responseBody"] as? JsonObject ?: buildJsonObject {}
