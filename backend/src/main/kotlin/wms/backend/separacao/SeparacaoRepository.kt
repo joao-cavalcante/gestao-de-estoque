@@ -1513,9 +1513,14 @@ object SeparacaoRepository {
     }
 
     /** Sessão mais recente (por criado_em) de uma nota — usado pra reimpressão de etiqueta fora da tela de conferência. */
+    // Só sessão COM NUCONF: uma reabertura recusada ("aguardando liberação de corte") cria sessão sem NUCONF e ela
+    // virava a "mais recente" — a Liberação de Corte dizia "NUCONF não encontrado localmente" (pedido 65632, conf 2570).
     fun buscarSessaoMaisRecentePorNota(tenantId: UUID, nunota: Long): SessaoSeparacaoDto? = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()
-            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) }
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
+                    SeparacaoSessoesTable.nuconf.isNotNull()
+            }
             .orderBy(SeparacaoSessoesTable.criadoEm to SortOrder.DESC)
             .firstOrNull()
             ?.let { mapearParaDto(it) }
@@ -1534,7 +1539,10 @@ object SeparacaoRepository {
     /** NUCONF da conferência mais recente de uma nota (qualquer status de sessão). */
     fun buscarNuconfPorNota(tenantId: UUID, nunota: Long): Int? = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()
-            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) }
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
+                    SeparacaoSessoesTable.nuconf.isNotNull() // ver buscarSessaoMaisRecentePorNota
+            }
             .orderBy(SeparacaoSessoesTable.criadoEm to SortOrder.DESC)
             .firstOrNull()
             ?.get(SeparacaoSessoesTable.nuconf)
