@@ -300,28 +300,6 @@ object VinculoCorte {
         return true
     }
 
-    /**
-     * SEQUENCIAs em que a conta do Sankhya junta MAIS DE UM produto (colisão). Acontece quando um
-     * pesável conferido em outra unidade (contador) cai no mesmo número da SEQCONF de outro item
-     * divergente: a TSILIB fica com uma linha só (texto de um produto) e liberar ela libera o corte
-     * dos dois (confirmado no pedido 66178: liberar a seq 1 da BATATA gravou o corte do EXTRATO EKMA).
-     */
-    suspend fun colisoes(tenantSlug: String, tenantId: UUID, nunota: Long, nuconf: Int): Map<Int, List<Chave>> {
-        val linhas = SankhyaDbExplorerClient.executarQuery(tenantSlug, sqlDetalhe(nunota, nuconf)).mapNotNull { r ->
-            val cp = r["CODPROD"]?.toBigDecimalOrNull()?.toInt() ?: return@mapNotNull null
-            LinhaDetalhe(
-                origem = r["ORIGEM"]?.firstOrNull() ?: return@mapNotNull null,
-                codprod = cp,
-                controle = normControle(r["CONTROLE"]),
-                codvol = r["CODVOL"]?.trim(),
-                qtd = r["QTD"]?.toBigDecimalOrNull() ?: BigDecimal.ZERO,
-                minseq = r["MINSEQ"]?.toBigDecimalOrNull()?.toInt() ?: 0,
-            )
-        }
-        val (ignorarAMaior, ignorarAMenor) = withContext(Dispatchers.IO) { procedimentosCco(tenantId, nunota) }
-        return preverSequencias(linhas, emptySet(), ignorarAMaior, ignorarAMenor).filterValues { it.size > 1 }
-    }
-
     /** "Prod.: X, ... Qtd. total conf." -> "X, ..." em maiúsculas (inclui Complem./Controle). */
     fun produtoDaObservacao(observacao: String?): String? =
         observacao?.let { REGEX_PRODUTO.find(it.trim())?.groupValues?.get(1)?.trim()?.uppercase() }

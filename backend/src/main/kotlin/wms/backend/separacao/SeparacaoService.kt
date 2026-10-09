@@ -479,14 +479,8 @@ object SeparacaoService {
         }
         val semaforo = Semaphore(CONCORRENCIA_ENVIO_ITENS)
         val enviados = AtomicInteger(0)
-        // Item conferido em unidade diferente da do pedido (ex.: pedido em CX, conferido em KG) vai
-        // PRIMEIRO e em sequência, pra ficar com as menores SEQCONF: o Sankhya numera a liberação de corte
-        // desses itens por um contador que começa em 1 e, se outro item divergente tiver SEQCONF igual, as
-        // duas viram UMA liberação só e o 2º item some da tela (pedido 66178 — VinculoCorte.colisoes).
-        val (primeiro, resto) = grupos.partition { g ->
-            itensPorProduto[g.codprod]?.firstOrNull()?.let { it.unidadeComercial != null && !it.unidadePadrao.equals(it.unidadeComercial, ignoreCase = true) } == true
-        }
-        suspend fun enviar(grupo: SeparacaoRepository.GrupoConferido) {
+        coroutineScope {
+        grupos.map { grupo -> async {
         semaforo.withPermit {
             // Contrato real confirmado AO VIVO (nota 57516 — payload capturado da
             // tela nativa do Sankhya conferindo o mesmo item): NÃO existe parâmetro
@@ -516,9 +510,8 @@ object SeparacaoService {
             withContext(Dispatchers.IO) { SeparacaoRepository.marcarGrupoEnviado(tenantId, sessaoId, grupo.codprod, grupo.controle) }
             FinalizacaoProgresso.atualizar(sessaoId, "itens", enviados.incrementAndGet(), grupos.size)
         }
+        } }.awaitAll()
         }
-        primeiro.forEach { enviar(it) }
-        coroutineScope { resto.map { async { enviar(it) } }.awaitAll() }
     }
 
     class FinalizarSeparacaoException(message: String) : Exception(message)
