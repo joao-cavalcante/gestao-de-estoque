@@ -305,7 +305,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const faltam = (f: (t: Tarefa) => boolean) => daOc.filter(f).map((t) => t.numeroUnico);
     return {
       oc,
-      fechada: daOc.some((t) => t.ordemCargaFechada),
+      fechada: daOc.some((t) => t.ordemCargaFechada) || this.ocsFechadasAgora().has(oc),
       motorista: daOc.find((t) => t.motorista)?.motorista ?? null,
       transporte: daOc.find((t) => t.transporte !== '—')?.transporte ?? null,
       ...p,
@@ -571,6 +571,12 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
 
   // ─── Fechar OC: fatura + confirma as notas dos pedidos e fecha a OC no Sankhya ───
   readonly fechamentoOc = signal<number | null>(null);
+  /** OCs fechadas nesta tela — a régua mostra "fechada" na hora, sem esperar o próximo sync. */
+  private readonly ocsFechadasAgora = signal<ReadonlySet<string>>(new Set());
+
+  marcarOcFechada(oc: number): void {
+    this.ocsFechadasAgora.update((s) => new Set([...s, String(oc)]));
+  }
 
   abrirFechamentoOc(): void {
     const oc = Number(this.ocFiltrada());

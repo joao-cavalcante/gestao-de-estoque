@@ -84,6 +84,12 @@ object TransporteOrdemCarga {
         }.toMap()
     }
 
+    /** Grava a situação já sabida (ex.: o WMS acabou de fechar a OC) — a fila reflete na hora, sem esperar o sync. */
+    fun marcarSituacao(tenantId: UUID, oc: Long, situacao: String) {
+        situacoes[tenantId to oc] = situacao
+        cache[tenantId to oc]?.let { (em, t) -> cache[tenantId to oc] = em to t.copy(situacao = situacao) }
+    }
+
     /** Esquece a OC (ex.: acabou de ser fechada) — o próximo poll da fila busca de novo. */
     fun invalidar(tenantId: UUID, oc: Long) {
         cache.remove(tenantId to oc)

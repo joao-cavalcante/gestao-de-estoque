@@ -15,6 +15,8 @@ interface FechamentoPedido {
   situacao: 'faturar' | 'pronto' | 'bloqueado';
   motivo: string | null;
   notasGeradas: number[];
+  /** "60708 · Aprovada" — número da NF + situação. */
+  numerosNotas: string[];
   ok: boolean | null;
   erro: string | null;
 }
@@ -50,7 +52,7 @@ interface FechamentoOc {
         <div class="oq-modal__header">
           <span class="fec__cab">
             <oq-icon name="entrega" [size]="16" />
-            <span class="oq-modal__titulo">{{ nunota ? 'Gerar nota · Pedido ' + nunota : 'Fechar OC ' + oc }}</span>
+            <span class="oq-modal__titulo">{{ nunota ? 'Gerar nota · Pedido ' + nunota : (dados()?.ocFechada && !executado() ? 'Notas da OC ' : 'Fechar OC ') + oc }}</span>
           </span>
           <button type="button" class="oq-modal__fechar" aria-label="Fechar" [disabled]="executando()" (click)="fechado.emit()">
             <oq-icon name="x" [size]="14" />
@@ -110,14 +112,14 @@ interface FechamentoOc {
                       <td class="fec__mono">{{ p.codTipOper ? p.codTipOper + ' — ' + p.descricaoTop : '—' }}</td>
                       <td class="fec__sit">
                         @if (p.ok === true) {
-                          <span class="fec__ok"><oq-icon name="check" [size]="12" /> Nota {{ p.notasGeradas.join(', ') }}</span>
+                          <span class="fec__ok"><oq-icon name="check" [size]="12" /> NF {{ (p.numerosNotas?.length ? p.numerosNotas : p.notasGeradas).join(', ') }}</span>
                         } @else if (p.ok === false) {
                           <span class="fec__falha" [title]="p.erro ?? ''"><oq-icon name="circle-alert" [size]="12" /> {{ p.erro }}</span>
                         } @else if (p.situacao === 'faturar') {
                           <span class="fec__neutro">a faturar</span>
                           @if (p.motivo) { <span class="fec__obs">{{ p.motivo }}</span> }
                         } @else if (p.situacao === 'pronto') {
-                          <span class="fec__ok fec__ok--leve"><oq-icon name="check" [size]="12" /> já tem nota {{ p.notasGeradas.join(', ') }}</span>
+                          <span class="fec__ok fec__ok--leve"><oq-icon name="check" [size]="12" /> NF {{ (p.numerosNotas?.length ? p.numerosNotas : p.notasGeradas).join(', ') }}</span>
                         } @else {
                           <span class="fec__falha"><oq-icon name="circle-alert" [size]="12" /> {{ p.motivo }}</span>
                         }
@@ -145,7 +147,7 @@ interface FechamentoOc {
 
         <div class="oq-modal__footer">
           <button type="button" class="oq-admin-btn oq-admin-btn--outline fec__btn" [disabled]="executando()" (click)="fechado.emit()">
-            {{ executado() ? 'Concluir' : 'Cancelar' }}
+            {{ executado() || dados()?.ocFechada ? 'Fechar' : 'Cancelar' }}
           </button>
           @if (dados(); as d) {
             @if (d.podeFechar && !d.ocFechada && !(nunota && executado() && falhas() === 0)) {

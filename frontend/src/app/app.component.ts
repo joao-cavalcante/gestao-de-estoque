@@ -1,3 +1,4 @@
+import { OqNovaVersaoComponent } from './shared/versao/oq-nova-versao.component';
 import { Component, inject, signal } from '@angular/core';
 import { OqConexaoBannerComponent } from './shared/conexao/oq-conexao-banner.component';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
@@ -33,7 +34,7 @@ function casaPrefixo(url: string, prefixo: string): boolean {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NavMenuComponent, AppHeaderComponent, OqActionFeedbackHostComponent, OqConexaoBannerComponent],
+  imports: [RouterOutlet, NavMenuComponent, AppHeaderComponent, OqActionFeedbackHostComponent, OqConexaoBannerComponent, OqNovaVersaoComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })

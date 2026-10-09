@@ -52,6 +52,8 @@ data class FechamentoPedidoDto(
     val motivo: String? = null,
     /** Preenchidos depois do fechamento. */
     val notasGeradas: List<Long> = emptyList(),
+    /** Número da NF + situação ("60708 · Aprovada") de cada nota do pedido — o que o usuário reconhece. */
+    val numerosNotas: List<String> = emptyList(),
     val ok: Boolean? = null,
     val erro: String? = null,
 )
@@ -138,6 +140,7 @@ object FechamentoOcService {
     private data class PedidoOc(
         val nunota: Long, val numNota: Long?, val cliente: String?, val codTipOper: Int?, val nfce: Boolean,
         val statusConf: String?, val liberacoesPendentes: Int, val notas: List<Long>, val notasSemConfirmar: List<Long>,
+        val numerosNotas: List<String> = emptyList(),
     )
 
     private suspend fun pedidosDaOc(tenantSlug: String, oc: Long): List<PedidoOc> = pedidosVenda(tenantSlug, "C.ORDEMCARGA = $oc")
@@ -156,13 +159,13 @@ object FechamentoOcService {
         val nunotas = cab.mapNotNull { it["NUNOTA"]?.toBigDecimalOrNull()?.toLong() }
         val notas = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
-            "SELECT DISTINCT V.NUNOTAORIG, V.NUNOTA, N.STATUSNOTA FROM TGFVAR V JOIN TGFCAB N ON N.NUNOTA = V.NUNOTA " +
+            "SELECT DISTINCT V.NUNOTAORIG, V.NUNOTA, N.STATUSNOTA, N.NUMNOTA, N.STATUSNFE FROM TGFVAR V JOIN TGFCAB N ON N.NUNOTA = V.NUNOTA " +
                 "WHERE V.NUNOTAORIG IN (${nunotas.joinToString()}) AND V.NUNOTA <> V.NUNOTAORIG",
         ).mapNotNull { r ->
             val orig = r["NUNOTAORIG"]?.toBigDecimalOrNull()?.toLong() ?: return@mapNotNull null
             val nota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: return@mapNotNull null
-            Triple(orig, nota, r["STATUSNOTA"]?.trim() == "L")
-        }.groupBy { it.first }
+            NotaDoPedido(orig, nota, r["STATUSNOTA"]?.trim() == "L", rotuloNota(r["NUMNOTA"], r["STATUSNFE"], r["STATUSNOTA"]))
+        }.groupBy { it.orig }
         return cab.mapNotNull { r ->
             val nunota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: return@mapNotNull null
             val n = notas[nunota].orEmpty()
@@ -174,11 +177,33 @@ object FechamentoOcService {
                 nfce = r["NFCE"]?.trim() == "S",
                 statusConf = r["STATUS_CONF"]?.trim()?.takeIf { it.isNotEmpty() },
                 liberacoesPendentes = r["LIB_PEND"]?.toBigDecimalOrNull()?.toInt() ?: 0,
-                notas = n.map { it.second }.distinct().sorted(),
-                notasSemConfirmar = n.filter { !it.third }.map { it.second }.distinct().sorted(),
+                notas = n.map { it.nunota }.distinct().sorted(),
+                notasSemConfirmar = n.filter { !it.confirmada }.map { it.nunota }.distinct().sorted(),
+                numerosNotas = n.sortedBy { it.nunota }.map { it.rotulo }.distinct(),
             )
         }.sortedBy { it.cliente ?: "" }
     }
+
+    private data class NotaDoPedido(val orig: Long, val nunota: Long, val confirmada: Boolean, val rotulo: String)
+
+    /** "60708 · Aprovada" — número da NF + situação no Sankhya (rótulos do STATUSNFE). */
+    private fun rotuloNota(numero: String?, statusNfe: String?, statusNota: String?): String {
+        val situacao = when (statusNfe?.trim()) {
+            "A" -> "Aprovada"; "R" -> "Aguardando Correção"; "D" -> "Denegada"; "V" -> "Com erro de Validação"
+            "E" -> "Aguardando Autorização"; "I" -> "Enviada"; "P" -> "Pendente de Retorno"
+            else -> if (statusNota?.trim() == "L") "Confirmada" else "Não confirmada"
+        }
+        val num = numero?.trim()?.takeIf { it.isNotEmpty() && it != "0" } ?: "sem número"
+        return "$num · $situacao"
+    }
+
+    private suspend fun numerosDasNotas(tenantSlug: String, notas: List<Long>): List<String> =
+        if (notas.isEmpty()) emptyList() else runCatching {
+            SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT NUNOTA, NUMNOTA, STATUSNFE, STATUSNOTA FROM TGFCAB WHERE NUNOTA IN (${notas.joinToString()}) ORDER BY NUNOTA",
+            ).map { rotuloNota(it["NUMNOTA"], it["STATUSNFE"], it["STATUSNOTA"]) }
+        }.getOrDefault(emptyList())
 
     private val STATUS_CONF_FINALIZADA = setOf("F", "D", "RF", "RD")
 
@@ -191,7 +216,12 @@ object FechamentoOcService {
         val pedidos = pedidosDaOc(tenantSlug, oc)
         if (pedidos.isEmpty()) return FechamentoOcDto(oc, emptyList(), podeFechar = false, mensagem = "nenhum pedido de venda na OC $oc no Sankhya")
         val itens = avaliar(tenantSlug, tenantId, pedidos)
-        return FechamentoOcDto(oc, itens, podeFechar = itens.none { it.situacao == "bloqueado" })
+        // OC já fechada no Sankhya: a prévia vira só consulta ("Ver notas da OC") — a tela não oferece fechar de novo.
+        val fechada = runCatching {
+            SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT COUNT(*) AS QTD FROM TGFORD WHERE ORDEMCARGA = $oc AND NVL(SITUACAO, 'A') <> 'F'")
+                .firstOrNull()?.get("QTD")?.toBigDecimalOrNull()?.toInt() == 0
+        }.getOrDefault(false)
+        return FechamentoOcDto(oc, itens, podeFechar = !fechada && itens.none { it.situacao == "bloqueado" }, ocFechada = fechada)
     }
 
     /** Situação de cada pedido pro faturamento: pronto (já tem nota confirmada) · faturar (TOP automática) · bloqueado. */
@@ -200,7 +230,10 @@ object FechamentoOcService {
         val destinosPorTop = pedidos.mapNotNull { it.codTipOper }.distinct().associateWith { destinos(tenantSlug, tenantId, it) }
 
         val itens = pedidos.map { p ->
-            val base = FechamentoPedidoDto(nunota = p.nunota, numeroNota = p.numNota, cliente = p.cliente, nfce = p.nfce, situacao = "pronto", notasGeradas = p.notas)
+            val base = FechamentoPedidoDto(
+                nunota = p.nunota, numeroNota = p.numNota, cliente = p.cliente, nfce = p.nfce, situacao = "pronto",
+                notasGeradas = p.notas, numerosNotas = p.numerosNotas,
+            )
             val c = carregamento[p.nunota]
             when {
                 p.notas.isNotEmpty() && p.notasSemConfirmar.isEmpty() -> base
@@ -233,7 +266,9 @@ object FechamentoOcService {
             if (p.situacao != "faturar") return@map p
             ProgressoEmissao.atualizar(chaveProgresso, ProgressoEmissaoDto("faturando", feitos, total, "${p.nunota}${p.cliente?.let { " — $it" } ?: ""}"))
             val r = runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
-                onSuccess = { (notas, aviso) -> p.copy(notasGeradas = notas, ok = aviso == null && notas.isNotEmpty(), erro = aviso) },
+                onSuccess = { (notas, aviso) ->
+                    p.copy(notasGeradas = notas, numerosNotas = numerosDasNotas(tenantSlug, notas), ok = aviso == null && notas.isNotEmpty(), erro = aviso)
+                },
                 onFailure = { e ->
                     println("AVISO: $contexto — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
                     p.copy(ok = false, erro = e.message ?: "falha ao faturar no Sankhya")
@@ -352,7 +387,8 @@ object FechamentoOcService {
             "SELECT COUNT(*) AS QTD FROM TGFORD WHERE ORDEMCARGA = $oc AND NVL(SITUACAO, 'A') <> 'F'",
         ).firstOrNull()?.get("QTD")?.toBigDecimalOrNull()?.toInt() ?: 0
         if (aindaAbertas > 0) throw IllegalStateException("a OC continua aberta no Sankhya")
-        TransporteOrdemCarga.invalidar(tenantId, oc)
+        // Antes invalidava o cache: até o próximo sync a fila ficava sem a situação e mostrava "Fechar OC" de novo.
+        TransporteOrdemCarga.marcarSituacao(tenantId, oc, "F")
         println("INFO: OC $oc fechada no Sankhya (TGFORD.SITUACAO = 'F', empresas $empresas)")
     }
 }

@@ -91,7 +91,10 @@
       @if (resumoOc(); as r) {
         <section class="oq-progresso" [class.oq-progresso--ok]="r.completa" aria-label="Progresso da OC">
           @if (r.fechada) {
-            <span class="oq-progresso__msg oq-progresso__msg--ok"><oq-icon name="check" [size]="12" /> OC fechada no Sankhya.</span>
+            <span class="oq-progresso__msg oq-progresso__msg--ok"><oq-icon name="check" [size]="12" /> OC fechada — notas emitidas.</span>
+            <div class="oq-progresso__acoes">
+              <button type="button" class="oq-progresso__link" (click)="abrirFechamentoOc()">Ver notas da OC</button>
+            </div>
           } @else {
             <ol class="oq-progresso__etapas">
               <li>
@@ -313,7 +316,7 @@
   </main>
 
   @if (fechamentoOc(); as oc) {
-    <oq-fechamento-oc-modal [oc]="oc" (fechado)="fecharFechamentoOc()" />
+    <oq-fechamento-oc-modal [oc]="oc" (concluido)="marcarOcFechada(oc)" (fechado)="fecharFechamentoOc()" />
   }
 
   @if (faturamento(); as nunota) {
