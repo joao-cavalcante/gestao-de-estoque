@@ -37,7 +37,7 @@ fun main(args: Array<String>) {
     var falhas = 0
     runBlocking {
         for (codprod in produtos) {
-            fun ler() = SankhyaDbExplorerClient.executarQuery(
+            suspend fun ler() = SankhyaDbExplorerClient.executarQuery(
                 tenant,
                 "SELECT DIVIDEMULTIPLICA, QUANTIDADE FROM TGFVOA WHERE CODPROD = $codprod AND CODVOL = '$codvol' AND NVL(TRIM(CONTROLE), ' ') = ' '",
             ).firstOrNull()?.let { "${it["DIVIDEMULTIPLICA"]}${it["QUANTIDADE"]}" }
