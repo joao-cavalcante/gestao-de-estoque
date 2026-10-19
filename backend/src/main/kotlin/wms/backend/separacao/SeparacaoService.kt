@@ -458,18 +458,47 @@ object SeparacaoService {
      * importa; a 1ª falha cancela as demais e propaga. Cada grupo é marcado como enviado (V43)
      * assim que o Sankhya confirma — um retry só reenvia o que faltou.
      */
+    /**
+     * Nota de COMPRA (TIPMOV 'C'): pesável que veio com peso A MAIOR dentro da tolerância "acima" do NUCCO
+     * (copiada na sessão, V50; null = sem limite) vai com o PESO DA NOTA. Regra do usuário (19/10/2026):
+     * conferência 'D' não deixa confirmar a nota, e atualizar a quantidade negociada muda valor/financeiro e
+     * descasa a nota do XML do fornecedor (Brie 12,708 → 12,958 KG, +1,97%, notas 71091/71194).
+     * Acima da tolerância segue o lido — o Sankhya trata (procedimento de divergência a maior da CCO).
+     */
+    private suspend fun ajustarPesoAMaiorCompra(
+        tenantId: UUID,
+        sessaoId: UUID,
+        nunota: Long,
+        grupos: List<SeparacaoRepository.GrupoConferido>,
+        itensPorProduto: Map<Int, List<ItemSeparacaoDto>>,
+    ): List<SeparacaoRepository.GrupoConferido> {
+        val tipMov = withContext(Dispatchers.IO) { TarefasRepository.buscarTipMovLocal(tenantId, nunota) }?.trim()
+        if (tipMov != "C") return grupos
+        val tolAcima = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }?.tolPesoAcimaPct
+        return grupos.map { g ->
+            val neg = g.qtdNegociada ?: return@map g
+            val pesavel = itensPorProduto[g.codprod].orEmpty().any { it.usaConfPeso }
+            if (!pesavel || neg.signum() <= 0 || g.qtdTotal <= neg) return@map g
+            val pct = (g.qtdTotal - neg).toDouble() / neg.toDouble() * 100
+            if (tolAcima != null && pct > tolAcima + 1e-9) return@map g
+            println("INFO: compra nunota=$nunota codprod=${g.codprod} peso a maior ${"%.2f".format(pct)}% (tolerância ${tolAcima ?: "sem limite"}) — enviado o peso da nota $neg em vez de ${g.qtdTotal}")
+            g.copy(qtdTotal = neg)
+        }
+    }
+
     private suspend fun enviarGruposAoSankhya(
         tenantSlug: String,
         tenantId: UUID,
         sessaoId: UUID,
         nunota: Long,
         nuconf: Int,
-        grupos: List<SeparacaoRepository.GrupoConferido>,
+        gruposLidos: List<SeparacaoRepository.GrupoConferido>,
     ) {
-        FinalizacaoProgresso.atualizar(sessaoId, "itens", 0, grupos.size)
+        FinalizacaoProgresso.atualizar(sessaoId, "itens", 0, gruposLidos.size)
         // Diagnóstico (nota 57568, divergência com quantidade certa): dados do item que vão pro Sankhya.
         val itensPorProduto = withContext(Dispatchers.IO) { SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true) }
             .groupBy { it.codprod }
+        val grupos = ajustarPesoAMaiorCompra(tenantId, sessaoId, nunota, gruposLidos, itensPorProduto)
         grupos.forEach { g ->
             val it0 = itensPorProduto[g.codprod]?.firstOrNull()
             println(
