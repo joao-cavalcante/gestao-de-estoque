@@ -6,6 +6,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.notInList
 import org.jetbrains.exposed.sql.and
@@ -302,6 +303,27 @@ object TarefasRepository {
         )
         return TarefasTable.selectAll()
             .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.statusOperacional notInList statusFinais) }
+            .map { it[TarefasTable.nunota].toLong() }
+    }
+
+    /**
+     * NUNOTAs locais CONCLUÍDAS com última mudança vinda do Sankhya desde [desde] — a outra metade da
+     * detecção de exclusão: nota conferida e depois excluída no Sankhya (ex.: entrada lançada, conferida,
+     * excluída e relançada com NUNOTA novo) nunca entra em listarNunotasAtivasTx e ficava na fila como
+     * "Aguardando nota" (pedidos 70578/70727/70738/70751, NUMNOTA 8072895, 19/10/2026).
+     */
+    fun listarNunotasConcluidasDesdeTx(tenantId: UUID, desde: Instant): List<Long> {
+        val statusFinais = listOf(
+            StatusOperacional.CONCLUIDO.codigo,
+            StatusOperacional.CONCLUIDO_DIVERGENTE.codigo,
+            StatusOperacional.RECONTAGEM_CONCLUIDA.codigo,
+            StatusOperacional.RECONTAGEM_CONCLUIDA_DIVERGENTE.codigo,
+        )
+        return TarefasTable.selectAll()
+            .where {
+                (TarefasTable.tenantId eq tenantId) and (TarefasTable.statusOperacional inList statusFinais) and
+                    (TarefasTable.sankhyaAtualizadoEm greaterEq desde)
+            }
             .map { it[TarefasTable.nunota].toLong() }
     }
 

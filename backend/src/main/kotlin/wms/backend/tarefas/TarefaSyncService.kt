@@ -122,6 +122,9 @@ object TarefaSyncService {
             revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
         }
 
+        runCatching { withContext(Dispatchers.IO) { removerConcluidasExcluidas(tenantSlug, tenantId) } }
+            .onFailure { println("AVISO: conferidas excluídas no Sankhya (tenant $tenantSlug) falhou: ${it.message}") }
+
         // Sessão com todas as etapas concluídas mas sem finalização (processo caiu no meio): destrava.
         runCatching { wms.backend.separacao.SeparacaoService.destravarSessoesSemFinalizacao(tenantSlug, tenantId) }
             .onFailure { println("AVISO: destravar sessões (tenant $tenantSlug) falhou: ${it.message}") }
@@ -167,6 +170,47 @@ object TarefaSyncService {
      * principal (idêntica regra de transição/auditoria, sem duplicar lógica); as
      * que não existem mais são removidas.
      */
+    /** Último varrimento de conferidas excluídas por tenant — não precisa rodar a cada ciclo. */
+    private val ultimaVerificacaoConcluidas = java.util.concurrent.ConcurrentHashMap<UUID, Instant>()
+    private val INTERVALO_CONCLUIDAS = java.time.Duration.ofMinutes(5)
+    /** Mesma janela da fase "Nota" da fila (tarefa.model.ts: recente 15 dias). */
+    private val JANELA_CONCLUIDAS = java.time.Duration.ofDays(15)
+
+    /**
+     * Conferida e depois EXCLUÍDA no Sankhya: revalidarNaoVistasNoCiclo só olha as ativas, então essas ficavam
+     * na fila para sempre ("Aguardando nota" com o mesmo NUMNOTA repetido quando a entrada é relançada).
+     * Só existência (SELECT NUNOTA), a cada 5 min, das concluídas dos últimos 15 dias — não reconcilia status.
+     */
+    private suspend fun removerConcluidasExcluidas(tenantSlug: String, tenantId: UUID) {
+        val agora = Instant.now()
+        val ultima = ultimaVerificacaoConcluidas[tenantId]
+        if (ultima != null && ultima.plus(INTERVALO_CONCLUIDAS).isAfter(agora)) return
+        ultimaVerificacaoConcluidas[tenantId] = agora
+
+        val candidatas = TenantTx.run(tenantId) {
+            TarefasRepository.listarNunotasConcluidasDesdeTx(tenantId, agora.minus(JANELA_CONCLUIDAS))
+        }
+        if (candidatas.isEmpty()) return
+
+        val existentes = mutableSetOf<Long>()
+        candidatas.chunked(500).forEach { lote ->
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT NUNOTA FROM TGFCAB WHERE NUNOTA IN (${lote.joinToString(",")})",
+            ).mapNotNullTo(existentes) { it["NUNOTA"]?.toBigDecimalOrNull()?.toLong() }
+        }
+        // Resposta vazia pra um lote grande é mais provável falha de leitura do que exclusão em massa — não apaga.
+        if (existentes.isEmpty() && candidatas.size > 20) {
+            println("AVISO: nenhuma das ${candidatas.size} conferidas recentes voltou do Sankhya (tenant $tenantSlug) — nada removido")
+            return
+        }
+        val inexistentes = candidatas.filterNot { it in existentes }
+        if (inexistentes.isNotEmpty()) {
+            println("Sync: removendo conferidas excluídas no Sankhya (tenant $tenantSlug): $inexistentes")
+            TenantTx.run(tenantId) { TarefasRepository.removerInexistentesNoSankhyaTx(tenantId, inexistentes) }
+        }
+    }
+
     private suspend fun revalidarNaoVistasNoCiclo(tenantSlug: String, tenantId: UUID, vistasNesteCiclo: Set<Long>) {
         val ativasLocais = TenantTx.run(tenantId) { TarefasRepository.listarNunotasAtivasTx(tenantId) }
         val candidatas = ativasLocais.filterNot { it in vistasNesteCiclo }
