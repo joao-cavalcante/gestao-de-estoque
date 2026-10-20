@@ -3,9 +3,9 @@
     {
       "id": "agente-balanca",
       "nome": "Agente de Balanças",
-      "descricao": "Aplicativo desktop (Windows) que conecta as balanças seriais da estação ao sistema.",
-      "versao": "1.0.2",
-      "arquivo": "agente-balanca-setup-1.0.2.exe"
+      "descricao": "Aplicativo desktop (Windows) que conecta as balanças seriais da estação ao sistema e imprime sozinho o romaneio e os DANFEs das OCs fechadas (aba Impressão).",
+      "versao": "1.1.0",
+      "arquivo": "agente-balanca-setup-1.1.0.exe"
     }
   ]
 }

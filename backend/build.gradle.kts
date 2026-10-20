@@ -33,6 +33,8 @@ dependencies {
     implementation(libs.logback)
     implementation(libs.java.jwt)
     implementation(libs.jbcrypt)
+    implementation(libs.openpdf)
+    implementation(libs.zxing.core)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)

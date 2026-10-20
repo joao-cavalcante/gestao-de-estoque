@@ -31,6 +31,7 @@ import {
   ViewMode,
 } from './tarefa.model';
 import { OqFechamentoOcModalComponent } from './oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
+import { OqImpressaoOcComponent } from './oq-impressao-oc/oq-impressao-oc.component';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
 import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
@@ -70,6 +71,7 @@ function chaveData(data: string): number {
     OqSkeletonComponent,
     OqPaginacaoComponent,
     OqFechamentoOcModalComponent,
+    OqImpressaoOcComponent,
     OqIconComponent,
   ],
   templateUrl: './fila-tarefas.component.html',

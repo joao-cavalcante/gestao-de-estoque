@@ -12,6 +12,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import wms.backend.erp.SankhyaDbExplorerClient
+import wms.backend.impressao.ImpressaoOcRepository
 import wms.backend.erp.SankhyaSpClient
 import wms.backend.mapaseparacao.TransporteOrdemCarga
 import wms.backend.reconferencia.ReconferenciaService
@@ -371,7 +372,12 @@ object FechamentoOcService {
         val faturados = resultado.count { it.situacao == "faturar" }
         ProgressoEmissao.atualizar("oc:$oc", ProgressoEmissaoDto("fechando", faturados, faturados, null))
         return runCatching { fecharNoSankhya(tenantSlug, tenantId, oc) }.fold(
-            onSuccess = { previa.copy(pedidos = resultado, ocFechada = true, mensagem = "Notas faturadas e confirmadas e OC $oc fechada no Sankhya.") },
+            onSuccess = {
+                // Impressão automática (romaneio + DANFEs): o worker espera a SEFAZ e o agente local imprime.
+                runCatching { ImpressaoOcRepository.enfileirar(tenantId, oc, "fechamento", null) }
+                    .onFailure { e -> println("AVISO: fechamento OC $oc — não enfileirou a impressão: ${e.message}") }
+                previa.copy(pedidos = resultado, ocFechada = true, mensagem = "Notas faturadas e confirmadas e OC $oc fechada no Sankhya.")
+            },
             onFailure = { e ->
                 println("AVISO: fechamento OC $oc — notas ok, mas fechar a TGFORD falhou: ${e.message}")
                 previa.copy(pedidos = resultado, mensagem = "Notas faturadas e confirmadas, mas o Sankhya não fechou a OC $oc (${e.message}). Tente de novo.")

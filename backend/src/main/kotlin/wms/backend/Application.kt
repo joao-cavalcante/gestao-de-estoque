@@ -1,5 +1,7 @@
 package wms.backend
 
+import wms.backend.impressao.ImpressaoOcWorker
+import wms.backend.impressao.impressaoOcRoutes
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -80,6 +82,7 @@ fun Application.module() {
     ConfigConferenciaSyncWorker.iniciar()
     TipoOperacaoSyncWorker.iniciar()
     ProdutoCatalogoSyncWorker.iniciar()
+    ImpressaoOcWorker.iniciar()
 
     routing {
         get("/health") {
@@ -109,5 +112,6 @@ fun Application.module() {
         mapaSeparacaoRoutes()
         consultaProdutosRoutes()
         auditoriaPedidoRoutes()
+        impressaoOcRoutes()
     }
 }

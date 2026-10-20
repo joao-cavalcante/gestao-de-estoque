@@ -8,6 +8,8 @@ logback = "1.5.12"
 kotlinxSerialization = "1.7.3"
 javaJwt = "4.4.0"
 jbcrypt = "0.4"
+openpdf = "1.3.43"
+zxing = "3.5.3"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
@@ -28,6 +30,8 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 java-jwt = { module = "com.auth0:java-jwt", version.ref = "javaJwt" }
 jbcrypt = { module = "org.mindrot:jbcrypt", version.ref = "jbcrypt" }
+openpdf = { module = "com.github.librepdf:openpdf", version.ref = "openpdf" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 

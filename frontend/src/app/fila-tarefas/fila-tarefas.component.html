@@ -94,6 +94,7 @@
             <span class="oq-progresso__msg oq-progresso__msg--ok"><oq-icon name="check" [size]="12" /> OC fechada — notas emitidas.</span>
             <div class="oq-progresso__acoes">
               <button type="button" class="oq-progresso__link" (click)="abrirFechamentoOc()">Ver notas da OC</button>
+              <oq-impressao-oc [oc]="r.oc" />
             </div>
           } @else {
             <ol class="oq-progresso__etapas">
