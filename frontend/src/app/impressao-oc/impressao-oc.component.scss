@@ -1,0 +1,65 @@
+.imp-oc { display: flex; flex-direction: column; gap: 12px; }
+
+.imp-oc__agente {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: var(--oq-radius-input, 6px);
+  font-size: 14px;
+  font-weight: 600;
+}
+.imp-oc__agente--ok { background: color-mix(in srgb, #2e9e5b 14%, transparent); color: #1f7a45; }
+.imp-oc__agente--off { background: color-mix(in srgb, #d64545 14%, transparent); color: #b23333; }
+
+.imp-oc__resumo { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+.imp-oc__kpi {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--oq-line, #ddd);
+  border-radius: var(--oq-radius-input, 6px);
+  font-size: 13px;
+  span { font-size: 22px; font-weight: 700; font-family: var(--oq-font-display, inherit); }
+}
+.imp-oc__kpi--ok span { color: #1f7a45; }
+.imp-oc__kpi--erro span { color: #b23333; }
+
+.imp-oc__manual {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  input { width: 90px; height: 32px; padding: 0 8px; border: 1px solid var(--oq-line, #ccc); border-radius: var(--oq-radius-input, 6px); }
+}
+
+.imp-oc__tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  th { text-align: left; font-weight: 600; padding: 8px; border-bottom: 1px solid var(--oq-line, #ddd); white-space: nowrap; }
+  td { padding: 8px; border-bottom: 1px solid var(--oq-line, #eee); vertical-align: middle; }
+}
+.imp-oc__oc { font-size: 16px; font-weight: 700; font-family: var(--oq-font-display, inherit); }
+.imp-oc__sub { display: block; font-size: 11px; opacity: .7; }
+.imp-oc__detalhe { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-oc__acoes { text-align: right; white-space: nowrap; button + button { margin-left: 6px; } }
+
+.imp-oc__status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.imp-oc__status--aguardando_sefaz { color: #a06a00; }
+.imp-oc__status--pronto,
+.imp-oc__status--imprimindo { color: #2b62c4; }
+.imp-oc__status--impresso { color: #1f7a45; }
+.imp-oc__status--erro { color: #b23333; }
+.imp-oc__linha--imprimindo { background: color-mix(in srgb, #2b62c4 6%, transparent); }
+.imp-oc__linha--erro { background: color-mix(in srgb, #d64545 6%, transparent); }

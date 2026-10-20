@@ -25,6 +25,7 @@ import { CrachasImpressaoComponent } from './crachas/crachas-impressao.component
 import { EtiquetaPesoComponent } from './etiqueta-peso/etiqueta-peso.component';
 import { CarregamentoComponent } from './reconferencia/carregamento.component';
 import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
+import { ImpressaoOcComponent } from './impressao-oc/impressao-oc.component';
 import { MapaSeparacaoComponent } from './mapa-separacao/mapa-separacao.component';
 import { ConsultaProdutosComponent } from './consulta-produtos/consulta-produtos.component';
 import { AuditoriaPedidoComponent } from './auditoria-pedido/auditoria-pedido.component';
@@ -48,6 +49,7 @@ export const routes: Routes = [
   { path: 'config-conferencia', component: ConfigConferenciaComponent, canActivate: [adminGuard] },
   { path: 'liberacao-corte', component: LiberacaoCorteComponent, canActivate: [authGuard] },
   { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
+  { path: 'impressao-oc', component: ImpressaoOcComponent, canActivate: [authGuard] },
   { path: 'carregamento', component: CarregamentoComponent, canActivate: [authGuard] },
   { path: 'carregamento/:sessaoId', component: CarregamentoComponent, canActivate: [authGuard] },
   { path: 'mapa-separacao', component: MapaSeparacaoComponent, canActivate: [authGuard] },

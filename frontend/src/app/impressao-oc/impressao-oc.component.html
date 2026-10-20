@@ -1,0 +1,81 @@
+<div class="oq-admin-page imp-oc">
+  <!-- Agente: sem agente online as notas não saem — o aviso é o mais importante da tela. -->
+  @if (painel(); as p) {
+    @if (agentesOnline().length) {
+      <div class="imp-oc__agente imp-oc__agente--ok">
+        <oq-icon name="impressora" [size]="16" />
+        Impressora pronta — agente online: <strong>{{ nomesOnline() }}</strong>
+      </div>
+    } @else {
+      <div class="imp-oc__agente imp-oc__agente--off">
+        <oq-icon name="impressora" [size]="16" />
+        Nenhum agente de impressão online — as notas não vão sair.
+        @if (p.agentes.length) { Último contato: {{ p.agentes[0].nome }} às {{ hora(p.agentes[0].vistoEm) }}. }
+        Abra o Agente de Balanças neste computador (aba Impressão).
+      </div>
+    }
+  }
+  @if (falhaConexao()) {
+    <div class="imp-oc__agente imp-oc__agente--off">Sem conexão com o WMS — tentando de novo…</div>
+  }
+
+  <div class="imp-oc__resumo">
+    <div class="imp-oc__kpi"><span>{{ contagem().fila }}</span>na fila</div>
+    <div class="imp-oc__kpi imp-oc__kpi--ok"><span>{{ contagem().impressas }}</span>impressas (24 h)</div>
+    <div class="imp-oc__kpi" [class.imp-oc__kpi--erro]="contagem().erros > 0"><span>{{ contagem().erros }}</span>com erro</div>
+    <form class="imp-oc__manual" (ngSubmit)="reimprimir(ocManual)">
+      <label for="ocManual">Imprimir OC nº</label>
+      <input id="ocManual" name="ocManual" inputmode="numeric" [(ngModel)]="ocManual" placeholder="633" />
+      <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!ocManual || enviando() !== null">Imprimir</button>
+    </form>
+  </div>
+
+  <oq-panel-section icon="impressora" title="IMPRESSÃO DE OCs" [count]="painel()?.jobs?.length ?? 0">
+    @if (!painel()) {
+      <div class="oq-empty-row">Carregando…</div>
+    } @else if (painel()!.jobs.length === 0) {
+      <div class="oq-empty-row">Nenhuma OC fechada nas últimas 24 horas. Quando uma OC for fechada, o romaneio e as notas saem aqui.</div>
+    } @else {
+      <table class="imp-oc__tabela">
+        <thead>
+          <tr>
+            <th>OC</th>
+            <th>Pedido em</th>
+            <th>Notas</th>
+            <th>Situação</th>
+            <th>Detalhe</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (j of painel()!.jobs; track j.id) {
+            <tr [class]="'imp-oc__linha imp-oc__linha--' + j.status">
+              <td class="imp-oc__oc">{{ j.ordemCarga }}</td>
+              <td>
+                {{ hora(j.criadoEm) }}
+                <span class="imp-oc__sub">{{ j.motivo === 'reimpressao' ? 'Reimpressão' + (j.solicitadoPor ? ' · ' + j.solicitadoPor : '') : 'Fechar OC' }}</span>
+              </td>
+              <td>{{ j.notas || '—' }}</td>
+              <td><span [class]="'imp-oc__status imp-oc__status--' + j.status">{{ rotulo(j.status) }}</span></td>
+              <td class="imp-oc__detalhe" [title]="j.erro ?? ''">
+                @if (j.status === 'impresso') {
+                  {{ hora(j.impressoEm) }}@if (j.agente) { · {{ j.agente }} }
+                } @else if (j.erro) {
+                  {{ j.erro }}
+                } @else if (j.status === 'imprimindo' && j.agente) {
+                  enviado para {{ j.agente }}
+                }
+              </td>
+              <td class="imp-oc__acoes">
+                @if (temPdf(j)) {
+                  <button type="button" class="oq-admin-btn" (click)="verPdf(j)">Ver PDF</button>
+                }
+                <button type="button" class="oq-admin-btn" [disabled]="enviando() === j.ordemCarga" (click)="reimprimir(j.ordemCarga)">Reimprimir</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </oq-panel-section>
+</div>

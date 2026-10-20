@@ -30,6 +30,8 @@ const ITENS: ItemMenu[] = [
   { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
   { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
   { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
+  // Fica aberta no computador da expedição: romaneio + DANFEs saem sozinhos (agente) ao fechar a OC.
+  { rota: '/impressao-oc', label: 'Impressão de OCs', icone: 'impressora' },
   { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
   { rota: '/consulta-produtos', label: 'Consulta de Produtos', icone: 'search' },
   { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },

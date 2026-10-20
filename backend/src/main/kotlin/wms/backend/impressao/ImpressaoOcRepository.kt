@@ -53,6 +53,7 @@ data class ImpressaoOcDto(
     val solicitadoPor: String? = null,
     val criadoEm: String,
     val impressoEm: String? = null,
+    val atualizadoEm: String? = null,
 )
 
 object ImpressaoOcRepository {
@@ -161,6 +162,16 @@ object ImpressaoOcRepository {
         } > 0
     }
 
+    /** Painel de impressão: jobs das últimas [horas] horas, mais recentes primeiro (sem o PDF). */
+    fun recentes(tenantId: UUID, horas: Long, limite: Int): List<ImpressaoOcDto> = TenantTx.run(tenantId) {
+        val desde = Instant.now().minusSeconds(horas * 3600)
+        ImpressaoOcTable.select(ImpressaoOcTable.columns - ImpressaoOcTable.pdf)
+            .where { (ImpressaoOcTable.tenantId eq tenantId) and (ImpressaoOcTable.criadoEm greaterEq desde) }
+            .orderBy(ImpressaoOcTable.criadoEm to SortOrder.DESC)
+            .limit(limite)
+            .map { it.dto() }
+    }
+
     /** Último job de cada OC pedida — pro card da Fila. */
     fun ultimosPorOc(tenantId: UUID, ocs: Collection<Long>): Map<Long, ImpressaoOcDto> {
         if (ocs.isEmpty()) return emptyMap()
@@ -185,5 +196,32 @@ object ImpressaoOcRepository {
         solicitadoPor = this[ImpressaoOcTable.solicitadoPor],
         criadoEm = this[ImpressaoOcTable.criadoEm].toString(),
         impressoEm = this[ImpressaoOcTable.impressoEm]?.toString(),
+        atualizadoEm = this[ImpressaoOcTable.atualizadoEm].toString(),
     )
+}
+
+@Serializable
+data class AgenteImpressaoDto(val nome: String, val vistoEm: String, val online: Boolean)
+
+@Serializable
+data class PainelImpressaoDto(val agentes: List<AgenteImpressaoDto>, val jobs: List<ImpressaoOcDto>)
+
+/**
+ * Última vez que cada agente consultou a fila (em memória — some no restart do backend até o agente
+ * consultar de novo, ~5 s). O agente pergunta a cada 5 s; sem notícia há 30 s = offline.
+ */
+object AgentesImpressao {
+    private const val ONLINE_SEG = 30L
+    private val vistos = java.util.concurrent.ConcurrentHashMap<UUID, java.util.concurrent.ConcurrentHashMap<String, Instant>>()
+
+    fun visto(tenantId: UUID, agente: String) {
+        vistos.computeIfAbsent(tenantId) { java.util.concurrent.ConcurrentHashMap() }[agente] = Instant.now()
+    }
+
+    fun listar(tenantId: UUID): List<AgenteImpressaoDto> {
+        val limite = Instant.now().minusSeconds(ONLINE_SEG)
+        return (vistos[tenantId] ?: emptyMap<String, Instant>()).entries
+            .sortedByDescending { it.value }
+            .map { (nome, em) -> AgenteImpressaoDto(nome, em.toString(), em.isAfter(limite)) }
+    }
 }

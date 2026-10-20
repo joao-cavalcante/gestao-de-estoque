@@ -38,6 +38,7 @@ fun Route.impressaoOcRoutes() {
                 return@get call.respond(mapOf("prontos" to ImpressaoOcRepository.contarProntos(claims.tenantId)))
             }
             val agente = call.request.queryParameters["agente"]?.take(100) ?: nomeUsuario(claims)
+            AgentesImpressao.visto(claims.tenantId, agente)
             val job = ImpressaoOcRepository.proximoParaAgente(claims.tenantId, agente)
                 ?: return@get call.respond(HttpStatusCode.NoContent)
             call.respond(job)
@@ -57,6 +58,13 @@ fun Route.impressaoOcRoutes() {
             if (!req.ok) println("AVISO: impressão job $id falhou no agente: ${req.mensagem}")
             call.respond(if (ok) HttpStatusCode.OK else HttpStatusCode.Conflict, mapOf("ok" to ok))
         }
+    }
+
+    /** Tela "Impressão de OCs" (computador da expedição): agentes online + jobs das últimas 24 h. */
+    get("/api/impressao/painel") {
+        val claims = call.exigirAuth() ?: return@get
+        val horas = call.request.queryParameters["horas"]?.toLongOrNull()?.coerceIn(1, 168) ?: 24
+        call.respond(PainelImpressaoDto(AgentesImpressao.listar(claims.tenantId), ImpressaoOcRepository.recentes(claims.tenantId, horas, 200)))
     }
 
     /** Tela (card da OC na Fila): situação, reimpressão e visualização do PDF. */
