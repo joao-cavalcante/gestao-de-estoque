@@ -97,6 +97,8 @@ export interface OrdemCargaResumoDto {
   /** Total de notas da OC e quantas já estão conferidas no mirror local (ver TarefaSyncService) — barra de progresso do card. */
   totalNotas: number;
   notasConferidas: number;
+  /** Notas conferidas e já carregadas no veículo (todos os itens conferidos marcados no carregamento). */
+  notasCarregadas?: number;
   /** TGFORD.SITUACAO: 'A' aberta | 'F' fechada (ainda com nota na fila) — badge "Fechada" no card. */
   situacao: string | null;
   /** Quantas notas da OC são Express / Retira / Entrega — pins do card da OC. */
@@ -134,6 +136,8 @@ export interface ItemSeparacaoDto {
   /** Vendido em unidade alternativa: a mesma qtd na unidade padrão ("5 CX = 60 UN"). */
   quantidadePadrao?: string | null;
   unidadePadrao?: string | null;
+  /** Quantas unidades padrão tem uma do pedido — "CX com 12 BI" (mesma linha da tela de conferência). */
+  conversao?: string | null;
 }
 
 /** Cor por categoria — mesma paleta de tarefa.model.ts (rotuloTipoSeparacao), reaproveitada aqui pro banner. */

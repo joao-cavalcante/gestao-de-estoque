@@ -116,6 +116,11 @@ data class OrdemCargaResumoDto(
      * de conferência (ver CRITERIO_BASE) não entra no mirror — conta como não conferida.
      */
     val notasConferidas: Int,
+    /**
+     * Quantas notas da OC já estão CARREGADAS: conferida e com todos os itens conferidos marcados no carregamento
+     * (mesma regra da TV de Ordens de Carga / Fila). Conferida antes do carregamento existir conta como carregada.
+     */
+    val notasCarregadas: Int = 0,
     /** TGFORD.SITUACAO: 'A' aberta | 'F' fechada — fechada ainda aparece enquanto tiver nota na fila. */
     val situacao: String? = null,
     /** Quantas notas da OC são Express / Retira / Entrega (mirror local) — pins do card da OC. */
@@ -165,6 +170,8 @@ data class ItemSeparacaoDto(
     /** Só quando vendido em unidade alternativa com fator cadastrado (TGFVOA): a mesma qtd na unidade padrão — "5 CX = 60 UN". */
     val quantidadePadrao: String? = null,
     val unidadePadrao: String? = null,
+    /** Quantas unidades padrão tem uma unidade do pedido — "CX com 12 BI" (mesma linha da tela de conferência). */
+    val conversao: String? = null,
 )
 
 @Serializable

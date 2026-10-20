@@ -489,6 +489,16 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     return oc.totalNotas > 0 && oc.notasConferidas === oc.totalNotas;
   }
 
+  /** Todas as notas da OC carregadas no veículo. */
+  ocCarregada(oc: OrdemCargaResumoDto): boolean {
+    return oc.totalNotas > 0 && (oc.notasCarregadas ?? 0) >= oc.totalNotas;
+  }
+
+  carregamentoPct(oc: OrdemCargaResumoDto): number {
+    if (oc.totalNotas <= 0) return 0;
+    return Math.min(100, Math.round(((oc.notasCarregadas ?? 0) / oc.totalNotas) * 100));
+  }
+
   progressoPct(oc: OrdemCargaResumoDto): number {
     if (oc.totalNotas <= 0) return 0;
     return Math.min(100, Math.round((oc.notasConferidas / oc.totalNotas) * 100));

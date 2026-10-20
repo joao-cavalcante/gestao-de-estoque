@@ -651,7 +651,7 @@
 /* Conversão da unidade alternativa: "5 CX = 60 UN" (secundária) */
 .ms-conv {
   display: block;
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 400;
   color: var(--oq-text-secondary);
   white-space: nowrap;
@@ -792,4 +792,22 @@
 .ms-pill--alerta:not(.oq-toolbar__pill--active) {
   border-color: var(--oq-critical);
   color: var(--oq-critical-foreground);
+}
+
+/* Segunda barra do card: carregamento (cor da marca enquanto em andamento; verde quando completa). */
+.ms-progresso__linha--2 {
+  margin-top: 6px;
+}
+
+.ms-progresso__barra--carga:not(.ms-progresso__barra--completa) {
+  background: var(--oq-brand);
+}
+
+/* "CX com 12 BI" embaixo da descrição — mesma informação da tela de conferência, legível no papel. */
+.ms-conv-desc {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
 }

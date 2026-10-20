@@ -348,6 +348,14 @@ object MapaSeparacaoService {
             return wms.backend.separacao.SeparacaoRepository.padraoParaComercial(qtdPadrao, dm, fator) to codVol
         }
 
+        /** "CX com 12 BI" — mesma linha da tela de conferência (SeparacaoRepository.descreverConversao). */
+        fun LinhaItem.conversao(): String? {
+            if (!precisaConversao()) return null
+            val ctrl = controle?.trim()?.takeIf { it.isNotEmpty() } ?: " "
+            val (dm, fator) = voaPorChave[Triple(codProd, codVol, ctrl)] ?: voaPorChave[Triple(codProd, codVol, " ")] ?: return null
+            return wms.backend.separacao.SeparacaoRepository.descreverConversao(codVol, codVolProduto, dm, fator)
+        }
+
         // Mesma regra da conferência (RegraPesavel) — o ícone de balança do mapa bate com o que a
         // conferência vai pedir de peso.
         fun LinhaItem.pesavel(): Boolean = decisorPesavel.pesavel(codProd, codVol)
@@ -364,13 +372,13 @@ object MapaSeparacaoService {
         val (linhasSegregadas, linhasConsolidadas) = linhas.partition { it.tipoSeparacao == "2" }
 
         // Todas as notas recebidas juntas (OC inteira; ou o único pedido, no mapa S/ OC).
-        val consolidado = agregar(linhasConsolidadas, { it.pesavel() }, { l, q -> l.exibicao(q) }) { it.qtdComSinal() }
+        val consolidado = agregar(linhasConsolidadas, { it.pesavel() }, { l, q -> l.exibicao(q) }, { it.conversao() }) { it.qtdComSinal() }
 
         // Por PEDIDO (NUNOTA) — cada pedido é um bloco próprio, mesmo quando o
         // cliente tem mais de um pedido na OC (pedido do usuário: separação por
         // NUNOTA + cliente, em página corrida). Nunca soma entre pedidos.
         val segregadoPorParceiro = linhasSegregadas.groupBy { it.nunota }
-            .mapValues { (_, linhasPedido) -> linhasPedido to agregar(linhasPedido, { it.pesavel() }, { l, q -> l.exibicao(q) }) { it.qtdComSinal() } }
+            .mapValues { (_, linhasPedido) -> linhasPedido to agregar(linhasPedido, { it.pesavel() }, { l, q -> l.exibicao(q) }, { it.conversao() }) { it.qtdComSinal() } }
         val modalidades = withContext(Dispatchers.IO) { TarefasRepository.modalidadePorNunota(tenantId, segregadoPorParceiro.keys) }
         val porParceiro = segregadoPorParceiro.map { (nunota, par) ->
             val (_, itens) = par
@@ -406,6 +414,7 @@ object MapaSeparacaoService {
         linhas: List<LinhaItem>,
         pesavel: (LinhaItem) -> Boolean,
         exibicao: (LinhaItem, BigDecimal) -> Pair<BigDecimal, String>,
+        conversao: (LinhaItem) -> String?,
         qtd: (LinhaItem) -> BigDecimal,
     ): List<ItemAgregado> {
         data class ChaveItem(val codProd: Int, val controle: String?, val codVol: String)
@@ -430,6 +439,7 @@ object MapaSeparacaoService {
                     // Convertida (unidade exibida = alternativa, com fator do VOA): mostra também na padrão.
                     quantidadePadrao = totalPadrao.takeIf { amostra.codVolProduto != null && unidadeExibida != amostra.codVolProduto },
                     unidadePadrao = amostra.codVolProduto?.takeIf { unidadeExibida != it },
+                    conversao = conversao(amostra).takeIf { unidadeExibida != amostra.codVolProduto },
                 )
             }
     }
@@ -455,6 +465,7 @@ object MapaSeparacaoService {
                         pesavel = i.pesavel,
                         quantidadePadrao = i.quantidadePadrao?.formatar(),
                         unidadePadrao = i.unidadePadrao,
+                        conversao = i.conversao,
                     )
                 },
             )
@@ -528,6 +539,11 @@ object MapaSeparacaoService {
         }
         val pedidosPorOc = withContext(Dispatchers.IO) { TarefasRepository.pedidosPorOrdemCarga(tenantId, ordensCarga.toSet()) }
         val novosPorOc = withContext(Dispatchers.IO) { pedidosNovosPorOc(tenantId, pedidosPorOc, impressoesPorOc) }
+        // Carregamento das notas já conferidas (sem resumo = conferida antes do carregamento existir → carregada).
+        val conferidasNunotas = pedidosPorOc.values.flatten().filter { it.statusOperacional in STATUS_CONFERIDA }.map { it.nunota }
+        val carregamento = withContext(Dispatchers.IO) {
+            wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, conferidasNunotas, 7)
+        }
 
         raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -542,6 +558,9 @@ object MapaSeparacaoService {
                 nomeMotorista = codMotorista?.let { nomesPorCodParc[it] },
                 totalNotas = statusDaOc.size,
                 notasConferidas = statusDaOc.count { it in STATUS_CONFERIDA },
+                notasCarregadas = pedidosPorOc[ordemCarga].orEmpty().count { p ->
+                    p.statusOperacional in STATUS_CONFERIDA && carregamento[p.nunota].let { it == null || it.carregados >= it.total }
+                },
                 situacao = r["SITUACAO"]?.trim()?.takeIf { it.isNotEmpty() },
                 qtdExpress = modalidadesPorOc[ordemCarga].orEmpty().count { it.express },
                 qtdRetira = modalidadesPorOc[ordemCarga].orEmpty().count { it.retira },
@@ -626,6 +645,7 @@ object MapaSeparacaoService {
         val pesavel: Boolean,
         val quantidadePadrao: BigDecimal? = null,
         val unidadePadrao: String? = null,
+        val conversao: String? = null,
     )
 
     private fun descricaoCategoria(codigo: String): String = when (codigo) {

@@ -399,6 +399,13 @@
                   <div class="ms-progresso__trilho">
                     <div class="ms-progresso__barra" [class.ms-progresso__barra--completa]="ocConcluida(oc)" [style.width.%]="progressoPct(oc)"></div>
                   </div>
+                  <div class="ms-progresso__linha ms-progresso__linha--2">
+                    <span class="ms-progresso__label">Notas carregadas</span>
+                    <span class="ms-progresso__contagem">{{ oc.notasCarregadas ?? 0 }}/{{ oc.totalNotas }}</span>
+                  </div>
+                  <div class="ms-progresso__trilho">
+                    <div class="ms-progresso__barra ms-progresso__barra--carga" [class.ms-progresso__barra--completa]="ocCarregada(oc)" [style.width.%]="carregamentoPct(oc)"></div>
+                  </div>
                 </div>
 
                 <div class="oq-card__actions">
@@ -426,6 +433,7 @@
                   <th scope="col">Placa</th>
                   <th scope="col">Motorista</th>
                   <th scope="col">Notas conferidas</th>
+                  <th scope="col">Notas carregadas</th>
                   <th scope="col" class="oq-lista__acoes">Mapa</th>
                 </tr>
               </thead>
@@ -456,6 +464,14 @@
                         <span class="ms-progresso__contagem">{{ oc.notasConferidas }}/{{ oc.totalNotas }}</span>
                         <div class="ms-progresso__trilho">
                           <div class="ms-progresso__barra" [class.ms-progresso__barra--completa]="ocConcluida(oc)" [style.width.%]="progressoPct(oc)"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td data-label="Notas carregadas">
+                      <div class="ms-progresso ms-progresso--linha">
+                        <span class="ms-progresso__contagem">{{ oc.notasCarregadas ?? 0 }}/{{ oc.totalNotas }}</span>
+                        <div class="ms-progresso__trilho">
+                          <div class="ms-progresso__barra ms-progresso__barra--carga" [class.ms-progresso__barra--completa]="ocCarregada(oc)" [style.width.%]="carregamentoPct(oc)"></div>
                         </div>
                       </div>
                     </td>
@@ -701,6 +717,9 @@
         <oq-icon class="ms-pesavel-icone" name="balanca" [size]="15" title="Produto pesável" />
       }
       {{ item.descricao }}
+      @if (item.conversao) {
+        <span class="ms-conv-desc">{{ item.conversao }}</span>
+      }
     </ng-template>
 
     @for (mapa of mapas(); track trackMapa($index, mapa); let primeiroMapa = $first) {
