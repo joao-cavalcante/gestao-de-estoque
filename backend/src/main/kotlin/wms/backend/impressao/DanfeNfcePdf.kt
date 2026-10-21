@@ -1,9 +1,5 @@
 package wms.backend.impressao
 
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.lowagie.text.Document
 import com.lowagie.text.Element
 import com.lowagie.text.PageSize
@@ -110,7 +106,7 @@ object DanfeNfcePdf {
             val lado = 120f
             garantir(lado + 8f)
             t += 6f
-            qrCode(d, n.qrCode, ESQ + (LARG - lado) / 2, t, lado)
+            d.qrCode(n.qrCode, ESQ + (LARG - lado) / 2, t, lado)
             t += lado
         }
         if (n.infCpl.isNotBlank()) {
@@ -124,22 +120,5 @@ object DanfeNfcePdf {
         documento.newPage()
         writer.isPageEmpty = false
         return Desenho(writer.directContent, PageSize.A4.height)
-    }
-
-    /** QR Code desenhado como vetor (um quadrado por módulo) — nítido em qualquer impressora. */
-    private fun qrCode(d: Desenho, conteudo: String, x: Float, top: Float, lado: Float) {
-        val matriz = QRCodeWriter().encode(
-            conteudo, BarcodeFormat.QR_CODE, 0, 0,
-            mapOf(EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M, EncodeHintType.MARGIN to 0),
-        )
-        val modulo = lado / matriz.width
-        val cb = d.cb
-        cb.saveState()
-        cb.setGrayFill(0f)
-        for (yy in 0 until matriz.height) for (xx in 0 until matriz.width) {
-            if (matriz.get(xx, yy)) cb.rectangle(x + xx * modulo, d.y(top + (yy + 1) * modulo), modulo, modulo)
-        }
-        cb.fill()
-        cb.restoreState()
     }
 }

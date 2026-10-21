@@ -3,13 +3,19 @@ package wms.backend.impressao
 import wms.backend.erp.SankhyaDbExplorerClient
 import java.math.BigDecimal
 
-/** Nota de venda da OC e a situação dela na SEFAZ (TGFCAB.STATUSNFE; 'A' = autorizada). */
-data class NotaDaOc(val nunota: Long, val numNota: String, val statusNfe: String)
+/**
+ * Nota de venda da OC e a situação dela na SEFAZ (TGFCAB.STATUSNFE; 'A' = autorizada). [boletoPendente]: tem
+ * título de boleto em aberto ainda sem linha digitável (não registrado no banco) — espera igual à SEFAZ.
+ */
+data class NotaDaOc(val nunota: Long, val numNota: String, val statusNfe: String, val boletoPendente: Boolean = false) {
+    val pronta: Boolean get() = statusNfe == "A" && !boletoPendente
+    val situacao: String get() = if (statusNfe != "A") statusNfe.ifBlank { "sem status" } else "boleto sem registro"
+}
 
 /** [notas]: as notas do job; [impressas]: as que entraram no PDF (as autorizadas). */
 data class PdfDaOc(val pdf: ByteArray?, val notas: List<NotaDaOc>, val impressas: List<NotaDaOc> = emptyList()) {
-    /** Notas que ainda não estão autorizadas na SEFAZ. */
-    val pendentes: List<NotaDaOc> get() = notas.filter { it.statusNfe != "A" }
+    /** Notas que ainda não podem sair: SEFAZ não autorizou ou boleto sem registro. */
+    val pendentes: List<NotaDaOc> get() = notas.filter { !it.pronta }
 }
 
 /**
@@ -27,14 +33,16 @@ object ImpressaoOcService {
      */
     suspend fun gerar(tenantSlug: String, oc: Long, somente: Set<Long>? = null, aceitarParcial: Boolean = false): PdfDaOc {
         val (romaneio, todas) = romaneio(tenantSlug, oc)
-        val notas = if (somente == null) todas else todas.filter { it.nunota in somente }
-        val autorizadas = notas.filter { it.statusNfe == "A" }
-        if (autorizadas.isEmpty() || (autorizadas.size < notas.size && !aceitarParcial)) return PdfDaOc(null, notas)
-        val nfes = autorizadas.map { NfeXml.ler(xml(tenantSlug, it.nunota)) }
-        val pendentes = notas.filter { it.statusNfe != "A" }.map { it.nunota }.toSet()
+        val (boletos, semRegistro) = boletos(tenantSlug, oc)
+        val notas = (if (somente == null) todas else todas.filter { it.nunota in somente })
+            .map { if (it.nunota in semRegistro) it.copy(boletoPendente = true) else it }
+        val prontas = notas.filter { it.pronta }
+        if (prontas.isEmpty() || (prontas.size < notas.size && !aceitarParcial)) return PdfDaOc(null, notas)
+        val documentos = prontas.map { NfeXml.ler(xml(tenantSlug, it.nunota)) to boletos[it.nunota].orEmpty() }
+        val pendentes = notas.filter { !it.pronta }.map { it.nunota }.toSet()
         val rom = if (somente != null) null
         else romaneio.copy(notas = romaneio.notas.map { if (it.nunota in pendentes) it.copy(pendenteSefaz = true) else it })
-        return PdfDaOc(ImpressaoPdf.gerar(rom, nfes), notas, autorizadas)
+        return PdfDaOc(ImpressaoPdf.gerarComBoletos(rom, documentos), notas, prontas)
     }
 
     suspend fun romaneio(tenantSlug: String, oc: Long): Pair<RomaneioOc, List<NotaDaOc>> {
@@ -94,6 +102,101 @@ object ImpressaoOcService {
                 )
             },
         )
+    }
+
+    /**
+     * Boletos em aberto das notas da OC (TGFFIN a receber, sem baixa; tipo de título boleto ou já com linha
+     * digitável), por NUNOTA. Segundo item: notas com boleto ainda sem linha digitável (não registrado).
+     */
+    suspend fun boletos(tenantSlug: String, oc: Long): Pair<Map<Long, List<Boleto>>, Set<Long>> {
+        val linhas = SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            """
+            SELECT FIN.NUNOTA, CAB.NUMNOTA, FIN.DESDOBRAMENTO, TO_CHAR(FIN.DTVENC, 'YYYY-MM-DD') AS DTVENC, TO_CHAR(FIN.DTNEG, 'YYYY-MM-DD') AS DTNEG,
+                   FIN.VLRDESDOB, FIN.NOSSONUM, FIN.LINHADIGITAVEL, FIN.CODIGOBARRA, FIN.EMVPIX,
+                   FIN.CODBCO, BCO.NOMEBCO, CTA.CODAGE, CTA.NUMBENEFICIARIO, CTA.CONVENIO, CTA.CARTEIRA, CTA.VALORMULTA, CTA.VALORJUROS, CTA.DIASPROTESTO,
+                   E.RAZAOSOCIAL AS RAZEMP, E.CGC AS CGCEMP, ENE.TIPO AS TIPEMP, ENE.NOMEEND AS ENDEMP, E.NUMEND AS NUMEMP, BAE.NOMEBAI AS BAIEMP,
+                   CIE.NOMECID AS CIDEMP, UFE.UF AS UFEMP, E.CEP AS CEPEMP,
+                   PAR.RAZAOSOCIAL, PAR.CGC_CPF, ENP.TIPO AS TIPPAR, ENP.NOMEEND AS ENDPAR, PAR.NUMEND AS NUMPAR, PAR.COMPLEMENTO AS COMPPAR,
+                   BAP.NOMEBAI AS BAIPAR, CIP.NOMECID AS CIDPAR, UFP.UF AS UFPAR, PAR.CEP AS CEPPAR
+              FROM TGFFIN FIN
+              JOIN TGFCAB CAB ON CAB.NUNOTA = FIN.NUNOTA
+              JOIN TSICTA CTA ON CTA.CODCTABCOINT = FIN.CODCTABCOINT
+              LEFT JOIN TSIBCO BCO ON BCO.CODBCO = FIN.CODBCO
+              LEFT JOIN TGFTIT TIT ON TIT.CODTIPTIT = FIN.CODTIPTIT
+              JOIN TSIEMP E ON E.CODEMP = FIN.CODEMP
+              LEFT JOIN TSIEND ENE ON ENE.CODEND = E.CODEND
+              LEFT JOIN TSIBAI BAE ON BAE.CODBAI = E.CODBAI
+              LEFT JOIN TSICID CIE ON CIE.CODCID = E.CODCID
+              LEFT JOIN TSIUFS UFE ON UFE.CODUF = CIE.UF
+              JOIN TGFPAR PAR ON PAR.CODPARC = FIN.CODPARC
+              LEFT JOIN TSIEND ENP ON ENP.CODEND = PAR.CODEND
+              LEFT JOIN TSIBAI BAP ON BAP.CODBAI = PAR.CODBAI
+              LEFT JOIN TSICID CIP ON CIP.CODCID = PAR.CODCID
+              LEFT JOIN TSIUFS UFP ON UFP.CODUF = CIP.UF
+             WHERE CAB.TIPMOV = 'V' AND CAB.ORDEMCARGA = $oc AND FIN.RECDESP = 1 AND FIN.DHBAIXA IS NULL
+               AND (FIN.LINHADIGITAVEL IS NOT NULL OR UPPER(TIT.DESCRTIPTIT) LIKE '%BOLETO%')
+             ORDER BY FIN.NUNOTA, FIN.DTVENC, FIN.DESDOBRAMENTO
+            """.trimIndent(),
+        )
+        val registrado = { l: Map<String, String?> -> !l["LINHADIGITAVEL"].isNullOrBlank() && !l["CODIGOBARRA"].isNullOrBlank() }
+        val semRegistro = linhas.filterNot(registrado).mapNotNull { it["NUNOTA"]?.toLongOrNull() }.toSet()
+        return linhas.filter(registrado).map { montarBoleto(it) }.groupBy { it.nunota } to semRegistro
+    }
+
+    fun montarBoleto(l: Map<String, String?>): Boleto {
+        fun dec(s: String?) = s?.trim()?.toBigDecimalOrNull()
+        fun endereco(tipo: String?, rua: String?, num: String?, compl: String?, bairro: String?, cidade: String?, uf: String?, cep: String?) =
+            listOfNotNull(
+                listOfNotNull(logradouro(tipo, rua), num?.takeIf { it.isNotBlank() }, compl?.takeIf { it.isNotBlank() }).joinToString(", ").ifBlank { null },
+                bairro?.takeIf { it.isNotBlank() },
+                listOfNotNull(cidade, uf).joinToString("/").ifBlank { null },
+                cep?.takeIf { it.isNotBlank() }?.let { "CEP ${Formato.cep(it)}" },
+            ).joinToString(" - ")
+        val codBanco = l["CODBCO"]?.trim().orEmpty()
+        return Boleto(
+            nunota = l["NUNOTA"]!!.toLong(),
+            numNota = l["NUMNOTA"].orEmpty(),
+            desdobramento = l["DESDOBRAMENTO"].orEmpty(),
+            vencimento = l["DTVENC"].orEmpty(),
+            emissao = l["DTNEG"].orEmpty(),
+            valor = dec(l["VLRDESDOB"]) ?: BigDecimal.ZERO,
+            nossoNumero = l["NOSSONUM"].orEmpty(),
+            linhaDigitavel = l["LINHADIGITAVEL"].orEmpty().split(' ').filter { it.isNotBlank() }.joinToString(" "),
+            codigoBarras = l["CODIGOBARRA"].orEmpty(),
+            pixCopiaECola = l["EMVPIX"]?.trim()?.takeIf { it.isNotEmpty() },
+            codBanco = codBanco,
+            nomeBanco = if (codBanco.trimStart('0') == "33") "Santander" else l["NOMEBCO"].orEmpty(),
+            // TSICTA.CODAGE vem com 5 dígitos ("01070"): agência de 4 dígitos.
+            agencia = l["CODAGE"].orEmpty().trim().trimStart('0').padStart(4, '0'),
+            codBeneficiario = (l["NUMBENEFICIARIO"] ?: l["CONVENIO"]).orEmpty().trim(),
+            carteira = l["CARTEIRA"].orEmpty(),
+            multaPerc = dec(l["VALORMULTA"]),
+            jurosPerc = dec(l["VALORJUROS"]),
+            diasProtesto = l["DIASPROTESTO"]?.trim()?.toIntOrNull(),
+            beneficiario = l["RAZEMP"].orEmpty(),
+            cnpjBeneficiario = l["CGCEMP"].orEmpty(),
+            enderecoBeneficiario = endereco(l["TIPEMP"], l["ENDEMP"], l["NUMEMP"], null, l["BAIEMP"], l["CIDEMP"], l["UFEMP"], l["CEPEMP"]),
+            pagador = l["RAZAOSOCIAL"].orEmpty(),
+            docPagador = l["CGC_CPF"].orEmpty(),
+            enderecoPagador = endereco(l["TIPPAR"], l["ENDPAR"], l["NUMPAR"], l["COMPPAR"], l["BAIPAR"], l["CIDPAR"], l["UFPAR"], l["CEPPAR"]),
+        )
+    }
+
+    /** TSIEND.TIPO abreviado ("R", "AV") + nome. */
+    private fun logradouro(tipo: String?, nome: String?): String? {
+        if (nome.isNullOrBlank()) return null
+        val t = when (val tp = tipo?.trim()?.uppercase().orEmpty()) {
+            "R" -> "Rua"
+            "AV" -> "Av."
+            "AL" -> "Alameda"
+            "TV" -> "Travessa"
+            "EST" -> "Estrada"
+            "ROD" -> "Rodovia"
+            "PC", "PCA" -> "Praça"
+            else -> tp
+        }
+        return "$t ${nome.trim()}".trim()
     }
 
     /** XML autorizado (nfeProc) da nota, montado a partir de pedaços de 4000 caracteres do CLOB. */

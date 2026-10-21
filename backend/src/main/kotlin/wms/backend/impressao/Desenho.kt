@@ -1,5 +1,9 @@
 package wms.backend.impressao
 
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.lowagie.text.Element
 import com.lowagie.text.pdf.BaseFont
 import com.lowagie.text.pdf.PdfContentByte
@@ -113,6 +117,22 @@ class Desenho(val cb: PdfContentByte, private val alturaPagina: Float) {
     }
 
     fun titulo(x: Float, top: Float, s: String) = texto(x, top + 7f, 400f, s, 6.5f, bold = true)
+
+    /** QR Code desenhado como vetor (um quadrado por módulo) — nítido em qualquer impressora. */
+    fun qrCode(conteudo: String, x: Float, top: Float, lado: Float) {
+        val matriz = QRCodeWriter().encode(
+            conteudo, BarcodeFormat.QR_CODE, 0, 0,
+            mapOf(EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M, EncodeHintType.MARGIN to 0),
+        )
+        val modulo = lado / matriz.width
+        cb.saveState()
+        cb.setGrayFill(0f)
+        for (yy in 0 until matriz.height) for (xx in 0 until matriz.width) {
+            if (matriz.get(xx, yy)) cb.rectangle(x + xx * modulo, y(top + (yy + 1) * modulo), modulo, modulo)
+        }
+        cb.fill()
+        cb.restoreState()
+    }
 }
 
 object Formato {

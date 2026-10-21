@@ -20,7 +20,7 @@ data class RomaneioNota(
     val peso: BigDecimal,
     val volumes: Int,
     val valor: BigDecimal,
-    /** Nota ainda não autorizada na hora da impressão — o DANFE dela sai depois, separado. */
+    /** Nota não autorizada (ou boleto sem registro) na hora da impressão — o DANFE dela sai depois, separado. */
     val pendenteSefaz: Boolean = false,
 )
 
@@ -220,7 +220,7 @@ object RomaneioPdf {
         col(3, n.numNota + if (n.pendenteSefaz) " *" else "")
         d.texto(xs[4] + 3, t + 11.5f, colunas[4].largura - 6, n.cliente, 8.5f, bold = true)
         val detalhe = buildList {
-            if (n.pendenteSefaz) add("AGUARDANDO SEFAZ")
+            if (n.pendenteSefaz) add("PENDENTE (SEFAZ/BOLETO)")
             add("Cód. ${n.codParc}")
             if (n.pedidoCliente.isNotBlank()) add("Ped. cliente ${n.pedidoCliente}")
             add("N.Único ${n.nunota}")
@@ -245,7 +245,7 @@ object RomaneioPdf {
         if (pendentes.isNotEmpty()) {
             d.texto(
                 ESQ + 3, top + 24f, LARG - 6,
-                "* NF ${pendentes.joinToString(", ") { it.numNota }} aguardando autorização da SEFAZ — o DANFE sai separado assim que autorizar.",
+                "* NF ${pendentes.joinToString(", ") { it.numNota }} pendente (SEFAZ ou boleto sem registro) — DANFE e boleto saem separados assim que liberar.",
                 8f, bold = true,
             )
         }

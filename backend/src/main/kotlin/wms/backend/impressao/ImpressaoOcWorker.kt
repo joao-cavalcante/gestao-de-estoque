@@ -64,7 +64,7 @@ object ImpressaoOcWorker {
                 r.pdf != null -> {
                     val faltaram = r.pendentes
                     val aviso = faltaram.takeIf { it.isNotEmpty() }?.let { f ->
-                        "NF ${f.joinToString { it.numNota }} aguardando SEFAZ — sai separada quando autorizar"
+                        "NF ${f.joinToString { "${it.numNota} (${it.situacao})" }} pendente — sai separada quando liberar"
                     }
                     withContext(Dispatchers.IO) {
                         ImpressaoOcRepository.marcarPronto(tenantId, id, r.pdf, r.impressas.size, aviso)
@@ -80,7 +80,7 @@ object ImpressaoOcWorker {
                     )
                 }
                 else -> {
-                    val motivo = "aguardando SEFAZ: NF " + r.pendentes.joinToString { "${it.numNota} (${it.statusNfe.ifBlank { "sem status" }})" }
+                    val motivo = "aguardando SEFAZ/boleto: NF " + r.pendentes.joinToString { "${it.numNota} (${it.situacao})" }
                     withContext(Dispatchers.IO) {
                         if (vencido) ImpressaoOcRepository.marcarErro(tenantId, id, "SEFAZ não autorizou em ${LIMITE_ESPERA.toHours()} h — $motivo")
                         else ImpressaoOcRepository.registrarEspera(tenantId, id, r.notas.size, motivo)
