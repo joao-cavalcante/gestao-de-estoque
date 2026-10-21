@@ -78,7 +78,12 @@ fun Route.impressaoOcRoutes() {
             val claims = call.exigirAuth() ?: return@post
             val oc = call.parameters["oc"]?.toLongOrNull()
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "OC inválida"))
-            ImpressaoOcRepository.enfileirar(claims.tenantId, oc, "reimpressao", nomeUsuario(claims))
+            // ?job=<id>: reimprime o que aquele job imprime (ex.: só o DANFE da nota que saiu separada).
+            val nunotas = call.request.queryParameters["job"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?.let { ImpressaoOcRepository.buscar(claims.tenantId, it) }
+                ?.takeIf { it.ordemCarga == oc }?.nunotas
+                ?.split(',')?.mapNotNull { it.trim().toLongOrNull() }
+            ImpressaoOcRepository.enfileirar(claims.tenantId, oc, "reimpressao", nomeUsuario(claims), nunotas)
             call.respond(ImpressaoOcRepository.ultimosPorOc(claims.tenantId, listOf(oc)).getValue(oc))
         }
         get("/job/{id}/pdf") {

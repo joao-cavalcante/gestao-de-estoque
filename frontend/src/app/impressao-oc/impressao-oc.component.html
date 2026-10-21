@@ -22,7 +22,7 @@
   <div class="imp-oc__resumo">
     <div class="imp-oc__kpi"><span>{{ contagem().fila }}</span>na fila</div>
     <div class="imp-oc__kpi imp-oc__kpi--ok"><span>{{ contagem().impressas }}</span>impressas (24 h)</div>
-    <div class="imp-oc__kpi" [class.imp-oc__kpi--erro]="contagem().erros > 0"><span>{{ contagem().erros }}</span>com erro</div>
+    <div class="imp-oc__kpi" [class.imp-oc__kpi--erro]="contagem().erros > 0"><span>{{ contagem().erros }}</span>com erro / atrasadas</div>
     <form class="imp-oc__manual" (ngSubmit)="reimprimir(ocManual)">
       <label for="ocManual">Imprimir OC nº</label>
       <input id="ocManual" name="ocManual" inputmode="numeric" [(ngModel)]="ocManual" placeholder="633" />
@@ -49,17 +49,17 @@
         </thead>
         <tbody>
           @for (j of painel()!.jobs; track j.id) {
-            <tr [class]="'imp-oc__linha imp-oc__linha--' + j.status">
+            <tr [class]="'imp-oc__linha imp-oc__linha--' + (atrasado(j) ? 'erro' : j.status)">
               <td class="imp-oc__oc">{{ j.ordemCarga }}</td>
               <td>
                 {{ hora(j.criadoEm) }}
-                <span class="imp-oc__sub">{{ j.motivo === 'reimpressao' ? 'Reimpressão' + (j.solicitadoPor ? ' · ' + j.solicitadoPor : '') : 'Fechar OC' }}</span>
+                <span class="imp-oc__sub">{{ origem(j) }}</span>
               </td>
               <td>{{ j.notas || '—' }}</td>
-              <td><span [class]="'imp-oc__status imp-oc__status--' + j.status">{{ rotulo(j.status) }}</span></td>
+              <td><span [class]="'imp-oc__status imp-oc__status--' + (atrasado(j) ? 'erro' : j.status)">{{ rotulo(j) }}</span></td>
               <td class="imp-oc__detalhe" [title]="j.erro ?? ''">
                 @if (j.status === 'impresso') {
-                  {{ hora(j.impressoEm) }}@if (j.agente) { · {{ j.agente }} }
+                  {{ hora(j.impressoEm) }}@if (j.agente) { · {{ j.agente }} }@if (j.erro) { · {{ j.erro }} }
                 } @else if (j.erro) {
                   {{ j.erro }}
                 } @else if (j.status === 'imprimindo' && j.agente) {
@@ -70,7 +70,7 @@
                 @if (temPdf(j)) {
                   <button type="button" class="oq-admin-btn" (click)="verPdf(j)">Ver PDF</button>
                 }
-                <button type="button" class="oq-admin-btn" [disabled]="enviando() === j.ordemCarga" (click)="reimprimir(j.ordemCarga)">Reimprimir</button>
+                <button type="button" class="oq-admin-btn" [disabled]="enviando() === j.ordemCarga" (click)="reimprimir(j.ordemCarga, j)">{{ j.nunotas ? 'Reimprimir nota' : 'Reimprimir' }}</button>
               </td>
             </tr>
           }

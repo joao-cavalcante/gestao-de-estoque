@@ -20,6 +20,8 @@ data class RomaneioNota(
     val peso: BigDecimal,
     val volumes: Int,
     val valor: BigDecimal,
+    /** Nota ainda não autorizada na hora da impressão — o DANFE dela sai depois, separado. */
+    val pendenteSefaz: Boolean = false,
 )
 
 data class RomaneioOc(
@@ -62,8 +64,8 @@ object RomaneioPdf {
 
     fun desenhar(documento: Document, writer: PdfWriter, r: RomaneioOc) {
         val cabem = ((pagina.height - 20f - TOPO_TABELA - ALT_LINHA) / ALT_LINHA).toInt()
-        // A última folha precisa de espaço pros totais e as assinaturas.
-        val cabemUltima = ((pagina.height - 20f - TOPO_TABELA - ALT_LINHA - ALT_LINHA - ALT_ASSINATURAS) / ALT_LINHA).toInt()
+        // A última folha precisa de espaço pros totais (+ aviso de nota pendente) e as assinaturas.
+        val cabemUltima = ((pagina.height - 20f - TOPO_TABELA - 3 * ALT_LINHA - ALT_ASSINATURAS) / ALT_LINHA).toInt()
         val folhas = mutableListOf<List<RomaneioNota>>()
         var resto = r.notas
         while (resto.size > cabemUltima) {
@@ -82,13 +84,14 @@ object RomaneioPdf {
             var t = tabelaCabecalho(d)
             notas.forEachIndexed { j, n ->
                 if (j % 2 == 1) d.preencher(ESQ, t, LARG, ALT_LINHA, 0.93f)
+                val cliente = (if (n.pendenteSefaz) "[AGUARDANDO SEFAZ] " else "") + "${n.codParc} - ${n.cliente}"
                 val valores = listOf(
-                    n.numNota, n.nunota.toString(), n.pedido, n.pedidoCliente, "${n.codParc} - ${n.cliente}", n.cidade,
+                    n.numNota + (if (n.pendenteSefaz) " *" else ""), n.nunota.toString(), n.pedido, n.pedidoCliente, cliente, n.cidade,
                     Formato.quantidade(n.peso, 2, 2), n.volumes.toString(), Formato.dinheiro(n.valor),
                 )
                 var x = ESQ
                 colunas.forEachIndexed { k, c ->
-                    d.texto(x + 3, t + 10.5f, c.largura - 6, valores[k], 8f, c.alinhamento)
+                    d.texto(x + 3, t + 10.5f, c.largura - 6, valores[k], 8f, c.alinhamento, n.pendenteSefaz)
                     x += c.largura
                 }
                 t += ALT_LINHA
@@ -139,6 +142,14 @@ object RomaneioPdf {
         d.texto(xPeso + 3, top + 11f, colunas[6].largura - 6, Formato.quantidade(peso, 2, 2), 8.5f, Element.ALIGN_RIGHT, true)
         d.texto(xPeso + colunas[6].largura + 3, top + 11f, colunas[7].largura - 6, vols.toString(), 8.5f, Element.ALIGN_CENTER, true)
         d.texto(xPeso + colunas[6].largura + colunas[7].largura + 3, top + 11f, colunas[8].largura - 6, Formato.dinheiro(valor), 8.5f, Element.ALIGN_RIGHT, true)
+        val pendentes = r.notas.filter { it.pendenteSefaz }
+        if (pendentes.isNotEmpty()) {
+            d.texto(
+                ESQ + 3, top + 25f, LARG - 6,
+                "* NF ${pendentes.joinToString(", ") { it.numNota }} aguardando autorização da SEFAZ — o DANFE sai separado assim que autorizar.",
+                8.5f, bold = true,
+            )
+        }
     }
 
     private fun assinaturas(d: Desenho, r: RomaneioOc, top: Float) {

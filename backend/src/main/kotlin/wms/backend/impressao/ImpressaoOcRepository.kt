@@ -26,6 +26,7 @@ object ImpressaoOcTable : Table("app.impressao_oc") {
     val tentativas = integer("tentativas")
     val agente = text("agente").nullable()
     val solicitadoPor = text("solicitado_por").nullable()
+    val nunotas = text("nunotas").nullable()
     val criadoEm = timestamp("criado_em")
     val atualizadoEm = timestamp("atualizado_em")
     val entregueEm = timestamp("entregue_em").nullable()
@@ -54,13 +55,15 @@ data class ImpressaoOcDto(
     val criadoEm: String,
     val impressoEm: String? = null,
     val atualizadoEm: String? = null,
+    /** NUNOTAs que o job imprime (só o DANFE delas); null = OC inteira com romaneio. */
+    val nunotas: String? = null,
 )
 
 object ImpressaoOcRepository {
     /** Devolve o pedido de reentrega se o agente não confirmar a impressão nesse tempo. */
     private const val LIMITE_IMPRIMINDO_SEG = 5 * 60L
 
-    fun enfileirar(tenantId: UUID, oc: Long, motivo: String, solicitadoPor: String?): UUID = TenantTx.run(tenantId) {
+    fun enfileirar(tenantId: UUID, oc: Long, motivo: String, solicitadoPor: String?, nunotas: Collection<Long>? = null): UUID = TenantTx.run(tenantId) {
         val novo = UUID.randomUUID()
         ImpressaoOcTable.insert {
             it[id] = novo
@@ -71,6 +74,7 @@ object ImpressaoOcRepository {
             it[notas] = 0
             it[tentativas] = 0
             it[ImpressaoOcTable.solicitadoPor] = solicitadoPor
+            it[ImpressaoOcTable.nunotas] = nunotas?.takeIf { n -> n.isNotEmpty() }?.joinToString(",")
             it[criadoEm] = Instant.now()
             it[atualizadoEm] = Instant.now()
         }
@@ -84,12 +88,13 @@ object ImpressaoOcRepository {
             .map { it.dto() }
     }
 
-    fun marcarPronto(tenantId: UUID, id: UUID, pdf: ByteArray, notas: Int) = TenantTx.run(tenantId) {
+    /** [aviso]: nota(s) que ficaram de fora (saem num job separado quando a SEFAZ autorizar). */
+    fun marcarPronto(tenantId: UUID, id: UUID, pdf: ByteArray, notas: Int, aviso: String? = null) = TenantTx.run(tenantId) {
         ImpressaoOcTable.update({ (ImpressaoOcTable.tenantId eq tenantId) and (ImpressaoOcTable.id eq id) }) {
             it[status] = StatusImpressao.PRONTO
             it[ImpressaoOcTable.pdf] = pdf
             it[ImpressaoOcTable.notas] = notas
-            it[erro] = null
+            it[erro] = aviso
             it[atualizadoEm] = Instant.now()
         }
     }
@@ -138,6 +143,12 @@ object ImpressaoOcRepository {
         linha.dto().copy(status = StatusImpressao.IMPRIMINDO, agente = agente)
     }
 
+    fun buscar(tenantId: UUID, id: UUID): ImpressaoOcDto? = TenantTx.run(tenantId) {
+        ImpressaoOcTable.select(ImpressaoOcTable.columns - ImpressaoOcTable.pdf)
+            .where { (ImpressaoOcTable.tenantId eq tenantId) and (ImpressaoOcTable.id eq id) }
+            .firstOrNull()?.dto()
+    }
+
     fun contarProntos(tenantId: UUID): Long = TenantTx.run(tenantId) {
         ImpressaoOcTable.selectAll()
             .where { (ImpressaoOcTable.tenantId eq tenantId) and (ImpressaoOcTable.status eq StatusImpressao.PRONTO) }
@@ -156,8 +167,8 @@ object ImpressaoOcRepository {
             (ImpressaoOcTable.tenantId eq tenantId) and (ImpressaoOcTable.id eq id) and (ImpressaoOcTable.status eq StatusImpressao.IMPRIMINDO)
         }) {
             it[status] = if (ok) StatusImpressao.IMPRESSO else StatusImpressao.ERRO
-            it[erro] = if (ok) null else (mensagem ?: "falha na impressora").take(1000)
-            if (ok) it[impressoEm] = Instant.now()
+            // Impresso mantém o aviso da nota que ficou de fora (se houver).
+            if (ok) it[impressoEm] = Instant.now() else it[erro] = (mensagem ?: "falha na impressora").take(1000)
             it[atualizadoEm] = Instant.now()
         } > 0
     }
@@ -197,6 +208,7 @@ object ImpressaoOcRepository {
         criadoEm = this[ImpressaoOcTable.criadoEm].toString(),
         impressoEm = this[ImpressaoOcTable.impressoEm]?.toString(),
         atualizadoEm = this[ImpressaoOcTable.atualizadoEm].toString(),
+        nunotas = this[ImpressaoOcTable.nunotas],
     )
 }
 

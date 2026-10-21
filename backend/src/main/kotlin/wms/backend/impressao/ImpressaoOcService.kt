@@ -6,8 +6,9 @@ import java.math.BigDecimal
 /** Nota de venda da OC e a situação dela na SEFAZ (TGFCAB.STATUSNFE; 'A' = autorizada). */
 data class NotaDaOc(val nunota: Long, val numNota: String, val statusNfe: String)
 
-data class PdfDaOc(val pdf: ByteArray?, val notas: List<NotaDaOc>) {
-    /** Notas que ainda não estão autorizadas — enquanto houver alguma, não gera o PDF. */
+/** [notas]: as notas do job; [impressas]: as que entraram no PDF (as autorizadas). */
+data class PdfDaOc(val pdf: ByteArray?, val notas: List<NotaDaOc>, val impressas: List<NotaDaOc> = emptyList()) {
+    /** Notas que ainda não estão autorizadas na SEFAZ. */
     val pendentes: List<NotaDaOc> get() = notas.filter { it.statusNfe != "A" }
 }
 
@@ -19,11 +20,21 @@ object ImpressaoOcService {
     private const val PEDACO = 4000
     private const val PEDACOS_POR_CONSULTA = 6
 
-    suspend fun gerar(tenantSlug: String, oc: Long): PdfDaOc {
-        val (romaneio, notas) = romaneio(tenantSlug, oc)
-        if (notas.isEmpty() || notas.any { it.statusNfe != "A" }) return PdfDaOc(null, notas)
-        val nfes = notas.map { NfeXml.ler(xml(tenantSlug, it.nunota)) }
-        return PdfDaOc(ImpressaoPdf.gerar(romaneio, nfes), notas)
+    /**
+     * [somente] = null: OC inteira (romaneio + DANFEs); senão só o DANFE dessas notas, sem romaneio.
+     * Com nota pendente na SEFAZ só gera se [aceitarParcial]: aí sai o que está autorizado e o romaneio
+     * marca as pendentes (o DANFE delas sai num job separado).
+     */
+    suspend fun gerar(tenantSlug: String, oc: Long, somente: Set<Long>? = null, aceitarParcial: Boolean = false): PdfDaOc {
+        val (romaneio, todas) = romaneio(tenantSlug, oc)
+        val notas = if (somente == null) todas else todas.filter { it.nunota in somente }
+        val autorizadas = notas.filter { it.statusNfe == "A" }
+        if (autorizadas.isEmpty() || (autorizadas.size < notas.size && !aceitarParcial)) return PdfDaOc(null, notas)
+        val nfes = autorizadas.map { NfeXml.ler(xml(tenantSlug, it.nunota)) }
+        val pendentes = notas.filter { it.statusNfe != "A" }.map { it.nunota }.toSet()
+        val rom = if (somente != null) null
+        else romaneio.copy(notas = romaneio.notas.map { if (it.nunota in pendentes) it.copy(pendenteSefaz = true) else it })
+        return PdfDaOc(ImpressaoPdf.gerar(rom, nfes), notas, autorizadas)
     }
 
     suspend fun romaneio(tenantSlug: String, oc: Long): Pair<RomaneioOc, List<NotaDaOc>> {

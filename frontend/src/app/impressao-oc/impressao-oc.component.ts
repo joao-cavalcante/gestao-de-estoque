@@ -19,6 +19,7 @@ interface JobImpressao {
   criadoEm: string;
   impressoEm: string | null;
   atualizadoEm: string | null;
+  nunotas: string | null;
 }
 
 interface AgenteImpressao {
@@ -31,6 +32,9 @@ interface PainelImpressao {
   agentes: AgenteImpressao[];
   jobs: JobImpressao[];
 }
+
+/** Esperando a SEFAZ há mais que isso = atrasada (linha vermelha; o servidor segue tentando). */
+const ATRASO_MS = 30 * 60_000;
 
 const ROTULO: Record<StatusImpressao, string> = {
   aguardando_sefaz: 'Aguardando SEFAZ',
@@ -70,7 +74,7 @@ export class ImpressaoOcComponent implements OnInit, OnDestroy {
     return {
       fila: conta('aguardando_sefaz', 'pronto', 'imprimindo'),
       impressas: conta('impresso'),
-      erros: conta('erro'),
+      erros: conta('erro') + jobs.filter((j) => this.atrasado(j)).length,
     };
   });
 
@@ -82,8 +86,19 @@ export class ImpressaoOcComponent implements OnInit, OnDestroy {
     if (this.timer) clearTimeout(this.timer);
   }
 
-  rotulo(s: StatusImpressao): string {
-    return ROTULO[s] ?? s;
+  rotulo(j: JobImpressao): string {
+    if (this.atrasado(j)) return `Aguardando SEFAZ há ${Math.round((Date.now() - new Date(j.criadoEm).getTime()) / 60_000)} min`;
+    return ROTULO[j.status] ?? j.status;
+  }
+
+  atrasado(j: JobImpressao): boolean {
+    return j.status === 'aguardando_sefaz' && Date.now() - new Date(j.criadoEm).getTime() > ATRASO_MS;
+  }
+
+  origem(j: JobImpressao): string {
+    if (j.motivo === 'nota_pendente') return 'Nota que faltou (sai sozinha)';
+    if (j.motivo === 'reimpressao') return 'Reimpressão' + (j.nunotas ? ' da nota' : '') + (j.solicitadoPor ? ' · ' + j.solicitadoPor : '');
+    return 'Fechar OC';
   }
 
   /** Horário de Brasília (o servidor manda ISO em UTC). */
@@ -107,11 +122,13 @@ export class ImpressaoOcComponent implements OnInit, OnDestroy {
     });
   }
 
-  reimprimir(oc: number | string): void {
+  /** [job]: reimprime só o que aquele job imprime (ex.: a nota que saiu separada); sem ele, a OC inteira. */
+  reimprimir(oc: number | string, job?: JobImpressao): void {
     const numero = Number(String(oc).trim());
     if (!numero) return;
     this.enviando.set(numero);
-    this.http.post(`/api/impressao/oc/${numero}/reimprimir`, {}).subscribe({
+    const params: Record<string, string> = job?.nunotas ? { job: job.id } : {};
+    this.http.post(`/api/impressao/oc/${numero}/reimprimir`, {}, { params }).subscribe({
       next: () => {
         this.enviando.set(null);
         this.ocManual = '';

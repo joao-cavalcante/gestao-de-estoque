@@ -14,6 +14,7 @@ interface ImpressaoOc {
   solicitadoPor: string | null;
   criadoEm: string;
   impressoEm: string | null;
+  nunotas: string | null;
 }
 
 const ROTULO: Record<ImpressaoOc['status'], string> = {
@@ -42,7 +43,7 @@ const EM_ANDAMENTO = new Set<ImpressaoOc['status']>(['aguardando_sefaz', 'pronto
         <span class="imp__status" [title]="j.erro ?? ''">
           {{ rotulo(j) }}@if (j.notas) { · {{ j.notas }} nota(s) }@if (j.status === 'impresso' && j.agente) { em {{ j.agente }} }
         </span>
-        @if (j.erro && j.status !== 'impresso') { <span class="imp__erro" [title]="j.erro">{{ j.erro }}</span> }
+        @if (j.erro) { <span class="imp__erro" [title]="j.erro">{{ j.erro }}</span> }
         @if (j.status === 'pronto' || j.status === 'imprimindo' || j.status === 'impresso' || (j.status === 'erro' && j.notas)) {
           <button type="button" class="imp__link" (click)="verPdf(j)">Ver PDF</button>
         }
@@ -81,7 +82,8 @@ export class OqImpressaoOcComponent implements OnChanges, OnDestroy {
   }
 
   rotulo(j: ImpressaoOc): string {
-    return ROTULO[j.status] ?? j.status;
+    const r = ROTULO[j.status] ?? j.status;
+    return j.motivo === 'nota_pendente' ? `Nota que faltou: ${r}` : r;
   }
 
   private consultar(): void {
