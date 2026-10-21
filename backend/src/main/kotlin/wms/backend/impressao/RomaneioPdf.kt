@@ -37,132 +37,231 @@ data class RomaneioOc(
 )
 
 /**
- * Romaneio da OC (A4 deitado) — mesmos campos do relatório "ORDEM CARGA VOLUMES WMS" do Sankhya,
- * mas com os volumes da conferência do WMS (TGFCON2.QTDVOL) em vez da TGWREV (WMS nativo, vazia na Negri).
+ * Romaneio da carga (A4 em pé): cabeçalho com a OC em destaque, motorista/veículo/transportadora, resumo
+ * (pedidos, clientes, volumes, peso, valor) e um pedido por linha — agrupado por cidade, com caixinha de
+ * entregue pro motorista. Volumes vêm da conferência do WMS (TGFCON2.QTDVOL; TGWREV é vazia na Negri).
  */
 object RomaneioPdf {
-    private val pagina = PageSize.A4.rotate()
+    private val pagina = PageSize.A4
     private const val ESQ = 20f
     private val LARG = pagina.width - 40f
-    private const val TOPO_TABELA = 92f
-    private const val ALT_LINHA = 15f
-    private const val ALT_ASSINATURAS = 95f
+    private val BASE = pagina.height - 24f
+    private const val ALT_LINHA = 26f
+    private const val ALT_CIDADE = 16f
+    private const val ALT_CAB_TABELA = 16f
+    private const val ALT_ASSINATURAS = 78f
+    private const val TOPO_PRIMEIRA = 198f
+    private const val TOPO_DEMAIS = 66f
 
     private data class Coluna(val rotulo: String, val largura: Float, val alinhamento: Int)
 
     private val colunas = listOf(
-        Coluna("Nro.Nota", 52f, Element.ALIGN_CENTER),
-        Coluna("N.Único", 50f, Element.ALIGN_CENTER),
-        Coluna("Pedido", 50f, Element.ALIGN_CENTER),
-        Coluna("P.Cliente", 60f, Element.ALIGN_CENTER),
-        Coluna("Cliente", 292f, Element.ALIGN_LEFT),
-        Coluna("Cidade", 140f, Element.ALIGN_LEFT),
-        Coluna("Peso", 58f, Element.ALIGN_RIGHT),
-        Coluna("Vols.", 36f, Element.ALIGN_CENTER),
-        Coluna("Vlr Nota", 64f, Element.ALIGN_RIGHT),
+        Coluna("#", 20f, Element.ALIGN_CENTER),
+        Coluna("Entregue", 40f, Element.ALIGN_CENTER),
+        Coluna("Pedido", 52f, Element.ALIGN_CENTER),
+        Coluna("NF", 48f, Element.ALIGN_CENTER),
+        Coluna("Cliente", 223f, Element.ALIGN_LEFT),
+        Coluna("Vols.", 34f, Element.ALIGN_CENTER),
+        Coluna("Peso (kg)", 60f, Element.ALIGN_RIGHT),
+        Coluna("Valor (R$)", 78f, Element.ALIGN_RIGHT),
     )
+    private val xs = colunas.runningFold(ESQ) { a, c -> a + c.largura }
+
+    /** Item da folha: título de cidade ou linha de pedido (com o número de ordem). */
+    private sealed interface Linha { val altura: Float }
+    private data class Cidade(val nome: String, val pedidos: Int) : Linha { override val altura = ALT_CIDADE }
+    private data class Pedido(val ordem: Int, val nota: RomaneioNota) : Linha { override val altura = ALT_LINHA }
 
     fun desenhar(documento: Document, writer: PdfWriter, r: RomaneioOc) {
-        val cabem = ((pagina.height - 20f - TOPO_TABELA - ALT_LINHA) / ALT_LINHA).toInt()
-        // A última folha precisa de espaço pros totais (+ aviso de nota pendente) e as assinaturas.
-        val cabemUltima = ((pagina.height - 20f - TOPO_TABELA - 3 * ALT_LINHA - ALT_ASSINATURAS) / ALT_LINHA).toInt()
-        val folhas = mutableListOf<List<RomaneioNota>>()
-        var resto = r.notas
-        while (resto.size > cabemUltima) {
-            folhas += resto.take(cabem)
-            resto = resto.drop(cabem)
-        }
-        folhas += resto
         val agora = LocalDateTime.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-
-        folhas.forEachIndexed { i, notas ->
+        val folhas = paginar(r)
+        folhas.forEachIndexed { i, itens ->
             documento.setPageSize(pagina)
             documento.newPage()
             writer.isPageEmpty = false
             val d = Desenho(writer.directContent, pagina.height)
-            cabecalho(d, r, "Pág ${i + 1} de ${folhas.size}", agora)
-            var t = tabelaCabecalho(d)
-            notas.forEachIndexed { j, n ->
-                if (j % 2 == 1) d.preencher(ESQ, t, LARG, ALT_LINHA, 0.93f)
-                val cliente = (if (n.pendenteSefaz) "[AGUARDANDO SEFAZ] " else "") + "${n.codParc} - ${n.cliente}"
-                val valores = listOf(
-                    n.numNota + (if (n.pendenteSefaz) " *" else ""), n.nunota.toString(), n.pedido, n.pedidoCliente, cliente, n.cidade,
-                    Formato.quantidade(n.peso, 2, 2), n.volumes.toString(), Formato.dinheiro(n.valor),
-                )
-                var x = ESQ
-                colunas.forEachIndexed { k, c ->
-                    d.texto(x + 3, t + 10.5f, c.largura - 6, valores[k], 8f, c.alinhamento, n.pendenteSefaz)
-                    x += c.largura
+            var t = if (i == 0) {
+                cabecalhoCompleto(d, r)
+                TOPO_PRIMEIRA
+            } else {
+                cabecalhoCurto(d, r)
+                TOPO_DEMAIS
+            }
+            t = tabelaCabecalho(d, t)
+            itens.forEach { l ->
+                when (l) {
+                    is Cidade -> {
+                        d.preencher(ESQ, t, LARG, ALT_CIDADE, 0.88f)
+                        d.texto(ESQ + 6, t + 11.5f, LARG - 12, l.nome, 8.5f, bold = true)
+                        d.texto(ESQ + 6, t + 11.5f, LARG - 12, "${l.pedidos} pedido(s)", 7.5f, Element.ALIGN_RIGHT)
+                    }
+                    is Pedido -> linhaPedido(d, l, t)
                 }
-                t += ALT_LINHA
+                t += l.altura
             }
-            d.linha(ESQ, t, ESQ + LARG, t, 0.5f)
             if (i == folhas.lastIndex) {
-                totais(d, r, t)
-                assinaturas(d, r, pagina.height - 20f - ALT_ASSINATURAS)
+                totais(d, r, t + 4f)
+                assinaturas(d, r, BASE - ALT_ASSINATURAS)
             }
+            d.texto(ESQ, BASE + 14f, LARG, "OC ${r.ordemCarga}  ·  Folha ${i + 1} de ${folhas.size}  ·  impresso em $agora", 7f, Element.ALIGN_RIGHT)
         }
     }
 
-    private fun cabecalho(d: Desenho, r: RomaneioOc, folha: String, agora: String) {
-        d.texto(ESQ, 32f, 300f, r.empresa, 11f, bold = true)
-        d.texto(ESQ, 32f, LARG, "ROMANEIO DE CARGA", 14f, Element.ALIGN_CENTER, true)
-        d.texto(ESQ + LARG - 200f, 28f, 200f, folha, 8f, Element.ALIGN_RIGHT)
-        d.texto(ESQ + LARG - 200f, 38f, 200f, agora, 8f, Element.ALIGN_RIGHT)
-        d.caixa(ESQ, 46f, LARG, 38f)
-        fun par(x: Float, top: Float, w: Float, rotulo: String, valor: String) {
-            d.texto(x, top, 70f, rotulo, 8f, bold = true)
-            d.texto(x + 72f, top, w - 74f, valor, 9f)
+    /** Cidades em ordem alfabética, clientes em ordem dentro da cidade; a última folha reserva totais + assinaturas. */
+    private fun paginar(r: RomaneioOc): List<List<Linha>> {
+        var ordem = 0
+        val linhas = r.notas.groupBy { it.cidade.ifBlank { "SEM CIDADE" } }.toSortedMap().flatMap { (cidade, notas) ->
+            listOf<Linha>(Cidade(cidade, notas.size)) +
+                notas.sortedWith(compareBy({ it.cliente }, { it.nunota })).map { Pedido(++ordem, it) }
         }
-        par(ESQ + 6, 60f, 200f, "O.Carga:", r.ordemCarga.toString())
-        par(ESQ + 6, 76f, 200f, "Prev.Saída:", Formato.data(r.prevSaida))
-        par(ESQ + 210, 60f, 370f, "Transp.:", r.transportadora)
-        par(ESQ + 210, 76f, 370f, "CNPJ Transp:", Formato.cnpjCpf(r.cnpjTransportadora))
-        par(ESQ + 580, 60f, LARG - 586f, "Veículo:", listOf(r.placa, r.veiculo).filter { it.isNotBlank() }.joinToString(" - "))
-        par(ESQ + 580, 76f, LARG - 586f, "Motorista:", r.motorista)
+        val limite = BASE - 10f
+        val folhas = mutableListOf<List<Linha>>()
+        var atual = mutableListOf<Linha>()
+        var top = TOPO_PRIMEIRA + ALT_CAB_TABELA
+        fun novaFolha() {
+            folhas += atual
+            atual = mutableListOf()
+            top = TOPO_DEMAIS + ALT_CAB_TABELA
+        }
+        for (l in linhas) {
+            // Cidade não fica sozinha no pé da folha.
+            val precisa = if (l is Cidade) l.altura + ALT_LINHA else l.altura
+            if (top + precisa > limite && atual.isNotEmpty()) novaFolha()
+            atual += l
+            top += l.altura
+        }
+        if (top + 40f + ALT_ASSINATURAS > BASE) novaFolha()
+        folhas += atual
+        return folhas
     }
 
-    private fun tabelaCabecalho(d: Desenho): Float {
-        d.preencher(ESQ, TOPO_TABELA, LARG, ALT_LINHA, 0.8f)
-        d.caixa(ESQ, TOPO_TABELA, LARG, ALT_LINHA)
-        var x = ESQ
-        colunas.forEach { c ->
-            d.texto(x + 3, TOPO_TABELA + 10.5f, c.largura - 6, c.rotulo, 8f, c.alinhamento, true)
-            x += c.largura
-        }
-        return TOPO_TABELA + ALT_LINHA
+    private fun branco(d: Desenho, bloco: () -> Unit) {
+        d.cb.saveState()
+        d.cb.setGrayFill(1f)
+        bloco()
+        d.cb.restoreState()
     }
+
+    private fun cabecalhoCompleto(d: Desenho, r: RomaneioOc) {
+        // Faixa escura: título + OC em destaque.
+        d.preencher(ESQ, 20f, LARG, 56f, 0.15f)
+        branco(d) {
+            d.texto(ESQ + 14, 44f, 300f, "ROMANEIO DE CARGA", 18f, bold = true)
+            d.texto(ESQ + 14, 62f, 300f, r.empresa, 9.5f)
+            d.texto(ESQ + LARG - 214, 36f, 200f, "ORDEM DE CARGA", 7.5f, Element.ALIGN_RIGHT, true)
+            d.texto(ESQ + LARG - 214, 66f, 200f, r.ordemCarga.toString(), 28f, Element.ALIGN_RIGHT, true)
+        }
+
+        // Motorista / veículo / transportadora / saída.
+        val w = LARG / 4
+        val top = 84f
+        val info = listOf(
+            "MOTORISTA" to r.motorista.ifBlank { "—" },
+            "VEÍCULO" to listOf(r.placa, r.veiculo).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "—" },
+            "TRANSPORTADORA" to r.transportadora.ifBlank { "—" },
+            "PREVISÃO DE SAÍDA" to Formato.data(r.prevSaida).ifBlank { "—" },
+        )
+        d.caixa(ESQ, top, LARG, 42f)
+        info.forEachIndexed { k, (rotulo, valor) ->
+            val x = ESQ + k * w
+            if (k > 0) d.linha(x, top, x, top + 42f)
+            d.texto(x + 8, top + 13f, w - 16, rotulo, 6.5f, bold = true)
+            d.texto(x + 8, top + 29f, w - 16, valor, 10f, bold = true)
+        }
+        if (r.cnpjTransportadora.isNotBlank()) {
+            d.texto(ESQ + 2 * w + 8, top + 38.5f, w - 16, "CNPJ/CPF ${Formato.cnpjCpf(r.cnpjTransportadora)}", 6f)
+        }
+
+        // Resumo da carga.
+        val resumo = listOf(
+            "PEDIDOS" to r.notas.size.toString(),
+            "CLIENTES" to r.notas.map { it.codParc }.distinct().size.toString(),
+            "VOLUMES" to r.notas.sumOf { it.volumes }.toString(),
+            "PESO (KG)" to Formato.quantidade(peso(r), 2, 2),
+            "VALOR (R$)" to Formato.dinheiro(valor(r)),
+        )
+        val espaco = 8f
+        val wr = (LARG - (resumo.size - 1) * espaco) / resumo.size
+        resumo.forEachIndexed { k, (rotulo, valor) ->
+            val x = ESQ + k * (wr + espaco)
+            d.preencher(x, 134f, wr, 48f, 0.92f)
+            d.texto(x, 150f, wr, rotulo, 7f, Element.ALIGN_CENTER, true)
+            d.texto(x, 172f, wr, valor, 16f, Element.ALIGN_CENTER, true)
+        }
+        d.texto(ESQ, 193f, LARG, "Pedidos agrupados por cidade. Marque \"Entregue\" a cada entrega.", 7f)
+    }
+
+    private fun cabecalhoCurto(d: Desenho, r: RomaneioOc) {
+        d.preencher(ESQ, 20f, LARG, 30f, 0.15f)
+        branco(d) {
+            d.texto(ESQ + 12, 40f, 300f, "ROMANEIO DE CARGA (continuação)", 11f, bold = true)
+            d.texto(ESQ + LARG - 212, 41f, 200f, "OC ${r.ordemCarga}", 14f, Element.ALIGN_RIGHT, true)
+        }
+        d.texto(ESQ, 61f, LARG, listOf(r.motorista, r.placa).filter { it.isNotBlank() }.joinToString("  ·  "), 8f)
+    }
+
+    private fun tabelaCabecalho(d: Desenho, top: Float): Float {
+        colunas.forEachIndexed { k, c ->
+            d.texto(xs[k] + 3, top + 11f, c.largura - 6, c.rotulo.uppercase(), 7f, c.alinhamento, true)
+        }
+        d.linha(ESQ, top + ALT_CAB_TABELA, ESQ + LARG, top + ALT_CAB_TABELA, 1.2f)
+        return top + ALT_CAB_TABELA
+    }
+
+    private fun linhaPedido(d: Desenho, l: Pedido, t: Float) {
+        val n = l.nota
+        fun col(k: Int, s: String, tam: Float = 9f, bold: Boolean = false) =
+            d.texto(xs[k] + 3, t + 16.5f, colunas[k].largura - 6, s, tam, colunas[k].alinhamento, bold)
+
+        col(0, l.ordem.toString(), 8f)
+        val lado = 11f
+        d.caixa(xs[1] + (colunas[1].largura - lado) / 2, t + (ALT_LINHA - lado) / 2, lado, lado, 0.8f)
+        col(2, n.pedido.ifBlank { "—" }, 10f, true)
+        col(3, n.numNota + if (n.pendenteSefaz) " *" else "")
+        d.texto(xs[4] + 3, t + 11.5f, colunas[4].largura - 6, n.cliente, 8.5f, bold = true)
+        val detalhe = buildList {
+            if (n.pendenteSefaz) add("AGUARDANDO SEFAZ")
+            add("Cód. ${n.codParc}")
+            if (n.pedidoCliente.isNotBlank()) add("Ped. cliente ${n.pedidoCliente}")
+            add("N.Único ${n.nunota}")
+        }.joinToString("  ·  ")
+        d.texto(xs[4] + 3, t + 21.5f, colunas[4].largura - 6, detalhe, 6.5f, bold = n.pendenteSefaz)
+        col(5, n.volumes.toString(), 10f, true)
+        col(6, Formato.quantidade(n.peso, 2, 2))
+        col(7, Formato.dinheiro(n.valor))
+        d.linha(ESQ, t + ALT_LINHA, ESQ + LARG, t + ALT_LINHA, 0.3f)
+    }
+
+    private fun peso(r: RomaneioOc) = r.notas.fold(BigDecimal.ZERO) { a, n -> a + n.peso }
+    private fun valor(r: RomaneioOc) = r.notas.fold(BigDecimal.ZERO) { a, n -> a + n.valor }
 
     private fun totais(d: Desenho, r: RomaneioOc, top: Float) {
-        val peso = r.notas.fold(BigDecimal.ZERO) { a, n -> a + n.peso }
-        val valor = r.notas.fold(BigDecimal.ZERO) { a, n -> a + n.valor }
-        val vols = r.notas.sumOf { it.volumes }
-        val xPeso = ESQ + colunas.take(6).sumOf { it.largura.toDouble() }.toFloat()
-        d.texto(ESQ + 3, top + 11f, 400f, "TOTAL: ${r.notas.size} nota(s)", 8.5f, bold = true)
-        d.texto(xPeso + 3, top + 11f, colunas[6].largura - 6, Formato.quantidade(peso, 2, 2), 8.5f, Element.ALIGN_RIGHT, true)
-        d.texto(xPeso + colunas[6].largura + 3, top + 11f, colunas[7].largura - 6, vols.toString(), 8.5f, Element.ALIGN_CENTER, true)
-        d.texto(xPeso + colunas[6].largura + colunas[7].largura + 3, top + 11f, colunas[8].largura - 6, Formato.dinheiro(valor), 8.5f, Element.ALIGN_RIGHT, true)
+        d.linha(ESQ, top - 4f, ESQ + LARG, top - 4f, 1.2f)
+        d.texto(ESQ + 3, top + 10f, 300f, "TOTAL DA CARGA: ${r.notas.size} pedido(s)", 9f, bold = true)
+        d.texto(xs[5] + 3, top + 10f, colunas[5].largura - 6, r.notas.sumOf { it.volumes }.toString(), 10f, Element.ALIGN_CENTER, true)
+        d.texto(xs[6] + 3, top + 10f, colunas[6].largura - 6, Formato.quantidade(peso(r), 2, 2), 9f, Element.ALIGN_RIGHT, true)
+        d.texto(xs[7] + 3, top + 10f, colunas[7].largura - 6, Formato.dinheiro(valor(r)), 9f, Element.ALIGN_RIGHT, true)
         val pendentes = r.notas.filter { it.pendenteSefaz }
         if (pendentes.isNotEmpty()) {
             d.texto(
-                ESQ + 3, top + 25f, LARG - 6,
+                ESQ + 3, top + 24f, LARG - 6,
                 "* NF ${pendentes.joinToString(", ") { it.numNota }} aguardando autorização da SEFAZ — o DANFE sai separado assim que autorizar.",
-                8.5f, bold = true,
+                8f, bold = true,
             )
         }
     }
 
     private fun assinaturas(d: Desenho, r: RomaneioOc, top: Float) {
-        d.caixa(ESQ, top, LARG, ALT_ASSINATURAS)
         val w = LARG / 3
-        fun bloco(x: Float, titulo: String, linha1: String, linha2: String) {
-            d.linha(x + 20f, top + 50f, x + w - 20f, top + 50f, 0.5f)
-            d.texto(x, top + 60f, w, titulo, 8f, Element.ALIGN_CENTER, true)
-            d.texto(x, top + 71f, w, linha1, 8f, Element.ALIGN_CENTER)
-            d.texto(x, top + 82f, w, linha2, 8f, Element.ALIGN_CENTER)
+        fun bloco(k: Int, titulo: String, linha1: String) {
+            val x = ESQ + k * w
+            d.linha(x + 14f, top + 46f, x + w - 14f, top + 46f, 0.6f)
+            d.texto(x, top + 57f, w, titulo, 8f, Element.ALIGN_CENTER, true)
+            d.texto(x, top + 68f, w, linha1, 7.5f, Element.ALIGN_CENTER)
         }
-        bloco(ESQ, "Motorista", r.motorista, "CPF: ____________________")
-        bloco(ESQ + w, "Transportadora", r.transportadora, "Veículo: ${r.placa}")
-        bloco(ESQ + 2 * w, "Responsável da Empresa", "O.Carga: ${r.ordemCarga}", "DATA:      /      /")
+        d.texto(ESQ, top + 10f, LARG, "Declaro que conferi e recebi a carga acima para entrega.", 7.5f)
+        bloco(0, "Motorista", r.motorista.ifBlank { "Nome: ____________________" })
+        bloco(1, "Conferente da expedição", "Nome: ____________________")
+        bloco(2, "Saída", "Data: ____/____   Hora: ____:____")
     }
 }
