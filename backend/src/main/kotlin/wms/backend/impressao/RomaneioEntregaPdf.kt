@@ -47,8 +47,9 @@ object RomaneioEntregaPdf {
     private const val TOPO = 18f
     private const val LARG = 555f
     private const val ALT_TITULO = 116f
-    private const val ALT_PEDIDO = 135f
-    private const val ALT_ASSINATURA = 30f
+    // Dados do pedido mais juntos e mais espaço em branco pra assinar (usuário, 21/10/2026: linha colada no telefone).
+    private const val ALT_PEDIDO = 108f
+    private const val ALT_ASSINATURA = 57f
     private const val ALT_RODAPE = 22f
     private val fimUtil = pagina.height - 20f - ALT_RODAPE
 
@@ -124,27 +125,32 @@ object RomaneioEntregaPdf {
         campo(d, b, 7f, 7f, 185f, "Pedido: ${p.pedido}", 10f, true)
         campo(d, b, 198f, 7f, 230f, "Pagamento: ${p.pagamento}", 10f, true)
         campo(d, b, 429f, 7f, 126f, "Valor: ${p.valor?.let { Formato.dinheiro(it) } ?: ""}", 10f, true, Element.ALIGN_RIGHT)
-        campo(d, b, 429f, 27f, 126f, "Nota Fiscal: ${p.notaFiscal}", 9f, true, Element.ALIGN_RIGHT)
-        campo(d, b, 429f, 45f, 126f, "Peso: ${p.peso?.let { Formato.quantidade(it, 2, 2) } ?: ""}", 9f, true, Element.ALIGN_RIGHT)
-        campo(d, b, 7f, 30f, 65f, "Cliente:", 9f, true)
-        campo(d, b, 72f, 30f, 350f, listOf(p.codParc, p.cliente).filter { it.isNotBlank() }.joinToString(" - "), 9f)
-        campo(d, b, 7f, 52f, 65f, "Endereço:", 9f, true)
-        campo(d, b, 72f, 52f, 350f, p.endereco, 9f)
-        campo(d, b, 7f, 74f, 65f, "Bairro:", 9f, true)
-        campo(d, b, 72f, 74f, 250f, p.bairro, 9f)
-        campo(d, b, 322f, 74f, 100f, "Cidade: ${p.cidade}", 9f)
-        campo(d, b, 7f, 96f, 65f, "Referência:", 9f, true)
-        campo(d, b, 72f, 96f, 350f, p.referencia, 9f)
-        campo(d, b, 7f, 118f, 65f, "Telefone:", 9f, true)
-        campo(d, b, 72f, 118f, 155f, p.telefone, 9f)
-        campo(d, b, 235f, 118f, 65f, "Vendedora:", 9f, true)
-        campo(d, b, 300f, 118f, 122f, p.vendedora, 9f)
+        campo(d, b, 429f, 26f, 126f, "Nota Fiscal: ${p.notaFiscal}", 9f, true, Element.ALIGN_RIGHT)
+        campo(d, b, 429f, 42f, 126f, "Peso: ${p.peso?.let { Formato.quantidade(it, 2, 2) } ?: ""}", 9f, true, Element.ALIGN_RIGHT)
+        campo(d, b, 7f, 26f, 65f, "Cliente:", 9f, true)
+        campo(d, b, 72f, 26f, 350f, listOf(p.codParc, p.cliente).filter { it.isNotBlank() }.joinToString(" - "), 9f)
+        campo(d, b, 7f, 42f, 65f, "Endereço:", 9f, true)
+        campo(d, b, 72f, 42f, 350f, p.endereco, 9f)
+        campo(d, b, 7f, 58f, 65f, "Bairro:", 9f, true)
+        campo(d, b, 72f, 58f, 250f, p.bairro, 9f)
+        campo(d, b, 322f, 58f, 100f, "Cidade: ${p.cidade}", 9f)
+        campo(d, b, 7f, 74f, 65f, "Referência:", 9f, true)
+        campo(d, b, 72f, 74f, 350f, p.referencia, 9f)
+        campo(d, b, 7f, 90f, 65f, "Telefone:", 9f, true)
+        campo(d, b, 72f, 90f, 155f, p.telefone, 9f)
+        campo(d, b, 235f, 90f, 65f, "Vendedora:", 9f, true)
+        campo(d, b, 300f, 90f, 122f, p.vendedora, 9f)
     }
 
     private fun assinatura(d: Desenho, b: Float) {
-        d.linha(ESQ + 72f, b + 5f, ESQ + 282f, b + 5f, 0.5f)
-        d.linha(ESQ + 315f, b + 5f, ESQ + 440f, b + 5f, 0.5f)
-        campo(d, b, 72f, 7f, 210f, "Nome legível", 8f, alinhamento = Element.ALIGN_CENTER)
-        campo(d, b, 315f, 7f, 125f, "R.G.", 8f, alinhamento = Element.ALIGN_CENTER)
+        // ~36 pt em branco acima das linhas pra assinatura.
+        val linha = b + 38f
+        d.linha(ESQ + 7f, linha, ESQ + 262f, linha, 0.5f)
+        d.linha(ESQ + 282f, linha, ESQ + 422f, linha, 0.5f)
+        d.linha(ESQ + 442f, linha, ESQ + 555f, linha, 0.5f)
+        campo(d, b, 7f, 40f, 255f, "Nome legível", 8f, alinhamento = Element.ALIGN_CENTER)
+        campo(d, b, 282f, 40f, 140f, "R.G.", 8f, alinhamento = Element.ALIGN_CENTER)
+        campo(d, b, 442f, 40f, 113f, "Data", 8f, alinhamento = Element.ALIGN_CENTER)
+        d.texto(ESQ + 442f, linha - 3f, 113f, "/        /", 9f, Element.ALIGN_CENTER)
     }
 }
