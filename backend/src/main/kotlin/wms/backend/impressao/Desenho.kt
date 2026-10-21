@@ -17,9 +17,21 @@ import java.util.Locale
  * Desenho absoluto em cima do PdfContentByte com coordenadas "de cima pra baixo" (top = distância do topo
  * da página), que é como o layout do DANFE/romaneio é pensado. Fontes Helvetica (embutidas no PDF base 14).
  */
-class Desenho(val cb: PdfContentByte, private val alturaPagina: Float) {
-    val normal: BaseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED)
-    val negrito: BaseFont = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED)
+class Desenho(
+    val cb: PdfContentByte,
+    private val alturaPagina: Float,
+    val normal: BaseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED),
+    val negrito: BaseFont = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED),
+) {
+    /** Mesma página, outra família de fonte (ex.: DANFE do Sankhya é Courier, só a tabela de produtos é Arial). */
+    fun comFonte(normal: BaseFont, negrito: BaseFont) = Desenho(cb, alturaPagina, normal, negrito)
+
+    /** Caixa com cantos arredondados (padrão dos relatórios do Sankhya). */
+    fun caixaArredondada(x: Float, top: Float, w: Float, h: Float, raio: Float = 4f, espessura: Float = 1f) {
+        cb.setLineWidth(espessura)
+        cb.roundRectangle(x, y(top + h), w, h, raio)
+        cb.stroke()
+    }
 
     fun y(top: Float) = alturaPagina - top
 

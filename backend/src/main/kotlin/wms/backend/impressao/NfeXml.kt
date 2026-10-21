@@ -45,11 +45,30 @@ data class ItemNfe(
     val aliqIcms: BigDecimal,
     val aliqIpi: BigDecimal,
     val infAdProd: String,
+    val valorDesconto: BigDecimal = BigDecimal.ZERO,
 )
 
 data class DuplicataNfe(val numero: String, val vencimento: String, val valor: BigDecimal)
 
 data class PagamentoNfe(val forma: String, val valor: BigDecimal)
+
+/**
+ * O que o DANFE do Sankhya imprime e não está no XML (vem do banco): código/região do parceiro no canhoto, tipo de
+ * negociação na fatura, "OC: n" nas informações complementares, peso/volumes no cupom, NUNOTA no canhoto da NFC-e.
+ */
+data class ExtrasNota(
+    val nunota: Long,
+    val codParc: String = "",
+    /** TGFPAR.NOMEPARC — o Sankhya imprime "razão social (nome do parceiro)". */
+    val nomeParc: String = "",
+    val regiao: String = "",
+    val tipoNegociacao: String = "",
+    val ordemCarga: Long? = null,
+    val pesoBruto: BigDecimal? = null,
+    val pesoLiquido: BigDecimal? = null,
+    val volumes: String = "",
+    val logo: ByteArray? = null,
+)
 
 data class NotaNfe(
     val modelo: String,
@@ -84,7 +103,16 @@ data class NotaNfe(
     val infFisco: String,
     val qrCode: String,
     val urlChave: String,
-)
+    val extras: ExtrasNota? = null,
+) {
+    /** Destinatário como o Sankhya imprime: "GL FAST FOOD LTDA (FAMILIA K)". */
+    val nomeDestinatario: String
+        get() {
+            val razao = destinatario?.nome.orEmpty()
+            val parc = extras?.nomeParc.orEmpty().trim()
+            return if (parc.isBlank() || razao.contains(parc, ignoreCase = true)) razao else "$razao ($parc)"
+        }
+}
 
 object NfeXml {
     fun ler(xml: String): NotaNfe {
@@ -187,6 +215,7 @@ object NfeXml {
             aliqIcms = num(icms.txt("pICMS")),
             aliqIpi = num(ipiTrib.txt("pIPI")),
             infAdProd = det.txt("infAdProd"),
+            valorDesconto = num(prod.txt("vDesc")),
         )
     }
 

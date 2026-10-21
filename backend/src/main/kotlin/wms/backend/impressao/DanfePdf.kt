@@ -3,307 +3,279 @@ package wms.backend.impressao
 import com.lowagie.text.Document
 import com.lowagie.text.Element
 import com.lowagie.text.PageSize
-import com.lowagie.text.pdf.Barcode128
 import com.lowagie.text.pdf.PdfWriter
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import wms.backend.impressao.ModeloSankhya.campoSk
+import wms.backend.impressao.ModeloSankhya.t
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
- * DANFE retrato A4 da NF-e (modelo 55), no layout do Manual de Orientação do Contribuinte (anexo II):
- * canhoto, cabeçalho com código de barras da chave, destinatário, faturas, cálculo do imposto,
- * transportador, produtos (paginados — folhas seguintes repetem o cabeçalho) e dados adicionais.
+ * DANFE da NF-e (modelo 55) no layout do Sankhya — copiado do PDF que o Sankhya gera (TGFPDF, nota 72063):
+ * Courier, caixas arredondadas, logo, canhoto com cliente/região/valor por extenso, fatura com o tipo de
+ * negociação e "OC: n" nas informações complementares. Itens em Arial 6, 24 por folha na 1ª; as demais folhas
+ * repetem o quadro do emitente e continuam a tabela.
  */
 object DanfePdf {
-    private const val ESQ = 15f
-    private const val LARG = 565f
+    private const val ESQ = 30f
+    private const val DIR = 581f
+    private const val ALT_ITEM = 10f
+    private const val TOPO_ITENS_P1 = 461f
+    private const val FIM_ITENS_P1 = 703f
+    /** Nas folhas seguintes o quadro do emitente sobe (sem canhoto) e a tabela vai até o pé. */
+    private const val DESLOC_PN = -66f
+    private const val FIM_ITENS_PN = 815f
 
-    private const val TOPO_TABELA_P1 = 458f
-    private const val FIM_TABELA_P1 = 747f
-    private const val TOPO_TABELA_PN = 135f
-    private const val FIM_TABELA_PN = 827f
-    private const val CAB_TABELA = 14f
-    private const val FONTE_ITEM = 6f
-    private const val ENTRELINHA_ITEM = 7f
-
-    private data class Coluna(val rotulo1: String, val rotulo2: String, val largura: Float, val alinhamento: Int)
-
-    private val colunas = listOf(
-        Coluna("CÓDIGO", "PRODUTO", 45f, Element.ALIGN_LEFT),
-        Coluna("DESCRIÇÃO DO PRODUTO / SERVIÇO", "", 165f, Element.ALIGN_LEFT),
-        Coluna("NCM/SH", "", 38f, Element.ALIGN_CENTER),
-        Coluna("O/CST", "", 22f, Element.ALIGN_CENTER),
-        Coluna("CFOP", "", 22f, Element.ALIGN_CENTER),
-        Coluna("UN", "", 18f, Element.ALIGN_CENTER),
-        Coluna("QUANT.", "", 38f, Element.ALIGN_RIGHT),
-        Coluna("VALOR", "UNIT.", 40f, Element.ALIGN_RIGHT),
-        Coluna("VALOR", "TOTAL", 42f, Element.ALIGN_RIGHT),
-        Coluna("B.CÁLC.", "ICMS", 40f, Element.ALIGN_RIGHT),
-        Coluna("VALOR", "ICMS", 32f, Element.ALIGN_RIGHT),
-        Coluna("VALOR", "IPI", 25f, Element.ALIGN_RIGHT),
-        Coluna("ALÍQ.", "ICMS", 20f, Element.ALIGN_RIGHT),
-        Coluna("ALÍQ.", "IPI", 18f, Element.ALIGN_RIGHT),
-    )
+    /** Limites das colunas da tabela de produtos (x) e alinhamento do valor. */
+    private val xs = floatArrayOf(31f, 69f, 194f, 234f, 255f, 277f, 295f, 331f, 367f, 395f, 422f, 457f, 487f, 517f, 544f, 563f, 581f)
+    private val rotulos = listOf("CÓD. PROD", "DESCRIÇÃO DOS PRODUTOS/SERVIÇOS", "NCM/SH", "CST", "CFOP", "UN.", "QUANT.",
+        "V. UNITÁRIO", "V. DESC.", "% DESC.", "V. TOTAL", "BC ICMS", "V. ICMS", "VALOR\nIPI", "ICMS", "IPI")
+    private val alinhamentos = listOf(Element.ALIGN_CENTER, Element.ALIGN_LEFT) + List(5) { Element.ALIGN_CENTER } +
+        List(9) { Element.ALIGN_RIGHT }
 
     private val modalidadesFrete = mapOf(
-        "0" to "0-Por conta do Remet.", "1" to "1-Por conta do Dest.", "2" to "2-Por conta de Terceiros",
-        "3" to "3-Próprio p/ conta Remet.", "4" to "4-Próprio p/ conta Dest.", "9" to "9-Sem Transporte",
+        "0" to "0 - Emitente", "1" to "1 - Destinatário", "2" to "2 - Terceiros",
+        "3" to "3 - Próprio Remet.", "4" to "4 - Próprio Dest.", "9" to "9 - Sem Frete",
     )
 
-    /** Acrescenta as folhas do DANFE da [nota] ao [documento] aberto. */
     fun desenhar(documento: Document, writer: PdfWriter, nota: NotaNfe) {
-        val d0 = Desenho(writer.directContent, PageSize.A4.height)
-        // Linhas de cada item (descrição + informação adicional do produto quebradas na coluna).
-        val linhasItens = nota.itens.map { item ->
-            val texto = if (item.infAdProd.isBlank()) item.descricao else "${item.descricao}\n${item.infAdProd}"
-            d0.quebrar(texto, colunas[1].largura - 4, FONTE_ITEM).ifEmpty { listOf("") }
+        val porFolha1 = ((FIM_ITENS_P1 - TOPO_ITENS_P1) / ALT_ITEM).toInt()
+        val topoPn = TOPO_ITENS_P1 + DESLOC_PN - 70f
+        val porFolhaN = ((FIM_ITENS_PN - topoPn) / ALT_ITEM).toInt()
+        val folhas = mutableListOf(nota.itens.take(porFolha1))
+        var resto = nota.itens.drop(porFolha1)
+        while (resto.isNotEmpty()) {
+            folhas += resto.take(porFolhaN)
+            resto = resto.drop(porFolhaN)
         }
-        val paginas = paginar(linhasItens.map { it.size * ENTRELINHA_ITEM + 3f })
-        paginas.forEachIndexed { indice, itensDaPagina ->
+        folhas.forEachIndexed { i, itens ->
             documento.setPageSize(PageSize.A4)
             documento.newPage()
             writer.isPageEmpty = false
-            val d = Desenho(writer.directContent, PageSize.A4.height)
-            val folha = "${indice + 1}/${paginas.size}"
-            if (indice == 0) {
+            val d = Desenho(writer.directContent, PageSize.A4.height, ModeloSankhya.courier, ModeloSankhya.courierNegrito)
+            val folha = "FOLHA ${i + 1}/${folhas.size}"
+            if (i == 0) {
                 canhoto(d, nota)
-                cabecalho(d, nota, 70f, folha)
-                blocosFiscais(d, nota)
-                tabela(d, nota, linhasItens, itensDaPagina, TOPO_TABELA_P1, FIM_TABELA_P1)
-                dadosAdicionais(d, nota)
+                emitente(d, nota, 0f, folha)
+                destinatario(d, nota)
+                fatura(d, nota)
+                impostos(d, nota)
+                transporte(d, nota)
+                tabelaItens(d, itens, 441f, FIM_ITENS_P1)
+                issqnEAdicionais(d, nota)
             } else {
-                cabecalho(d, nota, 15f, folha)
-                tabela(d, nota, linhasItens, itensDaPagina, TOPO_TABELA_PN, FIM_TABELA_PN)
+                emitente(d, nota, DESLOC_PN, folha)
+                tabelaItens(d, itens, topoPn - 20f, FIM_ITENS_PN)
             }
-            if (nota.ambiente == "2") d.texto(ESQ, 600f, LARG, "SEM VALOR FISCAL — HOMOLOGAÇÃO", 28f, Element.ALIGN_CENTER, true)
-            val agora = LocalDateTime.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-            d.texto(ESQ, 836f, LARG, "Impresso pelo WMS em $agora", 5f, Element.ALIGN_RIGHT)
         }
     }
-
-    /** Distribui os itens nas folhas: a 1ª tem menos espaço (canhoto, blocos fiscais e dados adicionais). */
-    private fun paginar(alturas: List<Float>): List<List<Int>> {
-        val paginas = mutableListOf<MutableList<Int>>(mutableListOf())
-        var livre = FIM_TABELA_P1 - TOPO_TABELA_P1 - 9f - CAB_TABELA
-        alturas.forEachIndexed { i, h ->
-            if (h > livre && paginas.last().isNotEmpty()) {
-                paginas += mutableListOf<Int>()
-                livre = FIM_TABELA_PN - TOPO_TABELA_PN - 9f - CAB_TABELA
-            }
-            paginas.last() += i
-            livre -= h
-        }
-        return paginas
-    }
-
-    private fun numeroFormatado(n: String) = n.padStart(9, '0').let { "${it.substring(0, 3)}.${it.substring(3, 6)}.${it.substring(6)}" }
 
     private fun canhoto(d: Desenho, n: NotaNfe) {
-        val top = 15f
-        d.caixa(ESQ, top, 465f, 22f)
-        d.paragrafo(
-            ESQ + 2, top + 1, 461f, 21f,
-            "RECEBEMOS DE ${n.emitente.nome} OS PRODUTOS E/OU SERVIÇOS CONSTANTES DA NOTA FISCAL ELETRÔNICA INDICADA AO LADO. " +
-                "EMISSÃO: ${Formato.data(n.emissao)}  VALOR TOTAL: R$ ${Formato.dinheiro(n.totais["vNF"])}  " +
-                "DESTINATÁRIO: ${n.destinatario?.nome ?: ""}",
-            6f,
-        )
-        d.campo(ESQ, top + 22f, 110f, 23f, "DATA DE RECEBIMENTO", "")
-        d.campo(ESQ + 110f, top + 22f, 355f, 23f, "IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR", "")
-        d.caixa(ESQ + 465f, top, 100f, 45f)
-        d.texto(ESQ + 465f, top + 14f, 100f, "NF-e", 12f, Element.ALIGN_CENTER, true)
-        d.texto(ESQ + 465f, top + 27f, 100f, "Nº ${numeroFormatado(n.numero)}", 8.5f, Element.ALIGN_CENTER, true)
-        d.texto(ESQ + 465f, top + 38f, 100f, "SÉRIE ${n.serie.padStart(3, '0')}", 8.5f, Element.ALIGN_CENTER, true)
-        d.linha(ESQ, 65f, ESQ + LARG, 65f, 0.5f, tracejada = true)
+        val ex = n.extras
+        d.caixaArredondada(ESQ, 22f, 454f, 40f)
+        d.t(34f, 26f, 446f, "RECEBEMOS DE ${n.emitente.nome} OS PRODUTOS CONSTANTES DA NOTA FISCAL INDICADA AO LADO", 7f)
+        val vNf = n.totais["vNF"] ?: BigDecimal.ZERO
+        val cliente = listOf(ex?.codParc.orEmpty(), n.nomeDestinatario, ex?.regiao.orEmpty()).filter { it.isNotBlank() }.joinToString(" - ")
+        d.t(34f, 34f, 446f, "$cliente - (R$ ${Formato.dinheiro(vNf)})(${ModeloSankhya.extenso(vNf)})", 7f)
+        d.caixaArredondada(ESQ, 62f, 120f, 20f)
+        d.t(32f, 65f, 116f, "DATA DE RECEBIMENTO", 6f)
+        d.caixaArredondada(150f, 62f, 334f, 20f)
+        d.t(152f, 65f, 330f, "IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR", 6f)
+        d.caixaArredondada(484f, 22f, 97f, 60f)
+        d.t(486f, 24f, 93f, "NF-e", 12f, true, Element.ALIGN_CENTER)
+        ModeloSankhya.codigoBarras(d, (ex?.nunota ?: 0L).takeIf { it > 0 }?.toString() ?: n.numero, 489f, 37f, 87f, 18f)
+        d.t(488f, 60f, 90f, "N. ${ModeloSankhya.numero(n.numero)}", 8f, true)
+        d.t(488f, 69f, 90f, "SÉRIE ${n.serie}", 8f, true)
+        d.linha(ESQ, 86.5f, DIR, 86.5f, 1f, tracejada = true)
     }
 
-    private fun cabecalho(d: Desenho, n: NotaNfe, top: Float, folha: String) {
-        val h = 115f
-        // Emitente
-        d.caixa(ESQ, top, 235f, h)
-        d.texto(ESQ + 4, top + 9f, 227f, "IDENTIFICAÇÃO DO EMITENTE", 5f)
+    /** Quadro do emitente / DANFE / chave (y 88–214); [dy] sobe o quadro nas folhas seguintes. */
+    private fun emitente(d: Desenho, n: NotaNfe, dy: Float, folha: String) {
         val e = n.emitente
-        var t = top + 22f
-        d.quebrar(e.nome, 225f, 10f, true).take(2).forEach { d.texto(ESQ + 5, t, 225f, it, 10f, Element.ALIGN_CENTER, true); t += 12f }
-        t += 6f
-        val end = e.endereco
-        listOf(
-            listOf(end.logradouro, end.numero).filter { it.isNotBlank() }.joinToString(", ") + (if (end.complemento.isNotBlank()) " - ${end.complemento}" else ""),
-            "${end.bairro} - CEP ${Formato.cep(end.cep)}",
-            "${end.municipio} - ${end.uf}",
-            if (end.fone.isNotBlank()) "Fone: ${Formato.fone(end.fone)}" else "",
-        ).filter { it.isNotBlank() }.forEach { d.texto(ESQ + 5, t, 225f, it, 7.5f, Element.ALIGN_CENTER); t += 10f }
+        val ed = e.endereco
+        d.caixaArredondada(ESQ, 88f + dy, 248f, 94f)
+        ModeloSankhya.logo(d, n.extras?.logo, 34f, 91f + dy, 76f, 72f)
+        val nomes = d.quebrar(e.nome, 150f, 8f, bold = true).take(2)
+        nomes.forEachIndexed { k, l -> d.t(120f, 95f + dy + k * 9f, 155f, l, 8f, true) }
+        d.t(120f, 128f + dy, 155f, listOf("${ed.logradouro} N.${ed.numero}", ed.complemento).filter { it.isNotBlank() }.joinToString(" - "), 7f)
+        d.t(120f, 136f + dy, 155f, "Bairro ${ed.bairro},${ed.municipio} - ${ed.uf}", 7f)
+        d.t(120f, 144f + dy, 155f, "Fone: ${Formato.fone(ed.fone)}, CEP:${ed.cep}", 7f)
 
-        // Quadro DANFE
-        val xd = ESQ + 235f
-        d.caixa(xd, top, 95f, h)
-        d.texto(xd, top + 17f, 95f, "DANFE", 14f, Element.ALIGN_CENTER, true)
-        d.texto(xd, top + 27f, 95f, "Documento Auxiliar da", 6.5f, Element.ALIGN_CENTER)
-        d.texto(xd, top + 35f, 95f, "Nota Fiscal Eletrônica", 6.5f, Element.ALIGN_CENTER)
-        d.texto(xd + 8, top + 50f, 60f, "0 - ENTRADA", 7f)
-        d.texto(xd + 8, top + 59f, 60f, "1 - SAÍDA", 7f)
-        d.caixa(xd + 68f, top + 45f, 16f, 16f)
-        d.texto(xd + 68f, top + 57f, 16f, n.tipoNf, 11f, Element.ALIGN_CENTER, true)
-        d.texto(xd, top + 78f, 95f, "Nº ${numeroFormatado(n.numero)}", 9f, Element.ALIGN_CENTER, true)
-        d.texto(xd, top + 90f, 95f, "SÉRIE ${n.serie.padStart(3, '0')}", 9f, Element.ALIGN_CENTER, true)
-        d.texto(xd, top + 104f, 95f, "FOLHA $folha", 8f, Element.ALIGN_CENTER, true)
+        d.caixaArredondada(278f, 88f + dy, 78f, 94f)
+        d.t(278f, 90f + dy, 78f, "DANFE", 12f, true, Element.ALIGN_CENTER)
+        d.t(278f, 103f + dy, 78f, "Documento", 7f, alinhamento = Element.ALIGN_CENTER)
+        d.t(278f, 111f + dy, 78f, "Auxiliar da Nota", 7f, alinhamento = Element.ALIGN_CENTER)
+        d.t(278f, 119f + dy, 78f, "Fiscal Eletrônica", 7f, alinhamento = Element.ALIGN_CENTER)
+        d.t(281f, 140f + dy, 60f, "0 - ENTRADA", 7f)
+        d.t(281f, 147f + dy, 60f, "1 - SAÍDA", 7f)
+        d.caixa(337f, 140f + dy, 14f, 15f, 0.5f)
+        d.t(337f, 145f + dy, 14f, n.tipoNf, 6f, true, Element.ALIGN_CENTER)
+        d.t(281f, 158f + dy, 74f, "N. ${ModeloSankhya.numero(n.numero)}", 7f, true)
+        d.t(281f, 166f + dy, 74f, "SÉRIE ${n.serie}", 7f, true)
+        d.t(281f, 174f + dy, 74f, folha, 7f, true, Element.ALIGN_RIGHT)
 
-        // Código de barras + chave + consulta
-        val xc = xd + 95f
-        val wc = LARG - 235f - 95f
-        d.caixa(xc, top, wc, 42f)
-        codigoBarras(d, n.chave, xc + 6f, top + 6f, wc - 12f, 30f)
-        d.campo(xc, top + 42f, wc, 22f, "CHAVE DE ACESSO", Formato.chave(n.chave), Element.ALIGN_CENTER, 7.5f, true)
-        d.caixa(xc, top + 64f, wc, h - 64f)
-        d.paragrafo(
-            xc + 8, top + 72f, wc - 16f, h - 70f,
-            "Consulta de autenticidade no portal nacional da NF-e www.nfe.fazenda.gov.br/portal ou no site da Sefaz Autorizadora",
-            8f, 10f,
-        )
+        d.caixaArredondada(356f, 88f + dy, 225f, 36f)
+        ModeloSankhya.codigoBarras(d, n.chave, 380f, 95f + dy, 188f, 25f)
+        d.caixaArredondada(356f, 124f + dy, 225f, 20f)
+        d.t(359f, 126f + dy, 220f, "CHAVE DE ACESSO", 6f)
+        d.t(359f, 135f + dy, 220f, Formato.chave(n.chave), 6f, true, Element.ALIGN_CENTER)
+        d.caixaArredondada(356f, 144f + dy, 225f, 38f)
+        d.t(361f, 147f + dy, 218f, "Consulta de autenticidade no portal nacional da NF-e", 6f)
+        d.t(361f, 154f + dy, 218f, "www.nfe.fazenda.gov.br/portal ou no site da Sefaz", 6f)
+        d.t(361f, 161f + dy, 218f, "Autorizadora", 6f)
 
-        val top2 = top + h
-        d.campo(ESQ, top2, 330f, 20f, "NATUREZA DA OPERAÇÃO", n.naturezaOperacao)
-        d.campo(
-            ESQ + 330f, top2, LARG - 330f, 20f, "PROTOCOLO DE AUTORIZAÇÃO DE USO",
-            "${n.protocolo} - ${Formato.data(n.dataProtocolo)} ${Formato.hora(n.dataProtocolo)}", Element.ALIGN_CENTER, 8f, true,
-        )
-        if (top == 15f) return // folhas seguintes: só até o protocolo
-        val top3 = top2 + 20f
-        d.campo(ESQ, top3, 188f, 20f, "INSCRIÇÃO ESTADUAL", e.ie)
-        d.campo(ESQ + 188f, top3, 188f, 20f, "INSCRIÇÃO ESTADUAL DO SUBST. TRIBUT.", e.ieSt)
-        d.campo(ESQ + 376f, top3, 189f, 20f, "CNPJ", Formato.cnpjCpf(e.cnpjCpf))
+        d.campoSk(ESQ, 182f + dy, 369f, 198f + dy, "NATUREZA DA OPERAÇÃO", n.naturezaOperacao)
+        d.campoSk(369f, 182f + dy, DIR, 198f + dy, "PROTOCOLO DE AUTORIZAÇÃO DE USO", "${n.protocolo} ${ModeloSankhya.dataHora(n.dataProtocolo)}", tamValor = 7f)
+        d.campoSk(ESQ, 198f + dy, 210f, 214f + dy, "INSCRIÇÃO ESTADUAL", e.ie)
+        d.campoSk(210f, 198f + dy, 397f, 214f + dy, "INSC. ESTADUAL DO SUBST. TRIBUTÁRIO", e.ieSt)
+        d.campoSk(397f, 198f + dy, DIR, 214f + dy, "CNPJ", Formato.cnpjCpf(e.cnpjCpf))
     }
 
-    private fun codigoBarras(d: Desenho, chave: String, x: Float, top: Float, w: Float, h: Float) {
-        if (chave.length != 44) return
-        val barcode = Barcode128().apply {
-            codeType = com.lowagie.text.pdf.Barcode.CODE128 // só dígitos: o encoder usa o conjunto C sozinho
-            code = chave
-            font = null
-            barHeight = h
-        }
-        val img = barcode.createImageWithBarcode(d.cb, null, null)
-        img.scaleAbsolute(w, h)
-        img.setAbsolutePosition(x, d.y(top + h))
-        d.cb.addImage(img)
-    }
-
-    private fun blocosFiscais(d: Desenho, n: NotaNfe) {
+    private fun destinatario(d: Desenho, n: NotaNfe) {
         val dest = n.destinatario
         val ed = dest?.endereco
-        d.titulo(ESQ, 228f, "DESTINATÁRIO / REMETENTE")
-        var t = 237f
-        d.campo(ESQ, t, 345f, 20f, "NOME / RAZÃO SOCIAL", dest?.nome)
-        d.campo(ESQ + 345f, t, 130f, 20f, "CNPJ / CPF", Formato.cnpjCpf(dest?.cnpjCpf), Element.ALIGN_CENTER)
-        d.campo(ESQ + 475f, t, 90f, 20f, "DATA DA EMISSÃO", Formato.data(n.emissao), Element.ALIGN_CENTER)
-        t += 20f
-        val endereco = ed?.let { listOf(it.logradouro, it.numero).filter { s -> s.isNotBlank() }.joinToString(", ") + if (it.complemento.isNotBlank()) " - ${it.complemento}" else "" }
-        d.campo(ESQ, t, 265f, 20f, "ENDEREÇO", endereco)
-        d.campo(ESQ + 265f, t, 140f, 20f, "BAIRRO / DISTRITO", ed?.bairro)
-        d.campo(ESQ + 405f, t, 70f, 20f, "CEP", Formato.cep(ed?.cep), Element.ALIGN_CENTER)
-        d.campo(ESQ + 475f, t, 90f, 20f, "DATA DA SAÍDA/ENTRADA", Formato.data(n.saida), Element.ALIGN_CENTER)
-        t += 20f
-        d.campo(ESQ, t, 215f, 20f, "MUNICÍPIO", ed?.municipio)
-        d.campo(ESQ + 215f, t, 110f, 20f, "FONE / FAX", Formato.fone(ed?.fone))
-        d.campo(ESQ + 325f, t, 30f, 20f, "UF", ed?.uf, Element.ALIGN_CENTER)
-        d.campo(ESQ + 355f, t, 120f, 20f, "INSCRIÇÃO ESTADUAL", dest?.ie)
-        d.campo(ESQ + 475f, t, 90f, 20f, "HORA DA SAÍDA/ENTRADA", Formato.hora(n.saida), Element.ALIGN_CENTER)
+        d.t(33f, 225f, 300f, "DESTINATÁRIO/REMETENTE", 5f, true)
+        d.caixaArredondada(ESQ, 232f, 331f, 38f)
+        d.t(32f, 234f, 200f, "NOME/RAZÃO SOCIAL", 5f)
+        d.t(33f, 238f, 265f, n.nomeDestinatario, 7f)
+        d.t(300f, 239f, 58f, n.extras?.codParc, 8f, alinhamento = Element.ALIGN_RIGHT)
+        d.caixaArredondada(361f, 232f, 139f, 38f)
+        d.t(363f, 234f, 130f, "CNPJ/CPF", 5f)
+        d.t(364f, 239f, 134f, Formato.cnpjCpf(dest?.cnpjCpf), 8f)
+        d.caixaArredondada(500f, 232f, 81f, 38f)
+        d.t(502f, 234f, 78f, "DATA DA EMISSÃO", 5f)
+        d.t(503f, 239f, 77f, ModeloSankhya.dataTraco(n.emissao), 8f)
+        d.campoSk(ESQ, 270f, 295f, 286f, "ENDEREÇO", ed?.let { listOf("${it.logradouro} N. ${it.numero}", it.complemento).filter { s -> s.isNotBlank() }.joinToString(" - ") })
+        d.campoSk(295f, 270f, 432f, 286f, "BAIRRO/DISTRITO", ed?.bairro)
+        d.campoSk(432f, 270f, 500f, 286f, "CEP", ModeloSankhya.cep(ed?.cep))
+        d.campoSk(500f, 270f, DIR, 286f, "DATA DA ENTRADA/SAÍDA", ModeloSankhya.dataTraco(n.saida.ifBlank { n.emissao }))
+        d.campoSk(ESQ, 286f, 214f, 302f, "MUNICÍPIO", ed?.municipio)
+        d.campoSk(214f, 286f, 345f, 302f, "FONE/FAX", Formato.fone(ed?.fone))
+        d.campoSk(345f, 286f, 380f, 302f, "UF", ed?.uf)
+        d.campoSk(380f, 286f, 500f, 302f, "INSCRIÇÃO ESTADUAL", dest?.ie)
+        d.campoSk(500f, 286f, DIR, 302f, "HORA DA SAÍDA", Formato.hora(n.saida.ifBlank { n.emissao }).let { h -> n.saida.ifBlank { n.emissao }.takeIf { it.length >= 19 }?.substring(11, 19) ?: h })
+    }
 
-        d.titulo(ESQ, 300f, "FATURA / DUPLICATAS")
-        d.caixa(ESQ, 309f, LARG, 22f)
-        val larguraDup = LARG / 8
-        n.duplicatas.take(8).forEachIndexed { i, dup ->
-            val x = ESQ + i * larguraDup
-            d.texto(x + 3, 316f, larguraDup - 6, "Nº ${dup.numero}", 5.5f)
-            d.texto(x + 3, 322.5f, larguraDup - 6, "Venc. ${Formato.data(dup.vencimento)}", 5.5f)
-            d.texto(x + 3, 329f, larguraDup - 6, "Valor R$ ${Formato.dinheiro(dup.valor)}", 5.5f)
-        }
+    /** "BOLETO 23 DIAS| BOL=001 Venc=12/11/2026 Valor=39,60" — tipo de negociação (TGFTPV) + duplicatas do XML. */
+    private fun fatura(d: Desenho, n: NotaNfe) {
+        d.t(33f, 305f, 300f, "FATURA/DUPLICATA", 5f, true)
+        d.caixaArredondada(ESQ, 310f, 550f, 30f)
+        val dups = n.duplicatas.map { "BOL=${it.numero} Venc=${Formato.data(it.vencimento)} Valor=${Formato.dinheiro(it.valor)}" }
+        val texto = (listOf(n.extras?.tipoNegociacao.orEmpty()).filter { it.isNotBlank() } + dups).joinToString("| ")
+        d.paragrafo(33f, 312f, 544f, 26f, texto, 6f, 7f)
+    }
 
-        d.titulo(ESQ, 334f, "CÁLCULO DO IMPOSTO")
+    private fun impostos(d: Desenho, n: NotaNfe) {
         val tt = n.totais
-        val w6 = LARG / 6
-        listOf(
-            "BASE DE CÁLC. DO ICMS" to "vBC", "VALOR DO ICMS" to "vICMS", "BASE DE CÁLC. ICMS S.T." to "vBCST",
-            "VALOR DO ICMS SUBST." to "vST", "V. APROX. TRIBUTOS" to "vTotTrib", "VALOR TOTAL DOS PRODUTOS" to "vProd",
-        ).forEachIndexed { i, (rotulo, chave) -> d.campo(ESQ + i * w6, 343f, w6, 20f, rotulo, Formato.dinheiro(tt[chave]), Element.ALIGN_RIGHT) }
-        listOf(
-            "VALOR DO FRETE" to "vFrete", "VALOR DO SEGURO" to "vSeg", "DESCONTO" to "vDesc",
-            "OUTRAS DESPESAS" to "vOutro", "VALOR TOTAL DO IPI" to "vIPI", "VALOR TOTAL DA NOTA" to "vNF",
-        ).forEachIndexed { i, (rotulo, chave) ->
-            d.campo(ESQ + i * w6, 363f, w6, 20f, rotulo, Formato.dinheiro(tt[chave]), Element.ALIGN_RIGHT, bold = chave == "vNF")
+        fun v(k: String) = Formato.dinheiro(tt[k])
+        d.t(33f, 343f, 300f, "CÁLCULO DE IMPOSTO", 5f, true)
+        val l1 = listOf(30f to "BASE DE CÁLCULO DO ICMS" to "vBC", 143f to "VALOR DO ICMS" to "vICMS", 256f to "BASE DE CÁLCULO DO ICMS ST" to "vBCST",
+            369f to "VALOR DO ICMS ST" to "vST", 482f to "VALOR TOTAL DOS PRODUTOS" to "vProd")
+        l1.forEachIndexed { i, (xr, k) ->
+            val x1 = l1.getOrNull(i + 1)?.first?.first ?: DIR
+            d.campoSk(xr.first, 349f, x1, 365f, xr.second, v(k), Element.ALIGN_RIGHT)
         }
+        val outras = (tt["vOutro"] ?: BigDecimal.ZERO)
+        val l2 = listOf(30f to "VALOR DO FRETE" to v("vFrete"), 122f to "VALOR DO SEGURO" to v("vSeg"), 214f to "DESCONTO" to v("vDesc"),
+            306f to "OUTRAS DESPESAS ACESSÓRIAS" to Formato.dinheiro(outras), 408f to "VALOR DO IPI" to v("vIPI"))
+        l2.forEachIndexed { i, (xr, valor) ->
+            val x1 = l2.getOrNull(i + 1)?.first?.first ?: 490f
+            d.campoSk(xr.first, 365f, x1, 381f, xr.second, valor, Element.ALIGN_RIGHT)
+        }
+        d.campoSk(490f, 365f, DIR, 381f, "VALOR TOTAL DA NOTA", v("vNF"), Element.ALIGN_RIGHT, boldRotulo = true, boldValor = true)
+    }
 
-        d.titulo(ESQ, 386f, "TRANSPORTADOR / VOLUMES TRANSPORTADOS")
+    private fun transporte(d: Desenho, n: NotaNfe) {
         val tr = n.transportadora
-        t = 395f
-        d.campo(ESQ, t, 200f, 20f, "NOME / RAZÃO SOCIAL", tr?.nome)
-        d.campo(ESQ + 200f, t, 110f, 20f, "FRETE", modalidadesFrete[n.modFrete] ?: n.modFrete, tamanho = 7f)
-        d.campo(ESQ + 310f, t, 60f, 20f, "CÓDIGO ANTT", "")
-        d.campo(ESQ + 370f, t, 60f, 20f, "PLACA DO VEÍCULO", n.placa, Element.ALIGN_CENTER)
-        d.campo(ESQ + 430f, t, 25f, 20f, "UF", n.placaUf, Element.ALIGN_CENTER)
-        d.campo(ESQ + 455f, t, 110f, 20f, "CNPJ / CPF", Formato.cnpjCpf(tr?.cnpjCpf), Element.ALIGN_CENTER)
-        t += 20f
-        d.campo(ESQ, t, 250f, 20f, "ENDEREÇO", tr?.endereco?.logradouro)
-        d.campo(ESQ + 250f, t, 150f, 20f, "MUNICÍPIO", tr?.endereco?.municipio)
-        d.campo(ESQ + 400f, t, 25f, 20f, "UF", tr?.endereco?.uf, Element.ALIGN_CENTER)
-        d.campo(ESQ + 425f, t, 140f, 20f, "INSCRIÇÃO ESTADUAL", tr?.ie)
-        t += 20f
-        d.campo(ESQ, t, 70f, 20f, "QUANTIDADE", n.volQtd, Element.ALIGN_RIGHT)
-        d.campo(ESQ + 70f, t, 100f, 20f, "ESPÉCIE", n.volEspecie)
-        d.campo(ESQ + 170f, t, 100f, 20f, "MARCA", n.volMarca)
-        d.campo(ESQ + 270f, t, 95f, 20f, "NUMERAÇÃO", n.volNumeracao)
-        d.campo(ESQ + 365f, t, 100f, 20f, "PESO BRUTO", n.pesoBruto?.let { Formato.quantidade(it, 3, 3) }, Element.ALIGN_RIGHT)
-        d.campo(ESQ + 465f, t, 100f, 20f, "PESO LÍQUIDO", n.pesoLiquido?.let { Formato.quantidade(it, 3, 3) }, Element.ALIGN_RIGHT)
+        d.t(32f, 385f, 300f, "TRANSPORTADOR/VOLUMES TRANSPORTADOS", 5f, true)
+        d.campoSk(ESQ, 392f, 268f, 408f, "RAZÃO SOCIAL", tr?.nome)
+        d.caixaArredondada(268f, 392f, 73f, 16f)
+        d.t(271f, 394f, 68f, "FRETE POR CONTA", 4f)
+        d.t(271f, 399f, 68f, modalidadesFrete[n.modFrete] ?: n.modFrete, 8f, alinhamento = Element.ALIGN_CENTER)
+        d.campoSk(341f, 392f, 392f, 408f, "CÓDIGO ANTT", "")
+        d.campoSk(392f, 392f, 456f, 408f, "PLACA DO VEÍCULO", n.placa)
+        d.campoSk(456f, 392f, 480f, 408f, "UF", n.placaUf)
+        d.campoSk(480f, 392f, DIR, 408f, "CNPJ/CPF", Formato.cnpjCpf(tr?.cnpjCpf))
+        d.campoSk(ESQ, 408f, 268f, 424f, "ENDEREÇO", tr?.endereco?.logradouro)
+        d.campoSk(268f, 408f, 456f, 424f, "MUNICÍPIO", tr?.endereco?.municipio)
+        d.campoSk(456f, 408f, 480f, 424f, "UF", tr?.endereco?.uf)
+        d.campoSk(480f, 408f, DIR, 424f, "INSCRIÇÃO ESTADUAL", tr?.ie)
+        val qtd = n.volQtd.toBigDecimalOrNull()
+        d.campoSk(ESQ, 424f, 103f, 440f, "QUANTIDADE", qtd?.let { ModeloSankhya.quantidade(it, 2) } ?: n.volQtd, Element.ALIGN_RIGHT)
+        d.campoSk(103f, 424f, 180f, 440f, "ESPÉCIE", n.volEspecie)
+        d.campoSk(180f, 424f, 268f, 440f, "MARCA", n.volMarca)
+        d.campoSk(268f, 424f, 370f, 440f, "NÚMERO", n.volNumeracao)
+        d.campoSk(370f, 424f, 480f, 440f, "PESO BRUTO", n.pesoBruto?.let { "${ModeloSankhya.quantidade(it, 4)} Kg" }, Element.ALIGN_RIGHT)
+        d.campoSk(480f, 424f, DIR, 440f, "PESO LÍQUIDO", n.pesoLiquido?.let { "${ModeloSankhya.quantidade(it, 4)} Kg" }, Element.ALIGN_RIGHT)
     }
 
-    private fun tabela(d: Desenho, n: NotaNfe, linhasItens: List<List<String>>, itens: List<Int>, topo: Float, fim: Float) {
-        d.titulo(ESQ, topo, "DADOS DOS PRODUTOS / SERVIÇOS")
-        val topCab = topo + 9f
-        d.caixa(ESQ, topCab, LARG, fim - topCab)
-        d.linha(ESQ, topCab + CAB_TABELA, ESQ + LARG, topCab + CAB_TABELA)
-        var x = ESQ
-        colunas.forEachIndexed { i, c ->
-            if (i > 0) d.linha(x, topCab, x, fim, 0.3f)
-            if (c.rotulo2.isBlank()) {
-                d.texto(x + 1, topCab + 9f, c.largura - 2, c.rotulo1, 5f, Element.ALIGN_CENTER)
-            } else {
-                d.texto(x + 1, topCab + 6f, c.largura - 2, c.rotulo1, 5f, Element.ALIGN_CENTER)
-                d.texto(x + 1, topCab + 12f, c.largura - 2, c.rotulo2, 5f, Element.ALIGN_CENTER)
-            }
-            x += c.largura
-        }
-        var t = topCab + CAB_TABELA
-        for (indice in itens) {
-            val item = n.itens[indice]
-            val linhas = linhasItens[indice]
-            val base = t + FONTE_ITEM + 1.5f
-            val valores = listOf(
-                item.codigo, null, item.ncm, item.cst, item.cfop, item.unidade,
-                Formato.quantidade(item.quantidade, 4), Formato.quantidade(item.valorUnitario, 4, 2), Formato.dinheiro(item.valorTotal),
-                Formato.dinheiro(item.bcIcms), Formato.dinheiro(item.valorIcms), Formato.dinheiro(item.valorIpi),
-                Formato.quantidade(item.aliqIcms, 2), Formato.quantidade(item.aliqIpi, 2),
-            )
-            var xc = ESQ
-            colunas.forEachIndexed { i, c ->
-                if (i == 1) {
-                    linhas.forEachIndexed { l, s -> d.texto(xc + 2, base + l * ENTRELINHA_ITEM, c.largura - 4, s, FONTE_ITEM) }
-                } else {
-                    d.texto(xc + 2, base, c.largura - 4, valores[i], FONTE_ITEM, c.alinhamento)
+    /** Título + cabeçalho da tabela em [top]; linhas de 10 pt até [fim]. */
+    private fun tabelaItens(d: Desenho, itens: List<ItemNfe>, top: Float, fim: Float) {
+        d.t(32f, top, 300f, "DADOS DOS PRODUTOS/SERVIÇOS", 5f, true)
+        val cab = top + 7f
+        val corpo = cab + 13f
+        val n = xs.size - 1
+        // Cabeçalho: alíquota ICMS/IPI dividida em duas linhas.
+        for (k in 0 until n) {
+            val x0 = xs[k]
+            val x1 = xs[k + 1]
+            when (k) {
+                14, 15 -> {
+                    d.caixa(x0, cab + 7f, x1 - x0, 6f, 0.25f)
+                    d.t(x0, cab + 8f, x1 - x0, rotulos[k], 5f, alinhamento = Element.ALIGN_CENTER)
                 }
-                xc += c.largura
+                else -> {
+                    d.caixa(x0, cab, x1 - x0, 13f, 0.25f)
+                    val linhas = rotulos[k].split('\n')
+                    linhas.forEachIndexed { j, l ->
+                        d.t(x0, cab + (if (linhas.size == 1) 4f else 1f + j * 6f), x1 - x0, l, 5f, alinhamento = Element.ALIGN_CENTER)
+                    }
+                }
             }
-            t += linhas.size * ENTRELINHA_ITEM + 3f
-            d.linha(ESQ, t, ESQ + LARG, t, 0.1f)
+        }
+        d.caixa(xs[14], cab, xs[16] - xs[14], 7f, 0.25f)
+        d.t(xs[14], cab + 1f, xs[16] - xs[14], "ALÍQUOTA", 5f, alinhamento = Element.ALIGN_CENTER)
+
+        val a = d.comFonte(ModeloSankhya.arial, ModeloSankhya.arialNegrito)
+        var y = corpo
+        itens.forEach { it ->
+            if (y + ALT_ITEM > fim + 0.5f) return@forEach
+            val pDesc = if (it.valorTotal.signum() > 0) it.valorDesconto.multiply(BigDecimal(100)).divide(it.valorTotal, 2, RoundingMode.HALF_UP) else BigDecimal.ZERO
+            val valores = listOf(
+                it.codigo, it.descricao, it.ncm, it.cst, it.cfop, it.unidade,
+                Formato.quantidade(it.quantidade, 4, 0), Formato.quantidade(it.valorUnitario, 4, 2), Formato.dinheiro(it.valorDesconto),
+                Formato.dinheiro(pDesc), Formato.dinheiro(it.valorTotal), Formato.dinheiro(it.bcIcms), Formato.dinheiro(it.valorIcms),
+                Formato.dinheiro(it.valorIpi), Formato.dinheiro(it.aliqIcms), Formato.dinheiro(it.aliqIpi),
+            )
+            for (k in 0 until n) {
+                d.linha(xs[k], y, xs[k], y + ALT_ITEM, 0.25f)
+                a.t(xs[k] + 2f, y + 3f, xs[k + 1] - xs[k] - 4f, valores[k], 6f, alinhamento = alinhamentos[k])
+            }
+            d.linha(xs[n], y, xs[n], y + ALT_ITEM, 0.25f)
+            d.linha(xs[0], y + ALT_ITEM, xs[n], y + ALT_ITEM, 0.5f)
+            y += ALT_ITEM
         }
     }
 
-    private fun dadosAdicionais(d: Desenho, n: NotaNfe) {
-        d.titulo(ESQ, 750f, "DADOS ADICIONAIS")
-        d.caixa(ESQ, 759f, 380f, 68f)
-        d.texto(ESQ + 2, 765f, 376f, "INFORMAÇÕES COMPLEMENTARES", 5f)
-        val info = listOf(n.infFisco, n.infCpl).filter { it.isNotBlank() }.joinToString("\n").replace(";", "; ")
-        d.paragrafo(ESQ + 3, 768f, 374f, 58f, info, 6f, 7f)
-        d.caixa(ESQ + 380f, 759f, 185f, 68f)
-        d.texto(ESQ + 382f, 765f, 181f, "RESERVADO AO FISCO", 5f)
+    private fun issqnEAdicionais(d: Desenho, n: NotaNfe) {
+        d.t(31f, 707f, 300f, "CÁLCULO DO ISSQN", 5f, true)
+        d.campoSk(ESQ, 713f, 167f, 729f, "INSCRIÇÃO MUNICIPAL", "")
+        d.campoSk(167f, 713f, 304f, 729f, "VALOR TOTAL DOS SERVIÇOS", Formato.dinheiro(n.totais["vServ"]), Element.ALIGN_RIGHT, tamValor = 6f)
+        d.campoSk(304f, 713f, 441f, 729f, "BASE DE CÁLCULO DE ISSQN", Formato.dinheiro(n.totais["vBCISS"]), Element.ALIGN_RIGHT, tamValor = 6f)
+        d.campoSk(441f, 713f, 580f, 729f, "VALOR DO ISSQN", Formato.dinheiro(n.totais["vISS"]), Element.ALIGN_RIGHT, tamValor = 6f)
+
+        d.t(31f, 731f, 300f, "DADOS ADICIONAIS", 5f, true)
+        d.caixaArredondada(ESQ, 737f, 320f, 82f)
+        d.t(32f, 739f, 300f, "INFORMAÇÕES COMPLEMENTARES", 5f)
+        val oc = n.extras?.ordemCarga?.let { "OC: $it" }
+        var y = 743f
+        listOfNotNull(oc, n.infFisco.ifBlank { null }, n.infCpl.ifBlank { null }).forEach { bloco ->
+            d.quebrar(bloco, 316f, 6f).forEach { l ->
+                if (y > 812f) return@forEach
+                d.t(31f, y, 318f, l, 6f)
+                y += 7f
+            }
+        }
+        d.caixaArredondada(350f, 737f, 230f, 82f)
+        d.t(352f, 739f, 226f, "RESERVADO AO FISCO", 5f)
     }
 }

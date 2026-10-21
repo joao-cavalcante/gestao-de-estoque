@@ -55,7 +55,10 @@ fun main(args: Array<String>) {
     val romaneioArq = args.firstOrNull { it.startsWith("--romaneio=") }?.substringAfter("=")
     val boletosArq = args.firstOrNull { it.startsWith("--boletos=") }?.substringAfter("=")
     val entregaArq = args.firstOrNull { it.startsWith("--entrega=") }?.substringAfter("=")
-    val resto = args.filterNot { it.startsWith("--romaneio=") || it.startsWith("--boletos=") || it.startsWith("--entrega=") }
+    // --extras=nunota;codparc;regiao;tipo negociação;oc;peso;volumes;nome parceiro|... (uma por XML, na mesma ordem) e --logo=png
+    val extrasArg = args.firstOrNull { it.startsWith("--extras=") }?.substringAfter("=")
+    val logoArq = args.firstOrNull { it.startsWith("--logo=") }?.substringAfter("=")
+    val resto = args.filterNot { a -> listOf("--romaneio=", "--boletos=", "--entrega=", "--extras=", "--logo=").any { a.startsWith(it) } }
     fun linhasJson(arq: String) = File(arq).readLines().filter { it.startsWith("{") }.map { l ->
         kotlinx.serialization.json.Json.parseToJsonElement(l).jsonObject.mapValues { (_, v) -> v.jsonPrimitive.contentOrNull }
     }
@@ -75,7 +78,12 @@ fun main(args: Array<String>) {
         System.err.println("uso: ImpressaoPdfKt <saida.pdf> [--romaneio=linhas.json] [nota.xml...]")
         exitProcess(2)
     }
-    val notas = resto.drop(1).map { NfeXml.ler(File(it).readText(Charsets.UTF_8)) }
+    val logo = logoArq?.let { File(it).readBytes() }
+    val extras = extrasArg?.split('|')?.map { e ->
+        val c = e.split(';')
+        ExtrasNota(c[0].toLong(), c[1], c[7], c[2], c[3], c[4].toLongOrNull(), c[5].toBigDecimalOrNull(), c[5].toBigDecimalOrNull(), c[6], logo)
+    }.orEmpty()
+    val notas = resto.drop(1).mapIndexed { i, arq -> NfeXml.ler(File(arq).readText(Charsets.UTF_8)).copy(extras = extras.getOrNull(i)) }
     val romaneio = romaneioArq?.let { ImpressaoOcService.montarRomaneio(0, linhasJson(it)) }
     File(resto[0]).writeBytes(ImpressaoPdf.gerar(romaneio, notas))
     println("PDF gerado: ${resto[0]} (${notas.size} nota(s))")

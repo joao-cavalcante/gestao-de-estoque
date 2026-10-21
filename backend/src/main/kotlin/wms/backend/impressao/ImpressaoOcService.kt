@@ -8,7 +8,14 @@ import java.math.BigDecimal
  * Nota de venda da OC e a situação dela na SEFAZ (TGFCAB.STATUSNFE; 'A' = autorizada). [boletoPendente]: tem
  * título de boleto em aberto ainda sem linha digitável (não registrado no banco) — espera igual à SEFAZ.
  */
-data class NotaDaOc(val nunota: Long, val numNota: String, val statusNfe: String, val boletoPendente: Boolean = false) {
+data class NotaDaOc(
+    val nunota: Long,
+    val numNota: String,
+    val statusNfe: String,
+    val boletoPendente: Boolean = false,
+    /** Dados do DANFE do Sankhya que não vêm no XML (região, tipo de negociação, OC, peso/volumes). */
+    val extras: ExtrasNota = ExtrasNota(nunota),
+) {
     val pronta: Boolean get() = statusNfe == "A" && !boletoPendente
     val situacao: String get() = if (statusNfe != "A") statusNfe.ifBlank { "sem status" } else "boleto sem registro"
 }
@@ -42,7 +49,8 @@ object ImpressaoOcService {
             .map { if (it.nunota in semRegistro) it.copy(boletoPendente = true) else it }
         val prontas = notas.filter { it.pronta }
         if (prontas.isEmpty() || (prontas.size < notas.size && !aceitarParcial)) return PdfDaOc(null, notas)
-        val documentos = prontas.map { NfeXml.ler(xml(tenantSlug, it.nunota)) to boletos[it.nunota].orEmpty() }
+        val logo = logo(tenantSlug)
+        val documentos = prontas.map { NfeXml.ler(xml(tenantSlug, it.nunota)).copy(extras = it.extras.copy(logo = logo)) to boletos[it.nunota].orEmpty() }
         val pendentes = notas.filter { !it.pronta }.map { it.nunota }.toSet()
         val entrega = if (somente != null || !IMPRIMIR_ROMANEIO) null else romaneioEntrega(tenantSlug, oc)
         return PdfDaOc(ImpressaoPdf.gerarComBoletos(null, documentos, entrega), notas, prontas)
@@ -54,6 +62,7 @@ object ImpressaoOcService {
             """
             SELECT E.NOMEFANTASIA AS NOMEEMP, CAB.ORDEMCARGA, CAB.NUNOTA, CAB.NUMNOTA, CAB.CODPARC, PAR.RAZAOSOCIAL,
                    CID.NOMECID || '/' || UFP.UF AS CIDADE, CAB.NUMPEDIDO2, CAB.PESOBRUTO, CAB.VLRNOTA, CAB.STATUSNFE,
+                   CAB.PESO AS PESOLIQ, CAB.QTDVOL AS VOLNOTA, REG.NOMEREG, TPV.DESCRTIPVENDA, PAR.NOMEPARC,
                    TO_CHAR(ORD.DTPREVSAIDA, 'YYYY-MM-DD') AS DTPREVSAIDA, TRA.RAZAOSOCIAL AS TRANSPORTADORA, TRA.CGC_CPF AS CNPJTRANSP,
                    MOT.NOMEPARC AS NOMEMOTORISTA, VEI.PLACA, VEI.MARCAMODELO,
                    (SELECT MIN(VAR.NUNOTAORIG) FROM TGFVAR VAR WHERE VAR.NUNOTA = CAB.NUNOTA) AS NUNOTAORIG,
@@ -69,11 +78,29 @@ object ImpressaoOcService {
               JOIN TGFPAR PAR ON PAR.CODPARC = CAB.CODPARC
               LEFT JOIN TSICID CID ON CID.CODCID = PAR.CODCID
               LEFT JOIN TSIUFS UFP ON UFP.CODUF = CID.UF
+              LEFT JOIN TSIREG REG ON REG.CODREG = PAR.CODREG
+              LEFT JOIN TGFTPV TPV ON TPV.CODTIPVENDA = CAB.CODTIPVENDA AND TPV.DHALTER = CAB.DHTIPVENDA
              WHERE CAB.TIPMOV = 'V' AND CAB.ORDEMCARGA = $oc AND NVL(CAB.STATUSNFE, ' ') NOT IN ('C', 'D')
              ORDER BY CAB.NUNOTA
             """.trimIndent(),
         )
-        val notas = linhas.map { NotaDaOc(it["NUNOTA"]!!.toLong(), it["NUMNOTA"] ?: "", it["STATUSNFE"]?.trim() ?: "") }
+        val notas = linhas.map { l ->
+            val nunota = l["NUNOTA"]!!.toLong()
+            NotaDaOc(
+                nunota, l["NUMNOTA"] ?: "", l["STATUSNFE"]?.trim() ?: "",
+                extras = ExtrasNota(
+                    nunota = nunota,
+                    codParc = l["CODPARC"]?.trim().orEmpty(),
+                    nomeParc = l["NOMEPARC"]?.trim().orEmpty(),
+                    regiao = l["NOMEREG"]?.trim().orEmpty(),
+                    tipoNegociacao = l["DESCRTIPVENDA"]?.trim().orEmpty(),
+                    ordemCarga = oc,
+                    pesoBruto = l["PESOBRUTO"]?.trim()?.toBigDecimalOrNull(),
+                    pesoLiquido = l["PESOLIQ"]?.trim()?.toBigDecimalOrNull(),
+                    volumes = l["VOLNOTA"]?.trim()?.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString().orEmpty(),
+                ),
+            )
+        }
         return montarRomaneio(oc, linhas) to notas
     }
 
@@ -304,6 +331,10 @@ object ImpressaoOcService {
         }
         return "$t ${nome.trim()}".trim()
     }
+
+    /** Logo do cliente pro DANFE (`impressao/logo-<tenant>.png` nos recursos; o Sankhya não guarda em TSIEMP.LOGOMARCA). */
+    fun logo(tenantSlug: String): ByteArray? =
+        ImpressaoOcService::class.java.getResourceAsStream("/impressao/logo-$tenantSlug.png")?.use { it.readBytes() }
 
     /** XML autorizado (nfeProc) da nota, montado a partir de pedaços de 4000 caracteres do CLOB. */
     suspend fun xml(tenantSlug: String, nunota: Long): String {

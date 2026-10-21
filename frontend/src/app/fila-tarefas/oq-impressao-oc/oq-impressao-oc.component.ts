@@ -107,7 +107,7 @@ export class OqImpressaoOcComponent implements OnChanges, OnDestroy {
         this.feedback.trigger('SUCESSO_SANKHYA', { mensagem: `OC ${this.oc}: reimpressão enviada para a fila.`, som: false });
         this.consultar();
       },
-      error: () => { this.enviando.set(false); this.feedback.trigger('ERRO', { mensagem: 'Não foi possível pedir a reimpressão.' }); },
+      error: (e) => { this.enviando.set(false); this.feedback.trigger('ERRO', { mensagem: e?.error?.erro ?? 'Não foi possível pedir a reimpressão.' }); },
     });
   }
 

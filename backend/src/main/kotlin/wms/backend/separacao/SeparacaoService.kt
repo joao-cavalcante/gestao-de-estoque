@@ -90,7 +90,10 @@ object FinalizacaoProgresso {
         resultados[sessaoId]?.takeIf { it.em.isAfter(Instant.now().minus(RETENCAO)) }?.conclusao
 }
 
-/** Começo da observação da nota faturada com OC ("ORDEM DE CARGA: 688. <obs do pedido>"). */
+/**
+ * Começo da observação das notas faturadas em 21/10/2026 com a OC gravada ("ORDEM DE CARGA: 688. <obs>") — a gravação
+ * foi desligada no mesmo dia (o DANFE do Sankhya já imprime "OC: n" sozinho); fica só pra limpar o romaneio dessas notas.
+ */
 const val PREFIXO_OC_OBSERVACAO = "ORDEM DE CARGA: "
 
 /** Quantos salvarItemConferido em voo ao mesmo tempo no finalizar. */
@@ -1557,9 +1560,7 @@ object SeparacaoService {
      */
     private suspend fun confirmarNotasGeradas(tenantSlug: String, notas: List<Long>): String? {
         if (notas.isEmpty()) return null
-        val pendentes = notasNaoConfirmadas(tenantSlug, notas)
-        incluirOcNaObservacao(tenantSlug, pendentes)
-        val falhas = pendentes.mapNotNull { nunota ->
+        val falhas = notasNaoConfirmadas(tenantSlug, notas).mapNotNull { nunota ->
             runCatching {
                 SankhyaSpClient.chamarRaw(
                     tenantSlug, "CACSP.confirmarNota", "mgecom",
@@ -1586,47 +1587,6 @@ object SeparacaoService {
             }
         }
         return falhas.takeIf { it.isNotEmpty() }?.joinToString("; ")
-    }
-
-    /**
-     * Ordem de carga na observação da nota (usuário, 21/10/2026): grava "ORDEM DE CARGA: n. <observação do pedido>"
-     * em TGFCAB.OBSERVACAO ANTES do confirmarNota — é ela que vai pro infCpl do XML e sai nas informações
-     * complementares do DANFE. Só nota com OC e que ainda não tem a marca. Falha só loga: não segura a nota.
-     */
-    private suspend fun incluirOcNaObservacao(tenantSlug: String, notas: List<Long>) {
-        if (notas.isEmpty()) return
-        runCatching {
-            SankhyaDbExplorerClient.executarQuery(
-                tenantSlug,
-                "SELECT NUNOTA, ORDEMCARGA, OBSERVACAO FROM TGFCAB WHERE NUNOTA IN (${notas.joinToString()}) AND NVL(ORDEMCARGA, 0) > 0",
-            )
-        }.onFailure { println("AVISO: OC na observação — consulta das notas $notas falhou: ${it.message}") }
-            .getOrNull().orEmpty()
-            .forEach { l ->
-                val nunota = l["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: return@forEach
-                val oc = l["ORDEMCARGA"]?.toBigDecimalOrNull()?.toLong() ?: return@forEach
-                val atual = l["OBSERVACAO"]?.trim().orEmpty()
-                val marca = "$PREFIXO_OC_OBSERVACAO$oc."
-                if (atual.startsWith(marca)) return@forEach
-                val nova = listOf(marca, atual).filter { it.isNotEmpty() }.joinToString(" ").take(4000)
-                runCatching {
-                    SankhyaSpClient.chamarRaw(
-                        tenantSlug, "CRUDServiceProvider.saveRecord", "mge",
-                        buildJsonObject {
-                            putJsonObject("dataSet") {
-                                put("rootEntity", "CabecalhoNota")
-                                put("includePresentationFields", "N")
-                                putJsonObject("dataRow") {
-                                    putJsonObject("localFields") { putJsonObject("OBSERVACAO") { put("\$", nova) } }
-                                    putJsonObject("key") { putJsonObject("NUNOTA") { put("\$", nunota.toString()) } }
-                                }
-                                putJsonObject("entity") { putJsonObject("fieldset") { put("list", "NUNOTA,OBSERVACAO") } }
-                            }
-                        },
-                        retentar = false,
-                    )
-                }.onFailure { println("AVISO: OC $oc na observação da nota $nunota falhou: ${it.message}") }
-            }
     }
 
     /** Das [notas], as ainda não confirmadas no Sankhya (TGFCAB.STATUSNOTA <> 'L'). */

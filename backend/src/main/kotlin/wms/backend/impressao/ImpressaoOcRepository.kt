@@ -63,7 +63,22 @@ object ImpressaoOcRepository {
     /** Devolve o pedido de reentrega se o agente não confirmar a impressão nesse tempo. */
     private const val LIMITE_IMPRIMINDO_SEG = 5 * 60L
 
+    /**
+     * Cria o pedido de impressão — a não ser que já exista um igual (mesma OC e mesmas notas) ainda em andamento
+     * (aguardando SEFAZ / na fila / imprimindo): aí devolve esse. Evita imprimir de novo por clique repetido ou por
+     * reimpressão pedida enquanto o Fechar OC ainda imprime (21/10/2026: OC 709 saiu 4 vezes).
+     */
     fun enfileirar(tenantId: UUID, oc: Long, motivo: String, solicitadoPor: String?, nunotas: Collection<Long>? = null): UUID = TenantTx.run(tenantId) {
+        // Serializa por OC: dois cliques simultâneos não criam dois jobs.
+        exec("SELECT pg_advisory_xact_lock(hashtext('impressao_oc:$tenantId:$oc'))")
+        val chaveNotas = nunotas?.takeIf { it.isNotEmpty() }?.sorted()?.joinToString(",")
+        val emAndamento = ImpressaoOcTable.select(ImpressaoOcTable.id, ImpressaoOcTable.nunotas)
+            .where {
+                (ImpressaoOcTable.tenantId eq tenantId) and (ImpressaoOcTable.ordemCarga eq oc) and
+                    (ImpressaoOcTable.status inList listOf(StatusImpressao.AGUARDANDO_SEFAZ, StatusImpressao.PRONTO, StatusImpressao.IMPRIMINDO))
+            }
+            .firstOrNull { linha -> linha[ImpressaoOcTable.nunotas]?.split(',')?.sorted()?.joinToString(",") == chaveNotas }
+        if (emAndamento != null) return@run emAndamento[ImpressaoOcTable.id]
         val novo = UUID.randomUUID()
         ImpressaoOcTable.insert {
             it[id] = novo
@@ -74,7 +89,7 @@ object ImpressaoOcRepository {
             it[notas] = 0
             it[tentativas] = 0
             it[ImpressaoOcTable.solicitadoPor] = solicitadoPor
-            it[ImpressaoOcTable.nunotas] = nunotas?.takeIf { n -> n.isNotEmpty() }?.joinToString(",")
+            it[ImpressaoOcTable.nunotas] = chaveNotas
             it[criadoEm] = Instant.now()
             it[atualizadoEm] = Instant.now()
         }

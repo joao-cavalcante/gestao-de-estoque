@@ -135,9 +135,9 @@ export class ImpressaoOcComponent implements OnInit, OnDestroy {
         this.feedback.trigger('SUCESSO_SANKHYA', { mensagem: `OC ${numero} enviada para a impressora.`, som: false });
         this.atualizar();
       },
-      error: () => {
+      error: (e) => {
         this.enviando.set(null);
-        this.feedback.trigger('ERRO', { mensagem: `Não foi possível imprimir a OC ${numero}.` });
+        this.feedback.trigger('ERRO', { mensagem: e?.error?.erro ?? `Não foi possível imprimir a OC ${numero}.` });
       },
     });
   }

@@ -16,6 +16,8 @@ import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
 import wms.backend.auth.ClaimsToken
 import wms.backend.auth.exigirAuth
+import wms.backend.erp.SankhyaDbExplorerClient
+import wms.backend.tenancy.TenantRepository
 import wms.backend.usuarios.UsuariosRepository
 import java.util.UUID
 
@@ -78,6 +80,21 @@ fun Route.impressaoOcRoutes() {
             val claims = call.exigirAuth() ?: return@post
             val oc = call.parameters["oc"]?.toLongOrNull()
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "OC inválida"))
+            // OC ainda aberta: a impressão sai sozinha quando fechar — imprimir antes duplicava (e saía sem as notas
+            // que ainda iam ser faturadas). 21/10/2026: OC 709/711 pedidas no meio do fechamento.
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
+            val abertas = slug?.let {
+                runCatching {
+                    SankhyaDbExplorerClient.executarQuery(it, "SELECT COUNT(*) AS QTD FROM TGFORD WHERE ORDEMCARGA = $oc AND NVL(SITUACAO, 'A') <> 'F'")
+                        .firstOrNull()?.get("QTD")?.trim()?.toIntOrNull()
+                }.getOrNull()
+            } ?: 0
+            if (abertas > 0) {
+                return@post call.respond(
+                    HttpStatusCode.Conflict,
+                    mapOf("erro" to "A OC $oc ainda não foi fechada. A impressão sai sozinha quando ela for fechada no tablet."),
+                )
+            }
             // ?job=<id>: reimprime o que aquele job imprime (ex.: só o DANFE da nota que saiu separada).
             val nunotas = call.request.queryParameters["job"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?.let { ImpressaoOcRepository.buscar(claims.tenantId, it) }
