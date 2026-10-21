@@ -15,7 +15,7 @@ object ImpressaoPdf {
     fun gerar(romaneio: RomaneioOc?, notas: List<NotaNfe>): ByteArray = gerarComBoletos(romaneio, notas.map { it to emptyList() })
 
     /** Romaneio (se houver) + DANFE de cada nota seguido dos boletos dela. */
-    fun gerarComBoletos(romaneio: RomaneioOc?, documentos: List<Pair<NotaNfe, List<Boleto>>>): ByteArray {
+    fun gerarComBoletos(romaneio: RomaneioOc?, documentos: List<Pair<NotaNfe, List<Boleto>>>, entrega: RomaneioEntrega? = null): ByteArray {
         val saida = ByteArrayOutputStream()
         val documento = Document(PageSize.A4, 0f, 0f, 0f, 0f)
         val writer = PdfWriter.getInstance(documento, saida)
@@ -23,6 +23,7 @@ object ImpressaoPdf {
         documento.addCreator("WMS")
         documento.open()
         romaneio?.let { RomaneioPdf.desenhar(documento, writer, it) }
+        entrega?.let { RomaneioEntregaPdf.desenhar(documento, writer, it) }
         documentos.forEach { (nota, boletos) ->
             if (nota.modelo == "65") DanfeNfcePdf.desenhar(documento, writer, nota) else DanfePdf.desenhar(documento, writer, nota)
             boletos.forEach { BoletoPdf.desenhar(documento, writer, it) }
@@ -53,9 +54,16 @@ object ImpressaoPdf {
 fun main(args: Array<String>) {
     val romaneioArq = args.firstOrNull { it.startsWith("--romaneio=") }?.substringAfter("=")
     val boletosArq = args.firstOrNull { it.startsWith("--boletos=") }?.substringAfter("=")
-    val resto = args.filterNot { it.startsWith("--romaneio=") || it.startsWith("--boletos=") }
+    val entregaArq = args.firstOrNull { it.startsWith("--entrega=") }?.substringAfter("=")
+    val resto = args.filterNot { it.startsWith("--romaneio=") || it.startsWith("--boletos=") || it.startsWith("--entrega=") }
     fun linhasJson(arq: String) = File(arq).readLines().filter { it.startsWith("{") }.map { l ->
         kotlinx.serialization.json.Json.parseToJsonElement(l).jsonObject.mapValues { (_, v) -> v.jsonPrimitive.contentOrNull }
+    }
+    if (entregaArq != null && resto.isNotEmpty()) {
+        val entrega = ImpressaoOcService.montarRomaneioEntrega(0, linhasJson(entregaArq))
+        File(resto[0]).writeBytes(ImpressaoPdf.gerarComBoletos(null, emptyList(), entrega))
+        println("PDF gerado: ${resto[0]} (${entrega.pedidos.size} pedido(s))")
+        return
     }
     if (boletosArq != null && resto.isNotEmpty()) {
         val boletos = linhasJson(boletosArq).map { ImpressaoOcService.montarBoleto(it) }

@@ -1,6 +1,7 @@
 package wms.backend.impressao
 
 import wms.backend.erp.SankhyaDbExplorerClient
+import wms.backend.separacao.PREFIXO_OC_OBSERVACAO
 import java.math.BigDecimal
 
 /**
@@ -24,6 +25,9 @@ data class PdfDaOc(val pdf: ByteArray?, val notas: List<NotaDaOc>, val impressas
  */
 object ImpressaoOcService {
     private const val PEDACO = 4000
+
+    /** Romaneio de Entrega (layout do relatório 179 do Sankhya) na frente das notas. */
+    private const val IMPRIMIR_ROMANEIO = true
     private const val PEDACOS_POR_CONSULTA = 6
 
     /**
@@ -40,9 +44,8 @@ object ImpressaoOcService {
         if (prontas.isEmpty() || (prontas.size < notas.size && !aceitarParcial)) return PdfDaOc(null, notas)
         val documentos = prontas.map { NfeXml.ler(xml(tenantSlug, it.nunota)) to boletos[it.nunota].orEmpty() }
         val pendentes = notas.filter { !it.pronta }.map { it.nunota }.toSet()
-        val rom = if (somente != null) null
-        else romaneio.copy(notas = romaneio.notas.map { if (it.nunota in pendentes) it.copy(pendenteSefaz = true) else it })
-        return PdfDaOc(ImpressaoPdf.gerarComBoletos(rom, documentos), notas, prontas)
+        val entrega = if (somente != null || !IMPRIMIR_ROMANEIO) null else romaneioEntrega(tenantSlug, oc)
+        return PdfDaOc(ImpressaoPdf.gerarComBoletos(null, documentos, entrega), notas, prontas)
     }
 
     suspend fun romaneio(tenantSlug: String, oc: Long): Pair<RomaneioOc, List<NotaDaOc>> {
@@ -101,6 +104,109 @@ object ImpressaoOcService {
                     valor = dec(it["VLRNOTA"]),
                 )
             },
+        )
+    }
+
+    /**
+     * Dados do "Romaneio de Entrega" — mesma consulta do relatório formatado 179 do Sankhya
+     * (ROMANEIO_ENTREGA_NEGRI_PORTAL_OC_UNICA.jrxml), com a OC no lugar dos NUNOTAs selecionados na tela:
+     * notas de venda da OC + pedidos da OC ainda sem nota; dados do cliente/vendedor/pagamento vêm do pedido.
+     */
+    suspend fun romaneioEntrega(tenantSlug: String, oc: Long): RomaneioEntrega {
+        val linhas = SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            """
+            WITH PARAMETROS AS (
+                SELECT DISTINCT C.ORDEMCARGA, C.CODEMP FROM TGFCAB C WHERE C.ORDEMCARGA = $oc AND C.TIPMOV IN ('V', 'P')
+            ), BASE AS (
+                SELECT C.NUNOTA DOC_NUNOTA, C.NUMNOTA DOC_NUMNOTA, C.CODEMP, C.ORDEMCARGA, C.CODPARC, C.CODVEND, C.CODTIPVENDA, C.DHTIPVENDA,
+                       C.VLRNOTA, C.PESOBRUTO, C.OBSERVACAO, C.TIPMOV, O.DTINIC, O.DTPREVSAIDA, O.CODVEICULO, O.CODPARCMOTORISTA,
+                       O.CODPARCTRANSP, O.PESOMAX
+                  FROM TGFCAB C
+                  LEFT JOIN TGFORD O ON O.CODEMP = C.CODEMP AND O.ORDEMCARGA = C.ORDEMCARGA
+                  JOIN PARAMETROS P ON P.ORDEMCARGA = C.ORDEMCARGA AND P.CODEMP = C.CODEMP
+                 WHERE C.TIPMOV = 'V' AND NVL(C.STATUSNFE, ' ') NOT IN ('C', 'D')
+                UNION ALL
+                SELECT C.NUNOTA, C.NUMNOTA, C.CODEMP, C.ORDEMCARGA, C.CODPARC, C.CODVEND, C.CODTIPVENDA, C.DHTIPVENDA,
+                       C.VLRNOTA, C.PESOBRUTO, C.OBSERVACAO, C.TIPMOV, O.DTINIC, O.DTPREVSAIDA, O.CODVEICULO, O.CODPARCMOTORISTA,
+                       O.CODPARCTRANSP, O.PESOMAX
+                  FROM TGFCAB C
+                  LEFT JOIN TGFORD O ON O.CODEMP = C.CODEMP AND O.ORDEMCARGA = C.ORDEMCARGA
+                  JOIN PARAMETROS P ON P.ORDEMCARGA = C.ORDEMCARGA AND P.CODEMP = C.CODEMP
+                 WHERE C.TIPMOV = 'P'
+                   AND NOT EXISTS (SELECT 1 FROM TGFVAR V JOIN TGFCAB N ON N.NUNOTA = V.NUNOTA AND N.TIPMOV = 'V'
+                                    WHERE V.NUNOTAORIG = C.NUNOTA AND N.ORDEMCARGA = C.ORDEMCARGA)
+            ), DOC AS (
+                SELECT B.*,
+                       CASE WHEN B.TIPMOV = 'V' THEN NVL((SELECT MAX(PED.NUMNOTA) FROM TGFVAR VOR JOIN TGFCAB PED ON PED.NUNOTA = VOR.NUNOTAORIG AND PED.TIPMOV = 'P'
+                                                           WHERE VOR.NUNOTA = B.DOC_NUNOTA), B.DOC_NUMNOTA) ELSE B.DOC_NUMNOTA END AS PEDIDO_NUM,
+                       CASE WHEN B.TIPMOV = 'V' THEN B.DOC_NUMNOTA
+                            ELSE (SELECT MAX(NF.NUMNOTA) FROM TGFVAR VNF JOIN TGFCAB NF ON NF.NUNOTA = VNF.NUNOTA AND NF.TIPMOV = 'V'
+                                   WHERE VNF.NUNOTAORIG = B.DOC_NUNOTA) END AS NF_NUM,
+                       CASE WHEN B.TIPMOV = 'V' THEN NVL((SELECT MAX(PED.CODPARC) FROM TGFVAR VOR JOIN TGFCAB PED ON PED.NUNOTA = VOR.NUNOTAORIG AND PED.TIPMOV = 'P'
+                                                           WHERE VOR.NUNOTA = B.DOC_NUNOTA), B.CODPARC) ELSE B.CODPARC END AS PEDIDO_CODPARC,
+                       CASE WHEN B.TIPMOV = 'V' THEN NVL((SELECT MAX(PED.CODTIPVENDA) FROM TGFVAR VOR JOIN TGFCAB PED ON PED.NUNOTA = VOR.NUNOTAORIG AND PED.TIPMOV = 'P'
+                                                           WHERE VOR.NUNOTA = B.DOC_NUNOTA), B.CODTIPVENDA) ELSE B.CODTIPVENDA END AS PEDIDO_CODTIPVENDA,
+                       CASE WHEN B.TIPMOV = 'V' THEN NVL((SELECT MAX(PED.CODVEND) FROM TGFVAR VOR JOIN TGFCAB PED ON PED.NUNOTA = VOR.NUNOTAORIG AND PED.TIPMOV = 'P'
+                                                           WHERE VOR.NUNOTA = B.DOC_NUNOTA), B.CODVEND) ELSE B.CODVEND END AS PEDIDO_CODVEND,
+                       CASE WHEN B.TIPMOV = 'V' THEN NVL((SELECT MAX(PED.DHTIPVENDA) FROM TGFVAR VOR JOIN TGFCAB PED ON PED.NUNOTA = VOR.NUNOTAORIG AND PED.TIPMOV = 'P'
+                                                           WHERE VOR.NUNOTA = B.DOC_NUNOTA), B.DHTIPVENDA) ELSE B.DHTIPVENDA END AS PEDIDO_DHTIPVENDA
+                  FROM BASE B
+            )
+            SELECT D.ORDEMCARGA, TO_CHAR(NVL(D.DTPREVSAIDA, D.DTINIC), 'YYYY-MM-DD') AS DATA_OC, VEI.MARCAMODELO AS VEICULO, VEI.PLACA,
+                   D.PESOMAX, MOT.NOMEPARC AS MOTORISTA, D.PEDIDO_NUM, D.NF_NUM, D.PEDIDO_CODPARC AS CODPARC, VEN.APELIDO AS VENDEDORA,
+                   PAR.NOMEPARC AS CLIENTE,
+                   NVL(ENDE.TIPO || ' ', '') || NVL(ENDE.NOMEEND, '') ||
+                      CASE WHEN PAR.NUMEND IS NOT NULL THEN ', ' || PAR.NUMEND END ||
+                      CASE WHEN PAR.COMPLEMENTO IS NOT NULL THEN ' - ' || PAR.COMPLEMENTO END AS ENDERECO,
+                   BAI.NOMEBAI AS BAIRRO, CID.NOMECID AS CIDADE, PAR.TELEFONE, D.OBSERVACAO AS REFERENCIA,
+                   TPV.DESCRTIPVENDA AS CONDICAO_PAGAMENTO, D.VLRNOTA, D.PESOBRUTO
+              FROM DOC D
+              LEFT JOIN TGFVEI VEI ON VEI.CODVEICULO = D.CODVEICULO
+              LEFT JOIN TGFPAR MOT ON MOT.CODPARC = D.CODPARCMOTORISTA
+              LEFT JOIN TGFVEN VEN ON VEN.CODVEND = D.PEDIDO_CODVEND
+              LEFT JOIN TGFPAR PAR ON PAR.CODPARC = D.PEDIDO_CODPARC
+              LEFT JOIN TSIEND ENDE ON ENDE.CODEND = PAR.CODEND
+              LEFT JOIN TSIBAI BAI ON BAI.CODBAI = PAR.CODBAI
+              LEFT JOIN TSICID CID ON CID.CODCID = PAR.CODCID
+              LEFT JOIN TGFTPV TPV ON TPV.CODTIPVENDA = D.PEDIDO_CODTIPVENDA AND TPV.DHALTER = D.PEDIDO_DHTIPVENDA
+             ORDER BY D.ORDEMCARGA, D.PEDIDO_NUM, D.DOC_NUNOTA
+            """.trimIndent(),
+        )
+        return montarRomaneioEntrega(oc, linhas)
+    }
+
+    fun montarRomaneioEntrega(oc: Long, linhas: List<Map<String, String?>>): RomaneioEntrega {
+        fun dec(s: String?) = s?.trim()?.toBigDecimalOrNull()
+        fun txt(l: Map<String, String?>, k: String) = l[k]?.trim().orEmpty()
+        val primeira = linhas.firstOrNull() ?: emptyMap()
+        val pedidos = linhas.map { l ->
+            EntregaPedido(
+                pedido = txt(l, "PEDIDO_NUM"),
+                notaFiscal = txt(l, "NF_NUM"),
+                pagamento = txt(l, "CONDICAO_PAGAMENTO"),
+                valor = dec(l["VLRNOTA"]),
+                peso = dec(l["PESOBRUTO"]),
+                codParc = txt(l, "CODPARC"),
+                cliente = txt(l, "CLIENTE"),
+                endereco = txt(l, "ENDERECO"),
+                bairro = txt(l, "BAIRRO"),
+                cidade = txt(l, "CIDADE"),
+                // A observação da nota começa com "ORDEM DE CARGA: n." (gravada no faturamento) — no romaneio a OC já está no título.
+                referencia = txt(l, "REFERENCIA").replace(Regex("^${Regex.escape(PREFIXO_OC_OBSERVACAO)}\\d+\\.\\s*"), ""),
+                telefone = txt(l, "TELEFONE"),
+                vendedora = txt(l, "VENDEDORA"),
+            )
+        }
+        return RomaneioEntrega(
+            ordemCarga = primeira["ORDEMCARGA"]?.toLongOrNull() ?: oc,
+            data = txt(primeira, "DATA_OC"),
+            placa = txt(primeira, "PLACA"),
+            motorista = txt(primeira, "MOTORISTA"),
+            veiculo = txt(primeira, "VEICULO"),
+            pesoMaximo = dec(primeira["PESOMAX"])?.takeIf { it.signum() > 0 },
+            pesoTotal = pedidos.fold(BigDecimal.ZERO) { a, p -> a + (p.peso ?: BigDecimal.ZERO) },
+            pedidos = pedidos,
         )
     }
 
