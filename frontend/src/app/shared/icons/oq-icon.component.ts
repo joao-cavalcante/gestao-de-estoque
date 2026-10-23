@@ -7,7 +7,7 @@ export type OqIconName =
   | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
   | 'sun' | 'moon' | 'grid' | 'list'
   | 'seco' | 'refrigerado' | 'congelado' | 'ajuste'
-  | 'express' | 'retira' | 'entrega' | 'tv';
+  | 'express' | 'retira' | 'entrega' | 'tv' | 'grip';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -107,6 +107,10 @@ export type OqIconName =
         @case ('clock') {
           <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6" />
           <path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        }
+        @case ('grip') {
+          <!-- Alça de arrastar: seis pontos (2 colunas x 3 linhas). -->
+          <g fill="currentColor"><circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" /></g>
         }
         @case ('list-check') {
           <path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />

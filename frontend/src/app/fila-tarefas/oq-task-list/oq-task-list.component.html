@@ -2,6 +2,9 @@
   <caption class="oq-lista__caption">Fila de tarefas em lista</caption>
   <thead>
     <tr>
+      @if (arrastavel) {
+        <th scope="col" class="oq-lista__alca"><span class="oq-lista__caption">Ordem</span></th>
+      }
       @for (col of colunas; track col.titulo) {
         <th scope="col" [class]="col.classe" [attr.aria-sort]="ariaSort(col.campo)">
           @if (col.campo) {
@@ -25,9 +28,19 @@
     @for (linha of linhas; track linha.t.id) {
       <tr
         class="oq-lista__linha"
+        [attr.draggable]="arrastavel ? 'true' : null"
+        [class.oq-lista__linha--arrastavel]="arrastavel"
+        [class.oq-lista__linha--arrastando]="arrastavel && arrastando === linha.t.id"
+        (dragstart)="iniciarArraste(linha.t.id)"
+        (dragend)="iniciarArraste(null)"
+        (dragover)="sobre($event)"
+        (drop)="soltarEm($event, linha.t.id)"
         [class.oq-lista__linha--critical]="linha.t.alerta === 'critico'"
         [class.oq-lista__linha--attention]="linha.t.alerta === 'atencao'"
       >
+        @if (arrastavel) {
+          <td class="oq-lista__alca" title="Arraste para mudar a ordem"><oq-icon name="grip" [size]="16" /></td>
+        }
         <td class="oq-lista__topo" data-label="Status">
           <span class="oq-status-pin" [class]="'oq-status-pin--' + linha.st.tom">
             <oq-icon [name]="linha.st.icone" [size]="12" [class.oq-gear-spin]="linha.st.gira" />
@@ -64,8 +77,7 @@
         <td class="oq-lista__acoes" data-label="Ação">
           @switch (linha.fase) {
             @case ('carregar') {
-              <button type="button" class="oq-lista__btn" (click)="carregado.emit(linha.t)">✓ Marcar carregado</button>
-              <button type="button" class="oq-lista__btn oq-lista__btn--continuar" (click)="abrir(linha.t)">Ver itens</button>
+              <button type="button" class="oq-lista__btn" (click)="abrir(linha.t)">Iniciar carregamento</button>
             }
             @case ('nota') {
               <button type="button" class="oq-lista__btn" [title]="linha.t.notaPendente?.erro ? 'Sankhya: ' + linha.t.notaPendente?.erro : ''" (click)="faturar.emit(linha.t)">Gerar nota</button>

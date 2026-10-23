@@ -41,14 +41,14 @@ export class EtiquetaPesoComponent implements OnInit {
     return this.auth.obterTenantSlug() ?? '';
   }
 
-  /** "57797-56" (NUNOTA-OC); sem OC, só o NUNOTA. */
-  numeroUnico(e: EtiquetaPeso): string {
-    return e.ordemCarga ? `${e.nunota}-${e.ordemCarga}` : String(e.nunota);
-  }
-
   /** 15.640 -> "15,640" (sempre 3 casas — é o que a balança/o Sankhya trabalham). */
   formatarPeso(peso: string): string {
     return Number(peso).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  }
+
+  /** 3 -> "3"; 2.5 -> "2,5" (quantidade na unidade do pedido). */
+  formatarQtd(qtd: string): string {
+    return Number(qtd).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
   }
 
   ngOnInit(): void {

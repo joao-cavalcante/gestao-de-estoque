@@ -2,14 +2,17 @@
   <!-- Topo da fila em níveis (a identidade — logo/unidade/sync/operador — é o header global, app-header):
        1) KPIs da operação · 2) contexto (todas / OC aberta) · 3) progresso da OC · 4) filtros. -->
   <header class="oq-page__header oq-fila-topo">
-    <oq-kpi-bar
-      [filaTotal]="kpis().total"
-      [rotuloTotal]="escopo().tipo === 'oc' ? 'Pedidos da OC' : escopo().tipo === 'sem' ? 'Sem OC' : 'Fila'"
-      [conferir]="kpis().conferir"
-      [corte]="kpis().corte"
-      [carregar]="kpis().carregar"
-      [nota]="kpis().nota"
-    />
+    <!-- Dentro da OC a régua (Conferência / Carregamento / Concluídos) já dá os números. -->
+    @if (escopo().tipo !== 'oc') {
+      <oq-kpi-bar
+        [filaTotal]="kpis().total"
+        [rotuloTotal]="escopo().tipo === 'sem' ? 'Sem OC' : 'Fila'"
+        [conferir]="kpis().conferir"
+        [corte]="kpis().corte"
+        [carregar]="kpis().carregar"
+        [nota]="kpis().nota"
+      />
+    }
 
     <!-- 2) CONTEXTO — o mesmo bloco nos dois estados: escolhendo a OC (busca + atalhos) ou dentro da OC. -->
     <section class="oq-contexto" [class.oq-contexto--oc]="escopo().tipo === 'oc'" aria-label="Contexto da fila">
@@ -102,10 +105,23 @@
                 <button
                   type="button"
                   class="oq-progresso__etapa"
+                  [class.oq-progresso__etapa--sel]="filtroOc() === 'tudo'"
+                  title="Todos os pedidos da OC: a conferir, a carregar e concluídos"
+                  (click)="filtroOc.set('tudo')"
+                >
+                  <span class="oq-progresso__rotulo">Todos</span>
+                  <span class="oq-progresso__valor">{{ r.pedidos }}/{{ r.pedidos }}</span>
+                </button>
+              </li>
+              <li class="oq-progresso__liga" aria-hidden="true"></li>
+              <li>
+                <button
+                  type="button"
+                  class="oq-progresso__etapa"
                   [class.oq-progresso__etapa--ok]="r.conferidos === r.pedidos"
                   [class.oq-progresso__etapa--atual]="r.conferidos < r.pedidos"
-                  [class.oq-progresso__etapa--sel]="filtroAtivo() === 'conferir'"
-                  (click)="filtrarFase('conferir')"
+                  [class.oq-progresso__etapa--sel]="filtroOc() === 'conferir'"
+                  (click)="filtrarOc('conferir')"
                 >
                   <span class="oq-progresso__marca" aria-hidden="true">
                     @if (r.conferidos === r.pedidos) { <oq-icon name="check" [size]="10" /> } @else { 1 }
@@ -121,13 +137,28 @@
                   class="oq-progresso__etapa"
                   [class.oq-progresso__etapa--ok]="r.carregados === r.pedidos"
                   [class.oq-progresso__etapa--atual]="r.conferidos === r.pedidos && r.carregados < r.pedidos"
-                  [class.oq-progresso__etapa--sel]="filtroAtivo() === 'carregar'"
-                  (click)="filtrarFase('carregar')"
+                  [class.oq-progresso__etapa--sel]="filtroOc() === 'carregar'"
+                  (click)="filtrarOc('carregar')"
                 >
                   <span class="oq-progresso__marca" aria-hidden="true">
                     @if (r.carregados === r.pedidos) { <oq-icon name="check" [size]="10" /> } @else { 2 }
                   </span>
                   <span class="oq-progresso__rotulo">Carregamento</span>
+                  <span class="oq-progresso__valor">{{ r.carregados }}/{{ r.pedidos }}</span>
+                </button>
+              </li>
+              <li class="oq-progresso__liga" aria-hidden="true"></li>
+              <li>
+                <button
+                  type="button"
+                  class="oq-progresso__etapa"
+                  [class.oq-progresso__etapa--ok]="r.carregados > 0"
+                  [class.oq-progresso__etapa--sel]="filtroOc() === 'concluido'"
+                  title="Pedidos já conferidos e carregados"
+                  (click)="filtrarOc('concluido')"
+                >
+                  <span class="oq-progresso__marca" aria-hidden="true"><oq-icon name="check" [size]="10" /></span>
+                  <span class="oq-progresso__rotulo">Concluídos</span>
                   <span class="oq-progresso__valor">{{ r.carregados }}/{{ r.pedidos }}</span>
                 </button>
               </li>
@@ -145,25 +176,28 @@
               </li>
             </ol>
 
-            <div class="oq-progresso__acoes">
-              @if (r.completa) {
-                <span class="oq-progresso__msg oq-progresso__msg--ok">OC pronta para fechar.</span>
-              } @else if (r.faltaConferir.length) {
-                <span class="oq-progresso__msg" [title]="r.faltaConferir.join(', ')">Falta conferir <strong>{{ r.faltaConferir.length }}</strong></span>
-              } @else if (r.faltaCarregar.length) {
-                <span class="oq-progresso__msg" [title]="r.faltaCarregar.join(', ')">Falta carregar <strong>{{ r.faltaCarregar.length }}</strong></span>
-              }
-              @if (r.aCarregar > 0) {
-                <button type="button" class="oq-progresso__link" (click)="carregarOc()">ver itens</button>
-                <button type="button" class="oq-progresso__btn" [disabled]="salvandoCarga()" (click)="carregarTudoOc()">✓ Marcar tudo carregado ({{ r.aCarregar }})</button>
-              }
-            </div>
           }
         </section>
       }
     }
 
-    <!-- 4) FILTROS — interação/seleção (diferente dos KPIs, que são só leitura). -->
+    <!-- 4) FILTROS — interação/seleção (diferente dos KPIs, que são só leitura). Dentro da OC os filtros
+         são só Conferência e Carregamento, na régua acima. -->
+    @if (escopo().tipo === 'oc') {
+      <!-- Dentro da OC: só a busca rápida e o modo cards/lista (os filtros são a régua acima). -->
+      <div class="oq-oc-barra">
+        <label class="oq-toolbar__search">
+          <oq-icon name="search" [size]="12" />
+          <input
+            type="text"
+            placeholder="BUSCAR PEDIDO / NF / CLIENTE / Nº ÚNICO"
+            [ngModel]="termoBusca()"
+            (ngModelChange)="onBuscaChange($event)"
+          />
+        </label>
+        <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
+      </div>
+    } @else {
     <oq-toolbar
       [contagens]="contagensFase()"
       [total]="kpis().total"
@@ -189,6 +223,7 @@
       (fecharFiltrosAvancados)="dropdownFiltrosAberto.set(false)"
       (viewModeChange)="onViewModeChange($event)"
     />
+    }
   </header>
 
   @if (carregamento(); as c) {
@@ -240,50 +275,58 @@
         {{ erro() }}
         <button type="button" (click)="carregarFila()">Tentar de novo</button>
       </div>
-    } @else if (tarefasFiltradas().length === 0) {
-      <oq-empty-state />
-    } @else {
-      @if (escopo().tipo === 'oc') {
-        <!-- Dentro da OC: seções na ordem do fluxo (Prontos recolhidos), sem paginação. -->
-        <div class="oq-fases" #rolagem>
-          @for (g of gruposOc(); track g.fase) {
-            <section class="oq-fase" [class]="'oq-fase oq-fase--' + g.fase">
-              <button
-                type="button"
-                class="oq-fase__cab"
-                [disabled]="g.fase !== 'pronto'"
-                (click)="prontosAbertos.set(!prontosAbertos())"
-              >
-                <span class="oq-fase__nome">{{ rotuloFase[g.fase] }}</span>
-                <span class="oq-fase__qtd">{{ g.tarefas.length }}</span>
-                @if (g.fase === 'pronto') {
-                  <span class="oq-fase__toggle">{{ prontosAbertos() ? 'recolher' : 'mostrar' }}</span>
-                }
-              </button>
-              @if (g.fase !== 'pronto' || prontosAbertos()) {
-                @if (viewMode() === 'cards') {
-                  <div class="oq-page__grid oq-fase__grid">
-                    @for (tarefa of g.tarefas; track tarefa.id) {
-                      <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" />
-                    }
-                  </div>
-                } @else {
-                  <div class="oq-page__lista oq-fase__lista">
-                    <oq-task-list
-                      [tarefas]="g.tarefas"
-                      [ordenacao]="ordenacao()"
-                      (conferir)="onConferir($event)"
-                      (carregado)="onCarregado($event)"
-                      (faturar)="onFaturar($event)"
-                      (ordenar)="onOrdenar($event)"
-                    />
-                  </div>
-                }
-              }
-            </section>
+    } @else if (escopo().tipo === 'oc') {
+      <!-- Dentro da OC: uma tela só (filtros na régua + busca rápida). Nos cards a ordem é do operador:
+           arrasta o card; fica salva no navegador, por OC. -->
+      @if (tarefasOc().length === 0) {
+        <div class="oq-page__status">
+          {{ termoBusca().trim() ? 'Nenhum pedido com essa busca.' : filtroOc() === 'concluido' ? 'Nenhum pedido concluído nesta OC.' : filtroOc() === 'conferir' ? 'Nada a conferir nesta OC.' : filtroOc() === 'carregar' ? 'Nada a carregar nesta OC.' : 'Nenhum pedido nesta OC.' }}
+        </div>
+      } @else if (viewMode() === 'list') {
+        <div class="oq-page__lista oq-oc-secoes" #rolagem>
+          @for (g of gruposOc(); track g.chave) {
+            <h2 class="oq-oc-secao" [class]="'oq-oc-secao oq-oc-secao--' + g.chave">
+              {{ g.titulo }} <span class="oq-oc-secao__qtd">{{ g.tarefas.length }}</span>
+            </h2>
+            <oq-task-list
+              [tarefas]="g.tarefas"
+              [ordenacao]="null"
+              [arrastavel]="true"
+              [arrastando]="arrastando()"
+              (arrastarInicio)="arrastando.set($event)"
+              (soltar)="soltarCardOc($event)"
+              (conferir)="onConferir($event)"
+              (carregado)="onCarregado($event)"
+              (faturar)="onFaturar($event)"
+            />
           }
         </div>
       } @else {
+        <div class="oq-page__grid oq-oc-cards" #rolagem>
+          @for (g of gruposOc(); track g.chave) {
+          <h2 class="oq-oc-secao" [class]="'oq-oc-secao oq-oc-secao--' + g.chave">
+            {{ g.titulo }} <span class="oq-oc-secao__qtd">{{ g.tarefas.length }}</span>
+          </h2>
+          @for (tarefa of g.tarefas; track tarefa.id) {
+            <div
+              class="oq-oc-card"
+              draggable="true"
+              [class.oq-oc-card--arrastando]="arrastando() === tarefa.id"
+              (dragstart)="arrastando.set(tarefa.id); $event.dataTransfer?.setData('text/plain', tarefa.id)"
+              (dragend)="arrastando.set(null)"
+              (dragover)="$event.preventDefault()"
+              (drop)="$event.preventDefault(); soltarCardOc(tarefa.id)"
+            >
+              <span class="oq-oc-card__alca" title="Arraste para mudar a ordem" aria-hidden="true"><oq-icon name="grip" [size]="16" /></span>
+              <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" />
+            </div>
+          }
+          }
+        </div>
+      }
+    } @else if (tarefasFiltradas().length === 0) {
+      <oq-empty-state />
+    } @else {
         <!-- Mesma página já filtrada/ordenada nos dois modos — só a renderização muda. -->
         @if (viewMode() === 'cards') {
           <div class="oq-page__grid" #rolagem>
@@ -312,7 +355,6 @@
           (paginaChange)="irParaPagina($event)"
           (itensPorPaginaChange)="onItensPorPaginaChange($event)"
         />
-      }
     }
   </main>
 

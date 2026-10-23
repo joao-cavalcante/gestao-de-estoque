@@ -158,6 +158,9 @@ object SeparacaoLeiturasTable : Table("app.separacao_leituras") {
     val codigoBarra = text("codigo_barra").nullable()
     val qtd = decimal("qtd", 15, 5)
     val peso = decimal("peso", 15, 5).nullable()
+    /** V61 — quantidade na unidade do pedido (CX, UN, PC) informada na pesagem do pesável. Só registro/etiqueta. */
+    val qtdComercial = decimal("qtd_comercial", 15, 5).nullable()
+    val unidadeComercial = text("unidade_comercial").nullable()
     val criadoEm = timestamp("criado_em")
 
     override val primaryKey = PrimaryKey(id)
@@ -237,6 +240,9 @@ object EtiquetasPesoTable : Table("app.etiquetas_peso") {
     /** V44 — etiqueta emitida numa recontagem, no lugar da etiqueta do item na conferência original. */
     val correcao = bool("correcao").default(false)
     val substituiNumero = long("substitui_numero").nullable()
+    /** V61 — soma da quantidade comercial das pesagens do item (null = não informada). */
+    val qtdComercial = decimal("qtd_comercial", 15, 5).nullable()
+    val unidadeComercial = text("unidade_comercial").nullable()
     val impressoes = integer("impressoes")
     val criadoEm = timestamp("criado_em")
     val ultimaImpressaoEm = timestamp("ultima_impressao_em")

@@ -82,6 +82,13 @@
   --oq-aguardando-foreground: #2C5378;
   --oq-concluido: #2E7D4F;
   --oq-concluido-foreground: #1F5C39;
+  /* Etiquetas da fila que antes repetiam cor de outra: aguardando carregamento, carregado, NF pendente. */
+  --oq-carregar: #8B5E34;
+  --oq-carregar-foreground: #6B4423;
+  --oq-carregado: #4D7C0F;
+  --oq-carregado-foreground: #3F6212;
+  --oq-nf-pendente: #475569;
+  --oq-nf-pendente-foreground: #334155;
 
   --oq-success-foreground: #2F4137;
   --oq-success-soft: #E4EAE6;
@@ -121,6 +128,12 @@
   --oq-aguardando-foreground: #A8C8EC;
   --oq-concluido: #4CAF7A;
   --oq-concluido-foreground: #9FD9B6;
+  --oq-carregar: #D4A373;
+  --oq-carregar-foreground: #EBD2B4;
+  --oq-carregado: #A3CF4A;
+  --oq-carregado-foreground: #D4EDA2;
+  --oq-nf-pendente: #94A3B8;
+  --oq-nf-pendente-foreground: #CBD5E1;
 
   --oq-success-foreground: #A9C2B2;
   --oq-success-soft: #1C2620;
@@ -198,7 +211,10 @@ body {
   &--recontagem { --pin-cor: var(--oq-recontagem); --pin-texto: var(--oq-recontagem-foreground); }
   &--corte { --pin-cor: var(--oq-critical); --pin-texto: var(--oq-critical-foreground); }
   &--concluido { --pin-cor: var(--oq-concluido); --pin-texto: var(--oq-concluido-foreground); }
-  &--nota { --pin-cor: var(--oq-brand-accent); --pin-texto: var(--oq-brand-accent); }
+  &--nota { --pin-cor: var(--oq-brand-accent); --pin-texto: var(--oq-brand-text); }
+  &--carregar { --pin-cor: var(--oq-carregar); --pin-texto: var(--oq-carregar-foreground); }
+  &--carregado { --pin-cor: var(--oq-carregado); --pin-texto: var(--oq-carregado-foreground); }
+  &--nf-pendente { --pin-cor: var(--oq-nf-pendente); --pin-texto: var(--oq-nf-pendente-foreground); }
 }
 
 @keyframes oq-spin {

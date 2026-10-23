@@ -891,6 +891,8 @@ object SeparacaoRepository {
         peso: BigDecimal? = null,
         codvolEscanado: String? = null,
         codigoBarra: String? = null,
+        qtdComercial: BigDecimal? = null,
+        unidadeComercial: String? = null,
     ): ItemConferidoResultado? =
         TenantTx.run(tenantId) {
             val controle = controleInformado.trim().ifEmpty { " " }
@@ -937,6 +939,8 @@ object SeparacaoRepository {
                 it[SeparacaoLeiturasTable.codigoBarra] = codigoBarra?.trim()?.takeIf { c -> c.isNotEmpty() }
                 it[SeparacaoLeiturasTable.qtd] = qtd
                 it[SeparacaoLeiturasTable.peso] = peso
+                it[SeparacaoLeiturasTable.qtdComercial] = qtdComercial
+                it[SeparacaoLeiturasTable.unidadeComercial] = unidadeComercial
                 it[criadoEm] = agora
             }
 
@@ -1683,6 +1687,8 @@ object SeparacaoRepository {
         cliente: String,
         nova: Boolean,
         correcao: Boolean = false,
+        qtdComercial: BigDecimal? = null,
+        unidadeComercial: String? = null,
     ): EtiquetaPesoDto = TenantTx.run(tenantId) {
         val pesoKg = peso.setScale(3, RoundingMode.HALF_UP)
         val agora = Instant.now()
@@ -1691,14 +1697,18 @@ object SeparacaoRepository {
             (EtiquetasPesoTable.ativa eq true)
         val existente = EtiquetasPesoTable.selectAll().where { chave }.singleOrNull()
 
-        if (existente != null && !nova && existente[EtiquetasPesoTable.peso].compareTo(pesoKg) == 0) {
+        // Quantidade comercial mudou (nova pesagem/estorno) também gera etiqueta nova — a impressa ficaria errada.
+        val qtdAnterior = existente?.get(EtiquetasPesoTable.qtdComercial)
+        val mesmaQtd = if (qtdAnterior == null || qtdComercial == null) qtdAnterior == qtdComercial else qtdAnterior.compareTo(qtdComercial) == 0
+        if (existente != null && !nova && existente[EtiquetasPesoTable.peso].compareTo(pesoKg) == 0 && mesmaQtd) {
             val impressoes = existente[EtiquetasPesoTable.impressoes] + 1
             EtiquetasPesoTable.update({ EtiquetasPesoTable.id eq existente[EtiquetasPesoTable.id] }) {
                 it[EtiquetasPesoTable.impressoes] = impressoes
                 it[ultimaImpressaoEm] = agora
             }
             return@run etiquetaPesoDto(existente[EtiquetasPesoTable.numero], existente[EtiquetasPesoTable.produto], pesoKg, existente[EtiquetasPesoTable.cliente], nunota, codprod, controle, true, impressoes,
-                existente[EtiquetasPesoTable.correcao], existente[EtiquetasPesoTable.substituiNumero])
+                existente[EtiquetasPesoTable.correcao], existente[EtiquetasPesoTable.substituiNumero],
+                existente[EtiquetasPesoTable.qtdComercial], existente[EtiquetasPesoTable.unidadeComercial])
         }
 
         if (existente != null) {
@@ -1728,17 +1738,21 @@ object SeparacaoRepository {
             it[ativa] = true
             it[EtiquetasPesoTable.correcao] = correcao
             it[substituiNumero] = substitui
+            it[EtiquetasPesoTable.qtdComercial] = qtdComercial
+            it[EtiquetasPesoTable.unidadeComercial] = unidadeComercial
             it[impressoes] = 1
             it[criadoEm] = agora
             it[ultimaImpressaoEm] = agora
         }
-        etiquetaPesoDto(stmt[EtiquetasPesoTable.numero], produto, pesoKg, cliente, nunota, codprod, controle, false, 1, correcao, substitui)
+        etiquetaPesoDto(stmt[EtiquetasPesoTable.numero], produto, pesoKg, cliente, nunota, codprod, controle, false, 1, correcao, substitui,
+            qtdComercial, unidadeComercial)
     }
 
     private fun etiquetaPesoDto(
         numero: Long, produto: String, peso: BigDecimal, cliente: String, nunota: Long,
         codprod: Int, controle: String, reimpressao: Boolean, impressoes: Int,
         correcao: Boolean = false, substituiNumero: Long? = null,
+        qtdComercial: BigDecimal? = null, unidadeComercial: String? = null,
     ) = EtiquetaPesoDto(
         numero = numero,
         numeroFormatado = numero.toString().padStart(11, '0'),
@@ -1752,6 +1766,8 @@ object SeparacaoRepository {
         impressoes = impressoes,
         correcao = correcao,
         substituiFormatado = substituiNumero?.toString()?.padStart(11, '0'),
+        qtdComercial = qtdComercial?.stripTrailingZeros()?.toPlainString(),
+        unidadeComercial = unidadeComercial.takeIf { qtdComercial != null },
     )
 
     /**
@@ -1784,6 +1800,14 @@ object SeparacaoRepository {
         // antes). Excluir esse item do mapa de match fazia ele cair sempre
         // pra liberação manual na recontagem, mesmo sendo pesável dentro da
         // tolerância — bug real, não limitação do Sankhya.
+        // V61 — quantidade comercial informada nas pesagens, por produto+controle (mesma chave das leituras).
+        val qtdComercialPorItem = SeparacaoLeiturasTable.selectAll()
+            .where {
+                (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) and
+                    SeparacaoLeiturasTable.qtdComercial.isNotNull()
+            }
+            .groupBy({ it[SeparacaoLeiturasTable.codprod] to it[SeparacaoLeiturasTable.controle] }, { it[SeparacaoLeiturasTable.qtdComercial]!! })
+            .mapValues { (_, qtds) -> qtds.fold(BigDecimal.ZERO, BigDecimal::add) }
         SeparacaoItensTable.selectAll()
             .where {
                 (SeparacaoItensTable.tenantId eq tenantId) and
@@ -1820,6 +1844,8 @@ object SeparacaoRepository {
                     quantidadeComercial = padraoParaComercial(qtdNeg, divideMult, fator).toPlainString(),
                     quantidadePadraoConferida = qtdConf.toPlainString(),
                     quantidadeComercialConferida = padraoParaComercial(qtdConf, divideMult, fator).toPlainString(),
+                    qtdComercialInformada = qtdComercialPorItem[row[SeparacaoItensTable.codprod] to row[SeparacaoItensTable.controle]]
+                        ?.stripTrailingZeros()?.toPlainString(),
                     conversao = descreverConversao(unidadeComercial, unidadePadrao, divideMult, fator),
                 )
             }

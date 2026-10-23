@@ -143,6 +143,7 @@ function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
     unidadePadrao,
     unidadeComercial,
     quantidadeComercial: item.quantidadeComercial != null ? Number(item.quantidadeComercial) : undefined,
+    qtdComercialInformada: item.qtdComercialInformada != null ? Number(item.qtdComercialInformada) : undefined,
     conversao: item.conversao ?? undefined,
   };
 }

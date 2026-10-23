@@ -72,8 +72,9 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
                 <span class="ck-div">⚠ {{ motivo(i) }}</span>
               }
               @if (i.pesavel) {
-                @if (pedidoComercial(i); as pc) {
-                  <span class="ck-qtd ck-qtd--pedido" title="Quantidade no pedido">{{ pc }}</span>
+                @if (pecas(i); as pc) {
+                  <span class="ck-qtd ck-qtd--pedido" [class.ck-qtd--difere]="pc.difere"
+                    [title]="pc.informada ? 'Peças informadas na pesagem / pedido' : 'Quantidade no pedido'">{{ pc.texto }}</span>
                 }
                 <span class="ck-peso" title="Pesável — peso conferido">
                   <oq-icon name="balanca" [size]="13" />
@@ -129,6 +130,7 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
       .ck-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ck-qtd { flex: none; font-family: var(--oq-font-mono); font-weight: 600; white-space: nowrap; }
       .ck-qtd--pedido { font-weight: 700; }
+      .ck-qtd--difere { color: var(--oq-critical-foreground); }
       .ck-base { display: block; font-weight: 400; font-size: 0.8em; opacity: 0.7; text-align: right; }
       .ck-div { flex: none; padding: 1px 6px; border-radius: var(--oq-radius-input); background: var(--oq-critical); color: #fff;
         font-family: var(--oq-font-display); font-size: 10px; font-weight: 700; }
@@ -223,12 +225,19 @@ export class OqConferidosChecklistComponent implements OnChanges {
   }
 
   /**
-   * Pesável vendido em unidade comercial (ex.: CX): "3 CX" do pedido ao lado do peso. Sem unidade
+   * Pesável vendido em unidade comercial (ex.: CX): "3 / 3 CX" (peças informadas na pesagem / pedido) ao
+   * lado do peso; sem peças informadas (pesagem antiga), só "3 CX" do pedido. Sem unidade
    * comercial diferente da base (vendido em KG), não mostra — o peso já diz tudo.
    */
-  pedidoComercial(i: ReconferenciaItem): string | null {
+  pecas(i: ReconferenciaItem): { texto: string; informada: boolean; difere: boolean } | null {
     if (!i.unidadeComercial || !i.qtdPedidoComercial || i.unidadeComercial === i.unidade) return null;
-    return `${this.fmt(i.qtdPedidoComercial, 0)} ${i.unidadeComercial}`;
+    const pedido = this.fmt(i.qtdPedidoComercial, 0);
+    if (i.qtdInformadaComercial == null) return { texto: `${pedido} ${i.unidadeComercial}`, informada: false, difere: false };
+    return {
+      texto: `${this.fmt(i.qtdInformadaComercial, 0)} / ${pedido} ${i.unidadeComercial}`,
+      informada: true,
+      difere: Number(i.qtdInformadaComercial) !== Number(i.qtdPedidoComercial),
+    };
   }
 
   /** Item NÃO pesável negociado numa unidade diferente da base (ex.: CX com base KG) — mesma regra da Conferência. */

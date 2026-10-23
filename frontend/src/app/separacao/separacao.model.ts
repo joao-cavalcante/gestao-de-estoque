@@ -149,6 +149,9 @@ export interface EtiquetaPeso {
   /** Código e UF do cliente (bloco CLIENTE, igual à etiqueta de volume). */
   codParc?: number | null;
   uf?: string | null;
+  /** Soma da quantidade comercial das pesagens do item (V61) e a unidade do pedido — null = não informada. */
+  qtdComercial?: string | null;
+  unidadeComercial?: string | null;
 }
 
 export interface EtiquetasPesoResposta {
@@ -278,6 +281,8 @@ export interface ItemSeparacao {
   quantidadePadrao: string | null;
   quantidadeComercialConferida: string | null;
   quantidadePadraoConferida: string | null;
+  /** Pesável: soma da quantidade comercial informada nas pesagens (V61); null = nenhuma. */
+  qtdComercialInformada?: string | null;
   /** Observação "CX com 12 BI" (fator da TGFVOA); null = sem conversão. Só display. */
   conversao?: string | null;
 }

@@ -1742,6 +1742,8 @@ object SeparacaoService {
                     cliente = cliente,
                     nova = nova && codprod != null,
                     correcao = sessao.recontagem,
+                    qtdComercial = item.qtdComercialInformada?.toBigDecimalOrNull(),
+                    unidadeComercial = item.unidadeComercial,
                 ).copy(ordemCarga = ordemCarga, codParc = codparc, uf = uf.ifBlank { null })
             }
         }

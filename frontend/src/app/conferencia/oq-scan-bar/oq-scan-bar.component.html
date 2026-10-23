@@ -164,7 +164,7 @@
                   placeholder="0,000"
                   autocomplete="off"
                   class="oq-peso-modal__peso-input"
-                  (keydown.enter)="$event.preventDefault(); confirmarPeso()"
+                  (keydown.enter)="$event.preventDefault(); onPesoEnter()"
                 />
                 <span class="oq-peso-modal__peso-un">KG</span>
               </div>
@@ -283,6 +283,39 @@
                 <oq-icon name="check" [size]="12" />
                 Peso capturado: {{ pesoLidoN | number: '1.3-3' }} kg
               </span>
+            }
+          </div>
+        }
+
+        <!-- 3b. Quantidade na unidade do pedido (V61): obrigatória quando o pedido não é em KG. -->
+        @if (unidadeQtdComercial) {
+          <div class="oq-peso-modal__secao oq-peso-modal__qtd-comercial">
+            <label class="oq-peso-modal__rotulo" for="qtdComercialModal">Quantidade conferida</label>
+            <div class="oq-peso-modal__peso-row">
+              <div class="oq-peso-modal__peso-box">
+                <input
+                  #inputQtdComercial
+                  id="qtdComercialModal"
+                  [(ngModel)]="qtdComercial"
+                  name="qtdComercialModal"
+                  inputmode="decimal"
+                  placeholder="0"
+                  autocomplete="off"
+                  class="oq-peso-modal__peso-input"
+                  (ngModelChange)="erroQtdComercial = null"
+                  (keydown.enter)="$event.preventDefault(); confirmarPeso()"
+                />
+                <span class="oq-peso-modal__peso-un">{{ unidadeQtdComercial }}</span>
+              </div>
+            </div>
+            @if (faltaQtdComercial != null) {
+              <span class="oq-peso-modal__ajuda">
+                Obrigatório. Unidade do pedido.
+                {{ faltaQtdComercial > 0 ? 'Faltam ' + (faltaQtdComercial | number: '1.0-3') + ' ' + unidadeQtdComercial + '.' : 'Pedido já completo nesta unidade.' }}
+              </span>
+            }
+            @if (erroQtdComercial) {
+              <span class="oq-peso-modal__msg oq-peso-modal__msg--err">{{ erroQtdComercial }}</span>
             }
           </div>
         }

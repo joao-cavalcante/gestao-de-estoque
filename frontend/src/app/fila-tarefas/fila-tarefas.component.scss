@@ -302,59 +302,75 @@
   &:disabled { opacity: 0.5; cursor: default; }
 }
 
-// ─── Dentro da OC: seções por fase, na ordem do fluxo ───
-.oq-fases {
+// Busca rápida + cards/lista dentro da OC (no lugar da barra de filtros).
+.oq-oc-barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+
+  .oq-toolbar__search { flex: 1; max-width: 420px; }
+}
+
+// ─── Dentro da OC: cards do que falta, na ordem do operador (arrastar) ───
+.oq-oc-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  // Dentro da OC quem rola é esta área (o conteúdo da página é overflow: hidden, igual à grade de cards).
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 8px;
+  min-width: 0;
+  cursor: grab;
+
+  > oq-task-card { flex: 1; }
 }
-.oq-fase { display: flex; flex-direction: column; gap: 10px; }
-.oq-fase__cab {
+.oq-oc-card--arrastando { opacity: 0.4; }
+// Alça de seis pontos no canto do card, indicando que dá pra arrastar.
+.oq-oc-card { position: relative; }
+.oq-oc-card__alca {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 32px;
+  transform: translateY(-50%);
+  color: var(--oq-text-secondary);
+  pointer-events: none;
+}
+
+// Quebra entre as seções da OC: título com faixa colorida ocupando a linha inteira da grade.
+.oq-oc-secao {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 10px;
+  margin: 10px 0 0;
   padding: 0 0 6px;
-  border: 0;
-  border-bottom: 2px solid var(--fase-cor, var(--oq-border));
-  background: none;
+  border-bottom: 3px solid var(--secao-cor, var(--oq-border-strong));
   color: var(--oq-text-primary);
-  text-align: left;
-  cursor: pointer;
-
-  &:disabled { cursor: default; }
-}
-.oq-fase__nome {
   font-family: var(--oq-font-display);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+
+  &:first-child { margin-top: 0; }
 }
-.oq-fase__qtd {
+.oq-oc-secao__qtd {
   min-width: 24px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  background: var(--fase-cor, var(--oq-border));
+  background: var(--secao-cor, var(--oq-border-strong));
   color: #fff;
   font-family: var(--oq-font-mono);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
   text-align: center;
 }
-.oq-fase__toggle { margin-left: auto; font-family: var(--oq-font-mono); font-size: 11px; color: var(--oq-brand-accent); text-decoration: underline; }
-.oq-fase--conferir { --fase-cor: var(--oq-aguardando); }
-.oq-fase--corte { --fase-cor: var(--oq-critical); }
-.oq-fase--carregar { --fase-cor: var(--oq-attention); }
-.oq-fase--fechamento { --fase-cor: var(--oq-brand); }
-.oq-fase--nota { --fase-cor: var(--oq-brand-accent); }
-.oq-fase--pronto { --fase-cor: var(--oq-concluido); }
-// Cada seção cresce com seus cards; a rolagem é da .oq-fases inteira.
-.oq-fase__grid, .oq-fase__lista { flex: none; overflow: visible; }
+.oq-oc-secao--conferir { --secao-cor: var(--oq-aguardando); }
+.oq-oc-secao--carregar { --secao-cor: var(--oq-carregar); }
+.oq-oc-secao--concluido { --secao-cor: var(--oq-carregado); }
+.oq-oc-secoes .oq-oc-secao { margin-bottom: 6px; }
+.oq-oc-secoes .oq-oc-secao:not(:first-child) { margin-top: 18px; }
 
 // Pop-up de carregamento (um bloco por pedido)
 .oq-carga__body { display: flex; flex-direction: column; gap: 18px; max-height: 70vh; overflow: auto; }
@@ -368,5 +384,5 @@
   .oq-contexto__transp { max-width: 100%; }
   .oq-progresso__liga { width: 10px; }
   .oq-progresso__acoes { margin-left: 0; }
-  .oq-fases { padding: 0 12px; }
+  .oq-oc-barra { padding: 8px 16px; }
 }

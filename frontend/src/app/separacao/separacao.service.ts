@@ -110,6 +110,8 @@ export class SeparacaoService {
     peso?: number,
     codvol?: string | null,
     codigoBarra?: string | null,
+    qtdComercial?: number | null,
+    unidadeComercial?: string | null,
   ): Observable<ItemConferido> {
     return this.http.post<ItemConferido>(
       `${this.baseUrl}/sessoes/${sessaoId}/conferir`,
@@ -120,6 +122,8 @@ export class SeparacaoService {
         peso: peso != null ? String(peso) : null,
         codvol: codvol ?? null,
         codigoBarra: codigoBarra ?? null,
+        qtdComercial: qtdComercial != null ? String(qtdComercial) : null,
+        unidadeComercial: qtdComercial != null ? (unidadeComercial ?? null) : null,
       },
       { params: { tenant } },
     );

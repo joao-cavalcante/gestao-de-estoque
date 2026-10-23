@@ -11,7 +11,7 @@ export interface StatusVisual {
   label: string;
   gira: boolean;
   /** Modificador da etiqueta colorida (.oq-status-pin--{tom}, styles.scss). */
-  tom: 'aguardando' | 'andamento' | 'corte' | 'concluido' | 'recontagem' | 'nota';
+  tom: 'aguardando' | 'andamento' | 'corte' | 'concluido' | 'recontagem' | 'nota' | 'carregar' | 'carregado' | 'nf-pendente';
 }
 
 const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
@@ -33,12 +33,13 @@ export function statusVisual(tarefa: Tarefa): StatusVisual {
       icone: tom === 'ok' ? 'check' : tom === 'erro' ? 'circle-alert' : 'receipt',
       label: `NF ${nota.numero ?? nota.nunota} · ${nota.situacao.toUpperCase()}`,
       gira: false,
-      tom: tom === 'ok' ? 'concluido' : tom === 'erro' ? 'corte' : 'andamento',
+      tom: tom === 'ok' ? 'concluido' : tom === 'erro' ? 'corte' : 'nf-pendente',
     };
   }
   // Depois de conferida, sem nota: a etapa do fluxo (mesmos nomes de pílulas, KPIs e régua).
-  if (fase === 'carregar') return { icone: 'entrega', label: 'AGUARDANDO CARREGAMENTO', gira: false, tom: 'andamento' };
-  if (fase === 'fechamento') return { icone: 'entrega', label: 'CARREGADO', gira: false, tom: 'nota' };
+  // Cada etiqueta com cor própria (usuário, 23/10/2026): carregamento e carregado não repetem a do andamento/nota.
+  if (fase === 'carregar') return { icone: 'entrega', label: 'AGUARDANDO CARREGAMENTO', gira: false, tom: 'carregar' };
+  if (fase === 'fechamento') return { icone: 'entrega', label: 'CARREGADO', gira: false, tom: 'carregado' };
   if (fase === 'nota') return { icone: 'receipt', label: 'AGUARDANDO NOTA', gira: false, tom: 'nota' };
   if (fase === 'pronto') return { icone: 'check', label: 'CONCLUÍDO', gira: false, tom: 'concluido' };
   // "aguardando_recontagem" cai no mesmo bucket 'aguardando' de uma nota

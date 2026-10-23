@@ -49,6 +49,14 @@ export class OqTaskListComponent {
   /** "Gerar nota" — abre o modal de faturamento (TOP por pedido). */
   @Output() faturar = new EventEmitter<Tarefa>();
 
+  /** Tela da OC: linhas arrastáveis pra o operador montar a ordem (o pai guarda a ordem). */
+  @Input() arrastavel = false;
+  /** Id da linha sendo arrastada (vem do pai — vale entre as tabelas das seções). */
+  @Input() arrastando: string | null = null;
+  @Output() arrastarInicio = new EventEmitter<string | null>();
+  /** Soltou sobre a linha [id]. */
+  @Output() soltar = new EventEmitter<string>();
+
   readonly tomNota = tomNota;
 
   readonly colunas: Coluna[] = [
@@ -78,6 +86,21 @@ export class OqTaskListComponent {
 
   abrir(t: Tarefa): void {
     this.conferir.emit(t);
+  }
+
+  iniciarArraste(id: string | null): void {
+    if (this.arrastavel) this.arrastarInicio.emit(id);
+  }
+
+  /** Permite soltar sobre a linha (sem isso o navegador recusa o drop). */
+  sobre(ev: DragEvent): void {
+    if (this.arrastavel) ev.preventDefault();
+  }
+
+  soltarEm(ev: DragEvent, id: string): void {
+    if (!this.arrastavel) return;
+    ev.preventDefault();
+    this.soltar.emit(id);
   }
 
   conferirEtapa(t: Tarefa, tipo: number): void {

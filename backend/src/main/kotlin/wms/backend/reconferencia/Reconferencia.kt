@@ -70,6 +70,8 @@ data class ReconferenciaItemDto(
     val qtdConferidaComercial: String? = null,
     /** Observação "CX com 12 BI" (fator da TGFVOA); null = sem conversão. Só display. */
     val conversao: String? = null,
+    /** Pesável: peças (unidade do pedido) informadas nas pesagens — soma das leituras; null = nada informado. */
+    val qtdInformadaComercial: String? = null,
     val pesavel: Boolean,
     /** Item do pedido com NADA conferido — aparece no checklist como alerta (sem check; não entra no x/y). */
     val naoConferido: Boolean = false,
@@ -136,6 +138,18 @@ object ReconferenciaService {
         val checks = ReconferenciaChecksTable.selectAll()
             .where { (ReconferenciaChecksTable.tenantId eq tenantId) and (ReconferenciaChecksTable.sessaoId eq sessaoId) }
             .associateBy { it[ReconferenciaChecksTable.codprod] to it[ReconferenciaChecksTable.controle] }
+        val pecasInformadas = wms.backend.separacao.SeparacaoLeiturasTable.selectAll()
+            .where {
+                (wms.backend.separacao.SeparacaoLeiturasTable.tenantId eq tenantId) and
+                    (wms.backend.separacao.SeparacaoLeiturasTable.sessaoId eq sessaoId)
+            }
+            .mapNotNull { l ->
+                l[wms.backend.separacao.SeparacaoLeiturasTable.qtdComercial]?.let {
+                    (l[wms.backend.separacao.SeparacaoLeiturasTable.codprod] to l[wms.backend.separacao.SeparacaoLeiturasTable.controle].trim()) to it
+                }
+            }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, qtds) -> qtds.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add) }
         // Uma linha por produto+controle (soma das linhas do pedido). Item do pedido com NADA conferido
         // também vem (naoConferido) — no carregamento é a última chance de ver o que ficou pra trás.
         val itens = SeparacaoItensTable.selectAll()
@@ -177,6 +191,8 @@ object ReconferenciaService {
                         r[SeparacaoItensTable.unidadePadrao] ?: r[SeparacaoItensTable.codvol],
                         r[SeparacaoItensTable.divideMultiplica], r[SeparacaoItensTable.fatorConversao],
                     ),
+                    qtdInformadaComercial = pecasInformadas[chave]
+                        ?.takeIf { r[SeparacaoItensTable.usaConfPeso] }?.stripTrailingZeros()?.toPlainString(),
                     pesavel = r[SeparacaoItensTable.usaConfPeso],
                     naoConferido = conferida.signum() <= 0,
                     checado = check != null && conferida.signum() > 0,

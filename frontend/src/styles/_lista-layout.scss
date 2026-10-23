@@ -984,3 +984,8 @@ a.oq-lista__btn {
 .oq-nota--ok { color: var(--oq-success-foreground); }
 .oq-nota--espera { color: var(--oq-warning-foreground); }
 .oq-nota--erro { color: var(--oq-critical-foreground); }
+
+/* Tela da OC: linha da lista arrastável pra ordenar. */
+.oq-lista__linha--arrastavel { cursor: grab; }
+.oq-lista__alca { width: 24px; padding-left: 4px !important; padding-right: 0 !important; color: var(--oq-text-secondary); }
+.oq-lista__linha--arrastando { opacity: 0.4; }

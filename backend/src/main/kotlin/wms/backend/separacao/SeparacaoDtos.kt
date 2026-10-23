@@ -294,6 +294,9 @@ data class ConferirItemRequest(
     val codvol: String? = null,
     /** Código de barras escanado de fato — grava em separacao_leituras.codigo_barra e vai pro CODBARRA do Sankhya. */
     val codigoBarra: String? = null,
+    /** Pesável: quantidade na unidade do pedido informada no pop-up de pesagem (V61). Não vai pro Sankhya. */
+    val qtdComercial: String? = null,
+    val unidadeComercial: String? = null,
 )
 
 @Serializable
@@ -372,6 +375,8 @@ data class ItemSeparacaoDto(
     val quantidadeComercial: String? = null,
     val quantidadePadrao: String? = null,
     val quantidadeComercialConferida: String? = null,
+    /** Pesável: soma da quantidade comercial informada nas pesagens do produto+controle (V61); null = nenhuma. */
+    val qtdComercialInformada: String? = null,
     val quantidadePadraoConferida: String? = null,
     /** Observação "CX com 12 BI" (fator da TGFVOA) pro operador se localizar; null = sem conversão. Só display. */
     val conversao: String? = null,
@@ -401,6 +406,9 @@ data class EtiquetaPesoDto(
     /** Código e UF do cliente — mesmo bloco CLIENTE da etiqueta de volume. */
     val codParc: Int? = null,
     val uf: String? = null,
+    /** Soma da quantidade comercial das pesagens do item (V61), plain string — null = não informada. */
+    val qtdComercial: String? = null,
+    val unidadeComercial: String? = null,
 )
 
 @Serializable

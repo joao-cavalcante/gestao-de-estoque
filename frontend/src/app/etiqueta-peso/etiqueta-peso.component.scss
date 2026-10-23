@@ -85,12 +85,67 @@
   letter-spacing: 0;
 }
 
+/* QUANTIDADE (destaque) | PESO — mesma linha da grade que o PESO sozinho ocupa. */
+.ep__qtd-peso {
+  @include et-secao;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 3mm;
+  padding: 1.2mm 0;
+}
+
+.ep__qtd,
+.ep__peso-lado {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5mm;
+}
+
+.ep__peso-lado { border-left: 0.4mm solid #000; padding-left: 3mm; }
+
+.ep__qtd-valor {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  font-size: 17mm;
+  font-weight: 900;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.ep__peso-lado-valor {
+  display: flex;
+  align-items: baseline;
+  gap: 1mm;
+  font-size: 8mm;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ep__peso-lado-un {
+  font-size: 4mm;
+  font-weight: 700;
+}
+
 .ep__unico {
   @include et-secao;
+  display: grid;
+  grid-template-columns: 1fr;
+  padding-top: 1.5mm;
+
+  &--com-oc { grid-template-columns: 62fr 32fr; gap: 3mm; }
+}
+
+.ep__unico-campo {
   display: flex;
   flex-direction: column;
   gap: 1.2mm;
-  padding-top: 1.5mm;
+  min-width: 0;
+
+  &--oc { border-left: 0.4mm solid #000; padding-left: 3mm; }
 }
 
 

@@ -511,6 +511,11 @@
 }
 
 /* 4. Tara — secundária: campos pequenos numa linha, separada por um fio. */
+.oq-peso-modal__ajuda {
+  font-size: 12px;
+  color: var(--oq-text-muted, #6b7280);
+}
+
 .oq-peso-modal__tara {
   display: flex;
   flex-wrap: wrap;

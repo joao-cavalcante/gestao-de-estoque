@@ -109,6 +109,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   @ViewChild('inputControleLote') inputControleLoteRef?: ElementRef<HTMLInputElement>;
   @ViewChild('inputPeso') inputPesoRef?: ElementRef<HTMLInputElement>;
   @ViewChild('inputQtd') inputQtdRef?: ElementRef<HTMLInputElement>;
+  @ViewChild('inputQtdComercial') inputQtdComercialRef?: ElementRef<HTMLInputElement>;
 
   codigo = '';
   controle = '';
@@ -178,6 +179,52 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   tara = '';
   qtdUma = '1';
   erroTara: string | null = null;
+
+  // ─── Quantidade comercial na pesagem (V61, usuário 23/10/2026) ───
+  /**
+   * Quantas unidades do pedido (CX, UN, PC) estão nesta pesagem. Campo do próprio pop-up, logo abaixo do peso,
+   * obrigatório quando o pedido do pesável é numa unidade que não é KG. Só registro/etiqueta: o que vai pro Sankhya
+   * continua sendo o peso em KG.
+   */
+  qtdComercial = '';
+  erroQtdComercial: string | null = null;
+
+  /** Unidade do pedido em que a quantidade é informada; null = pedido já em KG (não pede quantidade). */
+  get unidadeQtdComercial(): string | null {
+    const it = this.itemPendenteAtual;
+    const un = it?.unidadeComercial?.trim();
+    if (!this.precisaPeso || !un || un.toUpperCase() === 'KG' || un === it?.unidadePadrao) return null;
+    return un;
+  }
+
+  /** Quanto falta na unidade do pedido (pedido − já informado), só como ajuda; null = sem o dado. */
+  get faltaQtdComercial(): number | null {
+    const it = this.itemPendenteAtual;
+    if (!this.unidadeQtdComercial || it?.quantidadeComercial == null) return null;
+    return Math.max(0, Number((it.quantidadeComercial - (it.qtdComercialInformada ?? 0)).toFixed(3)));
+  }
+
+  private get qtdComercialN(): number {
+    return this.lerKg(this.qtdComercial);
+  }
+
+  /** Peso já lido e a quantidade ainda vazia: para no campo de quantidade em vez de confirmar. */
+  private aguardaQtdComercial(): boolean {
+    if (!this.unidadeQtdComercial || this.qtdComercial.trim()) return false;
+    this.focarQtdComercial();
+    return true;
+  }
+
+  private focarQtdComercial(): void {
+    setTimeout(() => this.inputQtdComercialRef?.nativeElement.focus(), 0);
+  }
+
+  /** Enter no peso digitado: vai pra quantidade (se pedida) antes de confirmar. */
+  onPesoEnter(): void {
+    if (!this.peso.trim()) return;
+    if (this.aguardaQtdComercial()) return;
+    this.confirmarPeso();
+  }
 
   private lerKg(texto: string): number {
     return Number((texto || '0').trim().replace(',', '.'));
@@ -482,6 +529,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     if (peso < 0.001) return;
     this.peso = peso.toFixed(3);
     this.feedback.trigger('PESAGEM_OK');
+    if (this.aguardaQtdComercial()) return;
     this.confirmarPeso();
   }
 
@@ -509,6 +557,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     if (this.pesoAoVivo == null) return;
     this.peso = this.pesoAoVivo.toFixed(3);
     this.feedback.trigger('PESAGEM_OK');
+    if (this.aguardaQtdComercial()) return;
     this.confirmarPeso();
   }
 
@@ -526,6 +575,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         this.capturandoPeso = false;
         this.peso = String(r.peso);
         this.feedback.trigger('PESAGEM_OK');
+        this.aguardaQtdComercial();
       },
       error: () => {
         this.capturandoPeso = false;
@@ -557,6 +607,15 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.erroTara = null;
+    if (this.unidadeQtdComercial) {
+      const q = this.qtdComercialN;
+      if (!this.qtdComercial.trim() || !Number.isFinite(q) || q <= 0) {
+        this.erroQtdComercial = `Informe a quantidade conferida em ${this.unidadeQtdComercial}.`;
+        this.focarQtdComercial();
+        return;
+      }
+    }
+    this.erroQtdComercial = null;
     this.qtd = String(this.calcularQtdPorPeso());
     this.pararLeituraAoVivo();
     this.mostrarModalPeso = false;
@@ -590,6 +649,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
 
     // Peso gravado = LÍQUIDO (já descontada a tara opcional) — o mesmo que virou a quantidade.
     const pesoN = this.precisaPeso ? this.pesoLiquidoN : undefined;
+    const qtdComercialN = this.precisaPeso && this.unidadeQtdComercial && this.qtdComercial.trim() ? this.qtdComercialN : null;
     // qtdN é o que o operador digitou (na unidade de conferência). O backend
     // sempre recebe a qtd na unidade BASE do produto.
     const qtdBase = this.qtdParaBase(qtdN);
@@ -604,6 +664,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         pesoN,
         this.codvolEscanado,
         this.codigoBarraEscanado,
+        qtdComercialN,
+        this.unidadeQtdComercial,
       )
       .subscribe({
       next: (resultado) => {
@@ -679,6 +741,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     const emCampoProprio =
       alvo === this.inputIdentificador?.nativeElement || // já trata o próprio Enter — evita processar 2x
       alvo === this.inputPesoRef?.nativeElement ||
+      alvo === this.inputQtdComercialRef?.nativeElement ||
       alvo === this.inputQtdRef?.nativeElement ||
       alvo === this.selectControleRef?.nativeElement ||
       alvo === this.inputControleLoteRef?.nativeElement;
@@ -716,6 +779,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.tara = '';
     this.qtdUma = '1';
     this.erroTara = null;
+    this.qtdComercial = '';
+    this.erroQtdComercial = null;
     this.produtoIdentificado = false;
     this.controleModoLote = false;
     this.controlesDisponiveis = [];

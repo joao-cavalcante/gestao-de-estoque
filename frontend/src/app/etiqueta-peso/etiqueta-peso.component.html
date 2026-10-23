@@ -35,15 +35,37 @@
         <span [class]="'ep__produto-nome ' + classeTexto(e.produto)">{{ e.produto }}</span>
       </section>
 
-      <section class="ep__peso">
-        <span class="ep__rotulo">PESO</span>
-        <span class="ep__peso-valor">{{ formatarPeso(e.peso) }}<span class="ep__peso-un">kg</span></span>
-      </section>
+      @if (e.qtdComercial) {
+        <!-- V61: quantidade na unidade do pedido em destaque (é o que se confere no embarque) e o peso ao lado. -->
+        <section class="ep__qtd-peso">
+          <div class="ep__qtd">
+            <span class="ep__rotulo">QUANTIDADE</span>
+            <span class="ep__qtd-valor">{{ formatarQtd(e.qtdComercial) }}<span class="ep__peso-un">{{ e.unidadeComercial }}</span></span>
+          </div>
+          <div class="ep__peso-lado">
+            <span class="ep__rotulo">PESO</span>
+            <span class="ep__peso-lado-valor">{{ formatarPeso(e.peso) }}<span class="ep__peso-lado-un">kg</span></span>
+          </div>
+        </section>
+      } @else {
+        <section class="ep__peso">
+          <span class="ep__rotulo">PESO</span>
+          <span class="ep__peso-valor">{{ formatarPeso(e.peso) }}<span class="ep__peso-un">kg</span></span>
+        </section>
+      }
 
-      <section class="ep__unico">
-        <span class="ep__rotulo">{{ e.ordemCarga ? 'Nº ÚNICO - O.C.' : 'Nº ÚNICO' }}</span>
-        <!-- Mesmas caixas da etiqueta de volume (altura 19 mm, largura toda). -->
-        <oq-et-caixas [texto]="numeroUnico(e)" [altura]="19" />
+      <!-- Nº Único e OC em campos separados, cada um com o seu rótulo (usuário, 23/10/2026). -->
+      <section class="ep__unico" [class.ep__unico--com-oc]="!!e.ordemCarga">
+        <div class="ep__unico-campo">
+          <span class="ep__rotulo">Nº ÚNICO</span>
+          <oq-et-caixas [texto]="'' + e.nunota" [altura]="17" [larguraDisponivel]="e.ordemCarga ? 58 : 94" />
+        </div>
+        @if (e.ordemCarga) {
+          <div class="ep__unico-campo ep__unico-campo--oc">
+            <span class="ep__rotulo">OC</span>
+            <oq-et-caixas [texto]="'' + e.ordemCarga" [altura]="17" [larguraDisponivel]="30" />
+          </div>
+        }
       </section>
     </div>
   }

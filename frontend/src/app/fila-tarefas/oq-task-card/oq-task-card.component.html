@@ -98,8 +98,8 @@
     <footer class="oq-card__footer">
       @switch (fase) {
         @case ('carregar') {
-          <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="carregado.emit(tarefa)">✓ Marcar carregado</button>
-          <button type="button" class="oq-card__btn" (click)="conferir.emit(tarefa)">Ver itens</button>
+          <!-- Sem atalho "Marcar carregado": o carregamento é feito item a item, dentro do pedido. -->
+          <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="conferir.emit(tarefa)">Iniciar carregamento</button>
         }
         @case ('nota') {
           <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="faturar.emit(tarefa)">Gerar nota</button>

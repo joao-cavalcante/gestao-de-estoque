@@ -18,7 +18,6 @@ import {
   semNota,
   CampoOrdenacao,
   EscopoOc,
-  FASES,
   FasePedido,
   faseTarefa,
   FILTROS_STATUS,
@@ -26,7 +25,6 @@ import {
   FiltrosAvancados,
   OpcaoComCodigo,
   Ordenacao,
-  ROTULO_FASE,
   Tarefa,
   ViewMode,
 } from './tarefa.model';
@@ -35,6 +33,7 @@ import { OqImpressaoOcComponent } from './oq-impressao-oc/oq-impressao-oc.compon
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { FiltrosSalvosService } from '../shared/filtros-salvos.service';
 import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
+import { OqViewToggleComponent } from '../shared/lista-layout/oq-view-toggle.component';
 import { ITENS_POR_PAGINA, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
 
 /** O que a fila lembra por usuário — tudo menos a busca por texto (e a página atual). */
@@ -49,6 +48,25 @@ interface FiltrosFilaSalvos {
 const TELA_FILTROS = 'fila-tarefas';
 /** Preferência de visualização — do navegador, não do usuário (pedido: chave fixa no localStorage). */
 const CHAVE_VIEW_MODE = 'fila-view-mode';
+/** Ordem dos cards que o operador montou dentro de cada OC (do navegador, por OC). */
+const CHAVE_ORDEM_OC = 'fila-oc-ordem:';
+
+/** Filtros da régua da OC. */
+type FiltroOc = 'tudo' | 'conferir' | 'carregar' | 'concluido';
+
+/** Seções da OC, na ordem da tela: primeiro o que vai ser conferido, no meio o que aguarda carregamento, embaixo os carregados. */
+const GRUPOS_OC: { chave: Exclude<FiltroOc, 'tudo'>; titulo: string }[] = [
+  { chave: 'conferir', titulo: 'A conferir' },
+  { chave: 'carregar', titulo: 'Aguardando carregamento' },
+  { chave: 'concluido', titulo: 'Carregados' },
+];
+
+/** Grupo do pedido na OC: falta conferir (inclui corte), falta carregar ou concluído (já carregado). */
+function grupoOc(t: Tarefa): Exclude<FiltroOc, 'tudo'> {
+  const fase = faseTarefa(t);
+  if (fase === 'conferir' || fase === 'corte') return 'conferir';
+  return fase === 'carregar' ? 'carregar' : 'concluido';
+}
 const TODOS_ITENS_POR_PAGINA = [10, 20, 50, 100];
 
 /** "28/09/2026 ..." → 20260928 pra ordenar por data; formato desconhecido cai no fim. */
@@ -73,6 +91,7 @@ function chaveData(data: string): number {
     OqFechamentoOcModalComponent,
     OqImpressaoOcComponent,
     OqIconComponent,
+    OqViewToggleComponent,
   ],
   templateUrl: './fila-tarefas.component.html',
   styleUrl: './fila-tarefas.component.scss',
@@ -336,6 +355,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.listaOcsAberta.set(false);
     this.filtrosAvancados.set({ ...this.filtrosAvancados(), ordemCarga: oc == null ? null : String(oc), vinculoOrdemCarga: 'todos' });
     this.filtroAtivo.set('todos');
+    this.filtroOc.set('tudo');
     this.paginaAtual.set(1);
   }
 
@@ -345,22 +365,96 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.paginaAtual.set(1);
   }
 
-  /** Toque numa etapa da régua da OC: mostra só os pedidos daquela fase (de novo = todos). */
-  filtrarFase(fase: FiltroStatus): void {
-    this.filtroAtivo.set(this.filtroAtivo() === fase ? 'todos' : fase);
-    this.paginaAtual.set(1);
+  /** Toque num filtro da régua da OC (de novo = Tudo). */
+  filtrarOc(f: FiltroOc): void {
+    this.filtroOc.set(this.filtroOc() === f ? 'tudo' : f);
   }
 
-  readonly rotuloFase = ROTULO_FASE;
-  /** Seção "Pronto" da OC começa ABERTA — recolhida, o pedido sumia da tela e a régua (1/4) não batia com os cards. */
-  readonly prontosAbertos = signal(true);
+  /** Ordem dos cards da OC aberta montada pelo operador (ids); pedido fora dela vai pro fim. */
+  readonly ordemOc = signal<string[]>([]);
+  /** Filtro da régua da OC: Todos (padrão), Conferência, Carregamento ou Concluídos. */
+  readonly filtroOc = signal<FiltroOc>('tudo');
+  /** Card sendo arrastado (id). */
+  readonly arrastando = signal<string | null>(null);
 
-  /** Dentro da OC: os pedidos agrupados pela fase, na ordem do fluxo (sem paginação — uma OC é pequena). */
+  /**
+   * Dentro da OC: uma tela só. Filtros na régua do topo (Todos, Conferência, Carregamento, Concluídos) e a
+   * busca rápida. Em seções (A conferir → Aguardando carregamento → Carregados); dentro de cada seção, a
+   * ordem é a do operador (arrastar), pedido sem posição vai pro fim.
+   */
   readonly gruposOc = computed(() => {
-    if (this.escopo().tipo !== 'oc') return [];
-    const lista = this.tarefasOrdenadas();
-    return FASES.map((fase) => ({ fase, tarefas: lista.filter((t) => faseTarefa(t) === fase) })).filter((g) => g.tarefas.length > 0);
+    const lista = this.tarefasOcFiltradas();
+    return GRUPOS_OC.map((g) => ({ ...g, tarefas: lista.filter((t) => grupoOc(t) === g.chave) })).filter((g) => g.tarefas.length > 0);
   });
+
+  /** Os cards da OC na ordem da tela (seções em sequência) — base do arrastar. */
+  readonly tarefasOc = computed(() => this.gruposOc().flatMap((g) => g.tarefas));
+
+  private readonly tarefasOcFiltradas = computed(() => {
+    if (this.escopo().tipo !== 'oc') return [];
+    const filtro = this.filtroOc();
+    const termo = this.termoBusca().trim().toLowerCase();
+    const lista = this.tarefasDoEscopo()
+      .map((t, i) => ({ t, i }))
+      .filter(({ t }) => filtro === 'tudo' || grupoOc(t) === filtro)
+      .filter(
+        ({ t }) =>
+          !termo ||
+          t.cliente.toLowerCase().includes(termo) ||
+          t.pedido.toLowerCase().includes(termo) ||
+          t.nf.toLowerCase().includes(termo) ||
+          t.numeroUnico.toLowerCase().includes(termo),
+      );
+    const pos = new Map(this.ordemOc().map((id, i) => [id, i]));
+    return lista.sort((a, b) => (pos.get(a.t.id) ?? 1e6 + a.i) - (pos.get(b.t.id) ?? 1e6 + b.i)).map((x) => x.t);
+  });
+
+  /** Carrega a ordem salva ao entrar numa OC. */
+  private readonly lerOrdemOc = effect(() => {
+    const oc = this.ocFiltrada();
+    let ordem: string[] = [];
+    if (oc) {
+      try {
+        const salvo = JSON.parse(localStorage.getItem(CHAVE_ORDEM_OC + oc) ?? '[]');
+        if (Array.isArray(salvo)) ordem = salvo.map(String);
+      } catch {
+        ordem = [];
+      }
+    }
+    this.ordemOc.set(ordem);
+  });
+
+  /** Coloca o card [id] na posição do card [alvo] (arrastar) — a ordem vale pra OC inteira. */
+  moverCardOc(id: string, alvo: string): void {
+    if (id === alvo) return;
+    const ids = this.tarefasOc().map((t) => t.id);
+    const de = ids.indexOf(id);
+    const para = ids.indexOf(alvo);
+    if (de < 0 || para < 0) return;
+    ids.splice(de, 1);
+    ids.splice(para, 0, id);
+    this.salvarOrdemOc(ids);
+  }
+
+  soltarCardOc(alvo: string): void {
+    const id = this.arrastando();
+    this.arrastando.set(null);
+    if (id) this.moverCardOc(id, alvo);
+  }
+
+  /** Visíveis na ordem nova; os que estão escondidos pelo filtro mantêm a posição relativa depois deles. */
+  private salvarOrdemOc(visiveis: string[]): void {
+    const oc = this.ocFiltrada();
+    if (!oc) return;
+    const resto = this.ordemOc().filter((id) => !visiveis.includes(id));
+    const ordem = [...visiveis, ...resto];
+    this.ordemOc.set(ordem);
+    try {
+      localStorage.setItem(CHAVE_ORDEM_OC + oc, JSON.stringify(ordem));
+    } catch {
+      // sem storage (aba privada): vale só nesta tela
+    }
+  }
 
   /** Opções "cód - descrição" de cada select do painel avançado — só o que já aparece na fila carregada. */
   readonly opcoesParceiros = computed(() => this.opcoesComCodigo((t) => t.codigoCliente, (t) => t.cliente));

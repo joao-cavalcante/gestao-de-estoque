@@ -282,11 +282,15 @@ fun Route.separacaoRoutes() {
             }
 
             val peso = body.peso?.trim()?.replace(",", ".")?.takeIf { it.isNotEmpty() }?.toBigDecimalOrNull()
+            val qtdComercial = body.qtdComercial?.trim()?.replace(",", ".")?.takeIf { it.isNotEmpty() }?.toBigDecimalOrNull()
+                ?.takeIf { it.signum() > 0 }
             val permitirQtdMaior = SeparacaoRepository.permiteQtdMaior(tenantId, sessaoId)
             val resultado = try {
                 SeparacaoRepository.conferirItem(
                     tenantId, sessaoId, body.codprod, body.controle, qtd, permitirQtdMaior, peso,
                     codvolEscanado = body.codvol, codigoBarra = body.codigoBarra,
+                    qtdComercial = qtdComercial,
+                    unidadeComercial = body.unidadeComercial?.trim()?.takeIf { qtdComercial != null && it.isNotEmpty() },
                 )
             } catch (e: SeparacaoRepository.QuantidadeExcedeException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to "quantidade excede o pendente (máximo ${e.maximo})"))

@@ -19,6 +19,8 @@ export interface ReconferenciaItem {
   qtdConferidaComercial?: string | null;
   /** Observação "CX com 12 BI"; null = sem conversão. */
   conversao?: string | null;
+  /** Pesável: peças (unidade do pedido) informadas nas pesagens; null = nada informado. */
+  qtdInformadaComercial?: string | null;
   pesavel: boolean;
   /** Item do pedido com NADA conferido — alerta no checklist, sem check. */
   naoConferido?: boolean;
