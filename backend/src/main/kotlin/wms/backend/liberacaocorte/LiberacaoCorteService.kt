@@ -160,12 +160,18 @@ object LiberacaoCorteService {
         return "conf=$conf nota.STATUSCONFERENCIA=$nota"
     }
 
-    private suspend fun chamarLiberarNegar(
+    /**
+     * LiberacaoLimitesSP.liberarNegarLimites (botão Liberar/Negar da tela nativa). [vlrLib] 0 = o Sankhya grava
+     * VLRLIBERADO = VLRATUAL (lido no bytecode do LiberacaoLimitesSPBean) — precisa ser 0 em evento de valor (3, limite);
+     * o corte (64) sempre mandou 1.
+     */
+    internal suspend fun chamarLiberarNegar(
         tenantSlug: String,
         itens: List<Map<String, String?>>,
         codusu: String,
         liberar: String,
         obsLib: String,
+        vlrLib: Int = 1,
     ) {
         SankhyaSpClient.chamarRaw(
             tenantSlug,
@@ -188,7 +194,7 @@ object LiberacaoCorteService {
                     put("usuario", codusu)
                     put("liberar", liberar)
                     put("obsLib", obsLib)
-                    put("vlrLib", 1)
+                    put("vlrLib", vlrLib)
                 }
                 CLIENT_EVENT_CONFIRM.forEach { (k, v) -> put(k, v) }
             },
@@ -300,9 +306,7 @@ object LiberacaoCorteService {
         nuconf: Int,
         sessaoId: UUID,
     ): Boolean {
-        val usuario = System.getenv("LIBERADOR_USUARIO")
-        val senha = System.getenv("LIBERADOR_SENHA")
-        if (usuario.isNullOrBlank() || senha.isNullOrBlank()) {
+        val (usuario, senha) = credenciaisLiberador() ?: run {
             println("AVISO: LIBERADOR_USUARIO/LIBERADOR_SENHA não configurados — corte $nuconf fica pra liberação manual.")
             return false
         }
@@ -408,6 +412,13 @@ object LiberacaoCorteService {
             println("AVISO: auto-liberação de corte falhou (nuconf $nuconf): ${e.message} — segue pra liberação manual.")
             false
         }
+    }
+
+    /** Liberador de serviço das liberações automáticas (env LIBERADOR_USUARIO / LIBERADOR_SENHA); null = não configurado. */
+    internal fun credenciaisLiberador(): Pair<String, String>? {
+        val usuario = System.getenv("LIBERADOR_USUARIO")
+        val senha = System.getenv("LIBERADOR_SENHA")
+        return if (usuario.isNullOrBlank() || senha.isNullOrBlank()) null else usuario to senha
     }
 
     /** Valida usuário/senha do liberador no Sankhya e devolve o CODUSU dele. */

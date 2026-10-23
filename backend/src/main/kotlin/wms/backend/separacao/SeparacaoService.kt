@@ -1561,33 +1561,46 @@ object SeparacaoService {
     private suspend fun confirmarNotasGeradas(tenantSlug: String, notas: List<Long>): String? {
         if (notas.isEmpty()) return null
         val falhas = notasNaoConfirmadas(tenantSlug, notas).mapNotNull { nunota ->
-            runCatching {
-                SankhyaSpClient.chamarRaw(
-                    tenantSlug, "CACSP.confirmarNota", "mgecom",
-                    buildJsonObject {
-                        putJsonObject("nota") {
-                            put("confirmacaoCentralNota", "true")
-                            put("ehPedidoWeb", "false")
-                            put("atualizaPrecoItemPedCompra", "false")
-                            putJsonObject("NUNOTA") { put("$", nunota) }
-                        }
-                        putJsonObject("clientEventList") {
-                            putJsonArray("clientEvent") {
-                                add(buildJsonObject { put("$", "br.com.sankhya.actionbutton.clientconfirm") })
-                                add(buildJsonObject { put("$", "br.com.sankhya.mgecomercial.event.estoque.insuficiente.produto") })
-                                add(buildJsonObject { put("$", "br.com.sankhya.mgecom.msg.nao.possui.itens.pendentes") })
-                            }
-                        }
-                    },
-                    retentar = false,
-                )
-            }.exceptionOrNull()?.let { e ->
+            var erro = confirmarNota(tenantSlug, nunota)
+            // Recusou por limite já liberado no pedido (evento 3 pedido de novo na nota): herda a liberação e confirma
+            // mais UMA vez — só se liberou algo e a nota segue sem confirmar.
+            if (erro != null && LiberacaoHerdada.herdar(tenantSlug, nunota) > 0 &&
+                runCatching { notasNaoConfirmadas(tenantSlug, listOf(nunota)).isNotEmpty() }.getOrDefault(true)
+            ) {
+                println("INFO: nota $nunota — liberação herdada do pedido, confirmando de novo")
+                erro = confirmarNota(tenantSlug, nunota)
+            }
+            erro?.let { e ->
                 println("AVISO: CACSP.confirmarNota nunota $nunota falhou: ${e.message}")
                 "nota $nunota gerada mas não confirmada (${e.message}) — confirme na Central de Notas"
             }
         }
         return falhas.takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
+
+    /** Um `CACSP.confirmarNota`, sem retry. Devolve a falha (null = confirmou). */
+    private suspend fun confirmarNota(tenantSlug: String, nunota: Long): Throwable? =
+        runCatching {
+            SankhyaSpClient.chamarRaw(
+                tenantSlug, "CACSP.confirmarNota", "mgecom",
+                buildJsonObject {
+                    putJsonObject("nota") {
+                        put("confirmacaoCentralNota", "true")
+                        put("ehPedidoWeb", "false")
+                        put("atualizaPrecoItemPedCompra", "false")
+                        putJsonObject("NUNOTA") { put("$", nunota) }
+                    }
+                    putJsonObject("clientEventList") {
+                        putJsonArray("clientEvent") {
+                            add(buildJsonObject { put("$", "br.com.sankhya.actionbutton.clientconfirm") })
+                            add(buildJsonObject { put("$", "br.com.sankhya.mgecomercial.event.estoque.insuficiente.produto") })
+                            add(buildJsonObject { put("$", "br.com.sankhya.mgecom.msg.nao.possui.itens.pendentes") })
+                        }
+                    }
+                },
+                retentar = false,
+            )
+        }.exceptionOrNull()
 
     /** Das [notas], as ainda não confirmadas no Sankhya (TGFCAB.STATUSNOTA <> 'L'). */
     private suspend fun notasNaoConfirmadas(tenantSlug: String, notas: List<Long>): List<Long> {
