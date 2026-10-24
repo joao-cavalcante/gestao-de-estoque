@@ -718,7 +718,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.lockService.invalido.set(null);
     const nunota = Number(this.route.snapshot.paramMap.get('nunota'));
     const etapaRaw = Number(this.route.snapshot.queryParamMap.get('etapa'));
-    this.etapaParam = Number.isFinite(etapaRaw) && etapaRaw >= 1 && etapaRaw <= 3 ? etapaRaw : null;
+    this.etapaParam = Number.isFinite(etapaRaw) && etapaRaw >= 1 && etapaRaw <= 5 ? etapaRaw : null; // 1–3 temperatura, 4–5 Não pesáveis/Pesáveis
     const tarefa = history.state?.tarefa as Tarefa | undefined;
     if (tarefa) {
       this.nf = tarefa.nf;

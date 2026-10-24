@@ -158,7 +158,9 @@ export class OqConferidosChecklistComponent implements OnChanges {
   }
 
   readonly grupos = computed<Grupo[]>(() =>
-    [1, 2, 3, 0]
+    // 4/5 = Não pesáveis/Pesáveis (critério atual); 1–3 = sessões do critério por temperatura. Etapa fora
+    // desta lista some da tela — foi o que aconteceu com 4/5 no primeiro deploy (OC 797).
+    [4, 5, 1, 2, 3, 0]
       .map((tipo) => ({
         tipo,
         rotulo: ETAPAS[tipo]?.rotulo ?? 'Sem etapa',
