@@ -658,6 +658,10 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
         this.lockService.invalido.set(null);
         this.lockEtapa = etapa;
         this.iniciarHeartbeat(sessaoId, etapa);
+        // Contador de volume (por etapa na segmentada) só com o lock na mão: o padrão 1 grava na hora e
+        // o servidor exige lock válido — antes ia junto com o lock e, chegando primeiro (ou sem etapa
+        // escolhida), voltava 409 e a tela mostrava "Sessão da etapa".
+        this.carregarVolume(sessaoId);
       },
       error: (err) => {
         this.lockBloqueio.set(
@@ -690,10 +694,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   escolherEtapa(tipo: number): void {
     this.etapaAtual.set(tipo);
-    this.tentarLock();
+    this.tentarLock(); // carrega o contador de volume da etapa quando o lock sai
     if (this.sessaoIdAtual) {
       this.recarregarItens(this.sessaoIdAtual);
-      this.carregarVolume(this.sessaoIdAtual); // contador de volume é por etapa
     }
     // reflete na URL sem recarregar (permite F5 / compartilhar link da etapa)
     this.router.navigate([], { relativeTo: this.route, queryParams: { etapa: tipo }, replaceUrl: true });
@@ -908,15 +911,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
                   this.etapaAtual.set(pendentes[0]); // sem ?etapa= e só sobra uma → assume ela
                 }
                 // >1 etapa pendente e sem ?etapa= válido → etapaAtual null → template mostra o seletor.
+                // Volume só depois do lock (tentarLock): gravar o padrão 1 sem lock dava 409 "Sessão da etapa".
                 this.tentarLock();
-                this.carregarVolume(sessaoId);
                 this.recarregarItens(sessaoId, () => this.carregando.set(false));
               },
               error: () => this.recarregarItens(sessaoId, () => this.carregando.set(false)),
             });
           } else {
             this.tentarLock();
-            this.carregarVolume(sessaoId);
             this.recarregarItens(sessaoId, () => this.carregando.set(false));
           }
         },
