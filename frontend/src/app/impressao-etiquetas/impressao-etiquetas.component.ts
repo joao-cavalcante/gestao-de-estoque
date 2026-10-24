@@ -122,7 +122,7 @@ export class ImpressaoEtiquetasComponent implements OnInit {
 
   /** "Secos, Refrigerado" — etapas concluídas de uma conferência parcial. */
   rotuloEtapas(tipos: number[] | undefined): string {
-    const nomes: Record<number, string> = { 1: 'Secos', 2: 'Refrigerado', 3: 'Congelado' };
+    const nomes: Record<number, string> = { 1: 'Secos', 2: 'Refrigerado', 3: 'Congelado', 4: 'Não pesáveis', 5: 'Pesáveis' };
     return (tipos ?? []).map((t) => nomes[t] ?? `Etapa ${t}`).join(', ');
   }
 

@@ -796,7 +796,10 @@ object SeparacaoRepository {
             // dinamicamente como item novo (qtd_neg=0 — nada foi negociado,
             // fica divergente por definição, é isso que a CCO decide aceitar).
             if (resolvido == null && sessao[SeparacaoSessoesTable.produtosForaPed] == "D") {
-                val novoItem = incluirProdutoForaPedido(tenantId, sessaoId, codigoBarraLido, tipoSeparacaoEtapa ?: 1)
+                val novoItem = incluirProdutoForaPedido(
+                    tenantId, sessaoId, codigoBarraLido,
+                    tipoSeparacaoEtapa ?: CriterioEtapa.tipo(1, pesavel = false, porPeso = CriterioEtapa.sessaoPorPeso(tiposDaSessaoNaTx(tenantId, sessaoId))),
+                )
                 if (novoItem != null) {
                     itens = itens + novoItem
                     resolvido = ItemResolvido(
@@ -1330,11 +1333,7 @@ object SeparacaoRepository {
 
     private fun simNao(v: Boolean) = if (v) "Sim" else "Não"
 
-    private fun nomeEtapa(tipo: Short) = when (tipo.toInt()) {
-        2 -> "Resfriados"
-        3 -> "Congelados"
-        else -> "Secos"
-    }
+    private fun nomeEtapa(tipo: Short) = CriterioEtapa.nome(tipo.toInt())
 
     private fun formatarQtd(v: BigDecimal): String =
         v.setScale(3, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', ',')
@@ -1940,6 +1939,16 @@ object SeparacaoRepository {
     }
 
     /** Etapa (tipo de separação) do produto na sessão — pro lock por etapa validar a operação. */
+    /** Tipos de separação (etapas) dos itens da sessão — diz com que critério ela abriu (ver CriterioEtapa). */
+    fun tiposDaSessao(tenantId: UUID, sessaoId: UUID): Set<Int> = TenantTx.run(tenantId) { tiposDaSessaoNaTx(tenantId, sessaoId) }
+
+    private fun tiposDaSessaoNaTx(tenantId: UUID, sessaoId: UUID): Set<Int> =
+        SeparacaoItensTable.select(SeparacaoItensTable.tipoSeparacao)
+            .where { (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) }
+            .withDistinct()
+            .map { it[SeparacaoItensTable.tipoSeparacao].toInt() }
+            .toSet()
+
     fun tipoSeparacaoDoItem(tenantId: UUID, sessaoId: UUID, codprod: Int): Int? = TenantTx.run(tenantId) {
         SeparacaoItensTable.selectAll()
             .where {

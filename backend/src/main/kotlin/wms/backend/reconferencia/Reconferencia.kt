@@ -57,7 +57,7 @@ data class ReconferenciaItemDto(
     val codprod: Int,
     val controle: String,
     val descricao: String,
-    /** 1 Secos | 2 Refrigerado | 3 Congelado | 0 sem etapa. */
+    /** 1 Secos | 2 Refrigerado | 3 Congelado | 4 Não pesáveis | 5 Pesáveis | 0 sem etapa (ver CriterioEtapa). */
     val tipoSeparacao: Int,
     /** Unidade padrão (base) — mesma magnitude de qtd/conferido. */
     val unidade: String?,
@@ -242,9 +242,9 @@ object ReconferenciaService {
     }
 
     /**
-     * Carregamento automático: Secos e Congelado são conferidos já colocando no caminhão, então concluir
-     * essas etapas marca os itens dela como carregados. [tipos] null = todas; o Refrigerado (2) nunca entra
-     * aqui — ele é separado antes e carregado depois pelo checklist. Nunca derruba a conferência.
+     * Carregamento automático: Não pesáveis (e Secos/Congelado no critério antigo) são conferidos já colocando
+     * no caminhão, então concluir essas etapas marca os itens dela como carregados. [tipos] null = todas; Pesáveis
+     * (e Refrigerado) nunca entram aqui — são separados antes e carregados depois pelo checklist. Nunca derruba a conferência.
      */
     fun marcarCarregadoNaConferencia(tenantId: UUID, sessaoId: UUID, tipos: Set<Int>, por: String?) {
         runCatching {

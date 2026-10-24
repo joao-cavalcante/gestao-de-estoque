@@ -16,6 +16,8 @@ const ETAPAS: Record<number, { label: string; icone: OqIconName }> = {
   1: { label: 'Secos', icone: 'seco' },
   2: { label: 'Refrigerado', icone: 'refrigerado' },
   3: { label: 'Congelado', icone: 'congelado' },
+  4: { label: 'Não pesáveis', icone: 'box' },
+  5: { label: 'Pesáveis', icone: 'balanca' },
 };
 
 /**

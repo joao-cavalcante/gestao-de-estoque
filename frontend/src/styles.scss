@@ -589,6 +589,76 @@ body {
   .oq-modal__footer .oq-admin-btn {
     flex: 1 1 100%;
     min-height: 44px;
+    font-size: 12px;
+  }
+
+  /* Texto do pop-up legível e "x" do tamanho do dedo. */
+  .oq-modal__body > .oq-form-hint,
+  .oq-modal__body .oq-modal-erro {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .oq-modal__fechar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Tablet (e qualquer tela de toque): pop-up mais largo, texto legível de braço esticado e rodapé
+   sem linha "torta" — cada linha de botões ocupa a largura toda (o principal, último, fecha embaixo
+   à direita; sozinho, vira barra larga). Texto do botão nunca quebra no meio. */
+@media (min-width: 640px) and (max-width: 1366px), (min-width: 640px) and (pointer: coarse) {
+  .oq-modal {
+    max-width: 540px;
+    max-height: calc(100dvh - 32px);
+  }
+
+  .oq-modal--wide {
+    max-width: min(860px, 100%);
+  }
+
+  .oq-modal.oq-modal--divergencia {
+    max-width: 680px;
+  }
+
+  .oq-modal__header {
+    padding: 14px 18px;
+    gap: 12px;
+  }
+
+  .oq-modal__titulo {
+    font-size: 15px;
+  }
+
+  .oq-modal__fechar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+  }
+
+  .oq-modal__body {
+    padding: 18px;
+  }
+
+  .oq-modal__body > .oq-form-hint,
+  .oq-modal__body .oq-modal-erro {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .oq-modal__footer {
+    padding: 12px 18px;
+    gap: 10px;
+  }
+
+  .oq-modal__footer .oq-admin-btn {
+    flex: 1 1 auto;
+    min-height: 44px;
+    padding-inline: 16px;
+    font-size: 12px;
+    white-space: nowrap;
   }
 }
 

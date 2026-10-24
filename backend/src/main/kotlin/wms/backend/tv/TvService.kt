@@ -325,7 +325,7 @@ object TvService {
             // ---- Faixa por etapa (etapas reais das conferências abertas + concluídas hoje) ----
             val locksAtivos = locks.filter { it.third[SeparacaoLocksTable.ultimaAtividade] >= limiteLock }
                 .map { it.first to it.second }.toSet()
-            val porEtapa = if (!segmentado) emptyList() else (1..3).map { tipo ->
+            val porEtapa = if (!segmentado) emptyList() else wms.backend.separacao.CriterioEtapa.TIPOS_ATIVOS.map { tipo ->
                 val pendentesAtivas = etapas.filter { it.tipo == tipo && it.status == "P" && it.sessaoId in idsAtivas }
                 val trabalhando = pendentesAtivas.count { (it.sessaoId to tipo) in locksAtivos }
                 TvEtapaResumoDto(

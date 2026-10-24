@@ -26,6 +26,7 @@ import {
   OpcaoComCodigo,
   Ordenacao,
   Tarefa,
+  TIPOS_SEPARACAO_ATIVOS,
   ViewMode,
 } from './tarefa.model';
 import { OqFechamentoOcModalComponent } from './oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
@@ -163,7 +164,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const f = this.filtrosSalvos.ler<FiltrosFilaSalvos>(TELA_FILTROS);
     if (!f) return false;
     if (f.status && (FILTROS_STATUS as readonly string[]).includes(f.status)) this.filtroAtivo.set(f.status);
-    if (Array.isArray(f.tiposSeparacao)) this.filtroTipoSeparacao.set(new Set(f.tiposSeparacao.filter((t) => typeof t === 'number')));
+    // Só etapas do critério ativo: filtro salvo com Secos/Refrigerado/Congelado (critério antigo) esconderia tudo.
+    const ativos = new Set(TIPOS_SEPARACAO_ATIVOS.map((t) => t.id));
+    if (Array.isArray(f.tiposSeparacao)) this.filtroTipoSeparacao.set(new Set(f.tiposSeparacao.filter((t) => typeof t === 'number' && ativos.has(t))));
     if (Array.isArray(f.modalidades)) this.filtroModalidade.set(new Set(f.modalidades.filter((m) => ['express', 'retira', 'entrega'].includes(m))));
     if (f.avancados) {
       // Filtro salvo antes do Com/Sem OC: a caixa "Somente com Ordem de Carga" marcada vira 'com'.

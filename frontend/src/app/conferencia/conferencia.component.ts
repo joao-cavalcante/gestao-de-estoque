@@ -24,7 +24,7 @@ import {
 import { OqLiberacaoCorteModalComponent } from '../liberacao-corte/oq-liberacao-corte-modal/oq-liberacao-corte-modal.component';
 import { OqFechamentoOcModalComponent } from '../fila-tarefas/oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
 import { FormsModule } from '@angular/forms';
-import { Tarefa, rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
+import { Tarefa, iconeTipoSeparacao, rotuloTipoSeparacao } from '../fila-tarefas/tarefa.model';
 import { AuthService } from '../auth/auth.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
@@ -509,6 +509,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly etapasSessao = signal<SessaoEtapa[]>([]);
   /** true = tela está conferindo UMA etapa. */
   readonly modoEtapa = computed(() => this.etapaAtual() != null);
+  readonly iconeTipoSeparacao = iconeTipoSeparacao;
   readonly rotuloEtapaAtual = computed(() => {
     const t = this.etapaAtual();
     return t == null ? '' : rotuloTipoSeparacao(t);

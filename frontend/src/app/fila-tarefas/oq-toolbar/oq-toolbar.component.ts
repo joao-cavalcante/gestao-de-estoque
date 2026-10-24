@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqFiltrosAvancadosComponent } from '../oq-filtros-avancados/oq-filtros-avancados.component';
-import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, TIPOS_SEPARACAO, ViewMode } from '../tarefa.model';
+import { FiltroStatus, FiltrosAvancados, OpcaoComCodigo, TIPOS_SEPARACAO_ATIVOS, ViewMode } from '../tarefa.model';
 import { OqViewToggleComponent } from '../../shared/lista-layout/oq-view-toggle.component';
 
 interface PillFiltro {
@@ -67,7 +67,7 @@ export class OqToolbarComponent {
     { valor: 'nota', label: 'Nota pendente' },
   ];
 
-  readonly tiposSeparacao = TIPOS_SEPARACAO;
+  readonly tiposSeparacao = TIPOS_SEPARACAO_ATIVOS;
 
   onBuscaInput(valor: string): void {
     this.termoBuscaChange.emit(valor);

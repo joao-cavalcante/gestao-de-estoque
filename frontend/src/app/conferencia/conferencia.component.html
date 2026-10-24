@@ -65,7 +65,7 @@
 
   @if (modoEtapa()) {
     <div class="oq-cf-etapa-bar">
-      <oq-icon [name]="etapaAtual() === 3 ? 'congelado' : etapaAtual() === 2 ? 'refrigerado' : 'seco'" [size]="14" />
+      <oq-icon [name]="iconeTipoSeparacao(etapaAtual())" [size]="14" />
       <span>Etapa: <strong>{{ rotuloEtapaAtual() }}</strong></span>
     </div>
   }
@@ -162,7 +162,7 @@
             [disabled]="e.concluida || e.emUso"
             (click)="escolherEtapa(e.tipo)"
           >
-            <oq-icon [name]="e.tipo === 3 ? 'congelado' : e.tipo === 2 ? 'refrigerado' : 'seco'" [size]="18" />
+            <oq-icon [name]="iconeTipoSeparacao(e.tipo)" [size]="18" />
             {{ e.rotulo }}
             @if (e.concluida) { <span class="oq-cf-etapa-escolha__ok">✓ concluída</span> }
             @if (e.emUso) { <span class="oq-cf-etapa-escolha__ok">em uso{{ e.emUsoPor ? ' por ' + e.emUsoPor : '' }}</span> }

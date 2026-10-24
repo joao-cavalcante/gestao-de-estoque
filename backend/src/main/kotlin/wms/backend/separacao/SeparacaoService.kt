@@ -118,7 +118,8 @@ object SeparacaoService {
         // controles pré-cadastrados (separados por linha) pro produto —
         // define se o campo de controle na bipagem vira <select> ou <input>.
         "Produto.TIPCONTEST", "Produto.LISCONTEST",
-        // Conferência por etapa (V29) — 1 Secos | 2 Resfriados | 3 Congelados.
+        // Conferência por etapa (V29) — 1 Secos | 2 Resfriados | 3 Congelados. Só decide a etapa no
+        // critério TEMPERATURA (desativado); no critério PESO a etapa vem do pesável (ver CriterioEtapa).
         "Produto.AD_TIPOSEPARACAO",
         // Mesmo filtro do critério nativo: produto marcado EXCLUIRCONF='S' nunca
         // entra na conferência.
@@ -849,8 +850,9 @@ object SeparacaoService {
             TarefasRepository.concluirLocalSemWriteBack(tenantId, sessao.nunota)
         }
 
-        // Carregamento: Secos e Congelado foram conferidos já no caminhão (etapas intermediárias já marcaram
-        // as delas; isto cobre a última etapa e a nota sem etapas). Refrigerado fica pro checklist.
+        // Carregamento: Não pesáveis (e Secos/Congelado no critério antigo) foram conferidos já no caminhão
+        // (etapas intermediárias já marcaram as delas; isto cobre a última etapa e a nota sem etapas).
+        // Pesáveis (e Refrigerado) ficam pro checklist.
         withContext(Dispatchers.IO) {
             val quem = usuarioFinalizadorId?.let { wms.backend.usuarios.UsuariosRepository.buscarPorId(tenantId, it)?.nome }
             wms.backend.reconferencia.ReconferenciaService.marcarCarregadoNaConferencia(
@@ -867,8 +869,8 @@ object SeparacaoService {
         }
     }
 
-    /** Etapas conferidas já colocando no caminhão (Secos 1, Congelado 3) — viram "carregado" ao concluir. */
-    private val TIPOS_CARREGA_NA_CONFERENCIA = setOf(1, 3)
+    /** Etapas conferidas já colocando no caminhão — viram "carregado" ao concluir (ver CriterioEtapa). */
+    private val TIPOS_CARREGA_NA_CONFERENCIA = CriterioEtapa.CARREGA_NA_CONFERENCIA
 
     class ConcluirEtapaException(message: String) : Exception(message)
     /** Erro específico "ainda há itens pendentes nesta etapa" — o front abre o modal de confirmação. */
@@ -1136,8 +1138,12 @@ object SeparacaoService {
             else TarefasRepository.codTipOperPorNunota(tenantId, nunotas).filterValues { it in topsSemEtapa }.keys
         }
         return nunotas.associateWith { nunota ->
+            // Conferência já aberta: as etapas são as da sessão (critério com que ela nasceu — ver CriterioEtapa),
+            // senão o card mostraria Não pesáveis/Pesáveis pra uma sessão aberta em Secos/Refrigerado/Congelado.
+            val tiposDaSessao = progresso[nunota]?.keys?.sorted().orEmpty()
             FilaEtapasDto(
-                tipos = if (nunota in emRecontagem || nunota in semEtapa) emptyList() else tiposPorNunota[nunota] ?: emptyList(),
+                tipos = if (nunota in emRecontagem || nunota in semEtapa) emptyList()
+                else tiposDaSessao.ifEmpty { tiposPorNunota[nunota] ?: emptyList() },
                 concluidos = concluidos[nunota] ?: emptyList(),
                 divergentes = divergentes[nunota] ?: emptyList(),
                 progresso = (progresso[nunota] ?: emptyMap()).mapValues { (_, p) -> EtapaProgressoDto(p.total, p.conferidos) },
@@ -1166,17 +1172,38 @@ object SeparacaoService {
             val agora = System.currentTimeMillis()
             itensFilaCache.entries.removeIf { it.value.expiraEm <= agora }
             val faltando = nunotas.distinct().filter { !itensFilaCache.containsKey("$tenantId:$it") }
+            val porPeso = CriterioEtapa.ATIVO == CriterioEtapa.Criterio.PESO
             for (lote in faltando.chunked(500)) {
+                val notas = lote.joinToString(",")
+                // Critério PESO: a etapa sai do pesável (produto + CODVOL da linha), decidido pela mesma regra da pesagem.
                 val linhas = SankhyaDbExplorerClient.executarQuery(
                     tenantSlug,
-                    "SELECT I.NUNOTA, P.AD_TIPOSEPARACAO, COUNT(*) AS QTD FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
-                        "WHERE I.NUNOTA IN (${lote.joinToString(",")}) GROUP BY I.NUNOTA, P.AD_TIPOSEPARACAO",
+                    if (porPeso) {
+                        "SELECT I.NUNOTA, I.CODPROD, I.CODVOL, COUNT(*) AS QTD FROM TGFITE I " +
+                            "WHERE I.NUNOTA IN ($notas) GROUP BY I.NUNOTA, I.CODPROD, I.CODVOL"
+                    } else {
+                        "SELECT I.NUNOTA, P.AD_TIPOSEPARACAO, COUNT(*) AS QTD FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
+                            "WHERE I.NUNOTA IN ($notas) GROUP BY I.NUNOTA, P.AD_TIPOSEPARACAO"
+                    },
                 )
+                val decisor = if (!porPeso) wms.backend.produtos.RegraPesavel.NENHUM else runCatching {
+                    wms.backend.produtos.RegraPesavel.decisor(
+                        tenantSlug, tenantId,
+                        wms.backend.produtos.RegraPesavel.filtroCodprods(linhas.mapNotNull { it["CODPROD"]?.toBigDecimalOrNull()?.toInt() }),
+                    )
+                }.onFailure { println("AVISO: falha ao decidir pesáveis da fila (tenant $tenantId): ${it.message}") }
+                    .getOrDefault(wms.backend.produtos.RegraPesavel.NENHUM)
                 val porNota = mutableMapOf<Long, MutableMap<Int, Int>>()
                 for (r in linhas) {
                     val nunota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: continue
                     val qtd = r["QTD"]?.toBigDecimalOrNull()?.toInt() ?: continue
-                    porNota.getOrPut(nunota) { mutableMapOf() }.merge(parseTipoSeparacao(r["AD_TIPOSEPARACAO"]).toInt(), qtd, Int::plus)
+                    val tipo = if (porPeso) {
+                        val codprod = r["CODPROD"]?.toBigDecimalOrNull()?.toInt() ?: continue
+                        CriterioEtapa.tipo(1, decisor.pesavel(codprod, r["CODVOL"]))
+                    } else {
+                        parseTipoSeparacao(r["AD_TIPOSEPARACAO"])
+                    }
+                    porNota.getOrPut(nunota) { mutableMapOf() }.merge(tipo.toInt(), qtd, Int::plus)
                 }
                 // nota sem item também entra no cache (vazia) — senão seria reconsultada a cada tick
                 lote.forEach { itensFilaCache["$tenantId:$it"] = EntradaItensFila(porNota[it] ?: emptyMap(), agora + 120_000) }
@@ -2264,6 +2291,7 @@ object SeparacaoService {
         voaPorChave: Map<Triple<Int, String, String>, Pair<String?, BigDecimal?>>,
         codvolProdutoPorCodprod: Map<Int, String>,
         pesavel: Boolean,
+        porPeso: Boolean = CriterioEtapa.ATIVO == CriterioEtapa.Criterio.PESO,
     ): ItemParaSalvar {
         val lineCodvol = item.codvol?.trim()?.takeIf { it.isNotEmpty() }
         val prodCodvol = codvolProdutoPorCodprod[item.codprod]?.trim()?.takeIf { it.isNotEmpty() }
@@ -2276,6 +2304,8 @@ object SeparacaoService {
         }
         return item.copy(
             usaConfPeso = pesavel,
+            // Etapa pelo critério da sessão (ver CriterioEtapa): por peso, o pesável define; senão AD_TIPOSEPARACAO.
+            tipoSeparacao = CriterioEtapa.tipo(item.tipoSeparacao, pesavel, porPeso),
             unidadeComercial = lineCodvol ?: prodCodvol,
             unidadePadrao = prodCodvol ?: lineCodvol,
             divideMultiplica = voa?.first,
@@ -2323,7 +2353,9 @@ object SeparacaoService {
             Triple(codvolAsync.await(), decisorAsync.await(), voaAsync.await())
         }
         val voaPorChave = montarVoaPorChave(voaRows)
-        val itensSankhya = itensNota.map { enriquecerItem(it, voaPorChave, codvolProduto, decisor.pesavel(it.codprod, it.codvol)) }
+        // Mantém o critério de etapa com que a sessão abriu (trocar WMS_CRITERIO_ETAPA não remexe conferência aberta).
+        val porPeso = CriterioEtapa.sessaoPorPeso(withContext(Dispatchers.IO) { SeparacaoRepository.tiposDaSessao(tenantId, sessaoId) })
+        val itensSankhya = itensNota.map { enriquecerItem(it, voaPorChave, codvolProduto, decisor.pesavel(it.codprod, it.codvol), porPeso) }
 
         val resultado = withContext(Dispatchers.IO) {
             SeparacaoRepository.aplicarSincronizacao(tenantId, sessaoId, itensSankhya, sequenciasPendentes, chavesLiberadas)

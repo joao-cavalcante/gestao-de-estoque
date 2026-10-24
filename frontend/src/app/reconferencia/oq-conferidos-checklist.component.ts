@@ -13,6 +13,8 @@ const ETAPAS: Record<number, { rotulo: string; icone: OqIconName }> = {
   1: { rotulo: 'Secos', icone: 'seco' },
   2: { rotulo: 'Refrigerado', icone: 'refrigerado' },
   3: { rotulo: 'Congelado', icone: 'congelado' },
+  4: { rotulo: 'Não pesáveis', icone: 'box' },
+  5: { rotulo: 'Pesáveis', icone: 'balanca' },
 };
 
 /**

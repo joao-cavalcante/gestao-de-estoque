@@ -20,7 +20,7 @@ object AuditoriaPedidoService {
 
     class PedidoNaoEncontradoException(msg: String) : Exception(msg)
 
-    private val ETAPA = mapOf(1 to "Seco", 2 to "Refrigerado", 3 to "Congelado")
+    private val ETAPA = (1..5).associateWith { wms.backend.separacao.CriterioEtapa.nome(it) }
     private val STATUS_CONF = mapOf(
         "A" to "em andamento", "F" to "finalizada", "R" to "enviada para recontagem",
         "C" to "aguardando liberação de corte", "D" to "finalizada com divergência",
@@ -387,7 +387,7 @@ object AuditoriaPedidoService {
             val recontagem = rs.getBoolean("recontagem")
             val detalhe = listOfNotNull(
                 rs.getObject("nuconf")?.let { "conferência nº $it" },
-                if (rs.getBoolean("conferencia_segmentada")) "separada por etapas (seco / refrigerado / congelado)" else null,
+                if (rs.getBoolean("conferencia_segmentada")) "separada por etapas" else null,
                 rs.getString("erro")?.takeIf { it.isNotBlank() }?.let { "erro: $it" },
             ).joinToString(" · ").ifEmpty { null }
             AuditoriaEventoDto(

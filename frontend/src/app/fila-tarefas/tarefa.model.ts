@@ -146,7 +146,7 @@ export function aCarregar(t: Tarefa): boolean {
 }
 
 export interface TarefaEtapa {
-  /** 1 Secos | 2 Resfriados | 3 Congelados. */
+  /** 1 Secos | 2 Refrigerado | 3 Congelado | 4 Não pesáveis | 5 Pesáveis (ver TIPOS_SEPARACAO). */
   tipo: number;
   status: 'P' | 'C';
   /** Concluída COM divergência — chip vermelho no card. */
@@ -156,15 +156,28 @@ export interface TarefaEtapa {
   conferidos: number;
 }
 
-/** Catálogo dos tipos de separação (TGFPRO.AD_TIPOSEPARACAO) — rótulo + ícone. */
+/**
+ * Catálogo das etapas da conferência — rótulo + ícone. Critério ativo no backend (CriterioEtapa): por PESO,
+ * 4 Não pesáveis | 5 Pesáveis. 1–3 (TGFPRO.AD_TIPOSEPARACAO: Secos/Refrigerado/Congelado) é o critério antigo,
+ * desativado — fica aqui pras sessões antigas e pra poder voltar.
+ */
 export const TIPOS_SEPARACAO = [
   { id: 1, label: 'Secos', icone: 'seco' as const },
   { id: 2, label: 'Refrigerado', icone: 'refrigerado' as const },
   { id: 3, label: 'Congelado', icone: 'congelado' as const },
+  { id: 4, label: 'Não pesáveis', icone: 'box' as const },
+  { id: 5, label: 'Pesáveis', icone: 'balanca' as const },
 ];
+
+/** Etapas do critério ativo (filtro da fila) — acompanhar WMS_CRITERIO_ETAPA do backend; temperatura = [1, 2, 3]. */
+export const TIPOS_SEPARACAO_ATIVOS = TIPOS_SEPARACAO.filter((t) => t.id === 4 || t.id === 5);
 
 export function rotuloTipoSeparacao(tipo: number): string {
   return TIPOS_SEPARACAO.find((t) => t.id === tipo)?.label ?? `Tipo ${tipo}`;
+}
+
+export function iconeTipoSeparacao(tipo: number | null | undefined): (typeof TIPOS_SEPARACAO)[number]['icone'] {
+  return TIPOS_SEPARACAO.find((t) => t.id === tipo)?.icone ?? 'seco';
 }
 
 /** Uma opção de select "cód - descrição" — padrão do oq-searchable-select. */

@@ -72,11 +72,14 @@ describe('Etiquetas — mesma família visual', () => {
     }
     expect(peso.textContent).toContain('25,300');
     expect(peso.textContent).toContain('kg');
-    expect(peso.textContent).toContain('Nº ÚNICO - O.C.');
-    // Caixas do Nº Único: 7 dígitos + traço fora das caixas, nas duas.
-    const caixasPeso = peso.querySelectorAll('.ep__unico .et-caixas__caixa').length;
-    expect(caixasPeso).toBe('5779756'.length);
-    expect(peso.querySelectorAll('.ep__unico .et-caixas__traco').length).toBe(1);
+    // Nº Único e OC em campos separados, cada um com o seu rótulo e as suas caixas (sem traço).
+    const campos = peso.querySelectorAll('.ep__unico .ep__unico-campo');
+    expect(campos.length).toBe(2);
+    expect(campos[0].textContent).toContain('Nº ÚNICO');
+    expect(campos[0].querySelectorAll('.et-caixas__caixa').length).toBe('57797'.length);
+    expect(campos[1].textContent).toContain('OC');
+    expect(campos[1].querySelectorAll('.et-caixas__caixa').length).toBe('56'.length);
+    expect(peso.querySelectorAll('.ep__unico .et-caixas__traco').length).toBe(0);
 
     console.log('ETQ_DUMP::' + JSON.stringify(dumps));
   });
