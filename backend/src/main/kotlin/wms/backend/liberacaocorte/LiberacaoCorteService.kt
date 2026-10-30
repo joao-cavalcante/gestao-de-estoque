@@ -339,17 +339,7 @@ object LiberacaoCorteService {
                 val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
                 val item = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()] ?: return@filter false
                 if (!item.usaConfPeso) return@filter false
-                val conf = obs.qtdConferida ?: return@filter false
-                val ped = obs.qtdPedido ?: return@filter false
-                val base = if (ped != 0.0) ped else conf
-                if (base == 0.0) return@filter false
-                if (conf > ped) {
-                    // A MAIOR: libera sozinho dentro da tolerância de cima (sem limite = sempre).
-                    tolAcima == null || (conf - ped) / base <= tolAcima / 100
-                } else {
-                    // A MENOR: libera sozinho dentro da tolerância de baixo (sem limite = sempre).
-                    tolAbaixo == null || (ped - conf) / base <= tolAbaixo / 100
-                }
+                dentroDaTolerancia(obs.qtdConferida, obs.qtdPedido, tolAcima, tolAbaixo)
             }
             if (liberaveis.isEmpty()) {
                 println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar — tudo pra liberação manual.")
@@ -411,6 +401,23 @@ object LiberacaoCorteService {
         } catch (e: Exception) {
             println("AVISO: auto-liberação de corte falhou (nuconf $nuconf): ${e.message} — segue pra liberação manual.")
             false
+        }
+    }
+
+    /**
+     * Peso conferido x pedido dentro da tolerância (em %; null = sem limite naquele sentido) — a conta da
+     * auto-liberação de pesável. Sem quantidade, ou pedido e conferido zerados, nunca libera.
+     */
+    internal fun dentroDaTolerancia(conf: Double?, ped: Double?, tolAcima: Double?, tolAbaixo: Double?): Boolean {
+        if (conf == null || ped == null) return false
+        val base = if (ped != 0.0) ped else conf
+        if (base == 0.0) return false
+        return if (conf > ped) {
+            // A MAIOR: libera sozinho dentro da tolerância de cima (sem limite = sempre).
+            tolAcima == null || (conf - ped) / base <= tolAcima / 100
+        } else {
+            // A MENOR: libera sozinho dentro da tolerância de baixo (sem limite = sempre).
+            tolAbaixo == null || (ped - conf) / base <= tolAbaixo / 100
         }
     }
 

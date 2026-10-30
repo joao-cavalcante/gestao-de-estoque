@@ -26,19 +26,38 @@ object LiberacaoHerdada {
 
     private const val TAM_OBSLIB = 255
 
+    /** O que a regra precisa do Sankhya e do liberador — trocável nos testes (sem Sankhya de verdade). */
+    internal interface Porta {
+        suspend fun pendentes(tenantSlug: String, sql: String): List<Map<String, String?>>
+        fun credenciais(): Pair<String, String>?
+        suspend fun validar(tenantSlug: String, usuario: String, senha: String): String
+        suspend fun liberar(tenantSlug: String, linha: Map<String, String?>, codusu: String, obs: String)
+    }
+
+    private object PortaSankhya : Porta {
+        override suspend fun pendentes(tenantSlug: String, sql: String) = SankhyaDbExplorerClient.executarQuery(tenantSlug, sql)
+        override fun credenciais() = LiberacaoCorteService.credenciaisLiberador()
+        override suspend fun validar(tenantSlug: String, usuario: String, senha: String) =
+            LiberacaoCorteService.validarLiberador(tenantSlug, usuario, senha)
+        override suspend fun liberar(tenantSlug: String, linha: Map<String, String?>, codusu: String, obs: String) =
+            LiberacaoCorteService.chamarLiberarNegar(tenantSlug, listOf(linha), codusu, "S", obs, vlrLib = 0)
+    }
+
     /** Libera na [nunota] o que já foi liberado na origem. Devolve quantas liberações foram feitas. Nunca lança. */
-    suspend fun herdar(tenantSlug: String, nunota: Long): Int {
-        val pendentes = runCatching { SankhyaDbExplorerClient.executarQuery(tenantSlug, sqlPendentesComOrigem(nunota)) }
+    suspend fun herdar(tenantSlug: String, nunota: Long): Int = herdar(tenantSlug, nunota, PortaSankhya)
+
+    internal suspend fun herdar(tenantSlug: String, nunota: Long, porta: Porta): Int {
+        val pendentes = runCatching { porta.pendentes(tenantSlug, sqlPendentesComOrigem(nunota)) }
             .getOrElse {
                 println("AVISO: liberação herdada — consulta da nota $nunota falhou: ${it.message}")
                 return 0
             }
         if (pendentes.isEmpty()) return 0
-        val (usuario, senha) = LiberacaoCorteService.credenciaisLiberador() ?: run {
+        val (usuario, senha) = porta.credenciais() ?: run {
             println("AVISO: LIBERADOR_USUARIO/LIBERADOR_SENHA não configurados — liberação herdada da nota $nunota fica manual.")
             return 0
         }
-        val codusu = runCatching { LiberacaoCorteService.validarLiberador(tenantSlug, usuario, senha) }.getOrElse {
+        val codusu = runCatching { porta.validar(tenantSlug, usuario, senha) }.getOrElse {
             println("AVISO: liberação herdada da nota $nunota — liberador de serviço não validou: ${it.message}")
             return 0
         }
@@ -50,7 +69,7 @@ object LiberacaoHerdada {
             val linha = listOf("NUCHAVE", "EVENTO", "NUCLL", "SEQCASCATA", "SEQUENCIA").associateWith {
                 p[it]?.trim()?.toBigDecimalOrNull()?.toLong()?.toString() ?: "0"
             } + ("TABELA" to p["TABELA"]?.trim())
-            runCatching { LiberacaoCorteService.chamarLiberarNegar(tenantSlug, listOf(linha), codusu, "S", obs, vlrLib = 0) }
+            runCatching { porta.liberar(tenantSlug, linha, codusu, obs) }
                 .onSuccess {
                     liberadas++
                     println("INFO: liberação herdada — nota $nunota ${linha["TABELA"]} seq ${linha["SEQUENCIA"]} evento ${linha["EVENTO"]} " +
@@ -66,7 +85,7 @@ object LiberacaoHerdada {
      * Linhas pendentes da nota com a liberação de origem mais próxima na cadeia da TGFVAR (CONNECT BY a partir de cada
      * item da nota; cabeçalho casa com qualquer item, item só com a própria sequência).
      */
-    private fun sqlPendentesComOrigem(nunota: Long) = """
+    internal fun sqlPendentesComOrigem(nunota: Long) = """
         SELECT * FROM (
           SELECT L.NUCHAVE, L.TABELA, L.EVENTO, L.SEQUENCIA, L.SEQCASCATA, L.NUCLL, L.VLRATUAL,
                  O.NUCHAVE AS NUNOTAORIG, O.CODUSULIB, O.VLRLIBERADO AS VLRORIG,

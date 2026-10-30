@@ -1468,8 +1468,12 @@ object SeparacaoService {
         }
     }
 
+    /** `dtFaturamento` do SelecaoDocumentoSP.faturar ("dd/MM/yyyy"): o dia de [agora] no fuso [zona]. */
+    internal fun dataFaturamento(agora: java.time.Instant = java.time.Instant.now(), zona: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
+        agora.atZone(zona).toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+
     private suspend fun faturarNoSankhya(tenantSlug: String, nunota: Long, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
-        val hoje = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+        val hoje = dataFaturamento()
         // Confirmações já dadas (txProperties) — estoque insuficiente: o Sankhya responde status 4 com
         // {"id":"...estoque.insuficiente.produto","event":{"codProd":"2587"}} e a tela nativa reenvia o MESMO faturar com
         // txProperties "central.notas.pode.efetivar_2587" = true (payload capturado da tela nativa, pedido 64886, 09/10/2026).

@@ -43,6 +43,14 @@ object SankhyaUsuarioService {
         return "${partes.first()}.${partes.last()}@negri.local"
     }
 
+    /** Campos do saveRecord de Usuario: o modelo + CODUSU, NOMEUSU e ACCOUNTEMAIL do novo usuário. */
+    internal fun montarCampos(codusu: Int, nomeUsu: String, nome: String, email: String?): LinkedHashMap<String, String> =
+        LinkedHashMap(MODELO).apply {
+            put("CODUSU", codusu.toString())
+            put("NOMEUSU", nomeUsu)
+            put("ACCOUNTEMAIL", email?.takeIf { it.isNotBlank() } ?: emailSankhya(nome))
+        }
+
     private suspend fun codusuPorNome(tenantSlug: String, nomeUsu: String): Int? =
         SankhyaDbExplorerClient.executarQuery(
             tenantSlug, "SELECT CODUSU FROM TSIUSU WHERE UPPER(NOMEUSU) = '${nomeUsu.replace("'", "''")}'",
@@ -56,11 +64,7 @@ object SankhyaUsuarioService {
         val codusu = SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT NVL(MAX(CODUSU), 0) + 1 AS PROX FROM TSIUSU")
             .firstOrNull()?.get("PROX")?.trim()?.toIntOrNull()
             ?: throw SankhyaUsuarioException("não consegui obter o próximo CODUSU")
-        val campos = LinkedHashMap(MODELO).apply {
-            put("CODUSU", codusu.toString())
-            put("NOMEUSU", nomeUsu)
-            put("ACCOUNTEMAIL", email?.takeIf { it.isNotBlank() } ?: emailSankhya(nome))
-        }
+        val campos = montarCampos(codusu, nomeUsu, nome, email)
         try {
             SankhyaSpClient.chamarRaw(
                 tenantSlug, "CRUDServiceProvider.saveRecord", "mge",
