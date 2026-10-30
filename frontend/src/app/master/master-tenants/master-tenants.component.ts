@@ -72,7 +72,8 @@ export class MasterTenantsComponent implements OnInit {
   }
 
   iniciais(nome: string): string {
-    return nome.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+    // Só letras/números: "Modial (dev local)" vira "MD", não "M(".
+    return nome.split(/\s+/).map((p) => p.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
   }
 
   tomStatus(t: TenantMaster): ChipTone {

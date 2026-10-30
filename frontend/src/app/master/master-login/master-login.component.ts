@@ -19,17 +19,23 @@ export class MasterLoginComponent {
 
   email = '';
   senha = '';
+  codigo = '';
   readonly carregando = signal(false);
   readonly erro = signal<string | null>(null);
 
   entrar(): void {
+    const codigo = this.codigo.replace(/\s/g, '');
     if (!this.email.trim() || !this.senha) {
       this.erro.set('Informe e-mail e senha.');
       return;
     }
+    if (!/^\d{6}$/.test(codigo)) {
+      this.erro.set('Informe o código de 6 dígitos do aplicativo autenticador.');
+      return;
+    }
     this.carregando.set(true);
     this.erro.set(null);
-    this.auth.login(this.email.trim(), this.senha).subscribe({
+    this.auth.login(this.email.trim(), this.senha, codigo).subscribe({
       next: () => {
         this.carregando.set(false);
         this.router.navigate(['/master']);
@@ -37,8 +43,25 @@ export class MasterLoginComponent {
       error: (e: HttpErrorResponse) => {
         this.carregando.set(false);
         this.senha = '';
-        this.erro.set(e.status === 401 ? 'E-mail ou senha inválidos.' : 'Não foi possível entrar. Tente novamente.');
+        this.codigo = '';
+        this.erro.set(mensagemErroLogin(e.status));
       },
     });
+  }
+}
+
+/** Recusa de credencial é sempre a mesma mensagem (o servidor não diz se a conta existe nem qual dado errou). */
+export function mensagemErroLogin(status: number): string {
+  switch (status) {
+    case 401:
+      return 'Credenciais inválidas. Confira e-mail, senha e o código atual do aplicativo.';
+    case 429:
+      return 'Muitas tentativas de acesso. Aguarde 15 minutos e tente novamente.';
+    case 503:
+      return 'Administração da plataforma não configurada nesta instalação.';
+    case 404:
+      return 'Administração da plataforma indisponível a partir desta rede.';
+    default:
+      return 'Não foi possível entrar. Tente novamente.';
   }
 }

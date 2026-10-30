@@ -111,7 +111,9 @@ export class NavMenuComponent {
   }
 
   private atualizarVisibilidade(url: string): void {
-    this.escondido = url.startsWith('/login');
+    // Painel Master também fica sem o menu do tenant: senão os links e o "Sair" operacional seguiam no DOM do
+    // painel (alcançáveis por Tab), e o "Sair" encerrava a sessão do tenant, não a do Master.
+    this.escondido = url.startsWith('/login') || url === '/master' || url.startsWith('/master/');
   }
 
   grupoAberto(label: string): boolean {

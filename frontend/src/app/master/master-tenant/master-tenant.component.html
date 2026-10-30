@@ -377,8 +377,8 @@
             @if (diagnostico(); as d) {
               <div class="mp-chips">
                 <oq-status-chip tone="success">{{ contagem('OK') }} OK</oq-status-chip>
-                <oq-status-chip tone="warning">{{ contagem('ALERTA') }} ALERTA</oq-status-chip>
-                <oq-status-chip tone="critical">{{ contagem('ERRO') }} ERRO</oq-status-chip>
+                <oq-status-chip [tone]="contagem('ALERTA') ? 'warning' : 'neutral'">{{ contagem('ALERTA') }} ALERTA</oq-status-chip>
+                <oq-status-chip [tone]="contagem('ERRO') ? 'critical' : 'neutral'">{{ contagem('ERRO') }} ERRO</oq-status-chip>
                 <oq-status-chip tone="neutral">{{ contagem('NAO_VERIFICADO') }} NÃO VERIFICADO</oq-status-chip>
                 <span class="oq-form-hint">em {{ dataHora(d.executadoEm) }}</span>
               </div>

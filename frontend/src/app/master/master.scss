@@ -58,8 +58,11 @@
   flex: none;
   gap: 4px;
   padding: 10px 14px 0;
-  border-bottom: 1px solid var(--oq-border);
+  // Linha de base desenhada por dentro (box-shadow) e sem transbordo vertical: com overflow-x:auto o navegador
+  // força overflow-y:auto, e a aba ativa "descendo" 1px fazia aparecer uma barra de rolagem vertical na faixa.
+  box-shadow: inset 0 -1px 0 var(--oq-border);
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .mp-aba {
@@ -86,7 +89,6 @@
   background: var(--oq-surface);
   color: var(--oq-brand-text);
   border-bottom: 1px solid var(--oq-surface);
-  margin-bottom: -1px;
 }
 
 .mp-aba-corpo {

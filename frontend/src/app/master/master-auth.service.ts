@@ -18,8 +18,9 @@ export class MasterAuthService {
 
   readonly master = signal<MasterUsuario | null>(lerSalvo());
 
-  login(email: string, senha: string): Observable<LoginMasterResponse> {
-    return this.http.post<LoginMasterResponse>('/api/master/auth/login', { email, senha }).pipe(
+  /** `codigo` = 6 dígitos do aplicativo autenticador (segundo fator, TOTP). */
+  login(email: string, senha: string, codigo: string): Observable<LoginMasterResponse> {
+    return this.http.post<LoginMasterResponse>('/api/master/auth/login', { email, senha, codigo }).pipe(
       tap((res) => {
         localStorage.setItem(CHAVE_TOKEN, res.token);
         localStorage.setItem(CHAVE_USUARIO, JSON.stringify(res.master));
