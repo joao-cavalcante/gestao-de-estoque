@@ -35,7 +35,14 @@ dependencies {
     implementation(libs.jbcrypt)
     implementation(libs.openpdf)
     implementation(libs.zxing.core)
+    // TOTP (RFC 6238) do MFA do Master. zxing:javase só gera imagem de QR — não usamos (o cadastro imprime o otpauth://).
+    implementation(libs.totp) { exclude(group = "com.google.zxing", module = "javase") }
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)
+}
+
+tasks.test {
+    // Segredo Master SÓ de teste (nunca o de um ambiente real). Sem ele o JwtService recusa token Master — de propósito.
+    environment("WMS_MASTER_JWT_SECRET", "segredo-master-exclusivo-dos-testes-0123456789abcdef")
 }

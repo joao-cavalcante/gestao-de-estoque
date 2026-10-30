@@ -2,7 +2,6 @@ package wms.backend.master
 
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -17,6 +16,8 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.add
 import wms.backend.auth.ClaimsMaster
+import wms.backend.auth.ClienteIp
+import wms.backend.auth.EstadoTenant
 import wms.backend.auth.JwtService
 import wms.backend.erp.SankhyaAuthService
 import wms.backend.liberacaocorte.LiberacaoCorteService
@@ -32,8 +33,9 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 
+/** `codigo` = 6 dígitos do aplicativo autenticador (TOTP). */
 @Serializable
-data class LoginMasterRequest(val email: String, val senha: String) {
+data class LoginMasterRequest(val email: String, val senha: String, val codigo: String? = null) {
     override fun toString() = "LoginMasterRequest(email=$email)"
 }
 
@@ -110,20 +112,25 @@ private val STATUS_PERMITIDOS = setOf("trial", "active", "suspended")
 
 private val json = Json { encodeDefaults = true }
 
-fun Route.masterRoutes() {
+fun Route.masterRoutes(login: LoginMaster = LoginMaster.padrao()) {
     route("/api/master") {
 
+        /** Mesma recusa pra conta inexistente, senha errada, código errado e conta sem MFA (não revela quem existe). */
         post("/auth/login") {
+            if (!call.plataformaDisponivel()) return@post
             val req = runCatching { call.receive<LoginMasterRequest>() }.getOrNull()
+                ?.takeIf { it.email.isNotBlank() && it.senha.isNotEmpty() }
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "informe e-mail e senha"))
-            val master = withContext(Dispatchers.IO) { MasterRepository.buscarParaLogin(req.email) }
-            val ator = AtorAdmin("master", master?.id, req.email.trim().lowercase(), call.request.origin.remoteHost)
-            if (master == null || !master.ativo || !MasterRepository.validarSenha(req.senha, master.senhaHash)) {
-                withContext(Dispatchers.IO) { AuditoriaAdmin.registrar(ator, null, null, "login", JsonObject(emptyMap()), resultado = "negado") }
-                return@post call.respond(HttpStatusCode.Unauthorized, mapOf("erro" to "e-mail ou senha inválidos"))
+            val ip = ClienteIp.de(call)
+            when (val r = withContext(Dispatchers.IO) { login.autenticar(req.email, req.senha, req.codigo, ip) }) {
+                is ResultadoLoginMaster.Autenticado -> call.respond(
+                    LoginMasterResponse(JwtService.gerarMaster(r.master.id, r.master.email), MasterDto(r.master.id.toString(), r.master.nome, r.master.email)),
+                )
+                ResultadoLoginMaster.Recusado ->
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("erro" to "credenciais inválidas"))
+                ResultadoLoginMaster.LimiteExcedido ->
+                    call.respond(HttpStatusCode.TooManyRequests, mapOf("erro" to "muitas tentativas de acesso — aguarde 15 minutos e tente novamente"))
             }
-            withContext(Dispatchers.IO) { AuditoriaAdmin.registrar(ator, null, null, "login", JsonObject(emptyMap())) }
-            call.respond(LoginMasterResponse(JwtService.gerarMaster(master.id, master.email), MasterDto(master.id.toString(), master.nome, master.email)))
         }
 
         get("/auth/eu") {
@@ -204,6 +211,8 @@ fun Route.masterRoutes() {
                     }
                     if (!call.confirmado(claims, tenant, "tenant.status", req.confirmacao)) return@put
                     val atualizado = withContext(Dispatchers.IO) { TenantRepository.atualizar(tenant.slug, AtualizarTenantRequest(status = req.status)) }
+                    // Suspensão vale já para os tokens emitidos (exigirAuth); nesta réplica, na hora — nas demais, até o TTL do cache.
+                    EstadoTenant.invalidar(UUID.fromString(tenant.id))
                     call.auditar(claims, tenant, "tenant.status", buildJsonObject {
                         put("antes", tenant.status); put("depois", req.status); req.motivo?.let { put("motivo", it.take(500)) }
                     })

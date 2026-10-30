@@ -36,7 +36,7 @@ object ImpressaoOcWorker {
     private suspend fun loop() {
         while (escopo.isActive) {
             try {
-                val tenants = withContext(Dispatchers.IO) { TenantRepository.listar() }
+                val tenants = withContext(Dispatchers.IO) { TenantRepository.listarAtivos() }
                 for (t in tenants) {
                     val tenantId = UUID.fromString(t.id ?: continue)
                     val jobs = withContext(Dispatchers.IO) { ImpressaoOcRepository.aguardandoSefaz(tenantId) }

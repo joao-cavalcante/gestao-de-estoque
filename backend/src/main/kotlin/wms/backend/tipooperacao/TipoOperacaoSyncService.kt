@@ -62,7 +62,7 @@ object TipoOperacaoSyncService {
 
     /** Chamado pelo worker periódico — tenant sem Sankhya/fora do ar é ignorado até o próximo ciclo. */
     suspend fun sincronizarTodosOsTenants() {
-        TenantRepository.listar().forEach { tenant ->
+        TenantRepository.listarAtivos().forEach { tenant ->
             val tenantId = tenant.id?.let { UUID.fromString(it) } ?: return@forEach
             try {
                 sincronizarTenant(tenant.slug, tenantId)

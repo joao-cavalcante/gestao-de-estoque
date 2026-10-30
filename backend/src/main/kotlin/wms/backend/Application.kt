@@ -32,6 +32,8 @@ import wms.backend.tarefas.tarefasRoutes
 import wms.backend.tv.tvRoutes
 import wms.backend.reconferencia.reconferenciaRoutes
 import wms.backend.produtos.produtoRessincronizacaoRoutes
+import wms.backend.auth.JwtService
+import wms.backend.master.MasterRepository
 import wms.backend.master.masterRoutes
 import wms.backend.tipooperacao.TipoOperacaoSyncWorker
 import wms.backend.tipooperacao.tipoOperacaoRoutes
@@ -77,6 +79,10 @@ fun Application.module() {
     }
 
     Database.init()
+    // Sem chave Master própria o Painel Master fica desligado (503) — falha explícita, nunca o segredo dos clientes.
+    // A operação dos tenants não depende dele e sobe normalmente.
+    JwtService.motivoMasterIndisponivel()?.let { environment.log.error("Painel Master DESLIGADO: $it (ver deploy/RUNBOOK-master.md)") }
+    runCatching { MasterRepository.limparTentativasAntigas() }
     SyncWorkerPool.iniciar()
     TransferenciaAbandonoWorker.iniciar()
     ConfigConferenciaSyncWorker.iniciar()

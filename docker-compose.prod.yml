@@ -62,6 +62,12 @@ services:
       WMS_DB_POOL_SIZE: ${WMS_DB_POOL_SIZE:-20}
       WMS_CREDENTIALS_KEY: ${WMS_CREDENTIALS_KEY}
       WMS_JWT_SECRET: ${WMS_JWT_SECRET}
+      # Painel Master (Entrega 1.2 — deploy/RUNBOOK-master.md). Sem WMS_MASTER_JWT_SECRET o painel fica desligado (503);
+      # a operação dos clientes não depende dele. NUNCA o mesmo valor do WMS_JWT_SECRET.
+      WMS_MASTER_JWT_SECRET: ${WMS_MASTER_JWT_SECRET:-}
+      WMS_MASTER_MFA_OBRIGATORIO: ${WMS_MASTER_MFA_OBRIGATORIO:-true}
+      WMS_MASTER_REDES_PERMITIDAS: ${WMS_MASTER_REDES_PERMITIDAS:-}
+      WMS_PROXIES_CONFIAVEIS: ${WMS_PROXIES_CONFIAVEIS:-}
       LIBERADOR_USUARIO: ${LIBERADOR_USUARIO:-}
       LIBERADOR_SENHA: ${LIBERADOR_SENHA:-}
       # Versão mostrada no Painel Master (mesmos valores que o deploy exporta pro frontend).

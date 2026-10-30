@@ -23,6 +23,12 @@ suspend fun ApplicationCall.exigirAuth(): ClaimsToken? {
         respond(HttpStatusCode.Unauthorized, mapOf("erro" to "token ausente ou inválido"))
         return null
     }
+    // Tenant suspenso/cancelado pelo Painel Master: o token (ainda dentro das 8h) para de valer. 401 = o front encerra
+    // a sessão e volta pro login, que mostra "instalação desativada".
+    if (!EstadoTenant.permiteAcesso(claims.tenantId)) {
+        respond(HttpStatusCode.Unauthorized, mapOf("erro" to "instalação desativada — fale com o suporte do WMS", "codigo" to "TENANT_DESATIVADO"))
+        return null
+    }
     // Conta de TV (perfil TV, ex.: "TV Expedição") só enxerga a TV — qualquer outra rota é barrada aqui,
     // num ponto só (toda rota protegida passa por exigirAuth/exigirAdmin).
     if (claims.perfil == PERFIL_TV && !request.local.uri.startsWith("/api/tv") && !request.local.uri.startsWith("/api/auth")) {

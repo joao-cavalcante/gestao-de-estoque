@@ -123,7 +123,7 @@ object ProdutoCatalogoSyncService {
 
     /** Chamado pelo worker periódico — ignora silenciosamente tenant sem conexão Sankhya configurada. */
     suspend fun sincronizarTodosOsTenants() {
-        TenantRepository.listar().forEach { tenant ->
+        TenantRepository.listarAtivos().forEach { tenant ->
             val slug = tenant.slug
             val tenantId = tenant.id?.let { UUID.fromString(it) } ?: return@forEach
             try {

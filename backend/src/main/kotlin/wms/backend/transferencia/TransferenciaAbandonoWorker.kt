@@ -13,7 +13,7 @@ import java.util.UUID
 /**
  * Varredura periódica (não 1 corrotina por tenant — mesmo raciocínio de
  * SyncWorkerPool: poucos tenants hoje, mas o custo por ciclo é 1 SELECT +
- * updates pontuais, então iterar `TenantRepository.listar()` inteiro a cada
+ * updates pontuais, então iterar `TenantRepository.listarAtivos()` inteiro a cada
  * ciclo é aceitável e muito mais simples que um pool dedicado).
  *
  * Marca como 'abandonada' só rascunhos 'aberta' SEM NENHUM item — uma
@@ -34,7 +34,7 @@ object TransferenciaAbandonoWorker {
     private suspend fun loop() {
         while (escopo.isActive) {
             try {
-                val tenants = withContext(Dispatchers.IO) { TenantRepository.listar() }
+                val tenants = withContext(Dispatchers.IO) { TenantRepository.listarAtivos() }
                 tenants.mapNotNull { it.id }.forEach { tenantId ->
                     withContext(Dispatchers.IO) {
                         TransferenciaRepository.marcarAbandonadas(UUID.fromString(tenantId), MINUTOS_LIMITE)

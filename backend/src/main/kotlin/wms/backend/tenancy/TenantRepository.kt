@@ -1,5 +1,6 @@
 package wms.backend.tenancy
 
+import wms.backend.auth.EstadoTenant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -40,6 +41,17 @@ object TenantRepository {
             .groupBy({ it[ErpConnectionsTable.tenantId].toString() }, { it.toErpDto() })
 
         tenants.map { tenant -> tenant.copy(erpConnections = conexoesPorTenant[tenant.id] ?: emptyList()) }
+    }
+
+    /**
+     * Só tenants com operação liberada (active/trial) — o que os workers de sincronização percorrem. Suspenso ou
+     * cancelado pelo Painel Master não chama o Sankhya dele nem processa nada até ser reativado (dados ficam).
+     */
+    fun listarAtivos(): List<TenantDto> = listar().filter { it.status in EstadoTenant.STATUS_COM_ACESSO }
+
+    /** Situação atual do tenant (null = não existe). Lida por EstadoTenant a cada rota autenticada, com cache. */
+    fun statusDe(id: UUID): String? = transaction {
+        TenantsTable.select(TenantsTable.status).where { TenantsTable.id eq id }.singleOrNull()?.get(TenantsTable.status)
     }
 
     fun buscarPorSlug(slug: String): TenantDto? = transaction {
