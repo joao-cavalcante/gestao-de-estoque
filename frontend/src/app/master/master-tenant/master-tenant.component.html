@@ -1,0 +1,464 @@
+<div class="oq-admin-page">
+  <div class="mp-barra">
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline mp-voltar" (click)="router.navigate(['/master'])">
+      <oq-icon name="arrow-left" [size]="13" />
+      Clientes
+    </button>
+    @if (tm(); as t) {
+      <div>
+        <div class="mp-barra__titulo">{{ t.tenant.nome }}</div>
+        <div class="mp-barra__sub">{{ t.tenant.slug }} · {{ t.tenant.id }}</div>
+      </div>
+      <div class="mp-barra__acoes">
+        <oq-status-chip [tone]="tomStatus()">{{ STATUS_ROTULO[t.tenant.status] }}</oq-status-chip>
+        <oq-status-chip [tone]="tomIntegracao()">{{ textoIntegracao() }}</oq-status-chip>
+      </div>
+    }
+  </div>
+
+  @if (carregando() && !tm()) {
+    <div class="oq-empty-row"><oq-spinner [size]="14" /> Carregando cliente…</div>
+  } @else if (tm()) {
+    @if (tm(); as t) {
+    <div class="mp-conteudo">
+      <div class="mp-abas" role="tablist">
+        @for (a of abas; track a.valor) {
+          <button type="button" role="tab" class="mp-aba" [class.mp-aba--ativa]="aba() === a.valor" [attr.aria-selected]="aba() === a.valor"
+                  (click)="trocarAba(a.valor)">
+            {{ a.label }}
+          </button>
+        }
+      </div>
+
+      <div class="mp-aba-corpo">
+        @if (mensagem()) {
+          <div class="oq-form-hint" role="status">{{ mensagem() }}</div>
+        }
+        @if (erro()) {
+          <div class="oq-form-hint oq-form-hint--erro" role="alert">{{ erro() }}</div>
+        }
+
+        @switch (aba()) {
+          @case ('geral') {
+            <div class="mp-grade">
+              <div class="oq-form-card">
+                <div class="oq-form-card__titulo">Cadastro</div>
+                <div class="oq-form-card__body">
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">Nome da distribuidora</span>
+                    <input [(ngModel)]="nome" name="nome" />
+                  </label>
+                  <div class="oq-form-field">
+                    <span class="oq-form-field__label">Identificador (slug)</span>
+                    <span class="mp-somente-leitura">{{ t.tenant.slug }}</span>
+                  </div>
+                  <div class="oq-form-field">
+                    <span class="oq-form-field__label">Instalação</span>
+                    <span class="mp-somente-leitura">{{ t.tenant.tier === 'shared' ? 'compartilhada (mesmo banco e servidor)' : 'dedicada' }}
+                      · versão {{ instalacao()?.build ?? 'não informada' }}</span>
+                  </div>
+                  <div class="mp-acoes-form">
+                    <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!nome.trim() || nome.trim() === t.tenant.nome"
+                            (click)="salvarNome()">Salvar</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="oq-form-card">
+                <div class="oq-form-card__titulo">Situação do cliente</div>
+                <div class="oq-form-card__body">
+                  <span class="mp-somente-leitura">Atual: {{ STATUS_ROTULO[t.tenant.status] }}</span>
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">Motivo (vai para o histórico)</span>
+                    <input [(ngModel)]="motivoStatus" name="motivo" maxlength="500" />
+                  </label>
+                  <span class="oq-form-hint">Desativar bloqueia novos logins e para a sincronização. Nenhum dado é apagado — exclusão de dados não é feita pelo painel.</span>
+                  <div class="mp-acoes-form">
+                    @if (t.tenant.status !== 'trial') {
+                      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="pedirStatus('trial')">Voltar para implantação</button>
+                    }
+                    @if (t.tenant.status === 'suspended' || t.tenant.status === 'trial') {
+                      <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="pedirStatus('active')">Ativar</button>
+                    }
+                    @if (t.tenant.status !== 'suspended') {
+                      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="pedirStatus('suspended')">Desativar cliente</button>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          @case ('integracao') {
+            <div class="mp-grade">
+              <div class="oq-form-card">
+                <div class="oq-form-card__titulo">Conexão com o Sankhya</div>
+                <div class="oq-form-card__body">
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">URL base</span>
+                    <input [(ngModel)]="integ.baseUrl" name="baseUrl" placeholder="https://api.sankhya.com.br" />
+                  </label>
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">Caminho do gateway</span>
+                    <input [(ngModel)]="integ.gatewayPath" name="gatewayPath" placeholder="gateway/v1" />
+                  </label>
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">Banco do Sankhya</span>
+                    <select [(ngModel)]="integ.dialect" name="dialect">
+                      <option value="ORACLE">Oracle</option>
+                      <option value="SQLSERVER">SQL Server (não homologado)</option>
+                    </select>
+                  </label>
+                  <label class="oq-form-switch">
+                    <input type="checkbox" [(ngModel)]="integ.ativo" name="ativo" />
+                    Integração ativa (desligada = sincronização parada)
+                  </label>
+                </div>
+              </div>
+
+              <div class="oq-form-card">
+                <div class="oq-form-card__titulo">Credenciais de integração</div>
+                <div class="oq-form-card__body">
+                  <span class="mp-somente-leitura">
+                    {{ conexao()?.credenciaisConfiguradas ? 'Credenciais gravadas (cifradas). Não são exibidas.' : 'Nenhuma credencial gravada.' }}
+                  </span>
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">Client ID</span>
+                    <input [(ngModel)]="clientId" name="clientId" autocomplete="off" placeholder="em branco = manter" />
+                  </label>
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">Client secret</span>
+                    <input type="password" [(ngModel)]="clientSecret" name="clientSecret" autocomplete="new-password" placeholder="em branco = manter" />
+                  </label>
+                  <label class="oq-form-field">
+                    <span class="oq-form-field__label">X-Token</span>
+                    <input type="password" [(ngModel)]="xToken" name="xToken" autocomplete="new-password" placeholder="em branco = manter" />
+                  </label>
+                  <span class="oq-form-hint">Para trocar, preencha os três campos. Nada é devolvido pelo servidor depois de gravado.</span>
+                </div>
+              </div>
+            </div>
+            <div class="mp-acoes-form">
+              @if (resultadoTeste()) {
+                <span class="oq-form-hint">{{ resultadoTeste() }}</span>
+              }
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="testando() || !conexao()" (click)="testarIntegracao()">
+                @if (testando()) { <oq-spinner [size]="12" /> } Testar autenticação
+              </button>
+              <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!integ.baseUrl.trim()" (click)="salvarIntegracao()">Salvar integração</button>
+            </div>
+          }
+
+          @case ('modulos') {
+            @if (!conexao()) {
+              <div class="mp-aviso">Cadastre a integração Sankhya antes de ligar módulos.</div>
+            }
+            <div class="oq-form-card">
+              <div class="oq-form-card__titulo">Módulos opcionais</div>
+              <div class="oq-form-card__body">
+                <span class="oq-form-hint">Instalação padrão = nenhum módulo. Cada módulo liga um comportamento que nem todo cliente usa.</span>
+                @for (m of instalacao()?.modulos ?? []; track m.id) {
+                  <label class="oq-form-switch">
+                    <input type="checkbox" [checked]="modulosSel.has(m.id)" (change)="alternarModulo(m.id, $any($event.target).checked)" />
+                    <span><strong>{{ m.id }}</strong> — {{ m.descricao }}</span>
+                  </label>
+                }
+                @for (m of modulosDesconhecidos(); track m) {
+                  <div class="mp-aviso">Módulo gravado que esta versão não conhece: {{ m }} (será removido ao salvar).</div>
+                }
+              </div>
+            </div>
+            <div class="mp-acoes-form">
+              <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!conexao()" (click)="salvarModulos()">Salvar módulos</button>
+            </div>
+          }
+
+          @case ('parametros') {
+            @if (!param) {
+              <div class="mp-aviso">Cadastre a integração Sankhya antes dos parâmetros.</div>
+            } @else {
+              <div class="mp-grade">
+                <div class="oq-form-card">
+                  <div class="oq-form-card__titulo">Liberação herdada</div>
+                  <div class="oq-form-card__body">
+                    <span class="mp-somente-leitura">Módulo: {{ modulosSel.has('liberacao_herdada') ? 'ligado' : 'desligado (a regra não roda)' }}</span>
+                    <label class="oq-form-field">
+                      <span class="oq-form-field__label">Eventos elegíveis</span>
+                      <input [(ngModel)]="eventosTexto" name="eventos" placeholder="ex.: 3" />
+                    </label>
+                    <label class="oq-form-switch">
+                      <input type="checkbox" [(ngModel)]="param.liberacaoHerdada.compararValor" name="compararValor" />
+                      Só herdar se o valor pedido na nota couber no liberado na origem
+                    </label>
+                    @if (!param.liberacaoHerdada.compararValor) {
+                      <div class="mp-aviso">Sem comparar valor: a nota herda a liberação mesmo com valor maior que o liberado no pedido (perfil legado).</div>
+                    }
+                  </div>
+                </div>
+
+                <div class="oq-form-card">
+                  <div class="oq-form-card__titulo">Credencial do liberador de serviço</div>
+                  <div class="oq-form-card__body">
+                    <span class="mp-somente-leitura">{{ conexao()?.liberadorConfigurado ? 'Credencial gravada (cifrada).' : 'Nenhuma credencial gravada.' }}</span>
+                    <label class="oq-form-field">
+                      <span class="oq-form-field__label">Usuário do Sankhya</span>
+                      <input [(ngModel)]="liberadorUsuario" name="liberadorUsuario" autocomplete="off" />
+                    </label>
+                    <label class="oq-form-field">
+                      <span class="oq-form-field__label">Senha</span>
+                      <input type="password" [(ngModel)]="liberadorSenha" name="liberadorSenha" autocomplete="new-password" />
+                    </label>
+                    <label class="oq-form-switch">
+                      <input type="checkbox" [(ngModel)]="param.liberador.fallbackVariavelAmbiente" name="fallback" />
+                      Instalação legada: sem credencial gravada, usar a variável de ambiente do servidor
+                    </label>
+                    <div class="mp-acoes-form">
+                      @if (conexao()?.liberadorConfigurado) {
+                        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="removerLiberador()">Remover credencial</button>
+                      }
+                      <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="salvarLiberador()">Validar e gravar credencial</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="oq-form-card">
+                  <div class="oq-form-card__titulo">Tolerância de pesáveis sem configuração no NUCCO</div>
+                  <div class="oq-form-card__body">
+                    <span class="oq-form-hint">A tolerância cadastrada por NUCCO (Configuração de Conferência) sempre tem prioridade.</span>
+                    <label class="oq-form-switch">
+                      <input type="radio" name="modoTol" value="produto" [(ngModel)]="modoTolerancia" />
+                      Não liberar sozinho (padrão do produto): vai para a liberação manual
+                    </label>
+                    <label class="oq-form-switch">
+                      <input type="radio" name="modoTol" value="instalacao" [(ngModel)]="modoTolerancia" />
+                      Política desta instalação
+                    </label>
+                    @if (modoTolerancia === 'instalacao') {
+                      <div class="oq-form-row">
+                        <label class="oq-form-field">
+                          <span class="oq-form-field__label">Peso acima do pedido</span>
+                          <select [(ngModel)]="modoAcima" name="modoAcima">
+                            <option value="nao">Não liberar</option>
+                            <option value="pct">Até o percentual</option>
+                            <option value="sem">Sem limite</option>
+                          </select>
+                          @if (modoAcima === 'pct') { <input [(ngModel)]="pctAcima" name="pctAcima" inputmode="decimal" placeholder="%" /> }
+                        </label>
+                        <label class="oq-form-field">
+                          <span class="oq-form-field__label">Peso abaixo do pedido</span>
+                          <select [(ngModel)]="modoAbaixo" name="modoAbaixo">
+                            <option value="nao">Não liberar</option>
+                            <option value="pct">Até o percentual</option>
+                            <option value="sem">Sem limite</option>
+                          </select>
+                          @if (modoAbaixo === 'pct') { <input [(ngModel)]="pctAbaixo" name="pctAbaixo" inputmode="decimal" placeholder="%" /> }
+                        </label>
+                      </div>
+                      @if (modoAcima === 'sem' || modoAbaixo === 'sem') {
+                        <div class="mp-aviso">"Sem limite" libera qualquer diferença de peso pelo liberador de serviço, sem revisão humana.</div>
+                      }
+                    }
+                  </div>
+                </div>
+
+                <div class="oq-form-card">
+                  <div class="oq-form-card__titulo">Fuso do faturamento</div>
+                  <div class="oq-form-card__body">
+                    <label class="oq-form-field">
+                      <span class="oq-form-field__label">Fuso da operação</span>
+                      <select [(ngModel)]="param.fuso" name="fuso">
+                        <option [ngValue]="null">Padrão (America/Sao_Paulo)</option>
+                        @for (f of FUSOS; track f) { <option [ngValue]="f">{{ f }}</option> }
+                      </select>
+                    </label>
+                    <span class="oq-form-hint">Define o dia da data de faturamento enviada ao Sankhya.</span>
+                  </div>
+                </div>
+
+                <div class="oq-form-card">
+                  <div class="oq-form-card__titulo">Criação de usuários no Sankhya</div>
+                  <div class="oq-form-card__body">
+                    <label class="oq-form-switch">
+                      <input type="checkbox" [(ngModel)]="param.usuarioSankhya.habilitado" name="usrHab" />
+                      Habilitar o botão "Criar no Sankhya" na tela de Usuários do cliente
+                    </label>
+                    <div class="oq-form-row">
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">Usuário-modelo (CODUSU)</span>
+                        <input [(ngModel)]="param.usuarioSankhya.usuarioModelo" name="usrModelo" inputmode="numeric" />
+                      </label>
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">Grupo (CODGRUPO)</span>
+                        <input [(ngModel)]="param.usuarioSankhya.codGrupo" name="usrGrupo" inputmode="numeric" />
+                      </label>
+                    </div>
+                    <label class="oq-form-field">
+                      <span class="oq-form-field__label">Domínio do e-mail</span>
+                      <input [(ngModel)]="param.usuarioSankhya.dominioEmail" name="usrDominio" placeholder="empresa.com.br" />
+                    </label>
+                    @if (quantidadeCamposFixos() > 0) {
+                      <span class="oq-form-hint">{{ quantidadeCamposFixos() }} campos de permissão com valores congelados (perfil legado) — mantidos como estão.</span>
+                    } @else {
+                      <span class="oq-form-hint">As permissões são copiadas do usuário-modelo no Sankhya na hora de criar. Modelo ou grupo inexistente bloqueia a criação.</span>
+                    }
+                  </div>
+                </div>
+              </div>
+              <div class="mp-acoes-form">
+                <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="salvarParametros()">Salvar parâmetros</button>
+              </div>
+            }
+          }
+
+          @case ('campos') {
+            <span class="oq-form-hint">Campos personalizados (AD_*) que esta versão do WMS lê ou grava. A existência no Sankhya do cliente é conferida pelo diagnóstico.</span>
+            <table class="mp-tabela">
+              <thead>
+                <tr><th>Campo</th><th>Uso</th><th>Exigência</th><th>No Sankhya</th></tr>
+              </thead>
+              <tbody>
+                @for (c of campos(); track c.tabela + c.campo) {
+                  <tr>
+                    <td>{{ c.tabela }}.{{ c.campo }}</td>
+                    <td class="mp-detalhe">{{ c.uso }}</td>
+                    <td>{{ c.modulo ? 'módulo ' + c.modulo : c.gravacao ? 'gravação opcional' : 'lido por todo cliente' }}</td>
+                    <td>
+                      @if (existenciaCampos().get(c.tabela + '.' + c.campo); as e) {
+                        <oq-status-chip [tone]="tomDiagnostico(e.situacao)">{{ e.detalhe.startsWith('existe') ? 'EXISTE' : 'AUSENTE' }}</oq-status-chip>
+                      } @else {
+                        <span class="mp-detalhe">não verificado</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <div class="mp-acoes-form">
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="diagnosticando()" (click)="executarDiagnostico()">
+                @if (diagnosticando()) { <oq-spinner [size]="12" /> } Verificar no Sankhya
+              </button>
+            </div>
+          }
+
+          @case ('usuarios') {
+            <span class="oq-form-hint">Somente leitura. Usuários e permissões são administrados pelo ADMINISTRADOR do próprio cliente.</span>
+            @if (usuarios() === null) {
+              <div class="oq-empty-row"><oq-spinner [size]="12" /> Carregando…</div>
+            } @else if (usuarios()!.length === 0) {
+              <div class="oq-empty-row">Nenhum usuário</div>
+            } @else {
+              <table class="mp-tabela">
+                <thead>
+                  <tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Nível</th><th>Situação</th><th>Sankhya</th></tr>
+                </thead>
+                <tbody>
+                  @for (u of usuarios()!; track u.email) {
+                    <tr>
+                      <td>{{ u.nome }}</td>
+                      <td>{{ u.email }}</td>
+                      <td>{{ u.perfil }}</td>
+                      <td>{{ u.nivel === 'ADMIN_TENANT' ? 'Administrador do cliente' : u.nivel === 'TV' ? 'TV' : 'Operacional' }}</td>
+                      <td><oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip></td>
+                      <td>{{ u.codusuSankhya ?? '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          }
+
+          @case ('diagnostico') {
+            <div class="mp-acoes-form" style="justify-content: space-between; align-items: center;">
+              <span class="oq-form-hint">Só leituras: autenticação, consultas e o espelho local. Nada é gravado e nenhuma rotina fiscal ou comercial é executada.</span>
+              <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="diagnosticando()" (click)="executarDiagnostico()">
+                @if (diagnosticando()) { <oq-spinner [size]="12" /> Executando… } @else { Executar diagnóstico }
+              </button>
+            </div>
+            @if (diagnostico(); as d) {
+              <div class="mp-chips">
+                <oq-status-chip tone="success">{{ contagem('OK') }} OK</oq-status-chip>
+                <oq-status-chip tone="warning">{{ contagem('ALERTA') }} ALERTA</oq-status-chip>
+                <oq-status-chip tone="critical">{{ contagem('ERRO') }} ERRO</oq-status-chip>
+                <oq-status-chip tone="neutral">{{ contagem('NAO_VERIFICADO') }} NÃO VERIFICADO</oq-status-chip>
+                <span class="oq-form-hint">em {{ dataHora(d.executadoEm) }}</span>
+              </div>
+              <table class="mp-tabela">
+                <thead>
+                  <tr><th>Grupo</th><th>Verificação</th><th>Situação</th><th>Detalhe</th></tr>
+                </thead>
+                <tbody>
+                  @for (i of d.itens; track $index) {
+                    <tr>
+                      <td>{{ i.grupo }}</td>
+                      <td>{{ i.titulo }}</td>
+                      <td><oq-status-chip [tone]="tomDiagnostico(i.situacao)">{{ i.situacao === 'NAO_VERIFICADO' ? 'NÃO VERIFICADO' : i.situacao }}</oq-status-chip></td>
+                      <td class="mp-detalhe">{{ i.detalhe }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          }
+
+          @case ('historico') {
+            @if (historico() === null) {
+              <div class="oq-empty-row"><oq-spinner [size]="12" /> Carregando…</div>
+            } @else if (historico()!.length === 0) {
+              <div class="oq-empty-row">Nenhuma alteração registrada</div>
+            } @else {
+              <table class="mp-tabela">
+                <thead>
+                  <tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Resultado</th><th>Detalhe</th></tr>
+                </thead>
+                <tbody>
+                  @for (r of historico()!; track r.id) {
+                    <tr>
+                      <td>{{ dataHora(r.ocorridoEm) }}</td>
+                      <td>{{ r.atorEmail ?? '—' }}</td>
+                      <td>{{ rotuloAcao(r.acao) }}</td>
+                      <td><oq-status-chip [tone]="tomResultado(r)">{{ r.resultado.toUpperCase() }}</oq-status-chip></td>
+                      <td class="mp-detalhe">{{ detalhe(r) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          }
+        }
+      </div>
+    </div>
+    }
+  } @else {
+    <div class="oq-empty-row">{{ erro() ?? 'Cliente não encontrado' }}</div>
+  }
+</div>
+
+@if (confirmacao(); as c) {
+  <div class="oq-modal-backdrop" (click)="cancelarConfirmacao()">
+    <div class="oq-modal" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">{{ c.titulo }}</span>
+        <button type="button" class="oq-modal__fechar" (click)="cancelarConfirmacao()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+      <form class="oq-modal__body" (ngSubmit)="confirmar()">
+        <p class="mp-confirmacao">{{ c.descricao }}</p>
+        <p class="mp-confirmacao">Cliente: <strong>{{ tm()?.tenant?.nome }}</strong>. Para confirmar, digite o identificador <code>{{ tm()?.tenant?.slug }}</code>.</p>
+        <label class="oq-form-field">
+          <span class="oq-form-field__label">Identificador do cliente</span>
+          <input [(ngModel)]="textoConfirmacao" name="confirmacao" autocomplete="off" />
+        </label>
+        @if (confirmacaoErro()) {
+          <span class="oq-modal-erro">{{ confirmacaoErro() }}</span>
+        }
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="cancelarConfirmacao()">Cancelar</button>
+          <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="confirmando() || textoConfirmacao.trim() !== tm()?.tenant?.slug">
+            @if (confirmando()) { <oq-spinner [size]="12" /> Aplicando… } @else { Confirmar }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

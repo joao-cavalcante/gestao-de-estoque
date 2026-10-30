@@ -1,0 +1,33 @@
+<div class="oq-login-page">
+  <div class="oq-login-card">
+    <div class="oq-login-brand">
+      <span class="oq-login-logo">LG</span>
+      <span class="oq-login-title">ADMINISTRAÇÃO DA PLATAFORMA</span>
+    </div>
+
+    <form class="oq-login-form" (ngSubmit)="entrar()">
+      <label class="oq-login-field">
+        <span class="oq-label-caps">E-mail</span>
+        <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
+      </label>
+
+      <label class="oq-login-field">
+        <span class="oq-label-caps">Senha</span>
+        <input type="password" name="senha" [(ngModel)]="senha" autocomplete="current-password" required />
+      </label>
+
+      @if (erro()) {
+        <div class="oq-login-erro">{{ erro() }}</div>
+      }
+
+      <button type="submit" class="oq-login-btn" [disabled]="carregando()">
+        @if (carregando()) {
+          <oq-spinner [size]="13" />
+          ENTRANDO…
+        } @else {
+          ENTRAR
+        }
+      </button>
+    </form>
+  </div>
+</div>

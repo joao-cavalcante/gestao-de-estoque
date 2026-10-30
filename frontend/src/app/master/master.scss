@@ -1,0 +1,193 @@
+/* Painel Master — mesmos tokens e classes das telas de Administração (oq-admin-*, oq-form-*, oq-modal*); aqui só o
+   que é próprio do painel: barra da plataforma, abas (padrão da Configuração de Conferência) e listas de leitura. */
+
+.mp-barra {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+}
+
+.mp-barra__titulo {
+  font-family: var(--oq-font-display);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--oq-text-primary);
+}
+
+.mp-barra__sub {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.mp-barra__acoes {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mp-voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mp-conteudo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  overflow: hidden;
+}
+
+.mp-abas {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 10px 14px 0;
+  border-bottom: 1px solid var(--oq-border);
+  overflow-x: auto;
+}
+
+.mp-aba {
+  flex: none;
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 8px 12px;
+  border: 1px solid var(--oq-border);
+  border-bottom: none;
+  border-radius: var(--oq-radius-block) var(--oq-radius-block) 0 0;
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-text-primary);
+  }
+}
+
+.mp-aba--ativa {
+  background: var(--oq-surface);
+  color: var(--oq-brand-text);
+  border-bottom: 1px solid var(--oq-surface);
+  margin-bottom: -1px;
+}
+
+.mp-aba-corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mp-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.mp-acoes-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mp-somente-leitura {
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-primary);
+}
+
+.mp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mp-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+
+  th {
+    text-align: left;
+    padding: 6px 8px;
+    font-family: var(--oq-font-display);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--oq-text-secondary);
+    background: var(--oq-surface-2);
+    border-bottom: 1px solid var(--oq-border);
+  }
+
+  td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--oq-border);
+    color: var(--oq-text-primary);
+    vertical-align: top;
+  }
+}
+
+.mp-detalhe {
+  color: var(--oq-text-secondary);
+  word-break: break-word;
+}
+
+.mp-aviso {
+  padding: 8px 10px;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-warning-foreground);
+  background: var(--oq-warning-soft);
+  border: 1px solid color-mix(in srgb, var(--oq-attention) 40%, var(--oq-border));
+  border-radius: var(--oq-radius-input);
+}
+
+.mp-confirmacao {
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  color: var(--oq-text-primary);
+  line-height: 1.5;
+
+  code {
+    font-weight: 700;
+    color: var(--oq-brand-text);
+  }
+}
+
+@media (max-width: 640px) {
+  .mp-barra__acoes {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .mp-tabela {
+    display: block;
+    overflow-x: auto;
+  }
+}

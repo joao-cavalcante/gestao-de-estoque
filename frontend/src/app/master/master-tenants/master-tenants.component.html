@@ -1,0 +1,98 @@
+<div class="oq-admin-page">
+  <div class="mp-barra">
+    <div>
+      <div class="mp-barra__titulo">Administração da plataforma</div>
+      <div class="mp-barra__sub">
+        {{ auth.master()?.nome }} · versão instalada
+        {{ instalacao()?.build ? 'build ' + instalacao()?.build + (instalacao()?.commit ? ' (' + instalacao()?.commit + ')' : '') : 'não informada' }}
+        · instalação {{ instalacao()?.modelo ?? '—' }}
+      </div>
+    </div>
+    <div class="mp-barra__acoes">
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="auth.sair()">
+        <oq-icon name="logout" [size]="13" />
+        Sair
+      </button>
+    </div>
+  </div>
+
+  <oq-panel-section icon="building" title="CLIENTES" [count]="tenants().length">
+    <div class="oq-admin-toolbar">
+      <input class="oq-admin-edit-input" type="search" placeholder="Buscar cliente" [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
+      <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirCriacao()">
+        <oq-icon name="building" [size]="13" />
+        Novo cliente
+      </button>
+    </div>
+
+    @if (erro()) {
+      <div class="oq-form-hint oq-form-hint--erro" role="alert">{{ erro() }}</div>
+    }
+
+    @if (carregando()) {
+      <ul class="oq-admin-lista">
+        <oq-skeleton variant="admin-row" [count]="4" />
+      </ul>
+    } @else if (filtrados().length === 0) {
+      <div class="oq-empty-row">Nenhum cliente encontrado</div>
+    } @else {
+      <ul class="oq-admin-lista">
+        @for (t of filtrados(); track t.tenant.id) {
+          <li class="oq-admin-row" style="cursor: pointer;" tabindex="0" role="button"
+              (click)="abrir(t)" (keydown.enter)="abrir(t)">
+            <span class="oq-admin-row__avatar">{{ iniciais(t.tenant.nome) }}</span>
+            <div class="oq-admin-row__main">
+              <span class="oq-admin-row__titulo">{{ t.tenant.nome }}</span>
+              <span class="oq-admin-row__sub">
+                {{ t.tenant.slug }} · {{ t.tenant.erpConnections.at(0)?.baseUrl ?? 'sem integração' }}
+                · {{ modulos(t) }} módulo(s)
+              </span>
+            </div>
+            <oq-status-chip [tone]="tomStatus(t)">{{ STATUS_ROTULO[t.tenant.status] }}</oq-status-chip>
+            <oq-status-chip [tone]="tomIntegracao(t)">{{ textoIntegracao(t) }}</oq-status-chip>
+            <oq-icon name="arrow-left" [size]="13" style="transform: rotate(180deg);" />
+          </li>
+        }
+      </ul>
+    }
+  </oq-panel-section>
+</div>
+
+@if (modalAberto()) {
+  <div class="oq-modal-backdrop" (click)="fecharModal()">
+    <div class="oq-modal" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">Novo cliente</span>
+        <button type="button" class="oq-modal__fechar" (click)="fecharModal()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+      <form class="oq-modal__body" #f="ngForm" (ngSubmit)="criar()">
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Nome da distribuidora</span>
+          <input name="nome" [(ngModel)]="novoNome" required />
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Identificador (slug)</span>
+          <input name="slug" [(ngModel)]="novoSlug" required pattern="[a-z0-9][a-z0-9-]{1,39}" placeholder="ex.: distribuidora-sul" />
+          <span class="oq-form-hint">Letras minúsculas, números e hífen. Não muda depois — é o que se digita para confirmar alterações críticas.</span>
+        </div>
+        <span class="oq-form-hint">O cliente nasce em IMPLANTAÇÃO, sem integração e sem módulos: configure as abas antes de ativar.</span>
+        @if (modalErro()) {
+          <span class="oq-modal-erro">{{ modalErro() }}</span>
+        }
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
+          <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="f.invalid || salvando()">
+            @if (salvando()) {
+              <oq-spinner [size]="12" />
+              Cadastrando…
+            } @else {
+              Cadastrar
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

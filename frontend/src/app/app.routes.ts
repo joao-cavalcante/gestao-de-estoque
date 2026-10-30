@@ -1,6 +1,8 @@
 import type { Routes } from '@angular/router';
-import { TenantListComponent } from './tenants/tenant-list/tenant-list.component';
-import { TenantFormComponent } from './tenants/tenant-form/tenant-form.component';
+import { MasterLoginComponent } from './master/master-login/master-login.component';
+import { MasterTenantsComponent } from './master/master-tenants/master-tenants.component';
+import { MasterTenantComponent } from './master/master-tenant/master-tenant.component';
+import { masterGuard } from './master/master.guard';
 import { FilaTarefasComponent } from './fila-tarefas/fila-tarefas.component';
 import { ConferenciaComponent } from './conferencia/conferencia.component';
 import { TransferenciaComponent } from './transferencia/transferencia.component';
@@ -65,7 +67,11 @@ export const routes: Routes = [
   { path: 'crachas', component: CrachasImpressaoComponent, canActivate: [adminGuard] },
   { path: 'balancas', component: BalancaListComponent, canActivate: [adminGuard] },
   { path: 'downloads', component: DownloadsComponent, canActivate: [adminGuard] },
-  { path: 'tenants', component: TenantListComponent, canActivate: [adminGuard] },
-  { path: 'tenants/novo', component: TenantFormComponent, canActivate: [adminGuard] },
-  { path: 'tenants/:slug', component: TenantFormComponent, canActivate: [adminGuard] },
+  // Painel Master (administração da PLATAFORMA): login e sessão próprios, nunca o ADMINISTRADOR de um cliente.
+  { path: 'master/login', component: MasterLoginComponent },
+  { path: 'master', component: MasterTenantsComponent, canActivate: [masterGuard] },
+  { path: 'master/tenants/:id', component: MasterTenantComponent, canActivate: [masterGuard] },
+  // Endereço antigo da tela de tenants (era aberta a qualquer ADMINISTRADOR) — agora é o Painel Master.
+  { path: 'tenants', redirectTo: 'master', pathMatch: 'full' },
+  { path: 'tenants/:qualquer', redirectTo: 'master' },
 ];
