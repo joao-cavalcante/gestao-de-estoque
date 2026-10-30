@@ -144,8 +144,22 @@ object SankhyaSpClient {
         return enviar(tenantSlug, serviceName, url, token, corpo)
     }
 
+    /**
+     * Ambiente local de teste e staging (WMS_SANKHYA_SOMENTE_LEITURA=true): lê o Sankhya de produção mas NUNCA
+     * grava — qualquer serviço fora desta lista de leitura falha antes de sair. Em produção a variável não existe.
+     */
+    private val somenteLeitura = System.getenv("WMS_SANKHYA_SOMENTE_LEITURA") == "true"
+    private val SERVICOS_LEITURA = setOf(
+        "DatasetSP.loadRecords", "CRUDServiceProvider.loadRecords", "LiberacaoLimitesSP.validarSenhaUsuario",
+        "ParceiroSP.importarDadosParceiroToJson",
+    )
+
     /** POST + validação de resposta, comum às duas variantes. */
     private suspend fun enviar(tenantSlug: String, serviceName: String, url: String, token: String, corpo: JsonObject): JsonObject {
+        if (somenteLeitura && serviceName !in SERVICOS_LEITURA) {
+            println("AVISO: modo somente leitura — chamada ao Sankhya bloqueada: $serviceName")
+            throw SankhyaSpException("Ambiente de teste/staging: gravação no Sankhya bloqueada ($serviceName).")
+        }
         val httpReq = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .timeout(TIMEOUT_REQUISICAO)

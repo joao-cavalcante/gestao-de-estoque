@@ -21,6 +21,9 @@ dist/
 # Os *.sql.example (referência, sem segredo) ficam versionados.
 deploy/seed/*.sql
 
+# Senha de acesso do staging (nginx auth_basic) — criada só no servidor.
+deploy/staging.htpasswd
+
 # IDE
 .idea/
 *.iml

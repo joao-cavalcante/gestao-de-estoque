@@ -1,0 +1,92 @@
+# WMS — staging (pré-produção), no mesmo servidor da produção mas isolado dela.
+# Clone próprio em ~/projetos/wms-staging, na branch `staging`, com .env próprio (deploy/README.md → Staging).
+# Uso: docker compose -f docker-compose.staging.yml up -d --build
+#
+# Portas: 3004 (API) e 9006 (web, com senha de acesso do nginx — deploy/staging.htpasswd, fora do git).
+# Banco próprio (volume wms-staging_wms_pgdata), começa como cópia da produção.
+# Sankhya: lê a produção e NUNCA grava (WMS_SANKHYA_SOMENTE_LEITURA=true — ver SankhyaSpClient).
+name: wms-staging
+
+services:
+  wms-db:
+    image: postgres:15
+    container_name: wms-db-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: wms
+    command: postgres -c max_connections=50
+    volumes:
+      - wms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wms"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wms-migrate:
+    image: postgres:15
+    container_name: wms-migrate-staging
+    restart: "no"
+    depends_on:
+      wms-db:
+        condition: service_healthy
+    environment:
+      PGHOST: wms-db
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: wms
+      WMS_DB_PASSWORD: ${WMS_DB_PASSWORD}
+    volumes:
+      - ./db/migrations:/migrations:ro
+      - ./deploy/seed:/seed:ro
+      - ./deploy/migrate.sh:/migrate.sh:ro
+    entrypoint: ["bash", "/migrate.sh"]
+
+  wms-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    container_name: wms-backend-staging
+    restart: unless-stopped
+    depends_on:
+      wms-db:
+        condition: service_healthy
+      wms-migrate:
+        condition: service_completed_successfully
+    environment:
+      WMS_PORT: 8080
+      WMS_DB_URL: jdbc:postgresql://wms-db:5432/wms
+      WMS_DB_USER: wms_app
+      WMS_DB_PASSWORD: ${WMS_DB_PASSWORD}
+      WMS_DB_POOL_SIZE: ${WMS_DB_POOL_SIZE:-5}
+      WMS_CREDENTIALS_KEY: ${WMS_CREDENTIALS_KEY}
+      WMS_JWT_SECRET: ${WMS_JWT_SECRET}
+      WMS_SANKHYA_SOMENTE_LEITURA: "true"
+      JAVA_OPTS: "-Xmx768m"
+    mem_limit: 1g
+    ports:
+      - "3004:8080"
+
+  wms-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        APP_BUILD: ${APP_BUILD:-}
+        APP_COMMIT: ${APP_COMMIT:-}
+    container_name: wms-frontend-staging
+    restart: unless-stopped
+    depends_on:
+      - wms-backend
+    volumes:
+      # Mesmo nginx da produção + senha de acesso (auth_basic) na frente de tudo.
+      - ./frontend/nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/staging.htpasswd:/etc/nginx/staging.htpasswd:ro
+    ports:
+      - "9006:80"
+
+volumes:
+  wms_pgdata:

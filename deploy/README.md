@@ -70,3 +70,51 @@ Seeds usam `ON CONFLICT DO NOTHING` — rodar de novo não duplica nada.
   rotacionar: gerar nova chave, decifrar e re-cifrar as credenciais no banco.
 - **CORS**: o backend está com `anyHost()`. O nginx serve tudo same-origin
   (proxy `/api`), então na prática não dispara — mas vale restringir depois.
+
+## Staging (pré-produção)
+
+Fluxo de branches: `develop` (desenvolvimento) → `staging` (pré-produção, testada aqui) → `master` (produção).
+
+Mesmo servidor, stack isolada (`docker-compose.staging.yml`, projeto compose `wms-staging`):
+clone próprio em `~/projetos/wms-staging` na branch `staging`, banco próprio (volume
+`wms-staging_wms_pgdata`), portas **3004** (API) e **9006** (web).
+
+- **Sankhya só leitura**: `WMS_SANKHYA_SOMENTE_LEITURA=true` — lê a produção e bloqueia toda gravação
+  (finalizar, cortar, faturar, liberar falham de propósito no fim).
+- **Senha de acesso**: o nginx pede usuário/senha (`deploy/staging.htpasswd`, só no servidor) antes do login do WMS.
+- **Banco**: começa como cópia do banco de produção (dá pra recopiar — ver abaixo).
+
+Web: `http://163.176.239.42:9006`.
+
+### Criar (uma vez)
+
+```bash
+cd ~/projetos && git clone -b staging https://github.com/joao-cavalcante/gestao-de-estoque.git wms-staging
+cd wms-staging
+cp ../wms/deploy/seed/*.sql deploy/seed/
+# .env próprio: senhas novas; WMS_CREDENTIALS_KEY igual à da produção (o banco copiado está cifrado com ela)
+printf 'staging:%s\n' "$(openssl passwd -apr1 'SENHA')" > deploy/staging.htpasswd
+docker compose -f docker-compose.staging.yml up -d wms-db
+# depois: copiar o banco de produção (abaixo) e subir o resto
+docker compose -f docker-compose.staging.yml up -d --build
+```
+
+### Copiar / recopiar o banco de produção
+
+```bash
+cd ~/projetos/wms-staging
+docker compose -f docker-compose.staging.yml stop wms-backend
+docker exec wms-db-staging psql -U postgres -c "drop database if exists wms with (force)" -c "create database wms"
+docker exec wms-db-prod pg_dumpall -U postgres --roles-only | docker exec -i wms-db-staging psql -U postgres -q
+docker exec wms-db-prod pg_dump -U postgres -d wms | docker exec -i wms-db-staging psql -U postgres -d wms -q
+docker compose -f docker-compose.staging.yml up -d   # wms-migrate ajusta a senha do wms_app pro .env do staging
+```
+
+### Atualizar
+
+```bash
+cd ~/projetos/wms-staging && git pull
+export APP_BUILD=$(git rev-list --count HEAD) APP_COMMIT=$(git rev-parse --short HEAD)
+docker compose -f docker-compose.staging.yml up -d --build
+curl -s localhost:3004/health   # {"status":"ok"}
+```
