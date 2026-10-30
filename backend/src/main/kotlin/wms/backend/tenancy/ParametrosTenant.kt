@@ -14,9 +14,12 @@ data class ParametrosTenant(
     val liberacaoHerdada: ParametrosLiberacaoHerdada = ParametrosLiberacaoHerdada(),
     val liberador: ParametrosLiberador = ParametrosLiberador(),
     val toleranciaPesavel: PoliticaToleranciaPesavel = PoliticaToleranciaPesavel(),
+    /** Fuso da operação (ID IANA). null = FusoInstalacao.PADRAO (America/Sao_Paulo). Ver FusoInstalacao. */
+    val fuso: String? = null,
 ) {
     /** Erros de validação (vazio = válido). Conferido antes de gravar. */
-    fun validar(): List<String> = liberacaoHerdada.validar() + toleranciaPesavel.validar()
+    fun validar(): List<String> = liberacaoHerdada.validar() + toleranciaPesavel.validar() +
+        listOfNotNull(fuso?.takeIf { !FusoInstalacao.valido(it) }?.let { "fuso: '$it' não é um fuso válido (ex.: America/Sao_Paulo)" })
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
