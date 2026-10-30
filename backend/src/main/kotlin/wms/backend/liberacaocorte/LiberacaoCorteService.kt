@@ -281,8 +281,8 @@ object LiberacaoCorteService {
      * manual (fica pendente na ViewLiberacaoLimite), assim como item normal
      * (não pesável).
      *
-     * Credenciais do liberador via env LIBERADOR_USUARIO / LIBERADOR_SENHA — sem
-     * elas nada é liberado.
+     * Credencial do liberador de serviço DO TENANT (LiberadorServico) — sem
+     * ela nada é liberado.
      *
      * IMPORTANTE — regra de negócio confirmada: "liberar sozinho" (sem um
      * liberador humano logando com a própria credencial) só vale pra produto
@@ -306,10 +306,7 @@ object LiberacaoCorteService {
         nuconf: Int,
         sessaoId: UUID,
     ): Boolean {
-        val (usuario, senha) = credenciaisLiberador() ?: run {
-            println("AVISO: LIBERADOR_USUARIO/LIBERADOR_SENHA não configurados — corte $nuconf fica pra liberação manual.")
-            return false
-        }
+        val liberador = LiberadorServico.credencial(tenantId, "corte $nuconf") ?: return false
         return try {
             val pendentes = buscarPendentesRaw(tenantSlug, nuconf)
             if (pendentes.isEmpty()) return false
@@ -346,7 +343,7 @@ object LiberacaoCorteService {
                 return false
             }
 
-            val codusu = validarLiberador(tenantSlug, usuario, senha)
+            val codusu = validarLiberador(tenantSlug, liberador.usuario, liberador.senha)
             chamarLiberarNegar(
                 tenantSlug, liberaveis, codusu, "S",
                 "Liberação automática — peso dentro da tolerância (acima ${tolAcima?.let { "$it%" } ?: "sem limite"}, abaixo ${tolAbaixo?.let { "$it%" } ?: "sem limite"})",
@@ -419,13 +416,6 @@ object LiberacaoCorteService {
             // A MENOR: libera sozinho dentro da tolerância de baixo (sem limite = sempre).
             tolAbaixo == null || (ped - conf) / base <= tolAbaixo / 100
         }
-    }
-
-    /** Liberador de serviço das liberações automáticas (env LIBERADOR_USUARIO / LIBERADOR_SENHA); null = não configurado. */
-    internal fun credenciaisLiberador(): Pair<String, String>? {
-        val usuario = System.getenv("LIBERADOR_USUARIO")
-        val senha = System.getenv("LIBERADOR_SENHA")
-        return if (usuario.isNullOrBlank() || senha.isNullOrBlank()) null else usuario to senha
     }
 
     /** Valida usuário/senha do liberador no Sankhya e devolve o CODUSU dele. */

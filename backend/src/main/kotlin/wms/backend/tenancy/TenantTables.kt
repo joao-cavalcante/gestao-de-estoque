@@ -66,6 +66,8 @@ object ErpConnectionsTable : Table("tenancy.erp_connections") {
     val credenciais = text("credenciais")
     // parametros jsonb (V62) — parâmetros de operação tipados (ver ParametrosTenant); sem segredo
     val parametros = registerColumn("parametros", wms.backend.tarefas.JsonbColumnType())
+    // credencial_liberador (V63) — {"usuario","senha"} do liberador de serviço, CIFRADO (CredentialsCipher); null = não configurada
+    val credencialLiberador = text("credencial_liberador").nullable()
     val ativo = bool("ativo")
     val criadoEm = timestamp("criado_em")
     val atualizadoEm = timestamp("atualizado_em")

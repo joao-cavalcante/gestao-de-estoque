@@ -35,7 +35,7 @@ class LiberacaoHerdadaModuloTest {
         }
         override fun parametros(tenantId: UUID) = parametrosPorTenant[tenantId] ?: ParametrosLiberacaoHerdada()
         override suspend fun pendentes(tenantSlug: String, sql: String): List<Map<String, String?>> { sqls += sql; return linhas }
-        override fun credenciais(): Pair<String, String>? { credencialLida = true; return "liberador" to "segredo" }
+        override fun credenciais(tenantId: UUID): Pair<String, String>? { credencialLida = true; return "liberador" to "segredo" }
         override suspend fun validar(tenantSlug: String, usuario: String, senha: String) = "27"
         override suspend fun liberar(tenantSlug: String, linha: Map<String, String?>, codusu: String, obs: String) { liberadas += linha }
     }

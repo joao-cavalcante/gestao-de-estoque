@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class ParametrosTenant(
     val liberacaoHerdada: ParametrosLiberacaoHerdada = ParametrosLiberacaoHerdada(),
+    val liberador: ParametrosLiberador = ParametrosLiberador(),
 ) {
     /** Erros de validação (vazio = válido). Conferido antes de gravar. */
     fun validar(): List<String> = liberacaoHerdada.validar()
@@ -29,6 +30,16 @@ data class ParametrosTenant(
         fun gravar(p: ParametrosTenant): String = json.encodeToString(serializer(), p)
     }
 }
+
+/**
+ * Liberador de serviço (liberações automáticas). A credencial fica cifrada em `erp_connections.credencial_liberador`
+ * (V63). [fallbackVariavelAmbiente] = TRANSIÇÃO da instalação legada (só a Negri, V63): sem credencial no tenant,
+ * aceita LIBERADOR_USUARIO/LIBERADOR_SENHA do processo. Desligar depois de cadastrar a credencial do tenant.
+ */
+@Serializable
+data class ParametrosLiberador(
+    val fallbackVariavelAmbiente: Boolean = false,
+)
 
 /**
  * Módulo [Modulos.LIBERACAO_HERDADA]. [eventos] vazio = nada é herdado mesmo com o módulo ligado.

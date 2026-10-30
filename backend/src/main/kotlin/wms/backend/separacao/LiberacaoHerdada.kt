@@ -25,8 +25,8 @@ import java.util.UUID
  *  - Origem liberada (DHLIB, VLRLIBERADO > 0, sem linha reprovada do evento); vale a etapa mais próxima.
  *  - Valor: com `compararValor` (padrão) só herda se VLRATUAL <= o liberado na origem. A Negri tem
  *    `compararValor = false` (decisão do cliente, 16/10/2026): herda qualquer valor.
- *  - Mesmo mecanismo da auto-liberação dos pesáveis (usuário, 23/10/2026): liberador de serviço
- *    (LIBERADOR_USUARIO / LIBERADOR_SENHA, validado no Sankhya) pelo LiberacaoLimitesSP.liberarNegarLimites, com
+ *  - Mesmo mecanismo da auto-liberação dos pesáveis (usuário, 23/10/2026): liberador de serviço do tenant
+ *    (LiberadorServico, validado no Sankhya) pelo LiberacaoLimitesSP.liberarNegarLimites, com
  *    vlrLib 0 (VLRLIBERADO recebe o VLRATUAL). A OBSLIB diz de onde veio e quem liberou na origem.
  */
 object LiberacaoHerdada {
@@ -38,7 +38,7 @@ object LiberacaoHerdada {
         fun modulos(tenantId: UUID): Set<String>
         fun parametros(tenantId: UUID): ParametrosLiberacaoHerdada
         suspend fun pendentes(tenantSlug: String, sql: String): List<Map<String, String?>>
-        fun credenciais(): Pair<String, String>?
+        fun credenciais(tenantId: UUID): Pair<String, String>?
         suspend fun validar(tenantSlug: String, usuario: String, senha: String): String
         suspend fun liberar(tenantSlug: String, linha: Map<String, String?>, codusu: String, obs: String)
     }
@@ -47,7 +47,8 @@ object LiberacaoHerdada {
         override fun modulos(tenantId: UUID) = TenantRepository.modulosHabilitados(tenantId)
         override fun parametros(tenantId: UUID) = TenantRepository.parametros(tenantId).liberacaoHerdada
         override suspend fun pendentes(tenantSlug: String, sql: String) = SankhyaDbExplorerClient.executarQuery(tenantSlug, sql)
-        override fun credenciais() = LiberacaoCorteService.credenciaisLiberador()
+        override fun credenciais(tenantId: UUID) =
+            wms.backend.liberacaocorte.LiberadorServico.credencial(tenantId, "liberação herdada")?.let { it.usuario to it.senha }
         override suspend fun validar(tenantSlug: String, usuario: String, senha: String) =
             LiberacaoCorteService.validarLiberador(tenantSlug, usuario, senha)
         override suspend fun liberar(tenantSlug: String, linha: Map<String, String?>, codusu: String, obs: String) =
@@ -74,8 +75,8 @@ object LiberacaoHerdada {
             println("INFO: liberação herdada — nota $nunota: ${consultados.size - pendentes.size} pendência(s) com valor acima do liberado na origem ficam manuais")
         }
         if (pendentes.isEmpty()) return 0
-        val (usuario, senha) = porta.credenciais() ?: run {
-            println("AVISO: LIBERADOR_USUARIO/LIBERADOR_SENHA não configurados — liberação herdada da nota $nunota fica manual.")
+        val (usuario, senha) = porta.credenciais(tenantId) ?: run {
+            println("AVISO: liberador de serviço indisponível no tenant $tenantSlug — liberação herdada da nota $nunota fica manual.")
             return 0
         }
         val codusu = runCatching { porta.validar(tenantSlug, usuario, senha) }.getOrElse {

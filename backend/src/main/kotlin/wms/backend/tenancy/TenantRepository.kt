@@ -79,6 +79,34 @@ object TenantRepository {
         } > 0
     }
 
+    /**
+     * Credencial DECIFRADA do liberador de serviço do tenant (V63) — uso interno, nunca em resposta nem log.
+     * null = não configurada. Blob que não decifra LANÇA (quem chama trata como indisponível, sem cair em fallback).
+     */
+    fun obterCredencialLiberador(tenantId: UUID): Pair<String, String>? = transaction {
+        val cifrada = ErpConnectionsTable.selectAll()
+            .where { (ErpConnectionsTable.tenantId eq tenantId) and (ErpConnectionsTable.erpType eq "sankhya") }
+            .singleOrNull()?.get(ErpConnectionsTable.credencialLiberador)
+            ?: return@transaction null
+        val obj = Json.parseToJsonElement(CredentialsCipher.decrypt(cifrada)).jsonObject
+        val usuario = (obj["usuario"] as? JsonPrimitive)?.contentOrNull
+        val senha = (obj["senha"] as? JsonPrimitive)?.contentOrNull
+        if (usuario.isNullOrBlank() || senha.isNullOrBlank()) null else usuario to senha
+    }
+
+    /** Grava (cifrada) ou remove ([usuario] null) a credencial do liberador. false = tenant sem conexão Sankhya. */
+    fun salvarCredencialLiberador(tenantId: UUID, usuario: String?, senha: String?): Boolean = transaction {
+        val cifrada = if (usuario == null || senha == null) null else CredentialsCipher.encrypt(
+            kotlinx.serialization.json.buildJsonObject {
+                put("usuario", JsonPrimitive(usuario)); put("senha", JsonPrimitive(senha))
+            }.toString(),
+        )
+        ErpConnectionsTable.update({ (ErpConnectionsTable.tenantId eq tenantId) and (ErpConnectionsTable.erpType eq "sankhya") }) {
+            it[credencialLiberador] = cifrada
+            it[atualizadoEm] = Instant.now()
+        } > 0
+    }
+
     /** Usado pelo TenantDatabaseRouter — resolver tier/dedicated_db_url a partir só do UUID. */
     fun buscarPorId(id: UUID): TenantDto? = transaction {
         val tenantRow = TenantsTable.selectAll().where { TenantsTable.id eq id }.singleOrNull()
@@ -250,6 +278,7 @@ object TenantRepository {
             credenciaisConfiguradas = configurada,
             modulos = this[ErpConnectionsTable.modulos],
             parametros = ParametrosTenant.ler(this[ErpConnectionsTable.parametros]),
+            liberadorConfigurado = this[ErpConnectionsTable.credencialLiberador] != null,
         )
     }
 }

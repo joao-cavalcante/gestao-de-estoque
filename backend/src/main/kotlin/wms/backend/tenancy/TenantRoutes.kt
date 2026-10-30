@@ -124,6 +124,49 @@ fun Route.tenantRoutes() {
             call.respond(TenantRepository.parametros(claims.tenantId))
         }
 
+        /**
+         * Credencial do liberador de serviço do tenant (V63) — só escrita: {usuario, senha}. Validada no Sankhya
+         * (LiberacaoLimitesSP.validarSenhaUsuario, leitura) ANTES de gravar; inválida não grava. Resposta nunca traz
+         * a senha. Só o ADMINISTRADOR do PRÓPRIO tenant. DELETE remove (liberações automáticas ficam manuais).
+         */
+        put("/{slug}/liberador") {
+            val claims = call.exigirAdmin() ?: return@put
+            val tenant = TenantRepository.buscarPorSlug(call.parameters["slug"]!!)
+            if (tenant == null || tenant.id != claims.tenantId.toString()) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+                return@put
+            }
+            val req = runCatching { call.receive<CredencialLiberadorRequest>() }.getOrNull()
+            if (req == null || req.usuario.isBlank() || req.senha.isBlank()) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "informe usuario e senha do liberador"))
+                return@put
+            }
+            val codusu = try {
+                wms.backend.liberacaocorte.LiberacaoCorteService.validarLiberador(tenant.slug, req.usuario.trim(), req.senha)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "o Sankhya não validou o liberador: ${e.message}"))
+                return@put
+            }
+            if (!TenantRepository.salvarCredencialLiberador(claims.tenantId, req.usuario.trim(), req.senha)) {
+                call.respond(HttpStatusCode.Conflict, mapOf("erro" to "tenant sem conexão Sankhya"))
+                return@put
+            }
+            println("INFO: credencial do liberador de serviço gravada (tenant ${tenant.slug}, CODUSU $codusu)")
+            call.respond(mapOf("configurado" to "true", "codusu" to codusu))
+        }
+
+        delete("/{slug}/liberador") {
+            val claims = call.exigirAdmin() ?: return@delete
+            val tenant = TenantRepository.buscarPorSlug(call.parameters["slug"]!!)
+            if (tenant == null || tenant.id != claims.tenantId.toString()) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+                return@delete
+            }
+            TenantRepository.salvarCredencialLiberador(claims.tenantId, null, null)
+            println("INFO: credencial do liberador de serviço removida (tenant ${tenant.slug})")
+            call.respond(HttpStatusCode.NoContent)
+        }
+
         delete("/{slug}") {
             call.exigirAdmin() ?: return@delete
             val slug = call.parameters["slug"]!!

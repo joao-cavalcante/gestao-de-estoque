@@ -31,7 +31,7 @@ class LiberacaoHerdadaCaracterizacaoTest {
         val liberadas = mutableListOf<Pair<Map<String, String?>, String>>()
 
         override suspend fun pendentes(tenantSlug: String, sql: String): List<Map<String, String?>> { consultas++; return linhas }
-        override fun credenciais(): Pair<String, String>? { credencialLida = true; return credencial }
+        override fun credenciais(tenantId: UUID): Pair<String, String>? { credencialLida = true; return credencial }
         override suspend fun validar(tenantSlug: String, usuario: String, senha: String): String {
             validacoes++
             if (validacaoFalha) throw IllegalStateException("Usuário ou senha inválidos no Sankhya.")
