@@ -77,7 +77,7 @@ Fluxo de branches: `develop` (desenvolvimento) → `staging` (pré-produção, t
 
 Mesmo servidor, stack isolada (`docker-compose.staging.yml`, projeto compose `wms-staging`):
 clone próprio em `~/projetos/wms-staging` na branch `staging`, banco próprio (volume
-`wms-staging_wms_pgdata`), portas **3004** (API) e **9006** (web).
+`wms-staging_wms_pgdata`), portas **3004** (API, só no localhost do servidor) e **9006** (web, a única aberta pra fora).
 
 - **Sankhya só leitura**: `WMS_SANKHYA_SOMENTE_LEITURA=true` — lê a produção e bloqueia toda gravação
   (finalizar, cortar, faturar, liberar falham de propósito no fim).

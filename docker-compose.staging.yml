@@ -2,7 +2,7 @@
 # Clone próprio em ~/projetos/wms-staging, na branch `staging`, com .env próprio (deploy/README.md → Staging).
 # Uso: docker compose -f docker-compose.staging.yml up -d --build
 #
-# Portas: 3004 (API) e 9006 (web, com senha de acesso do nginx — deploy/staging.htpasswd, fora do git).
+# Portas: 3004 (API, só localhost do servidor) e 9006 (web, com senha de acesso do nginx — deploy/staging.htpasswd, fora do git).
 # Banco próprio (volume wms-staging_wms_pgdata), começa como cópia da produção.
 # Sankhya: lê a produção e NUNCA grava (WMS_SANKHYA_SOMENTE_LEITURA=true — ver SankhyaSpClient).
 name: wms-staging
@@ -67,8 +67,9 @@ services:
       WMS_SANKHYA_SOMENTE_LEITURA: "true"
       JAVA_OPTS: "-Xmx768m"
     mem_limit: 1g
+    # Só no próprio servidor (curl localhost:3004/health): de fora, o acesso é pela web 9006, que pede a senha.
     ports:
-      - "3004:8080"
+      - "127.0.0.1:3004:8080"
 
   wms-frontend:
     build:
