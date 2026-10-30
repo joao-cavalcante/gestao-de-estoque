@@ -64,6 +64,9 @@ services:
       WMS_JWT_SECRET: ${WMS_JWT_SECRET}
       LIBERADOR_USUARIO: ${LIBERADOR_USUARIO:-}
       LIBERADOR_SENHA: ${LIBERADOR_SENHA:-}
+      # Versão mostrada no Painel Master (mesmos valores que o deploy exporta pro frontend).
+      APP_BUILD: ${APP_BUILD:-}
+      APP_COMMIT: ${APP_COMMIT:-}
     ports:
       - "3003:8080"
 

@@ -48,6 +48,11 @@ object SankhyaAuthService {
         val expires_in: Long? = null,
     )
 
+    /** Descarta o token em cache do tenant — a integração dele mudou (Painel Master). */
+    fun invalidar(tenantSlug: String) {
+        cache.remove(tenantSlug)
+    }
+
     suspend fun obterTokenValido(tenantSlug: String): String {
         cache[tenantSlug]?.let { cached ->
             if (Instant.now().isBefore(cached.expiraEm.minusMillis(MARGEM_RENOVACAO_MS))) {

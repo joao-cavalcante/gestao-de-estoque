@@ -107,6 +107,52 @@ object TenantRepository {
         } > 0
     }
 
+    /** Substitui a lista de módulos da conexão Sankhya (já validada contra Modulos.TODOS por quem chama). */
+    fun atualizarModulos(tenantId: UUID, modulos: List<String>): Boolean = transaction {
+        ErpConnectionsTable.update({ (ErpConnectionsTable.tenantId eq tenantId) and (ErpConnectionsTable.erpType eq "sankhya") }) {
+            it[ErpConnectionsTable.modulos] = modulos.distinct().sorted()
+            it[atualizadoEm] = Instant.now()
+        } > 0
+    }
+
+    /**
+     * Integração Sankhya do tenant (Painel Master): cria a conexão se não existir; se existir, troca só os dados de
+     * conexão — módulos, parâmetros e credencial do liberador ficam como estão. [credenciaisJson] null = mantém o
+     * segredo gravado (a tela nunca o recebe de volta pra reenviar).
+     */
+    fun salvarIntegracao(tenantId: UUID, baseUrl: String, gatewayPath: String?, dialect: String?, ativo: Boolean, credenciaisJson: String?) {
+        transaction {
+            val agora = Instant.now()
+            val existe = ErpConnectionsTable.selectAll()
+                .where { (ErpConnectionsTable.tenantId eq tenantId) and (ErpConnectionsTable.erpType eq "sankhya") }
+                .singleOrNull() != null
+            if (existe) {
+                ErpConnectionsTable.update({ (ErpConnectionsTable.tenantId eq tenantId) and (ErpConnectionsTable.erpType eq "sankhya") }) {
+                    it[ErpConnectionsTable.baseUrl] = baseUrl
+                    it[ErpConnectionsTable.gatewayPath] = gatewayPath
+                    it[ErpConnectionsTable.dialect] = dialect
+                    it[ErpConnectionsTable.ativo] = ativo
+                    if (credenciaisJson != null) it[credenciais] = CredentialsCipher.encrypt(credenciaisJson)
+                    it[atualizadoEm] = agora
+                }
+            } else {
+                ErpConnectionsTable.insert {
+                    it[id] = UUID.randomUUID()
+                    it[ErpConnectionsTable.tenantId] = tenantId
+                    it[erpType] = "sankhya"
+                    it[ErpConnectionsTable.baseUrl] = baseUrl
+                    it[ErpConnectionsTable.gatewayPath] = gatewayPath
+                    it[ErpConnectionsTable.dialect] = dialect
+                    it[modulos] = emptyList()
+                    it[credenciais] = CredentialsCipher.encrypt(credenciaisJson ?: "{}")
+                    it[ErpConnectionsTable.ativo] = ativo
+                    it[criadoEm] = agora
+                    it[atualizadoEm] = agora
+                }
+            }
+        }
+    }
+
     /** Usado pelo TenantDatabaseRouter — resolver tier/dedicated_db_url a partir só do UUID. */
     fun buscarPorId(id: UUID): TenantDto? = transaction {
         val tenantRow = TenantsTable.selectAll().where { TenantsTable.id eq id }.singleOrNull()

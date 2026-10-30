@@ -8,6 +8,7 @@ package wms.backend.tenancy
  * Módulo != configuração de conferência (TGFCCO, vinda do Sankhya): módulo é
  * conceito do WMS, ligado/desligado só pela plataforma (master), e serve pra
  * isolar comportamento que só um cliente usa. Ver TenantRepository.modulosHabilitados.
+ * Ligar/desligar: só o Painel Master (PUT /api/master/tenants/{id}/modulos), com confirmação e auditoria.
  */
 object Modulos {
     /** Conferência segmentada — conceito exclusivo de um cliente; nenhum outro tenant enxerga. */
@@ -33,6 +34,15 @@ object Modulos {
      */
     const val LIBERACAO_HERDADA = "liberacao_herdada"
 
-    /** Todos os módulos conhecidos — usado pela tela de admin de tenant pra listar as opções. */
+    /** Todos os módulos conhecidos — usado pelo Painel Master pra listar as opções. */
     val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO, LIBERACAO_HERDADA)
+
+    /** Texto do Painel Master pra cada módulo. */
+    fun descricao(modulo: String): String = when (modulo) {
+        CONFERENCIA_SEGMENTADA -> "Conferência em etapas (Não pesáveis / Pesáveis) por TOP"
+        PESAVEL_POR_PRODUTO -> "Pesável pelo produto (TGFPRO.AD_PESAVEL), não pela unidade"
+        SEM_VERIFICACAO_PEDIDO -> "Não conferir o pedido com o Sankhya ao concluir etapa/finalizar (mais rápido, menos seguro)"
+        LIBERACAO_HERDADA -> "Liberação herdada: evento de limite já liberado no pedido é liberado na nota (eventos nos parâmetros)"
+        else -> modulo
+    }
 }

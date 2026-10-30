@@ -32,7 +32,7 @@ import wms.backend.tarefas.tarefasRoutes
 import wms.backend.tv.tvRoutes
 import wms.backend.reconferencia.reconferenciaRoutes
 import wms.backend.produtos.produtoRessincronizacaoRoutes
-import wms.backend.tenancy.tenantRoutes
+import wms.backend.master.masterRoutes
 import wms.backend.tipooperacao.TipoOperacaoSyncWorker
 import wms.backend.tipooperacao.tipoOperacaoRoutes
 import wms.backend.transferencia.TransferenciaAbandonoWorker
@@ -93,7 +93,7 @@ fun Application.module() {
         get("/api/health") {
             call.respond(mapOf("status" to "ok"))
         }
-        tenantRoutes()
+        masterRoutes()
         tarefasRoutes()
         tvRoutes()
         reconferenciaRoutes()

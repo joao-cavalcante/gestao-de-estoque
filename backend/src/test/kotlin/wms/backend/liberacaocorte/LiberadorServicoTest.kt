@@ -1,7 +1,7 @@
 package wms.backend.liberacaocorte
 
 import kotlinx.serialization.json.Json
-import wms.backend.tenancy.CredencialLiberadorRequest
+import wms.backend.master.LiberadorRequest
 import wms.backend.tenancy.ErpConnectionDto
 import wms.backend.tenancy.ParametrosTenant
 import java.util.UUID
@@ -68,7 +68,7 @@ class LiberadorServicoTest {
         val c = LiberadorServico.resolver({ "lib" to "senha-secreta-123" }, false, semAmbiente::get).credencial
         assertNotNull(c)
         assertFalse("senha-secreta-123" in c.toString())
-        assertFalse("senha-secreta-123" in CredencialLiberadorRequest("lib", "senha-secreta-123").toString())
+        assertFalse("senha-secreta-123" in LiberadorRequest("lib", "senha-secreta-123").toString())
         val dto = Json.encodeToString(ErpConnectionDto.serializer(), ErpConnectionDto(erpType = "sankhya", baseUrl = "x", liberadorConfigurado = true))
         assertTrue("\"liberadorConfigurado\":true" in dto)
         assertFalse("senha" in dto.lowercase())

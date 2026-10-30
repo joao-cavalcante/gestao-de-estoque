@@ -64,6 +64,9 @@ services:
       WMS_DB_POOL_SIZE: ${WMS_DB_POOL_SIZE:-5}
       WMS_CREDENTIALS_KEY: ${WMS_CREDENTIALS_KEY}
       WMS_JWT_SECRET: ${WMS_JWT_SECRET}
+      # Versão mostrada no Painel Master.
+      APP_BUILD: ${APP_BUILD:-}
+      APP_COMMIT: ${APP_COMMIT:-}
       WMS_SANKHYA_SOMENTE_LEITURA: "true"
       JAVA_OPTS: "-Xmx768m"
     mem_limit: 1g

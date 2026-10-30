@@ -18,7 +18,7 @@ data class ErpConnectionDto(
     val credenciaisConfiguradas: Boolean = false,
     /** Módulos (feature flags) habilitados pra este tenant — ver wms.backend.tenancy.Modulos. */
     val modulos: List<String> = emptyList(),
-    /** Parâmetros de operação (V62) — sem segredo. Editados por PUT /api/tenants/{slug}/parametros. */
+    /** Parâmetros de operação (V62) — sem segredo. Editados pelo Painel Master (PUT /api/master/tenants/{id}/parametros). */
     val parametros: ParametrosTenant = ParametrosTenant(),
     /** Há credencial do liberador de serviço gravada (V63)? Nunca o usuário nem a senha. */
     val liberadorConfigurado: Boolean = false,
@@ -79,9 +79,3 @@ data class AtualizarTenantRequest(
     val tier: String? = null,
     val dedicatedDbUrl: String? = null,
 )
-
-/** Escrita da credencial do liberador de serviço (PUT /api/tenants/{slug}/liberador) — nunca devolvida. */
-@Serializable
-data class CredencialLiberadorRequest(val usuario: String, val senha: String) {
-    override fun toString() = "CredencialLiberadorRequest(usuario=$usuario)"
-}

@@ -27,6 +27,9 @@ data class RedefinirSenhaRequest(val email: String, val token: String, val senha
 @Serializable
 data class LoginCrachaRequest(val tenant: String, val crachaoCodigo: String)
 
+/** Tenant desativado pelo Painel Master: ninguém entra (o sync e os workers já ignoram esses status). */
+private val STATUS_TENANT_BLOQUEADO = setOf("suspended", "cancelled")
+
 fun Route.authRoutes() {
     route("/api/auth") {
 
@@ -39,8 +42,13 @@ fun Route.authRoutes() {
                 return@post
             }
 
+            val tenant = TenantRepository.buscarPorId(usuario.tenantId)
+            if (tenant == null || tenant.status in STATUS_TENANT_BLOQUEADO) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "instalação desativada — fale com o suporte do WMS"))
+                return@post
+            }
             val token = JwtService.gerar(usuario.userId, usuario.tenantId, usuario.perfil)
-            val tenantSlug = TenantRepository.buscarPorId(usuario.tenantId)?.slug ?: ""
+            val tenantSlug = tenant.slug
             call.respond(
                 LoginResponse(
                     token = token,
@@ -60,9 +68,14 @@ fun Route.authRoutes() {
         post("/login-cracha") {
             val req = call.receive<LoginCrachaRequest>()
 
-            val tenantId = TenantRepository.buscarPorSlug(req.tenant)?.id?.let { UUID.fromString(it) }
+            val tenantCracha = TenantRepository.buscarPorSlug(req.tenant)
+            val tenantId = tenantCracha?.id?.let { UUID.fromString(it) }
             if (tenantId == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '${req.tenant}' não encontrado"))
+                return@post
+            }
+            if (tenantCracha.status in STATUS_TENANT_BLOQUEADO) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "instalação desativada — fale com o suporte do WMS"))
                 return@post
             }
 
