@@ -59,6 +59,26 @@ object TenantRepository {
             .toSet()
     }
 
+    /**
+     * Parâmetros de operação do tenant (V62), da conexão Sankhya. Sem conexão ou JSON ilegível = os padrões
+     * seguros de [ParametrosTenant] (nada automático) — nunca lança por configuração ruim.
+     */
+    fun parametros(tenantId: UUID): ParametrosTenant = transaction {
+        ErpConnectionsTable.selectAll()
+            .where { (ErpConnectionsTable.tenantId eq tenantId) and (ErpConnectionsTable.erpType eq "sankhya") }
+            .singleOrNull()
+            ?.let { ParametrosTenant.ler(it[ErpConnectionsTable.parametros]) }
+            ?: ParametrosTenant()
+    }
+
+    /** Grava os parâmetros (já validados por quem chama) na conexão Sankhya. false = tenant sem conexão Sankhya. */
+    fun salvarParametros(tenantId: UUID, parametros: ParametrosTenant): Boolean = transaction {
+        ErpConnectionsTable.update({ (ErpConnectionsTable.tenantId eq tenantId) and (ErpConnectionsTable.erpType eq "sankhya") }) {
+            it[ErpConnectionsTable.parametros] = ParametrosTenant.gravar(parametros)
+            it[atualizadoEm] = Instant.now()
+        } > 0
+    }
+
     /** Usado pelo TenantDatabaseRouter — resolver tier/dedicated_db_url a partir só do UUID. */
     fun buscarPorId(id: UUID): TenantDto? = transaction {
         val tenantRow = TenantsTable.selectAll().where { TenantsTable.id eq id }.singleOrNull()
@@ -229,6 +249,7 @@ object TenantRepository {
             ativo = this[ErpConnectionsTable.ativo],
             credenciaisConfiguradas = configurada,
             modulos = this[ErpConnectionsTable.modulos],
+            parametros = ParametrosTenant.ler(this[ErpConnectionsTable.parametros]),
         )
     }
 }

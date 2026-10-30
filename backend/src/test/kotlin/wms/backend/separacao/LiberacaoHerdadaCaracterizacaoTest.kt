@@ -1,13 +1,18 @@
 package wms.backend.separacao
 
 import kotlinx.coroutines.runBlocking
+import wms.backend.tenancy.Modulos
+import wms.backend.tenancy.ParametrosLiberacaoHerdada
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Caracterização (Entrega 1, Fase 0) — liberação herdada como roda HOJE, antes do módulo `liberacao_herdada`.
+ * Caracterização (Entrega 1, Fase 0) — liberação herdada como rodava antes do módulo `liberacao_herdada`.
+ * Desde a Fase 1 o mesmo comportamento só existe no perfil da Negri (módulo + evento 3 + valor não comparado,
+ * V62) — estes testes rodam com esse perfil e provam que ele não mudou.
  * Sem Sankhya: a [LiberacaoHerdada.Porta] falsa responde a consulta e registra o que seria liberado.
  */
 class LiberacaoHerdadaCaracterizacaoTest {
@@ -18,6 +23,8 @@ class LiberacaoHerdadaCaracterizacaoTest {
         val validacaoFalha: Boolean = false,
         val falhaNaSequencia: String? = null,
     ) : LiberacaoHerdada.Porta {
+        override fun modulos(tenantId: UUID) = setOf(Modulos.LIBERACAO_HERDADA)
+        override fun parametros(tenantId: UUID) = ParametrosLiberacaoHerdada(eventos = listOf(3), compararValor = false)
         var consultas = 0
         var credencialLida = false
         var validacoes = 0
@@ -36,6 +43,8 @@ class LiberacaoHerdadaCaracterizacaoTest {
         }
     }
 
+    private val tenant = UUID.randomUUID()
+
     private fun pendente(seq: String, tabela: String = "TGFCAB") = mapOf(
         "NUCHAVE" to "70000", "TABELA" to tabela, "EVENTO" to "3.0", "SEQUENCIA" to seq, "SEQCASCATA" to "0", "NUCLL" to "0",
         "VLRATUAL" to "21215.21", "NUNOTAORIG" to "69995", "CODUSULIB" to "8", "VLRORIG" to "19953.92",
@@ -45,7 +54,7 @@ class LiberacaoHerdadaCaracterizacaoTest {
     @Test
     fun `existe liberacao na origem - libera cada pendencia com o liberador de servico`() = runBlocking {
         val porta = PortaFalsa(linhas = listOf(pendente("0"), pendente("2", "TGFITE")))
-        assertEquals(2, LiberacaoHerdada.herdar("t", 70000, porta))
+        assertEquals(2, LiberacaoHerdada.herdar("t", tenant, 70000, porta))
         assertEquals(1, porta.validacoes)
         val (linha, obs) = porta.liberadas.first()
         // chaves normalizadas pra inteiro puro ("3.0" -> "3")
@@ -60,8 +69,8 @@ class LiberacaoHerdadaCaracterizacaoTest {
     @Test
     fun `valor NAO e comparado - aqui maior que o liberado na origem ainda libera`() = runBlocking {
         val porta = PortaFalsa(linhas = listOf(pendente("0")))
-        assertEquals(1, LiberacaoHerdada.herdar("t", 70000, porta))
-        val sql = LiberacaoHerdada.sqlPendentesComOrigem(70000)
+        assertEquals(1, LiberacaoHerdada.herdar("t", tenant, 70000, porta))
+        val sql = LiberacaoHerdada.sqlPendentesComOrigem(70000, listOf(3))
         assertTrue("O.VLRLIBERADO > 0" in sql)
         assertFalse("L.VLRATUAL <= O.VLRLIBERADO" in sql)
     }
@@ -69,14 +78,14 @@ class LiberacaoHerdadaCaracterizacaoTest {
     @Test
     fun `nao existe liberacao na origem - nada a fazer, nem le o liberador`() = runBlocking {
         val porta = PortaFalsa(linhas = emptyList())
-        assertEquals(0, LiberacaoHerdada.herdar("t", 70000, porta))
+        assertEquals(0, LiberacaoHerdada.herdar("t", tenant, 70000, porta))
         assertEquals(1, porta.consultas)
         assertFalse(porta.credencialLida)
     }
 
     @Test
-    fun `so evento 3 - fixo na consulta`() {
-        val sql = LiberacaoHerdada.sqlPendentesComOrigem(70000)
+    fun `so evento 3 - perfil Negri`() {
+        val sql = LiberacaoHerdada.sqlPendentesComOrigem(70000, listOf(3))
         assertTrue("L.EVENTO IN (3)" in sql)
         assertTrue("L.NUCHAVE = 70000" in sql)
         assertTrue("L.TABELA IN ('TGFCAB', 'TGFITE')" in sql)
@@ -85,7 +94,7 @@ class LiberacaoHerdadaCaracterizacaoTest {
     @Test
     fun `liberador nao configurado - nao libera`() = runBlocking {
         val porta = PortaFalsa(linhas = listOf(pendente("0")), credencial = null)
-        assertEquals(0, LiberacaoHerdada.herdar("t", 70000, porta))
+        assertEquals(0, LiberacaoHerdada.herdar("t", tenant, 70000, porta))
         assertEquals(0, porta.validacoes)
         assertTrue(porta.liberadas.isEmpty())
     }
@@ -93,14 +102,14 @@ class LiberacaoHerdadaCaracterizacaoTest {
     @Test
     fun `liberador invalido - nao libera`() = runBlocking {
         val porta = PortaFalsa(linhas = listOf(pendente("0")), validacaoFalha = true)
-        assertEquals(0, LiberacaoHerdada.herdar("t", 70000, porta))
+        assertEquals(0, LiberacaoHerdada.herdar("t", tenant, 70000, porta))
         assertTrue(porta.liberadas.isEmpty())
     }
 
     @Test
     fun `falha numa pendencia nao para as outras`() = runBlocking {
         val porta = PortaFalsa(linhas = listOf(pendente("1", "TGFITE"), pendente("2", "TGFITE")), falhaNaSequencia = "1")
-        assertEquals(1, LiberacaoHerdada.herdar("t", 70000, porta))
+        assertEquals(1, LiberacaoHerdada.herdar("t", tenant, 70000, porta))
         assertEquals("2", porta.liberadas.single().first["SEQUENCIA"])
     }
 }

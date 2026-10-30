@@ -26,6 +26,13 @@ object Modulos {
      */
     const val SEM_VERIFICACAO_PEDIDO = "sem_verificacao_pedido"
 
+    /**
+     * Liberação herdada na confirmação da nota (wms.backend.separacao.LiberacaoHerdada): evento de limite já
+     * liberado no pedido é liberado na nota pelo liberador de serviço. Nasceu na Negri (evento Java
+     * negri-liberacao-herdada). Desligado = a regra nem consulta o Sankhya. Parâmetros em ParametrosTenant.liberacaoHerdada.
+     */
+    const val LIBERACAO_HERDADA = "liberacao_herdada"
+
     /** Todos os módulos conhecidos — usado pela tela de admin de tenant pra listar as opções. */
-    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO)
+    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO, LIBERACAO_HERDADA)
 }

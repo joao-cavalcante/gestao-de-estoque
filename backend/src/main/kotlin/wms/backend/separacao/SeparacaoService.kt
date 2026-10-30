@@ -1345,7 +1345,7 @@ object SeparacaoService {
             ?: throw FaturamentoException("sessão não encontrada")
         validarFaturamento(tenantSlug, tenantId, sessao)
         val resultado = try {
-            faturarNoSankhya(tenantSlug, sessao.nunota, codTipOper, serie)
+            faturarNoSankhya(tenantSlug, tenantId, sessao.nunota, codTipOper, serie)
         } catch (e: Exception) {
             withContext(Dispatchers.IO) { SeparacaoRepository.registrarErroNota(tenantId, sessaoId, e.message ?: "falha ao faturar no Sankhya") }
             throw e
@@ -1378,10 +1378,10 @@ object SeparacaoService {
         val resultado = try {
             try {
                 validarFaturamentoPedido(tenantSlug, tenantId, nunota)
-                faturarNoSankhya(tenantSlug, nunota, codTipOper, null)
+                faturarNoSankhya(tenantSlug, tenantId, nunota, codTipOper, null)
             } catch (e: NotaSemConfirmacaoException) {
                 val geradas = situacaoFaturamento(tenantSlug, nunota).notasGeradas
-                geradas to confirmarNotasGeradas(tenantSlug, geradas)
+                geradas to confirmarNotasGeradas(tenantSlug, tenantId, geradas)
             }
         } catch (e: Exception) {
             registrarFeedbackFaturamento(tenantSlug, nunota, emptyList(), e.message ?: "falha ao faturar no Sankhya")
@@ -1454,7 +1454,7 @@ object SeparacaoService {
             ?: throw FaturamentoException("sessão não encontrada")
         val geradas = situacaoFaturamento(tenantSlug, sessao.nunota).notasGeradas
         if (geradas.isEmpty()) throw FaturamentoException("a nota ${sessao.nunota} ainda não foi faturada — fature primeiro")
-        val resultado = geradas to confirmarNotasGeradas(tenantSlug, geradas)
+        val resultado = geradas to confirmarNotasGeradas(tenantSlug, tenantId, geradas)
         registrarResultadoNota(tenantId, sessaoId, resultado)
         return resultado
     }
@@ -1472,7 +1472,7 @@ object SeparacaoService {
     internal fun dataFaturamento(agora: java.time.Instant = java.time.Instant.now(), zona: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
         agora.atZone(zona).toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
 
-    private suspend fun faturarNoSankhya(tenantSlug: String, nunota: Long, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
+    private suspend fun faturarNoSankhya(tenantSlug: String, tenantId: UUID, nunota: Long, codTipOper: Int, serie: String?): Pair<List<Long>, String?> {
         val hoje = dataFaturamento()
         // Confirmações já dadas (txProperties) — estoque insuficiente: o Sankhya responde status 4 com
         // {"id":"...estoque.insuficiente.produto","event":{"codProd":"2587"}} e a tela nativa reenvia o MESMO faturar com
@@ -1543,13 +1543,13 @@ object SeparacaoService {
                 )
             }
             println("AVISO: faturar nunota $nunota falhou (${e.message}), mas a nota foi gerada: $geradas")
-            return geradas to confirmarNotasGeradas(tenantSlug, geradas).also { if (it == null) marcarPedidoNaoPendente(tenantSlug, nunota) }
+            return geradas to confirmarNotasGeradas(tenantSlug, tenantId, geradas).also { if (it == null) marcarPedidoNaoPendente(tenantSlug, nunota) }
         }
         val geradas = runCatching { situacaoFaturamento(tenantSlug, nunota).notasGeradas }.getOrDefault(emptyList())
         if (geradas.isEmpty()) {
             return geradas to "o Sankhya aceitou o faturamento mas a nota gerada não foi encontrada — confira na Central de Notas e confirme por lá."
         }
-        return geradas to confirmarNotasGeradas(tenantSlug, geradas).also { if (it == null) marcarPedidoNaoPendente(tenantSlug, nunota) }
+        return geradas to confirmarNotasGeradas(tenantSlug, tenantId, geradas).also { if (it == null) marcarPedidoNaoPendente(tenantSlug, nunota) }
     }
 
     /**
@@ -1589,13 +1589,13 @@ object SeparacaoService {
      * `CACSP.confirmarNota` (mgecom) em cada nota gerada ainda não confirmada (STATUSNOTA <> 'L').
      * Sem retry: confirmar não é idempotente. Devolve o motivo das que falharam (null = todas confirmadas).
      */
-    private suspend fun confirmarNotasGeradas(tenantSlug: String, notas: List<Long>): String? {
+    private suspend fun confirmarNotasGeradas(tenantSlug: String, tenantId: UUID, notas: List<Long>): String? {
         if (notas.isEmpty()) return null
         val falhas = notasNaoConfirmadas(tenantSlug, notas).mapNotNull { nunota ->
             var erro = confirmarNota(tenantSlug, nunota)
-            // Recusou por limite já liberado no pedido (evento 3 pedido de novo na nota): herda a liberação e confirma
-            // mais UMA vez — só se liberou algo e a nota segue sem confirmar.
-            if (erro != null && LiberacaoHerdada.herdar(tenantSlug, nunota) > 0 &&
+            // Recusou por limite já liberado no pedido (evento pedido de novo na nota): herda a liberação e confirma
+            // mais UMA vez — só se liberou algo e a nota segue sem confirmar. Só com o módulo liberacao_herdada.
+            if (erro != null && LiberacaoHerdada.herdar(tenantSlug, tenantId, nunota) > 0 &&
                 runCatching { notasNaoConfirmadas(tenantSlug, listOf(nunota)).isNotEmpty() }.getOrDefault(true)
             ) {
                 println("INFO: nota $nunota — liberação herdada do pedido, confirmando de novo")

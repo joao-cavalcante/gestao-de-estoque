@@ -94,6 +94,36 @@ fun Route.tenantRoutes() {
             }
         }
 
+        /**
+         * Parâmetros de operação (V62, ParametrosTenant) — substitui o JSON inteiro, validado antes de gravar.
+         * Só o ADMINISTRADOR do PRÓPRIO tenant: política de liberação/faturamento de um cliente nunca é editada
+         * por login de outro tenant.
+         */
+        put("/{slug}/parametros") {
+            val claims = call.exigirAdmin() ?: return@put
+            val tenant = TenantRepository.buscarPorSlug(call.parameters["slug"]!!)
+            if (tenant == null || tenant.id != claims.tenantId.toString()) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+                return@put
+            }
+            val parametros = try {
+                call.receive<ParametrosTenant>()
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "parâmetros inválidos: ${e.message}"))
+                return@put
+            }
+            val erros = parametros.validar()
+            if (erros.isNotEmpty()) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to erros.joinToString("; ")))
+                return@put
+            }
+            if (!TenantRepository.salvarParametros(claims.tenantId, parametros)) {
+                call.respond(HttpStatusCode.Conflict, mapOf("erro" to "tenant sem conexão Sankhya"))
+                return@put
+            }
+            call.respond(TenantRepository.parametros(claims.tenantId))
+        }
+
         delete("/{slug}") {
             call.exigirAdmin() ?: return@delete
             val slug = call.parameters["slug"]!!

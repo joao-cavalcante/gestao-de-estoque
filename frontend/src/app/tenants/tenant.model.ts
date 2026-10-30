@@ -7,6 +7,7 @@ export const MODULOS_DISPONIVEIS = [
   { id: 'conferencia_segmentada', label: 'Conferência segmentada' },
   { id: 'pesavel_por_produto', label: 'Pesável pelo produto (TGFPRO.AD_PESAVEL, não pela unidade)' },
   { id: 'sem_verificacao_pedido', label: 'NÃO conferir o pedido com o Sankhya ao concluir etapa/finalizar (mais rápido, menos seguro)' },
+  { id: 'liberacao_herdada', label: 'Liberação herdada: libera na nota o evento de limite já liberado no pedido (eventos nos parâmetros do tenant)' },
 ] as const;
 
 /** Leitura — nunca traz segredo em texto plano, só se está configurado ou não. */

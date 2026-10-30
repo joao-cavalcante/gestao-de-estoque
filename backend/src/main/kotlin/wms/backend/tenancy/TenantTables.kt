@@ -64,6 +64,8 @@ object ErpConnectionsTable : Table("tenancy.erp_connections") {
     // inicial. Postgres aceita texto JSON válido em coluna jsonb via cast
     // implícito de string literal.
     val credenciais = text("credenciais")
+    // parametros jsonb (V62) — parâmetros de operação tipados (ver ParametrosTenant); sem segredo
+    val parametros = registerColumn("parametros", wms.backend.tarefas.JsonbColumnType())
     val ativo = bool("ativo")
     val criadoEm = timestamp("criado_em")
     val atualizadoEm = timestamp("atualizado_em")

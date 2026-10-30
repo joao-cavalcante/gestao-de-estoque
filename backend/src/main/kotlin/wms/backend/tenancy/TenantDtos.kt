@@ -18,6 +18,8 @@ data class ErpConnectionDto(
     val credenciaisConfiguradas: Boolean = false,
     /** Módulos (feature flags) habilitados pra este tenant — ver wms.backend.tenancy.Modulos. */
     val modulos: List<String> = emptyList(),
+    /** Parâmetros de operação (V62) — sem segredo. Editados por PUT /api/tenants/{slug}/parametros. */
+    val parametros: ParametrosTenant = ParametrosTenant(),
 )
 
 /**
