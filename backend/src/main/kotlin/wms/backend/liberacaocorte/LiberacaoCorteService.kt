@@ -201,8 +201,56 @@ object LiberacaoCorteService {
         )
     }
 
-    /** 5% da qtd pedida — mesma tolerância do indicador de divergência de peso na conferência. */
-    private const val TOLERANCIA_PESO = 0.05
+    /** Limite da auto-liberação de pesável num sentido (a mais / a menos que o pedido). */
+    internal sealed interface Limite {
+        data object SemLimite : Limite
+        data class Pct(val pct: Double) : Limite
+        data object NaoLibera : Limite
+    }
+
+    private fun Limite.texto() = when (this) {
+        Limite.SemLimite -> "sem limite"
+        is Limite.Pct -> "$pct%"
+        Limite.NaoLibera -> "não libera"
+    }
+
+    /** [politica] diz quem decidiu — vai pro log e pra OBSLIB. */
+    internal data class LimitesAutoLiberacao(val acima: Limite, val abaixo: Limite, val politica: String)
+
+    /**
+     * Limites da auto-liberação. Prioridade: tolerância do NUCCO copiada na sessão (V50, inclusive "sem limite"
+     * explícito). Sessão anterior à V64 (origem null) segue a cópia como antes. NUCCO sem configuração (origem
+     * 'padrao') ou sessão não encontrada: a política do tenant — sem política, nada é liberado sozinho.
+     */
+    internal fun limitesAutoLiberacao(
+        sessaoExiste: Boolean,
+        tolAcimaPct: Double?,
+        tolAbaixoPct: Double?,
+        origem: String?,
+        politicaTenant: wms.backend.tenancy.PoliticaToleranciaPesavel,
+    ): LimitesAutoLiberacao {
+        fun daCopia(v: Double?): Limite = v?.let { Limite.Pct(it) } ?: Limite.SemLimite
+        if (sessaoExiste && origem != "padrao") {
+            return LimitesAutoLiberacao(daCopia(tolAcimaPct), daCopia(tolAbaixoPct), if (origem == null) "tolerância da sessão (anterior à V64)" else "NUCCO")
+        }
+        val p = politicaTenant.semConfiguracaoNucco
+            ?: return LimitesAutoLiberacao(Limite.NaoLibera, Limite.NaoLibera, "padrão do produto (sem auto-liberação)")
+        fun sentido(pct: Double?, semLimite: Boolean): Limite = when {
+            semLimite -> Limite.SemLimite
+            pct != null -> Limite.Pct(pct)
+            else -> Limite.NaoLibera
+        }
+        return LimitesAutoLiberacao(sentido(p.acimaPct, p.acimaSemLimite), sentido(p.abaixoPct, p.abaixoSemLimite), "padrão da instalação")
+    }
+
+    /** Libera sozinho? Mesma conta de [dentroDaTolerancia]; o sentido marcado [Limite.NaoLibera] nunca libera. */
+    internal fun liberaSozinho(conf: Double?, ped: Double?, limites: LimitesAutoLiberacao): Boolean {
+        if (conf == null || ped == null) return false
+        val limite = if (conf > ped) limites.acima else limites.abaixo
+        if (limite == Limite.NaoLibera) return false
+        val pct = (limite as? Limite.Pct)?.pct
+        return if (conf > ped) dentroDaTolerancia(conf, ped, pct, null) else dentroDaTolerancia(conf, ped, null, pct)
+    }
 
     /**
      * Chave de match contra `obs.produto` (ViewLiberacaoLimite.OBSERVACAO) —
@@ -326,27 +374,30 @@ object LiberacaoCorteService {
                 )
             }
 
-            // V50 — tolerância da SESSÃO (copiada do NUCCO na abertura). null = sem limite naquele
-            // sentido. Padrão (NUCCO sem configuração) = a maior sem limite, a menor 5% — a regra de antes.
+            // V50 — tolerância da SESSÃO (copiada do NUCCO na abertura). V64 — NUCCO sem configuração segue a
+            // política do TENANT (padrão do produto: nada sozinho); ver limitesAutoLiberacao.
             val sessao = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
-            val tolAcima = sessao?.tolPesoAcimaPct
-            val tolAbaixo = if (sessao != null) sessao.tolPesoAbaixoPct else TOLERANCIA_PESO * 100
+            val politicaTenant = withContext(Dispatchers.IO) {
+                runCatching { wms.backend.tenancy.TenantRepository.parametros(tenantId).toleranciaPesavel }
+                    .getOrDefault(wms.backend.tenancy.PoliticaToleranciaPesavel())
+            }
+            val limites = limitesAutoLiberacao(sessao != null, sessao?.tolPesoAcimaPct, sessao?.tolPesoAbaixoPct, sessao?.tolPesoOrigem, politicaTenant)
 
             val liberaveis = pendentes.filter { linha ->
                 val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
                 val item = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()] ?: return@filter false
                 if (!item.usaConfPeso) return@filter false
-                dentroDaTolerancia(obs.qtdConferida, obs.qtdPedido, tolAcima, tolAbaixo)
+                liberaSozinho(obs.qtdConferida, obs.qtdPedido, limites)
             }
             if (liberaveis.isEmpty()) {
-                println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar — tudo pra liberação manual.")
+                println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar (política: ${limites.politica}) — tudo pra liberação manual.")
                 return false
             }
 
             val codusu = validarLiberador(tenantSlug, liberador.usuario, liberador.senha)
             chamarLiberarNegar(
                 tenantSlug, liberaveis, codusu, "S",
-                "Liberação automática — peso dentro da tolerância (acima ${tolAcima?.let { "$it%" } ?: "sem limite"}, abaixo ${tolAbaixo?.let { "$it%" } ?: "sem limite"})",
+                "Liberação automática — peso dentro da tolerância (acima ${limites.acima.texto()}, abaixo ${limites.abaixo.texto()}; política: ${limites.politica})",
             )
 
             // Registra a decisão localmente (TGFITE não guarda isso — ver V36),

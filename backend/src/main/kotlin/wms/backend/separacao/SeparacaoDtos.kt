@@ -69,6 +69,8 @@ data class SessaoSeparacaoDto(
      */
     val tolPesoAcimaPct: Double? = null,
     val tolPesoAbaixoPct: Double? = 5.0,
+    /** V64 — de onde veio a tolerância: 'nucco' | 'padrao' (NUCCO sem configuração); null = sessão anterior à V64. */
+    val tolPesoOrigem: String? = null,
 )
 
 @Serializable

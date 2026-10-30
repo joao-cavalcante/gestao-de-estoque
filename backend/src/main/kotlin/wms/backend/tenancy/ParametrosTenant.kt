@@ -13,9 +13,10 @@ import kotlinx.serialization.json.Json
 data class ParametrosTenant(
     val liberacaoHerdada: ParametrosLiberacaoHerdada = ParametrosLiberacaoHerdada(),
     val liberador: ParametrosLiberador = ParametrosLiberador(),
+    val toleranciaPesavel: PoliticaToleranciaPesavel = PoliticaToleranciaPesavel(),
 ) {
     /** Erros de validação (vazio = válido). Conferido antes de gravar. */
-    fun validar(): List<String> = liberacaoHerdada.validar()
+    fun validar(): List<String> = liberacaoHerdada.validar() + toleranciaPesavel.validar()
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -40,6 +41,33 @@ data class ParametrosTenant(
 data class ParametrosLiberador(
     val fallbackVariavelAmbiente: Boolean = false,
 )
+
+/**
+ * Auto-liberação de corte de item pesável quando o NUCCO NÃO tem tolerância configurada (V50). Com tolerância no
+ * NUCCO, vale a do NUCCO (inclusive "sem limite" explícito). [semConfiguracaoNucco] null (padrão do produto) = nada é
+ * liberado sozinho: o corte vai pra liberação manual. Negri (V64): acima sem limite, abaixo 5% — a regra de antes.
+ */
+@Serializable
+data class PoliticaToleranciaPesavel(
+    val semConfiguracaoNucco: ToleranciaPadrao? = null,
+) {
+    fun validar(): List<String> = semConfiguracaoNucco?.validar().orEmpty()
+}
+
+/** Em %, por sentido. Sem `pct` e sem `semLimite` = aquele sentido NÃO é liberado sozinho. */
+@Serializable
+data class ToleranciaPadrao(
+    val acimaPct: Double? = null,
+    val acimaSemLimite: Boolean = false,
+    val abaixoPct: Double? = null,
+    val abaixoSemLimite: Boolean = false,
+) {
+    fun validar(): List<String> = buildList {
+        if ((acimaPct ?: 0.0) < 0 || (abaixoPct ?: 0.0) < 0) add("toleranciaPesavel: percentual negativo")
+        if (acimaPct != null && acimaSemLimite) add("toleranciaPesavel: acimaPct e acimaSemLimite juntos")
+        if (abaixoPct != null && abaixoSemLimite) add("toleranciaPesavel: abaixoPct e abaixoSemLimite juntos")
+    }
+}
 
 /**
  * Módulo [Modulos.LIBERACAO_HERDADA]. [eventos] vazio = nada é herdado mesmo com o módulo ligado.

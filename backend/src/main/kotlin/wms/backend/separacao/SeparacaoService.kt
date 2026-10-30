@@ -268,6 +268,7 @@ object SeparacaoService {
                 val tol = wms.backend.configconferencia.ConferenciaToleranciaRepository.buscar(tenantId, nucco)
                 SeparacaoRepository.salvarToleranciaPeso(
                     tenantId, sessaoId, tol.acimaPct?.let { BigDecimal.valueOf(it) }, tol.abaixoPct?.let { BigDecimal.valueOf(it) },
+                    origem = if (tol.configurada) "nucco" else "padrao",
                 )
             }
             val codprods = itens.map { it.codprod }.distinct()
