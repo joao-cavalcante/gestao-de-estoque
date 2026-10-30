@@ -81,7 +81,7 @@ clone próprio em `~/projetos/wms-staging` na branch `staging`, banco próprio (
 
 - **Sankhya só leitura**: `WMS_SANKHYA_SOMENTE_LEITURA=true` — lê a produção e bloqueia toda gravação
   (finalizar, cortar, faturar, liberar falham de propósito no fim).
-- **Senha de acesso**: o nginx pede usuário/senha (`deploy/staging.htpasswd`, só no servidor) antes do login do WMS.
+- **Senha de acesso**: o nginx pede usuário/senha (`deploy/staging.htpasswd`, só no servidor) pra abrir a página; a `/api` fica só com o login do WMS (o Bearer do app ocupa o mesmo cabeçalho do Basic).
 - **Banco**: começa como cópia do banco de produção (dá pra recopiar — ver abaixo).
 
 Web: `http://163.176.239.42:9006`.
