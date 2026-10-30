@@ -16,9 +16,10 @@ data class ParametrosTenant(
     val toleranciaPesavel: PoliticaToleranciaPesavel = PoliticaToleranciaPesavel(),
     /** Fuso da operação (ID IANA). null = FusoInstalacao.PADRAO (America/Sao_Paulo). Ver FusoInstalacao. */
     val fuso: String? = null,
+    val usuarioSankhya: ParametrosUsuarioSankhya = ParametrosUsuarioSankhya(),
 ) {
     /** Erros de validação (vazio = válido). Conferido antes de gravar. */
-    fun validar(): List<String> = liberacaoHerdada.validar() + toleranciaPesavel.validar() +
+    fun validar(): List<String> = liberacaoHerdada.validar() + toleranciaPesavel.validar() + usuarioSankhya.validar() +
         listOfNotNull(fuso?.takeIf { !FusoInstalacao.valido(it) }?.let { "fuso: '$it' não é um fuso válido (ex.: America/Sao_Paulo)" })
 
     companion object {
@@ -69,6 +70,34 @@ data class ToleranciaPadrao(
         if ((acimaPct ?: 0.0) < 0 || (abaixoPct ?: 0.0) < 0) add("toleranciaPesavel: percentual negativo")
         if (acimaPct != null && acimaSemLimite) add("toleranciaPesavel: acimaPct e acimaSemLimite juntos")
         if (abaixoPct != null && abaixoSemLimite) add("toleranciaPesavel: abaixoPct e abaixoSemLimite juntos")
+    }
+}
+
+/**
+ * Criação de usuário no Sankhya pela tela de Usuários (SankhyaUsuarioService). Padrão: desligada. Habilitada só com
+ * [usuarioModelo] (CODUSU cujas permissões são copiadas), [codGrupo] e [dominioEmail] — nada é escolhido sozinho.
+ * [camposFixos] (opcional) = valores congelados em vez de ler o modelo no Sankhya (Negri, V66: cópia do CODUSU 194).
+ */
+@Serializable
+data class ParametrosUsuarioSankhya(
+    val habilitado: Boolean = false,
+    val usuarioModelo: Int? = null,
+    val codGrupo: Int? = null,
+    val dominioEmail: String? = null,
+    val camposFixos: Map<String, String> = emptyMap(),
+) {
+    fun validar(): List<String> = buildList {
+        if (usuarioModelo != null && usuarioModelo <= 0) add("usuarioSankhya.usuarioModelo: CODUSU inválido")
+        if (codGrupo != null && codGrupo < 0) add("usuarioSankhya.codGrupo: grupo inválido")
+        if (dominioEmail != null && !DOMINIO.matches(dominioEmail.trim())) add("usuarioSankhya.dominioEmail: domínio inválido")
+        if (camposFixos.keys.any { it in IDENTIDADE }) {
+            add("usuarioSankhya.camposFixos: CODUSU, NOMEUSU, ACCOUNTEMAIL e CODGRUPO não entram nos campos fixos")
+        }
+    }
+
+    private companion object {
+        val DOMINIO = Regex("""^@?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$""")
+        val IDENTIDADE = setOf("CODUSU", "NOMEUSU", "ACCOUNTEMAIL", "CODGRUPO")
     }
 }
 

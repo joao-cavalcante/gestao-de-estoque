@@ -1,11 +1,16 @@
 package wms.backend.usuarios
 
+import wms.backend.tenancy.ParametrosTenant
+import wms.backend.tenancy.ParametrosUsuarioSankhya
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /**
- * Caracterização (Entrega 1, Fase 0) — payload ATUAL da criação de usuário no Sankhya, antes de parametrizar.
- * Registra os códigos da Negri (modelo do CODUSU 194, CODGRUPO 32, e-mail @negri.local) exatamente como saem hoje.
+ * Caracterização (Entrega 1, Fase 0) — payload da criação de usuário no Sankhya como saía do código antes de
+ * parametrizar (modelo do CODUSU 194, CODGRUPO 32, e-mail @negri.local). Desde a Fase 5 ele só existe no perfil da
+ * Negri (V66) — estes testes provam que o perfil reproduz o payload antigo.
  */
 class SankhyaUsuarioCaracterizacaoTest {
     private val modeloNegri = linkedMapOf(
@@ -54,29 +59,37 @@ class SankhyaUsuarioCaracterizacaoTest {
         "VISACESOUTUSU" to "S",
     )
 
+    /** Perfil da Negri exatamente como a V66 grava (lido do próprio arquivo da migração). */
+    private val perfilNegri: ParametrosUsuarioSankhya by lazy {
+        val sql = File("../db/migrations/V66__usuario_sankhya_tenant.sql").readText()
+        ParametrosTenant.ler(sql.substring(sql.indexOf("'{") + 1, sql.indexOf("}'::jsonb") + 1)).usuarioSankhya
+    }
+
     @Test
-    fun `payload atual - modelo fixo do 194 mais CODUSU, NOMEUSU e e-mail`() {
-        val campos = SankhyaUsuarioService.montarCampos(901, "JOSE DA SILVA", "José da Silva", null)
+    fun `Negri depois da V66 - mesmo payload de antes (modelo do 194, CODUSU, NOMEUSU e e-mail)`() {
+        assertNull(SankhyaUsuarioService.motivoIndisponivel(perfilNegri))
+        val campos = SankhyaUsuarioService.montarCampos(perfilNegri, 901, "JOSE DA SILVA", "José da Silva", null)
         val esperado = LinkedHashMap(modeloNegri).apply {
             put("CODUSU", "901"); put("NOMEUSU", "JOSE DA SILVA"); put("ACCOUNTEMAIL", "jose.silva@negri.local")
         }
-        assertEquals(esperado, campos)
-        assertEquals(esperado.keys.toList(), campos.keys.toList())
+        // Mesmo conteúdo; a ordem das chaves não vai pro Sankhya (localFields é um objeto).
+        assertEquals(esperado.toSortedMap(), campos.toSortedMap())
     }
 
     @Test
-    fun `grupo atual e o 32`() {
-        assertEquals("32", SankhyaUsuarioService.montarCampos(1, "A B", "A B", null)["CODGRUPO"])
+    fun `Negri - grupo 32 e usuario-modelo 194`() {
+        assertEquals("32", SankhyaUsuarioService.montarCampos(perfilNegri, 1, "A B", "A B", null)["CODGRUPO"])
+        assertEquals(194, perfilNegri.usuarioModelo)
     }
 
     @Test
-    fun `dominio atual e negri local - primeiro e ultimo nome, sem acento`() {
-        assertEquals("joao.cavalcante@negri.local", SankhyaUsuarioService.emailSankhya("João  Pedro Cavalcante"))
-        assertEquals("maria.maria@negri.local", SankhyaUsuarioService.emailSankhya("Maria"))
+    fun `Negri - dominio negri local, primeiro e ultimo nome, sem acento`() {
+        assertEquals("joao.cavalcante@negri.local", SankhyaUsuarioService.emailSankhya("João  Pedro Cavalcante", perfilNegri.dominioEmail!!))
+        assertEquals("maria.maria@negri.local", SankhyaUsuarioService.emailSankhya("Maria", perfilNegri.dominioEmail!!))
     }
 
     @Test
     fun `e-mail informado substitui o gerado`() {
-        assertEquals("x@y.com", SankhyaUsuarioService.montarCampos(1, "A B", "A B", "x@y.com")["ACCOUNTEMAIL"])
+        assertEquals("x@y.com", SankhyaUsuarioService.montarCampos(perfilNegri, 1, "A B", "A B", "x@y.com")["ACCOUNTEMAIL"])
     }
 }

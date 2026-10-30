@@ -62,7 +62,7 @@ fun Route.usuariosRoutes() {
         }
 
         /**
-         * "Criar no Sankhya": cria o usuário na TSIUSU pela entidade Usuario (modelo do 194, grupo 32) e
+         * "Criar no Sankhya": cria o usuário na TSIUSU pela entidade Usuario (modelo e grupo do tenant, V66) e
          * grava o CODUSU no vínculo (codigo_erp). Nome que já existe no Sankhya = só vincula.
          */
         post("/{id}/criar-no-sankhya") {
@@ -85,6 +85,8 @@ fun Route.usuariosRoutes() {
                         "mensagem" to if (r.jaExistia) "Já existia no Sankhya (${r.codusu} ${r.nomeUsu}) — vinculado." else "Criado no Sankhya: ${r.codusu} ${r.nomeUsu} — vinculado.",
                     ),
                 )
+            } catch (e: SankhyaUsuarioService.CriacaoIndisponivelException) {
+                call.respond(HttpStatusCode.Conflict, mapOf("erro" to "${e.message}"))
             } catch (e: SankhyaUsuarioService.SankhyaUsuarioException) {
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to "Sankhya: ${e.message}"))
             }
