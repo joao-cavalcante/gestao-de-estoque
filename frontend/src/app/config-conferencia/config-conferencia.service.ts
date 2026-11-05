@@ -1,7 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ConfigConferenciaDetalhe, ConfigConferenciaListItem, SincronizarResponse, ToleranciaPeso } from './config-conferencia.model';
+import {
+  ConfigConferenciaDetalhe,
+  ConfigConferenciaListItem,
+  OpcoesConferencia,
+  SincronizarResponse,
+  ToleranciaPeso,
+} from './config-conferencia.model';
 
 @Injectable({ providedIn: 'root' })
 export class ConfigConferenciaService {
@@ -20,6 +26,14 @@ export class ConfigConferenciaService {
   }
 
   /** V50 — tolerância de peso do WMS pro NUCCO (null = sem limite; configurada=false = padrão). */
+  opcoes(nucco: number): Observable<OpcoesConferencia> {
+    return this.http.get<OpcoesConferencia>(`/api/config-conferencia/${nucco}/opcoes`);
+  }
+
+  salvarOpcoes(nucco: number, opcoes: Pick<OpcoesConferencia, 'pedirQtdComercial'>): Observable<OpcoesConferencia> {
+    return this.http.put<OpcoesConferencia>(`/api/config-conferencia/${nucco}/opcoes`, opcoes);
+  }
+
   toleranciaPeso(nucco: number): Observable<ToleranciaPeso> {
     return this.http.get<ToleranciaPeso>(`/api/config-conferencia/${nucco}/tolerancia-peso`);
   }

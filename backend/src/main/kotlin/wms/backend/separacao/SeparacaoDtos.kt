@@ -71,6 +71,8 @@ data class SessaoSeparacaoDto(
     val tolPesoAbaixoPct: Double? = 5.0,
     /** V64 — de onde veio a tolerância: 'nucco' | 'padrao' (NUCCO sem configuração); null = sessão anterior à V64. */
     val tolPesoOrigem: String? = null,
+    /** V70 — false = o pop-up de pesagem não pede a quantidade na unidade do pedido (ex.: compra). */
+    val pedirQtdComercial: Boolean = true,
 )
 
 /** GET /sessoes/{id}/tolerancia-produto — tolerância (%) do cadastro do produto; null = vale a do NUCCO naquele sentido. */

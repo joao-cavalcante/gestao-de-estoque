@@ -365,8 +365,8 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
       { valor: 'S', label: 'Balança/Manual' },
     ],
     descricao: 'Define se a quantidade conferida é obtida da balança (produtos vendidos por peso).',
-    status: 'nao_implementado',
-    statusObservacao: 'Comentário explícito em SeparacaoService.kt: "UMAs de peso continuam de fora por ora — não fazem parte do que foi pedido."',
+    status: 'implementado',
+    statusObservacao: 'N = sem pop-up de peso; S = Balança/Manual (pode digitar o peso); B = Pela balança (pop-up de pesagem não deixa digitar: só captura da balança — serial/TCP ao vivo ou HTTP pelo botão Obter).',
   },
 
   // ─── Aba Geral — Recontagem ───────────────────────────────────────────────

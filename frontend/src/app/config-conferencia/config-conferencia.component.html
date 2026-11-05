@@ -90,6 +90,25 @@
         }
       </div>
 
+      <!-- V70 — opções da Torre (não existem no Sankhya) — salvas à parte. -->
+      <div class="oq-cc__tolerancia">
+        <div class="oq-cc__tolerancia-titulo">Pesagem — item pesável</div>
+        <label class="oq-cc__tolerancia-campo">
+          <input type="checkbox" [(ngModel)]="pedirQtdComercial" />
+          Pedir a quantidade na unidade do pedido (CX, UN, PC) no pop-up de pesagem
+        </label>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="opcoesSalvando()" (click)="salvarOpcoes()">
+          {{ opcoesSalvando() ? 'Salvando…' : 'Salvar opções' }}
+        </button>
+        <span class="oq-cc__tolerancia-ajuda">
+          Desmarcado: a pesagem pede só o peso (ex.: conferência de compra). Marcado: quando o pedido não é em KG, a
+          quantidade de caixas/unidades é obrigatória e sai na etiqueta.
+        </span>
+        @if (opcoesMensagem()) {
+          <span class="oq-cc__tolerancia-msg">{{ opcoesMensagem() }}</span>
+        }
+      </div>
+
       <div class="oq-cc__abas">
         @for (aba of abas; track aba.valor) {
           <button

@@ -48,6 +48,12 @@ export interface SincronizarResponse {
  * Em %: quanto pode pesar a mais/a menos sem divergir. null = sem limite. configurada=false =
  * NUCCO sem configuração, valendo o padrão (acima sem limite, abaixo 5%).
  */
+/** V70 — opções da Torre por NUCCO (não existem na TGFCCO). configurada=false = NUCCO sem linha, padrão. */
+export interface OpcoesConferencia {
+  pedirQtdComercial: boolean;
+  configurada: boolean;
+}
+
 export interface ToleranciaPeso {
   acimaPct: number | null;
   abaixoPct: number | null;

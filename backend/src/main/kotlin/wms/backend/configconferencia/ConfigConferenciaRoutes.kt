@@ -65,6 +65,22 @@ fun Route.configConferenciaRoutes() {
             call.respond(ConferenciaToleranciaRepository.buscar(claims.tenantId, nucco))
         }
 
+        /** V70 — opções da Torre pra este NUCCO (ex.: pedir quantidade na unidade do pedido na pesagem). */
+        get("/{nucco}/opcoes") {
+            val claims = call.exigirAdmin() ?: return@get
+            val nucco = call.parameters["nucco"]?.toIntOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
+            call.respond(ConferenciaOpcoesRepository.buscar(claims.tenantId, nucco))
+        }
+
+        put("/{nucco}/opcoes") {
+            val claims = call.exigirAdmin() ?: return@put
+            val nucco = call.parameters["nucco"]?.toIntOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
+            ConferenciaOpcoesRepository.salvar(claims.tenantId, nucco, call.receive<OpcoesConferenciaDto>())
+            call.respond(ConferenciaOpcoesRepository.buscar(claims.tenantId, nucco))
+        }
+
         post("/sincronizar") {
             val claims = call.exigirAdmin() ?: return@post
             val tenant = TenantRepository.buscarPorId(claims.tenantId)

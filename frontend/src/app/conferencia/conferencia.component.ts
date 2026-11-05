@@ -240,6 +240,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   fatAoConcluir: string | null = null;
   /** V50 — tolerância de peso da sessão (fração; null = sem limite). Definida ao abrir a sessão. */
   private toleranciaPeso: ToleranciaPeso = TOLERANCIA_PADRAO;
+  /** V70 — o pop-up de pesagem pede a quantidade na unidade do pedido (opção do NUCCO, cópia da sessão). */
+  pedirQtdComercial = true;
   /** Compra: tolerância (fração) do cadastro do produto por CODPROD — vale antes da do NUCCO, sentido a sentido. */
   private toleranciaProduto = new Map<number, { acima: number | null | undefined; abaixo: number | null | undefined }>();
 
@@ -927,6 +929,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
             },
             error: () => undefined,
           });
+          this.pedirQtdComercial = sessao.pedirQtdComercial !== false;
           this.exibirProd.set(sessao.exibirProd !== 'N');
           this.exibirQtd.set(sessao.exibirQtd !== 'N');
           this.exibirProdConf.set(sessao.exibirProdConf !== 'N');
