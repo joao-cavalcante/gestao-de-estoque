@@ -42,7 +42,13 @@ data class TarefaApiDto(
     val ordemCargaFechada: Boolean = false,
     /** Nota fiscal gerada a partir do pedido (número + situação no Sankhya) — ver NotasFiscaisPedido. */
     val notaFiscal: NotaFiscalPedidoDto? = null,
+    /** Compra: notas de ajuste de peso (entrada/saída) geradas pela Torre de Operação — ver AjustePesoCompra. */
+    val ajustesPeso: List<AjustePesoDto>? = null,
 )
+
+/** sentido 'E' entrada (a maior) | 'S' saída (a menor); status pendente/criando/cabecalho/confirmado/erro. */
+@Serializable
+data class AjustePesoDto(val sentido: String, val status: String, val nunotaAjuste: Int? = null, val erro: String? = null)
 
 /**
  * Itens conferidos x carregados (checados) de uma nota, somando as sessões concluídas (recontagem

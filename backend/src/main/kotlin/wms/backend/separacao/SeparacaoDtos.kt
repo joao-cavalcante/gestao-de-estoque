@@ -73,6 +73,17 @@ data class SessaoSeparacaoDto(
     val tolPesoOrigem: String? = null,
 )
 
+/** GET /sessoes/{id}/tolerancia-produto — tolerância (%) do cadastro do produto; null = vale a do NUCCO naquele sentido. */
+@Serializable
+data class ToleranciaProdutoDto(
+    val codprod: Int,
+    val acimaPct: Double? = null,
+    val abaixoPct: Double? = null,
+    /** null em acimaPct/abaixoPct com isto true = sem limite naquele sentido (não "vale a da sessão"). */
+    val semLimiteAcima: Boolean = false,
+    val semLimiteAbaixo: Boolean = false,
+)
+
 @Serializable
 data class IdentificarOperadorRequest(val crachaoCodigo: String)
 

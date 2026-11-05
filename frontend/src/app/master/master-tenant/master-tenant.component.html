@@ -304,6 +304,63 @@
                   </div>
                 </div>
               </div>
+              @if (param.ajustePesoCompra; as aj) {
+                <div class="oq-form-card">
+                  <div class="oq-form-card__titulo">Diferença de peso na compra</div>
+                  <div class="oq-form-card__body">
+                    <label class="oq-form-switch">
+                      <input type="checkbox" [(ngModel)]="aj.habilitado" name="ajHab" />
+                      Tratar a diferença da balança por faixas (desligado = regra anterior)
+                    </label>
+
+                    <span class="oq-form-field__label">1. Desconsiderar (gelo, água) — entra pelo peso da nota, sem documento</span>
+                    <div class="oq-form-row">
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">Peso a maior até (%)</span>
+                        <input [(ngModel)]="aj.desconsiderarAcimaPct" name="ajDescAcima" inputmode="decimal" placeholder="desligado" />
+                      </label>
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">Peso a menor até (%)</span>
+                        <input [(ngModel)]="aj.desconsiderarAbaixoPct" name="ajDescAbaixo" inputmode="decimal" placeholder="desligado" />
+                      </label>
+                    </div>
+
+                    <span class="oq-form-field__label">2. Ajustar — até a tolerância (produto, senão NUCCO), a diferença entra por nota de ajuste</span>
+                    <div class="oq-form-row">
+                      <label class="oq-form-switch">
+                        <input type="checkbox" [(ngModel)]="aj.ajusteEntrada" name="ajEntrada" />
+                        Peso a maior: nota de entrada
+                      </label>
+                      <label class="oq-form-switch">
+                        <input type="checkbox" [(ngModel)]="aj.ajusteSaida" name="ajSaida" />
+                        Peso a menor: nota de saída
+                      </label>
+                    </div>
+                    <div class="oq-form-row">
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">TOP de entrada</span>
+                        <input [(ngModel)]="aj.topEntrada" name="ajTopEnt" inputmode="numeric" />
+                      </label>
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">TOP de saída</span>
+                        <input [(ngModel)]="aj.topSaida" name="ajTopSai" inputmode="numeric" />
+                      </label>
+                    </div>
+                    <div class="oq-form-row">
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">Série da entrada</span>
+                        <input [(ngModel)]="aj.serieEntrada" name="ajSerieEnt" maxlength="3" placeholder="da TOP" />
+                      </label>
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">Série da saída</span>
+                        <input [(ngModel)]="aj.serieSaida" name="ajSerieSai" maxlength="3" placeholder="da TOP" />
+                      </label>
+                    </div>
+
+                    <span class="oq-form-hint">3. Divergência — o que passar das faixas ligadas vai com o peso lido para a liberação, e o Sankhya trata pela Configuração de Conferência (pedido complementar ou corte/devolução). Com o ajuste desligado num sentido, a diferença daquele sentido vai direto para cá.</span>
+                  </div>
+                </div>
+              }
               <div class="mp-acoes-form">
                 <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="salvarParametros()">Salvar parâmetros</button>
               </div>

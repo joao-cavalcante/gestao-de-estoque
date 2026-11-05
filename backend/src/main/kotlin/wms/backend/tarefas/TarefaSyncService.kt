@@ -129,6 +129,10 @@ object TarefaSyncService {
         runCatching { wms.backend.separacao.SeparacaoService.destravarSessoesSemFinalizacao(tenantSlug, tenantId) }
             .onFailure { println("AVISO: destravar sessões (tenant $tenantSlug) falhou: ${it.message}") }
 
+        // Notas de ajuste de peso da compra (nota do fornecedor já confirmada) — só com ajustePesoCompra.habilitado.
+        runCatching { wms.backend.separacao.AjustePesoCompra.processarPendentes(tenantSlug, tenantId) }
+            .onFailure { println("AVISO: ajuste de peso da compra (tenant $tenantSlug) falhou: ${it.message}") }
+
         // Situação (aberta/fechada) das OCs que estão na fila — reflete abrir/fechar no Sankhya em ~1 ciclo.
         runCatching {
             val ocs = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }.mapNotNull { it.ordemCarga }

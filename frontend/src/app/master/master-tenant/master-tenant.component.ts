@@ -287,6 +287,42 @@ export class MasterTenantComponent implements OnInit {
       return 'tolerância: informe o percentual';
     }
     const u = this.param.usuarioSankhya;
+    const aj = this.param.ajustePesoCompra ?? {
+      habilitado: false,
+      desconsiderarAcimaPct: null,
+      desconsiderarAbaixoPct: null,
+      ajusteEntrada: false,
+      ajusteSaida: false,
+      topEntrada: null,
+      topSaida: null,
+      serieEntrada: null,
+      serieSaida: null,
+    };
+    const num = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(v));
+    const serie = (v: string | null | undefined) => (v ?? '').toString().trim() || null;
+    const pctDesc = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(`${v}`.replace(',', '.')));
+    const ajuste = {
+      habilitado: !!aj.habilitado,
+      desconsiderarAcimaPct: pctDesc(aj.desconsiderarAcimaPct),
+      desconsiderarAbaixoPct: pctDesc(aj.desconsiderarAbaixoPct),
+      ajusteEntrada: !!aj.ajusteEntrada,
+      ajusteSaida: !!aj.ajusteSaida,
+      topEntrada: num(aj.topEntrada),
+      topSaida: num(aj.topSaida),
+      serieEntrada: serie(aj.serieEntrada),
+      serieSaida: serie(aj.serieSaida),
+    };
+    if ([ajuste.serieEntrada, ajuste.serieSaida].some((v) => v !== null && v.length > 3)) {
+      return 'ajuste de peso: série com até 3 caracteres';
+    }
+    if ([ajuste.topEntrada, ajuste.topSaida].some((v) => v !== null && (!Number.isInteger(v) || v <= 0))) {
+      return 'ajuste de peso: informe o código da TOP';
+    }
+    if ([ajuste.desconsiderarAcimaPct, ajuste.desconsiderarAbaixoPct].some((v) => v !== null && (Number.isNaN(v) || v < 0 || v > 100))) {
+      return 'diferença de peso: percentual de desconsiderar inválido';
+    }
+    if (ajuste.ajusteEntrada && ajuste.topEntrada === null) return 'diferença de peso: ajuste a maior ligado sem TOP de entrada';
+    if (ajuste.ajusteSaida && ajuste.topSaida === null) return 'diferença de peso: ajuste a menor ligado sem TOP de saída';
     return {
       ...this.param,
       liberacaoHerdada: { ...this.param.liberacaoHerdada, eventos },
@@ -303,6 +339,7 @@ export class MasterTenantComponent implements OnInit {
         codGrupo: u.codGrupo !== null && `${u.codGrupo}` !== '' ? Number(u.codGrupo) : null,
         dominioEmail: u.dominioEmail?.trim() || null,
       },
+      ajustePesoCompra: ajuste,
     };
   }
 
@@ -315,7 +352,7 @@ export class MasterTenantComponent implements OnInit {
     this.erro.set(null);
     this.pedirConfirmacao({
       titulo: 'Alterar parâmetros operacionais',
-      descricao: 'Liberação herdada, tolerância de pesáveis, fuso do faturamento e criação de usuários deste cliente. Afeta as próximas operações.',
+      descricao: 'Liberação herdada, tolerância de pesáveis, fuso do faturamento, criação de usuários e ajuste de peso na compra deste cliente. Afeta as próximas operações.',
       executar: (c) => this.service.salvarParametros(this.id, p, c),
       sucesso: 'Parâmetros salvos.',
     });

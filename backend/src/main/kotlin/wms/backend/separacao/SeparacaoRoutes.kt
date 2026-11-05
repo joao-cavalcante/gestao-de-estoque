@@ -120,6 +120,44 @@ fun Route.separacaoRoutes() {
             call.respond(SeparacaoRepository.listarItens(tenantId, sessaoId))
         }
 
+        // Compra: tolerância de peso preenchida no cadastro do produto (prioridade sobre a do NUCCO, 05/11/2026).
+        // Chamada UMA vez ao abrir a tela (o GET da sessão é poll e não pode ir ao Sankhya). Venda = lista vazia.
+        get("/sessoes/{id}/tolerancia-produto") {
+            val claims = call.exigirAuth() ?: return@get
+            val slug = call.request.queryParameters["tenant"]
+            val sessaoId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            if (slug.isNullOrBlank() || sessaoId == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'tenant' (query) e id (path) são obrigatórios"))
+                return@get
+            }
+            val tenantId = resolverTenantId(slug)
+            if (tenantId == null || tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+                return@get
+            }
+            if (!exigirTopPermitida(call, tenantId, sessaoId)) return@get
+            val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+            if (sessao == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("erro" to "sessão não encontrada"))
+                return@get
+            }
+            val compra = wms.backend.tarefas.TarefasRepository.buscarTipMovLocal(tenantId, sessao.nunota.toLong())?.trim() == "C"
+            // Tolerância que a tela usa por item: produto, senão NUCCO; com as faixas ligadas, nunca menor que o
+            // "desconsiderar" (diferença de gelo/água não é divergência). Itens sem diferença da sessão ficam fora.
+            val lista = if (!compra) emptyList() else {
+                val pesaveis = SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true).filter { it.usaConfPeso }.map { it.codprod }.distinct()
+                val prod = AjustePesoCompra.toleranciasProduto(slug, pesaveis)
+                val p = AjustePesoCompra.parametros(tenantId)
+                pesaveis.mapNotNull { cod ->
+                    val (a, b) = AjustePesoCompra.toleranciaEfetiva(sessao.tolPesoAcimaPct, sessao.tolPesoAbaixoPct, prod[cod])
+                    val (ta, tb) = AjustePesoCompra.toleranciaTela(a, b, p)
+                    if (ta == sessao.tolPesoAcimaPct && tb == sessao.tolPesoAbaixoPct) null
+                    else ToleranciaProdutoDto(cod, ta, tb, semLimiteAcima = ta == null, semLimiteAbaixo = tb == null)
+                }
+            }
+            call.respond(lista)
+        }
+
         get("/sessoes/{id}/codigos-barra") {
             val claims = call.exigirAuth() ?: return@get
             val slug = call.request.queryParameters["tenant"]

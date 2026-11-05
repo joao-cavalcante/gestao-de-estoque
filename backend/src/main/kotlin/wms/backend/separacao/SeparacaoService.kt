@@ -472,26 +472,45 @@ object SeparacaoService {
      * conferência 'D' não deixa confirmar a nota, e atualizar a quantidade negociada muda valor/financeiro e
      * descasa a nota do XML do fornecedor (Brie 12,708 → 12,958 KG, +1,97%, notas 71091/71194).
      * Acima da tolerância segue o lido — o Sankhya trata (procedimento de divergência a maior da CCO).
+     *
+     * Com parametros.ajustePesoCompra.habilitado (04/11/2026) vale nos DOIS sentidos: a menor dentro da tolerância
+     * "abaixo" também vai com o peso da nota, e a diferença da balança é gravada pra virar nota de ajuste de
+     * entrada/saída depois da confirmação da nota (ver AjustePesoCompra).
      */
-    private suspend fun ajustarPesoAMaiorCompra(
+    private suspend fun ajustarPesoCompra(
+        tenantSlug: String,
         tenantId: UUID,
         sessaoId: UUID,
         nunota: Long,
+        nuconf: Int,
         grupos: List<SeparacaoRepository.GrupoConferido>,
         itensPorProduto: Map<Int, List<ItemSeparacaoDto>>,
     ): List<SeparacaoRepository.GrupoConferido> {
         val tipMov = withContext(Dispatchers.IO) { TarefasRepository.buscarTipMovLocal(tenantId, nunota) }?.trim()
         if (tipMov != "C") return grupos
-        val tolAcima = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }?.tolPesoAcimaPct
-        return grupos.map { g ->
-            val neg = g.qtdNegociada ?: return@map g
-            val pesavel = itensPorProduto[g.codprod].orEmpty().any { it.usaConfPeso }
-            if (!pesavel || neg.signum() <= 0 || g.qtdTotal <= neg) return@map g
-            val pct = (g.qtdTotal - neg).toDouble() / neg.toDouble() * 100
-            if (tolAcima != null && pct > tolAcima + 1e-9) return@map g
-            println("INFO: compra nunota=$nunota codprod=${g.codprod} peso a maior ${"%.2f".format(pct)}% (tolerância ${tolAcima ?: "sem limite"}) — enviado o peso da nota $neg em vez de ${g.qtdTotal}")
-            g.copy(qtdTotal = neg)
+        val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
+        val paramAjuste = withContext(Dispatchers.IO) { AjustePesoCompra.parametros(tenantId) }
+        val diferencas = mutableListOf<Triple<SeparacaoRepository.GrupoConferido, java.math.BigDecimal, java.math.BigDecimal>>()
+        val pesaveis = grupos.filter { g -> itensPorProduto[g.codprod].orEmpty().any { it.usaConfPeso } }.map { it.codprod }
+        // Tolerância do produto tem prioridade sobre a do NUCCO (05/11/2026) — ver AjustePesoCompra.toleranciaEfetiva.
+        val tolProduto = AjustePesoCompra.toleranciasProduto(tenantSlug, pesaveis)
+        val resultado = grupos.map { g ->
+            if (g.codprod !in pesaveis) return@map g
+            val (tolAcima, tolAbaixo) = AjustePesoCompra.toleranciaEfetiva(sessao?.tolPesoAcimaPct, sessao?.tolPesoAbaixoPct, tolProduto[g.codprod])
+            val d = AjustePesoCompra.decidir(g.qtdNegociada, g.qtdTotal, tolAcima, tolAbaixo, paramAjuste)
+            if (d.enviar.compareTo(g.qtdTotal) == 0) return@map g
+            println(
+                "INFO: compra nunota=$nunota codprod=${g.codprod} peso ${if (g.qtdTotal > d.enviar) "a maior" else "a menor"} faixa ${d.faixa} " +
+                    "(acima ${tolAcima ?: "sem limite"}, abaixo ${tolAbaixo ?: "sem limite"}${if (tolProduto[g.codprod] != null) ", do produto" else ", do NUCCO"}) — enviado o peso da nota ${d.enviar} " +
+                    "em vez de ${g.qtdTotal}${d.diferenca?.let { "; ajuste de ${it.toPlainString()}" } ?: ""}",
+            )
+            d.diferenca?.let { diferencas += Triple(g, g.qtdTotal, it) }
+            g.copy(qtdTotal = d.enviar)
         }
+        if (diferencas.isNotEmpty()) {
+            withContext(Dispatchers.IO) { AjustePesoCompra.registrarDiferencas(tenantId, sessaoId, nunota, nuconf, diferencas) }
+        }
+        return resultado
     }
 
     private suspend fun enviarGruposAoSankhya(
@@ -506,7 +525,7 @@ object SeparacaoService {
         // Diagnóstico (nota 57568, divergência com quantidade certa): dados do item que vão pro Sankhya.
         val itensPorProduto = withContext(Dispatchers.IO) { SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true) }
             .groupBy { it.codprod }
-        val grupos = ajustarPesoAMaiorCompra(tenantId, sessaoId, nunota, gruposLidos, itensPorProduto)
+        val grupos = ajustarPesoCompra(tenantSlug, tenantId, sessaoId, nunota, nuconf, gruposLidos, itensPorProduto)
         grupos.forEach { g ->
             val it0 = itensPorProduto[g.codprod]?.firstOrNull()
             println(
@@ -1611,7 +1630,7 @@ object SeparacaoService {
     }
 
     /** Um `CACSP.confirmarNota`, sem retry. Devolve a falha (null = confirmou). */
-    private suspend fun confirmarNota(tenantSlug: String, nunota: Long): Throwable? =
+    internal suspend fun confirmarNota(tenantSlug: String, nunota: Long): Throwable? =
         runCatching {
             SankhyaSpClient.chamarRaw(
                 tenantSlug, "CACSP.confirmarNota", "mgecom",

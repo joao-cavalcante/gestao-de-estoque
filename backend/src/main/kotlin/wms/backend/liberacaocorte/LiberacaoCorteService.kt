@@ -243,6 +243,14 @@ object LiberacaoCorteService {
         return LimitesAutoLiberacao(sentido(p.acimaPct, p.acimaSemLimite), sentido(p.abaixoPct, p.abaixoSemLimite), "padrão da instalação")
     }
 
+    /** Compra: sentido com tolerância preenchida no produto usa a do produto; o resto fica com [limites] (NUCCO/política). */
+    internal fun limitesComProduto(limites: LimitesAutoLiberacao, produto: wms.backend.separacao.AjustePesoCompra.ToleranciaProduto?): LimitesAutoLiberacao {
+        if (produto == null) return limites
+        val acima = produto.acimaPct?.takeIf { it > 0 }?.let { Limite.Pct(it) } ?: limites.acima
+        val abaixo = produto.abaixoPct?.takeIf { it > 0 }?.let { Limite.Pct(it) } ?: limites.abaixo
+        return LimitesAutoLiberacao(acima, abaixo, "${limites.politica} + produto")
+    }
+
     /** Libera sozinho? Mesma conta de [dentroDaTolerancia]; o sentido marcado [Limite.NaoLibera] nunca libera. */
     internal fun liberaSozinho(conf: Double?, ped: Double?, limites: LimitesAutoLiberacao): Boolean {
         if (conf == null || ped == null) return false
@@ -383,11 +391,18 @@ object LiberacaoCorteService {
             }
             val limites = limitesAutoLiberacao(sessao != null, sessao?.tolPesoAcimaPct, sessao?.tolPesoAbaixoPct, sessao?.tolPesoOrigem, politicaTenant)
 
+            // Compra: tolerância preenchida no PRODUTO vale antes da do NUCCO, sentido a sentido (05/11/2026) — a mesma
+            // regra que decide o peso enviado (AjustePesoCompra.toleranciaEfetiva).
+            val tolProduto = if (nunota != null &&
+                withContext(Dispatchers.IO) { wms.backend.tarefas.TarefasRepository.buscarTipMovLocal(tenantId, nunota) }?.trim() == "C"
+            ) {
+                wms.backend.separacao.AjustePesoCompra.toleranciasProduto(tenantSlug, itemPorSeq.values.filter { it.usaConfPeso }.map { it.codprod })
+            } else emptyMap()
             val liberaveis = pendentes.filter { linha ->
                 val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
                 val item = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()] ?: return@filter false
                 if (!item.usaConfPeso) return@filter false
-                liberaSozinho(obs.qtdConferida, obs.qtdPedido, limites)
+                liberaSozinho(obs.qtdConferida, obs.qtdPedido, limitesComProduto(limites, tolProduto[item.codprod]))
             }
             if (liberaveis.isEmpty()) {
                 println("INFO: corte $nuconf sem item pesável dentro da tolerância pra auto-liberar (política: ${limites.politica}) — tudo pra liberação manual.")

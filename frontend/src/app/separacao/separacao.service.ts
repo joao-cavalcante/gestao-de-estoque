@@ -28,6 +28,15 @@ import {
  * localmente), o carregamento real dos itens do Sankhya acontece em
  * background — o front dá polling em `buscarSessao` até status='pronta'.
  */
+/** GET /sessoes/{id}/tolerancia-produto — %; semLimite* = sem limite naquele sentido. */
+export interface ToleranciaProdutoItem {
+  codprod: number;
+  acimaPct: number | null;
+  abaixoPct: number | null;
+  semLimiteAcima?: boolean;
+  semLimiteAbaixo?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SeparacaoService {
   private readonly http = inject(HttpClient);
@@ -35,6 +44,17 @@ export class SeparacaoService {
 
   iniciar(tenant: string, nunota: number): Observable<IniciarSeparacaoResposta> {
     return this.http.post<IniciarSeparacaoResposta>(`${this.baseUrl}/iniciar`, { nunota }, { params: { tenant } });
+  }
+
+  /** Compra: tolerância de peso do cadastro do produto (vale antes da do NUCCO). Venda = []. */
+  buscarToleranciaProduto(
+    tenant: string,
+    sessaoId: string,
+  ): Observable<ToleranciaProdutoItem[]> {
+    return this.http.get<ToleranciaProdutoItem[]>(
+      `${this.baseUrl}/sessoes/${sessaoId}/tolerancia-produto`,
+      { params: { tenant } },
+    );
   }
 
   buscarSessao(tenant: string, sessaoId: string): Observable<SessaoSeparacao> {

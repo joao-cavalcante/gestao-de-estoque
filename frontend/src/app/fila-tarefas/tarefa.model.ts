@@ -52,6 +52,27 @@ export interface Tarefa {
   ordemCargaFechada?: boolean;
   /** Nota fiscal gerada a partir do pedido — número e situação no Sankhya (STATUSNFE). */
   notaFiscal?: NotaFiscalPedido;
+  /** Compra: notas de ajuste de peso (entrada = a maior, saída = a menor) geradas pela Torre de Operação. */
+  ajustesPeso?: AjustePeso[];
+}
+
+/** sentido 'E' entrada | 'S' saída; status pendente/criando/cabecalho/confirmado/erro. */
+export interface AjustePeso {
+  sentido: 'E' | 'S';
+  status: string;
+  nunotaAjuste: number | null;
+  erro: string | null;
+}
+
+/** Texto do card: "Entrada nº 79760 · confirmada". */
+export function textoAjustePeso(a: AjustePeso): string {
+  const tipo = a.sentido === 'E' ? 'Entrada' : 'Saída';
+  const numero = a.nunotaAjuste ? ` nº ${a.nunotaAjuste}` : '';
+  const situacao =
+    a.status === 'confirmado' ? 'confirmada'
+    : a.status === 'erro' ? 'não gerada'
+    : 'aguardando a nota do fornecedor ser confirmada';
+  return `${tipo}${numero} · ${situacao}`;
 }
 
 export interface NotaFiscalPedido {

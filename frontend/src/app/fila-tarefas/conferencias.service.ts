@@ -80,6 +80,7 @@ export interface TarefaApiDto {
     confirmada: boolean;
     nfce: boolean;
   } | null;
+  ajustesPeso?: { sentido: 'E' | 'S'; status: string; nunotaAjuste?: number | null; erro?: string | null }[] | null;
   pendenteWriteBack: boolean;
 }
 
@@ -109,6 +110,11 @@ export class ConferenciasService {
         );
       }),
     );
+  }
+
+  /** Compra: ajuste de peso que parou em erro volta pra fila (gera no próximo ciclo de sincronização). */
+  reprocessarAjustePeso(tenant: string, nunota: number): Observable<{ reprocessados: number }> {
+    return this.http.post<{ reprocessados: number }>(`${this.baseUrl}/${nunota}/ajuste-peso/reprocessar`, {}, { params: { tenant } });
   }
 
   concluir(tenant: string, nunota: number, operador: string): Observable<{ ok: boolean; pendenteWriteBack: boolean }> {
@@ -169,6 +175,9 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     notaPendente: p.notaPendente ? { sessaoId: p.notaPendente.sessaoId, erro: p.notaPendente.erro ?? null } : undefined,
     ordemCargaFechada: !!p.ordemCargaFechada,
     notaFiscal: p.notaFiscal ?? undefined,
+    ajustesPeso: p.ajustesPeso?.length
+      ? p.ajustesPeso.map((a) => ({ sentido: a.sentido, status: a.status, nunotaAjuste: a.nunotaAjuste ?? null, erro: a.erro ?? null }))
+      : undefined,
   };
 }
 

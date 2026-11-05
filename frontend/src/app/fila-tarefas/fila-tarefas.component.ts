@@ -663,6 +663,16 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   /** Pedido sem OC: "Gerar nota" com a mesma lógica do Fechar OC (TOP automática, fatura e confirma). */
   readonly faturamento = signal<number | null>(null);
 
+  /** Compra: ajuste de peso em erro volta pra fila do ciclo de sincronização. */
+  onReprocessarAjuste(tarefa: Tarefa): void {
+    const nunota = Number(tarefa.numeroUnico);
+    if (!(nunota > 0)) return;
+    this.conferenciasService.reprocessarAjustePeso(this.tenantAtual, nunota).subscribe({
+      next: () => this.carregarFila(),
+      error: (err) => this.erro.set(err?.error?.erro ?? 'Falha ao pedir o ajuste de peso de novo.'),
+    });
+  }
+
   onFaturar(tarefa: Tarefa): void {
     const nunota = Number(tarefa.numeroUnico);
     if (nunota > 0) this.faturamento.set(nunota);

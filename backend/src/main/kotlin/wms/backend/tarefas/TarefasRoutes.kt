@@ -35,7 +35,7 @@ fun Route.tarefasRoutes() {
                 return@get
             }
 
-            call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, comOcAtual(tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))))
+            call.respond(comAjustePeso(tenantId, comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, comOcAtual(tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))))))
         }
 
         // Sincronização sob demanda ("forçar sync"): roda o mesmo ciclo do job de
@@ -59,7 +59,7 @@ fun Route.tarefasRoutes() {
             }
             try {
                 TarefaSyncService.sincronizarTenant(slug, tenantId)
-                call.respond(comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, comOcAtual(tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId))))))))
+                call.respond(comAjustePeso(tenantId, comNotaFiscal(tenantId, comNotaPendente(tenantId, comCarregamento(tenantId, comTransporte(slug, tenantId, comOcAtual(tenantId, filtrarPorTop(claims, tenantId, TarefasRepository.listar(tenantId)))))))))
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadGateway,
@@ -101,6 +101,24 @@ fun Route.tarefasRoutes() {
 
             call.respond(HttpStatusCode.Accepted, mapOf("ok" to true, "pendenteWriteBack" to true))
         }
+
+        // Compra: ajuste de peso que parou em erro (5 tentativas) volta pra fila do ciclo de sincronização.
+        post("/{nunota}/ajuste-peso/reprocessar") {
+            val claims = call.exigirAuth() ?: return@post
+            val slug = call.request.queryParameters["tenant"]
+            val nunota = call.parameters["nunota"]?.toLongOrNull()
+            if (slug.isNullOrBlank() || nunota == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'tenant' (query) e nunota (path) são obrigatórios"))
+                return@post
+            }
+            val tenantId = resolverTenantId(slug)
+            if (tenantId == null || tenantId != claims.tenantId) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+                return@post
+            }
+            val n = wms.backend.separacao.AjustePesoCompra.reprocessar(tenantId, nunota)
+            call.respond(mapOf("reprocessados" to n))
+        }
     }
 }
 
@@ -127,6 +145,16 @@ private fun comOcAtual(tenantId: UUID, tarefas: List<TarefaApiDto>): List<Tarefa
         val oc = atual[t.nunota] ?: return@map t
         val nova = oc.takeIf { it > 0 }
         if (nova == t.ordemCarga) t else t.copy(ordemCarga = nova)
+    }
+}
+
+/** Compra: situação das notas de ajuste de peso (leitura local). */
+private fun comAjustePeso(tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    val ajustes = runCatching { wms.backend.separacao.AjustePesoCompra.situacaoPorNota(tenantId, tarefas.map { it.nunota }) }
+        .getOrElse { println("AVISO: ajustes de peso da fila: ${it.message}"); emptyMap() }
+    if (ajustes.isEmpty()) return tarefas
+    return tarefas.map { t ->
+        ajustes[t.nunota]?.let { l -> t.copy(ajustesPeso = l.map { AjustePesoDto(it.sentido, it.status, it.nunotaAjuste, it.erro) }) } ?: t
     }
 }
 

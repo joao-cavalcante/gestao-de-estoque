@@ -240,6 +240,20 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   fatAoConcluir: string | null = null;
   /** V50 — tolerância de peso da sessão (fração; null = sem limite). Definida ao abrir a sessão. */
   private toleranciaPeso: ToleranciaPeso = TOLERANCIA_PADRAO;
+  /** Compra: tolerância (fração) do cadastro do produto por CODPROD — vale antes da do NUCCO, sentido a sentido. */
+  private toleranciaProduto = new Map<number, { acima: number | null | undefined; abaixo: number | null | undefined }>();
+
+  /** Tolerância efetiva do item: a do produto (se preenchida naquele sentido) ou a da sessão (NUCCO). */
+  private toleranciaDoItem(codprod: number | string): ToleranciaPeso {
+    const p = this.toleranciaProduto.get(Number(codprod));
+    if (!p) return this.toleranciaPeso;
+    // undefined = vale a da sessão; null = sem limite.
+    return {
+      ...this.toleranciaPeso,
+      acima: p.acima === undefined ? this.toleranciaPeso.acima : p.acima,
+      abaixo: p.abaixo === undefined ? this.toleranciaPeso.abaixo : p.abaixo,
+    };
+  }
 
   // ─── Fluxo pós-finalização ───────────────────────────────────────────────
   /** Modal de liberação de corte (quando o cortar deixou a conferência em STATUS='C'). */
@@ -378,7 +392,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       const quantidadeComercial = linhas.every((l) => l.quantidadeComercial != null)
         ? linhas.reduce((acc, l) => acc + (l.quantidadeComercial ?? 0), 0)
         : base.quantidadeComercial;
-      const d = this.avaliarDivergencia({ usaConfPeso: base.usaConfPeso, expected }, scanned);
+      const d = this.avaliarDivergencia({ usaConfPeso: base.usaConfPeso, expected, code: base.code }, scanned);
       // Pesável a menor DENTRO da tolerância não é divergência: o backend libera o corte sozinho
       // (autoLiberarPesoDentroTolerancia) — não entra no pop-up nem trava a finalização.
       if (d.status === 'ok' || d.pesoNaTolerancia) continue;
@@ -408,7 +422,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const aMaior = round3(item.scanned) > round3(item.expected);
     if (item.usaConfPeso) {
       if (item.scanned <= 0) return { tipo: 'Não pesado', detalhe: 'Nenhuma pesagem registrada' };
-      const limite = aMaior ? this.toleranciaPeso.acima : this.toleranciaPeso.abaixo;
+      const tolItem = this.toleranciaDoItem(item.code);
+      const limite = aMaior ? tolItem.acima : tolItem.abaixo;
       const tol =
         limite == null ? 'sem limite de tolerância' : limite === 0 ? 'tolerância 0% — não aceita diferença' : `fora da tolerância de ${pct(limite)}%`;
       return { tipo: aMaior ? 'Peso a maior' : 'Peso a menor', detalhe: tol.charAt(0).toUpperCase() + tol.slice(1) };
@@ -812,7 +827,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * sair dela; a divergência de peso tem indicador visual próprio (divergenciaPeso).
    */
   private avaliarDivergencia(
-    item: Pick<ConferenciaItem, 'usaConfPeso' | 'expected'>,
+    item: Pick<ConferenciaItem, 'usaConfPeso' | 'expected'> & { code?: string },
     scanned: number,
   ): {
     conferido: boolean;
@@ -824,7 +839,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   } {
     const conferido = estaConferido({ scanned, expected: item.expected });
     // A menor fica em Pendentes (parcial); só a maior fora da tolerância de cima vira divergência de peso.
-    const divergePeso = !!item.usaConfPeso && scanned > item.expected && pesoForaDaTolerancia(scanned, item.expected, this.toleranciaPeso);
+    const tolItem = item.code != null ? this.toleranciaDoItem(item.code) : this.toleranciaPeso;
+    const divergePeso = !!item.usaConfPeso && scanned > item.expected && pesoForaDaTolerancia(scanned, item.expected, tolItem);
     const divergeQtd = !item.usaConfPeso && round3(scanned) > round3(item.expected);
     const divergente = divergePeso || divergeQtd;
     return {
@@ -833,7 +849,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       divergenceReason: divergePeso ? 'PESO FORA DA TOLERÂNCIA' : divergeQtd ? 'QTD. DIVERGENTE' : undefined,
       divergenciaPeso: divergePeso || undefined,
       desvioPesoPct: item.usaConfPeso && scanned > 0 ? desvioPesoPctSigned(scanned, item.expected) : undefined,
-      pesoNaTolerancia: pesoNaToleranciaAbaixo(item.usaConfPeso, scanned, item.expected, this.toleranciaPeso) || undefined,
+      pesoNaTolerancia: pesoNaToleranciaAbaixo(item.usaConfPeso, scanned, item.expected, tolItem) || undefined,
     };
   }
 
@@ -842,7 +858,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       next: (itens) => {
         // Fora do pedido sem nada bipado não aparece em lugar nenhum (foi só
         // identificado e não conferido) — a lista de pendentes é o pedido.
-        let mapeados = itens.map((i) => mapearItem(i, this.toleranciaPeso)).filter((i) => !(i.foraPedido && i.scanned === 0));
+        let mapeados = itens.map((i) => mapearItem(i, this.toleranciaDoItem(i.codprod))).filter((i) => !(i.foraPedido && i.scanned === 0));
         this.todosItensMapeados.set(mapeados);
         // Conferência por etapa (V29): a tela só enxerga os itens do tipo de separação da etapa.
         const etapa = this.etapaAtual();
@@ -893,6 +909,24 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
                   acima: sessao.tolPesoAcimaPct == null ? null : sessao.tolPesoAcimaPct / 100,
                   abaixo: sessao.tolPesoAbaixoPct == null ? null : sessao.tolPesoAbaixoPct / 100,
                 };
+          // Compra: tolerância do produto (uma leitura; falha = vale só a da sessão). Relê os itens com ela.
+          this.toleranciaProduto = new Map();
+          this.separacaoService.buscarToleranciaProduto(this.tenantAtual, sessaoId).subscribe({
+            next: (lista) => {
+              if (!lista.length) return;
+              this.toleranciaProduto = new Map(
+                lista.map((t) => [
+                  t.codprod,
+                  {
+                    acima: t.acimaPct != null ? t.acimaPct / 100 : t.semLimiteAcima ? null : undefined,
+                    abaixo: t.abaixoPct != null ? t.abaixoPct / 100 : t.semLimiteAbaixo ? null : undefined,
+                  },
+                ]),
+              );
+              if (this.sessaoIdAtual === sessaoId) this.recarregarItens(sessaoId);
+            },
+            error: () => undefined,
+          });
           this.exibirProd.set(sessao.exibirProd !== 'N');
           this.exibirQtd.set(sessao.exibirQtd !== 'N');
           this.exibirProdConf.set(sessao.exibirProdConf !== 'N');

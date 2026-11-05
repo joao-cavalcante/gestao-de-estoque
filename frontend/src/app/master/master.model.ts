@@ -45,6 +45,17 @@ export interface ParametrosTenant {
     dominioEmail: string | null;
     camposFixos: Record<string, string>;
   };
+  ajustePesoCompra: {
+    habilitado: boolean;
+    desconsiderarAcimaPct: number | null;
+    desconsiderarAbaixoPct: number | null;
+    ajusteEntrada: boolean;
+    ajusteSaida: boolean;
+    topEntrada: number | null;
+    topSaida: number | null;
+    serieEntrada: string | null;
+    serieSaida: string | null;
+  };
 }
 
 export interface ErpConnection {

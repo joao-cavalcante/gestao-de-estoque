@@ -318,7 +318,7 @@
               (drop)="$event.preventDefault(); soltarCardOc(tarefa.id)"
             >
               <span class="oq-oc-card__alca" title="Arraste para mudar a ordem" aria-hidden="true"><oq-icon name="grip" [size]="16" /></span>
-              <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" />
+              <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" (reprocessarAjuste)="onReprocessarAjuste($event)" />
             </div>
           }
           }
@@ -331,7 +331,7 @@
         @if (viewMode() === 'cards') {
           <div class="oq-page__grid" #rolagem>
             @for (tarefa of tarefasPaginadas(); track tarefa.id) {
-              <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" />
+              <oq-task-card [tarefa]="tarefa" (conferir)="onConferir($event)" (carregado)="onCarregado($event)" (faturar)="onFaturar($event)" (reprocessarAjuste)="onReprocessarAjuste($event)" />
             }
           </div>
         } @else {

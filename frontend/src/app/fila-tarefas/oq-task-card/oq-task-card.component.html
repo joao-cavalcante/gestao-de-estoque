@@ -53,6 +53,17 @@
         <span class="oq-card__field-value">—</span>
       }
     </div>
+    @if (tarefa.ajustesPeso?.length) {
+      <div class="oq-card__field oq-card__field--full">
+        <span class="oq-card__field-label">Ajuste de peso</span>
+        @for (a of tarefa.ajustesPeso; track a.sentido) {
+          <span class="oq-card__field-value" [title]="a.erro ?? ''">{{ textoAjustePeso(a) }}</span>
+        }
+        @if (ajusteComErro) {
+          <button type="button" class="oq-card__btn" (click)="$event.stopPropagation(); reprocessarAjuste.emit(tarefa)">Gerar ajuste de novo</button>
+        }
+      </div>
+    }
     <div class="oq-card__field">
       <span class="oq-card__field-label">Ordem de Carga</span>
       <span class="oq-card__field-value">{{ tarefa.ordemCarga ?? '—' }}</span>
