@@ -240,6 +240,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   fatAoConcluir: string | null = null;
   /** V50 — tolerância de peso da sessão (fração; null = sem limite). Definida ao abrir a sessão. */
   private toleranciaPeso: ToleranciaPeso = TOLERANCIA_PADRAO;
+  /** V70 — o pop-up de pesagem pede a quantidade na unidade do pedido (opção do NUCCO, cópia da sessão). */
+  pedirQtdComercial = true;
 
   // ─── Fluxo pós-finalização ───────────────────────────────────────────────
   /** Modal de liberação de corte (quando o cortar deixou a conferência em STATUS='C'). */
@@ -893,6 +895,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
                   acima: sessao.tolPesoAcimaPct == null ? null : sessao.tolPesoAcimaPct / 100,
                   abaixo: sessao.tolPesoAbaixoPct == null ? null : sessao.tolPesoAbaixoPct / 100,
                 };
+          this.pedirQtdComercial = sessao.pedirQtdComercial !== false;
           this.exibirProd.set(sessao.exibirProd !== 'N');
           this.exibirQtd.set(sessao.exibirQtd !== 'N');
           this.exibirProdConf.set(sessao.exibirProdConf !== 'N');

@@ -69,6 +69,8 @@ data class SessaoSeparacaoDto(
      */
     val tolPesoAcimaPct: Double? = null,
     val tolPesoAbaixoPct: Double? = 5.0,
+    /** V70 — false = o pop-up de pesagem não pede a quantidade na unidade do pedido (ex.: compra). */
+    val pedirQtdComercial: Boolean = true,
 )
 
 @Serializable

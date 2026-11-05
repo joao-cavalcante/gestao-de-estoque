@@ -46,6 +46,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   @Input({ required: true }) sessaoId!: string;
   /** CCO.OBTERQTDBALANCA da sessão — 'N' (ou ausente) desativa o passo de peso, mesmo pra item usaConfPeso. */
   @Input() obterQtdBalanca: string | null = null;
+  /** V70 — opção do NUCCO: false = não pede a quantidade na unidade do pedido (ex.: compra). */
+  @Input() pedirQtdComercial = true;
   /** Etapa (tipo de separação) sendo conferida — item fora do pedido nasce nela. null = conferência normal. */
   @Input() etapa: number | null = null;
   /** Itens pendentes da sessão — usados só p/ mostrar "Esperado: X UN (Y CX)" no modal de peso (igual ao legado). */
@@ -193,7 +195,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   get unidadeQtdComercial(): string | null {
     const it = this.itemPendenteAtual;
     const un = it?.unidadeComercial?.trim();
-    if (!this.precisaPeso || !un || un.toUpperCase() === 'KG' || un === it?.unidadePadrao) return null;
+    if (!this.pedirQtdComercial || !this.precisaPeso || !un || un.toUpperCase() === 'KG' || un === it?.unidadePadrao) return null;
     return un;
   }
 
@@ -286,6 +288,23 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   onUmaChange(): void {
     this.erroTara = null;
     if (this.peso.trim()) this.qtd = String(this.calcularQtdPorPeso());
+  }
+
+  /**
+   * CCO OBTERQTDBALANCA = 'B' ("Pela balança"): o peso SÓ pode vir da balança — sem digitar. 'S' ("Balança/Manual")
+   * deixa digitar (pedido do usuário, 05/11/2026). Balança HTTP continua no campo de peso, só que somente leitura,
+   * preenchido pelo botão "Obter da balança".
+   */
+  get somenteBalanca(): boolean {
+    return this.obterQtdBalanca?.trim().toUpperCase() === 'B';
+  }
+
+  /** O peso atual veio da balança (captura ao vivo, automática ou "Obter da balança"). */
+  private pesoDaBalanca = false;
+
+  /** Pela balança e sem nenhuma balança disponível pro usuário: não há como pesar. */
+  get semBalancaParaPesar(): boolean {
+    return this.somenteBalanca && this.balancas.length === 0;
   }
 
   /** true = mostra o campo de peso (produto exige E a CCO da sessão pede peso da balança). */
@@ -459,6 +478,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   abrirModalPeso(): void {
     this.feedback.trigger('PESAGEM_INICIADA');
     this.mostrarModalPeso = true;
+    this.pesoDaBalanca = false;
+    if (this.somenteBalanca) this.peso = '';
     // Abre direto na Balança se houver balança serial/TCP escolhida — ou se o usuário tem balança mas
     // ainda não escolheu nenhuma (o seletor fica no topo da aba Balança).
     this.modoEntradaPeso =
@@ -481,6 +502,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   }
 
   alternarModoPeso(modo: 'manual' | 'balanca'): void {
+    if (modo === 'manual' && this.somenteBalanca && this.balancaAtiva?.tipoComunicacao !== 'HTTP') return;
     this.modoEntradaPeso = modo;
     if (modo === 'balanca') {
       this.iniciarLeituraAoVivo();
@@ -528,6 +550,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     if (!this.mostrarModalPeso || this.modoEntradaPeso !== 'balanca' || !this.capturaAutoAtiva) return;
     if (peso < 0.001) return;
     this.peso = peso.toFixed(3);
+    this.pesoDaBalanca = true;
     this.feedback.trigger('PESAGEM_OK');
     if (this.aguardaQtdComercial()) return;
     this.confirmarPeso();
@@ -556,6 +579,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   capturarPesoAoVivo(): void {
     if (this.pesoAoVivo == null) return;
     this.peso = this.pesoAoVivo.toFixed(3);
+    this.pesoDaBalanca = true;
     this.feedback.trigger('PESAGEM_OK');
     if (this.aguardaQtdComercial()) return;
     this.confirmarPeso();
@@ -574,6 +598,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
       next: (r) => {
         this.capturandoPeso = false;
         this.peso = String(r.peso);
+        this.pesoDaBalanca = true;
         this.feedback.trigger('PESAGEM_OK');
         this.aguardaQtdComercial();
       },
@@ -592,6 +617,10 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
    */
   confirmarPeso(): void {
     if (!this.peso.trim()) return;
+    if (this.somenteBalanca && !this.pesoDaBalanca) {
+      this.erroTara = 'Esta conferência exige o peso da balança — capture o peso pela balança.';
+      return;
+    }
     // Tara opcional: inválida ou >= peso não confirma — o modal fica aberto mostrando o motivo.
     if (this.pesoUmaN > 0 && (!Number.isInteger(this.qtdUmaN) || this.qtdUmaN < 0)) {
       this.erroTara = 'Qtd. de embalagens inválida — informe um número inteiro (0 = sem embalagem).';

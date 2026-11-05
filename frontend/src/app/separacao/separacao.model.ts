@@ -39,6 +39,8 @@ export interface SessaoSeparacao {
    */
   tolPesoAcimaPct?: number | null;
   tolPesoAbaixoPct?: number | null;
+  /** V70 — false = o pop-up de pesagem não pede a quantidade na unidade do pedido (ex.: compra). Ausente = pede. */
+  pedirQtdComercial?: boolean;
 }
 
 /** Resposta de POST /sessoes/{id}/identificar-operador. */

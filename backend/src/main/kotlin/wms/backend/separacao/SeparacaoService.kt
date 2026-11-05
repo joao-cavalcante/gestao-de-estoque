@@ -269,6 +269,11 @@ object SeparacaoService {
                 SeparacaoRepository.salvarToleranciaPeso(
                     tenantId, sessaoId, tol.acimaPct?.let { BigDecimal.valueOf(it) }, tol.abaixoPct?.let { BigDecimal.valueOf(it) },
                 )
+                // V70 — pop-up de pesagem pede a quantidade na unidade do pedido? (compra da Negri: não)
+                SeparacaoRepository.salvarPedirQtdComercial(
+                    tenantId, sessaoId,
+                    wms.backend.configconferencia.ConferenciaOpcoesRepository.buscar(tenantId, nucco).pedirQtdComercial,
+                )
             }
             val codprods = itens.map { it.codprod }.distinct()
             val voaJob = escopo.async { buscarVoa(tenantSlug, tenantId, codprods) }

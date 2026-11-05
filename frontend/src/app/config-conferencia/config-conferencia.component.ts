@@ -110,6 +110,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
       this.valoresEditados.set({ ...d.campos });
     });
     this.carregarTolerancia(nucco);
+    this.carregarOpcoes(nucco);
   }
 
   // ─── Tolerância de peso (WMS, V50) — salva à parte dos campos do Sankhya ──────────
@@ -119,6 +120,36 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
   readonly tolConfigurada = signal(false);
   readonly tolSalvando = signal(false);
   readonly tolMensagem = signal<string | null>(null);
+
+  // ─── V70: opções da Torre por NUCCO ───
+  pedirQtdComercial = true;
+  readonly opcoesSalvando = signal(false);
+  readonly opcoesMensagem = signal<string | null>(null);
+
+  private carregarOpcoes(nucco: number): void {
+    this.opcoesMensagem.set(null);
+    this.service.opcoes(nucco).subscribe({
+      next: (o) => (this.pedirQtdComercial = o.pedirQtdComercial),
+      error: () => this.opcoesMensagem.set('Não foi possível carregar as opções da conferência.'),
+    });
+  }
+
+  salvarOpcoes(): void {
+    const nucco = this.nuccoSelecionado();
+    if (nucco == null || this.opcoesSalvando()) return;
+    this.opcoesSalvando.set(true);
+    this.opcoesMensagem.set(null);
+    this.service.salvarOpcoes(nucco, { pedirQtdComercial: this.pedirQtdComercial }).subscribe({
+      next: () => {
+        this.opcoesSalvando.set(false);
+        this.opcoesMensagem.set('Opções salvas — valem para as próximas conferências abertas.');
+      },
+      error: (err) => {
+        this.opcoesSalvando.set(false);
+        this.opcoesMensagem.set(err.error?.erro ?? 'Não foi possível salvar as opções.');
+      },
+    });
+  }
 
   private carregarTolerancia(nucco: number): void {
     this.tolMensagem.set(null);

@@ -1371,6 +1371,7 @@ object SeparacaoRepository {
                     volumeBase = it[SeparacaoSessoesTable.volumeBase],
                     tolPesoAcimaPct = it[SeparacaoSessoesTable.tolPesoAcimaPct]?.toDouble(),
                     tolPesoAbaixoPct = it[SeparacaoSessoesTable.tolPesoAbaixoPct]?.toDouble(),
+                    pedirQtdComercial = it[SeparacaoSessoesTable.pedirQtdComercial],
                 )
             }
     }
@@ -1380,6 +1381,14 @@ object SeparacaoRepository {
         SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
             it[tolPesoAcimaPct] = acimaPct
             it[tolPesoAbaixoPct] = abaixoPct
+        }
+        Unit
+    }
+
+    /** V70 — copia a opção "pedir quantidade na unidade do pedido" do NUCCO pra sessão. */
+    fun salvarPedirQtdComercial(tenantId: UUID, sessaoId: UUID, pedir: Boolean): Unit = TenantTx.run(tenantId) {
+        SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
+            it[pedirQtdComercial] = pedir
         }
         Unit
     }
@@ -2159,6 +2168,7 @@ object SeparacaoRepository {
         formacaoVolumes = row[SeparacaoSessoesTable.formacaoVolumes],
         tolPesoAcimaPct = row[SeparacaoSessoesTable.tolPesoAcimaPct]?.toDouble(),
         tolPesoAbaixoPct = row[SeparacaoSessoesTable.tolPesoAbaixoPct]?.toDouble(),
+        pedirQtdComercial = row[SeparacaoSessoesTable.pedirQtdComercial],
     )
 
     // ─── Conferência por etapa (V29) ─────────────────────────────────────────

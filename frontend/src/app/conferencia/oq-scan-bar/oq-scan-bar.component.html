@@ -131,9 +131,11 @@
             class="oq-peso-modal__tab"
             [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'manual'"
             [attr.aria-selected]="modoEntradaPeso === 'manual'"
+            [disabled]="somenteBalanca && balancaAtiva?.tipoComunicacao !== 'HTTP'"
+            [title]="somenteBalanca && balancaAtiva?.tipoComunicacao !== 'HTTP' ? 'Esta conferência exige o peso da balança' : ''"
             (click)="alternarModoPeso('manual')"
           >
-            Manual
+            {{ somenteBalanca && balancaAtiva?.tipoComunicacao === 'HTTP' ? 'Balança (rede)' : 'Manual' }}
           </button>
           <button
             type="button"
@@ -149,6 +151,12 @@
           </button>
         </div>
 
+        @if (semBalancaParaPesar) {
+          <span class="oq-peso-modal__msg oq-peso-modal__msg--err">
+            Esta conferência exige o peso da balança e não há balança disponível para este usuário.
+          </span>
+        }
+
         <!-- 3. Peso informado / capturado -->
         @if (modoEntradaPeso === 'manual') {
           <div class="oq-peso-modal__secao">
@@ -161,7 +169,8 @@
                   [(ngModel)]="peso"
                   name="pesoModal"
                   inputmode="decimal"
-                  placeholder="0,000"
+                  [readonly]="somenteBalanca"
+                  [placeholder]="somenteBalanca ? 'obter da balança' : '0,000'"
                   autocomplete="off"
                   class="oq-peso-modal__peso-input"
                   (keydown.enter)="$event.preventDefault(); onPesoEnter()"

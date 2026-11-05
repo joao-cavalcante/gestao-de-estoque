@@ -51,6 +51,8 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
      */
     val tolPesoAcimaPct = decimal("tol_peso_acima_pct", 6, 2).nullable()
     val tolPesoAbaixoPct = decimal("tol_peso_abaixo_pct", 6, 2).nullable()
+    /** V70 — pop-up de pesagem pede a quantidade na unidade do pedido (cópia de app.conferencia_opcoes na abertura). */
+    val pedirQtdComercial = bool("pedir_qtd_comercial")
     /** V58 — 'aguardando' (CCO pede faturamento e a nota ainda não saiu confirmada) | 'ok' | NULL (não se aplica). */
     val notaStatus = text("nota_status").nullable()
     /** V58 — último motivo de recusa do Sankhya no faturar/confirmarNota. */
