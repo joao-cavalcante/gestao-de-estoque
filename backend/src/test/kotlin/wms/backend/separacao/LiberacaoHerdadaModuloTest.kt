@@ -120,6 +120,36 @@ class LiberacaoHerdadaModuloTest {
     }
 
     @Test
+    fun `Negri 06-11 - todos os eventos, corte nunca`() = runBlocking {
+        val cfg = ParametrosLiberacaoHerdada(eventos = listOf(3), compararValor = false, todosEventos = true)
+        val porta = PortaPorTenant(mapOf(negri to setOf(Modulos.LIBERACAO_HERDADA)), mapOf(negri to cfg), linhas)
+        assertEquals(2, LiberacaoHerdada.herdar("negri", negri, 70000, porta))
+        val sql = porta.sqls.single()
+        assertTrue("L.EVENTO NOT IN (64)" in sql)
+        assertFalse("L.EVENTO IN (" in sql)
+    }
+
+    @Test
+    fun `todos os eventos sem lista configurada tambem roda`() {
+        val cfg = ParametrosLiberacaoHerdada(todosEventos = true)
+        assertEquals(cfg, LiberacaoHerdada.configuracao(setOf(Modulos.LIBERACAO_HERDADA), cfg))
+        assertNull(LiberacaoHerdada.configuracao(emptySet(), cfg))
+    }
+
+    @Test
+    fun `lista configurada tambem exclui o corte e evento 64 na lista e invalido`() {
+        assertEquals("L.EVENTO IN (3) AND L.EVENTO NOT IN (64)", LiberacaoHerdada.filtroEventos(listOf(3), false))
+        assertNull(LiberacaoHerdada.configuracao(setOf(Modulos.LIBERACAO_HERDADA), ParametrosLiberacaoHerdada(eventos = listOf(3, 64))))
+    }
+
+    @Test
+    fun `parametros - JSON da migracao V73 liga todos os eventos`() {
+        val p = ParametrosTenant.ler("""{"liberacaoHerdada": {"eventos": [3], "compararValor": false, "todosEventos": true}}""")
+        assertTrue(p.liberacaoHerdada.todosEventos)
+        assertFalse(ParametrosTenant().liberacaoHerdada.todosEventos)
+    }
+
+    @Test
     fun `parametros - vazio ou ilegivel vale os padroes seguros`() {
         assertEquals(ParametrosTenant(), ParametrosTenant.ler("{}"))
         assertEquals(ParametrosTenant(), ParametrosTenant.ler(null))

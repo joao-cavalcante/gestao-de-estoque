@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import wms.backend.erp.SankhyaDbExplorerClient
 import wms.backend.liberacaocorte.LiberacaoCorteService
+import wms.backend.tenancy.EVENTOS_CORTE
 import wms.backend.tenancy.Modulos
 import wms.backend.tenancy.ParametrosLiberacaoHerdada
 import wms.backend.tenancy.TenantRepository
@@ -19,8 +20,9 @@ import java.util.UUID
  *
  *  - Só roda com o módulo [Modulos.LIBERACAO_HERDADA] (desligado por padrão; checado ANTES de consultar o Sankhya)
  *    e com eventos em ParametrosTenant.liberacaoHerdada — sem módulo, sem eventos ou sem ler a configuração: nada.
- *  - Só TABELA TGFCAB (SEQUENCIA 0) e TGFITE (sequência de origem pela TGFVAR); só os eventos configurados
- *    (Negri: 3, limite de crédito).
+ *  - Só TABELA TGFCAB (SEQUENCIA 0) e TGFITE (sequência de origem pela TGFVAR); só os eventos configurados, ou
+ *    todos com `todosEventos` (Negri desde 06/11/2026: "com exceção dos eventos de corte, tudo que for liberado no
+ *    pedido e pedido de novo na nota é liberado automaticamente"). Corte (EVENTOS_CORTE, 64) nunca é herdado.
  *  - Pendente na conta do Sankhya: sem DHLIB ou VLRATUAL > VLRLIBERADO; reprovada nunca.
  *  - Origem liberada (DHLIB, VLRLIBERADO > 0, sem linha reprovada do evento); vale a etapa mais próxima.
  *  - Valor: com `compararValor` (padrão) só herda se VLRATUAL <= o liberado na origem. A Negri tem
@@ -65,7 +67,7 @@ object LiberacaoHerdada {
                 println("AVISO: liberação herdada — configuração do tenant $tenantSlug ilegível, nota $nunota fica manual: ${it.message}")
                 return 0
             } ?: return 0
-        val consultados = runCatching { porta.pendentes(tenantSlug, sqlPendentesComOrigem(nunota, config.eventos)) }
+        val consultados = runCatching { porta.pendentes(tenantSlug, sqlPendentesComOrigem(nunota, config.eventos, config.todosEventos)) }
             .getOrElse {
                 println("AVISO: liberação herdada — consulta da nota $nunota falhou: ${it.message}")
                 return 0
@@ -109,7 +111,9 @@ object LiberacaoHerdada {
      */
     /** Configuração efetiva: null = não roda (módulo desligado ou nenhum evento configurado). */
     internal fun configuracao(modulos: Set<String>, parametros: ParametrosLiberacaoHerdada): ParametrosLiberacaoHerdada? =
-        parametros.takeIf { Modulos.LIBERACAO_HERDADA in modulos && it.eventos.isNotEmpty() && it.validar().isEmpty() }
+        parametros.takeIf {
+            Modulos.LIBERACAO_HERDADA in modulos && (it.todosEventos || it.eventos.isNotEmpty()) && it.validar().isEmpty()
+        }
 
     /** VLRATUAL (pedido agora) <= VLRORIG (liberado na origem). Valor ausente ou ilegível = não coberto. */
     internal fun valorCobertoPelaOrigem(linha: Map<String, String?>): Boolean {
@@ -118,7 +122,13 @@ object LiberacaoHerdada {
         return atual <= origem
     }
 
-    internal fun sqlPendentesComOrigem(nunota: Long, eventos: List<Int>) = """
+    /** Filtro de evento: a lista configurada ou, com [todos], qualquer um — corte fora nos dois casos. */
+    internal fun filtroEventos(eventos: List<Int>, todos: Boolean): String {
+        val semCorte = "L.EVENTO NOT IN (${EVENTOS_CORTE.joinToString()})"
+        return if (todos) semCorte else "L.EVENTO IN (${eventos.joinToString()}) AND $semCorte"
+    }
+
+    internal fun sqlPendentesComOrigem(nunota: Long, eventos: List<Int>, todos: Boolean = false) = """
         SELECT * FROM (
           SELECT L.NUCHAVE, L.TABELA, L.EVENTO, L.SEQUENCIA, L.SEQCASCATA, L.NUCLL, L.VLRATUAL,
                  O.NUCHAVE AS NUNOTAORIG, O.CODUSULIB, O.VLRLIBERADO AS VLRORIG,
@@ -136,7 +146,7 @@ object LiberacaoHerdada {
             LEFT JOIN TSIUSU U ON U.CODUSU = O.CODUSULIB
            WHERE L.NUCHAVE = $nunota
              AND L.TABELA IN ('TGFCAB', 'TGFITE')
-             AND L.EVENTO IN (${eventos.joinToString()})
+             AND ${filtroEventos(eventos, todos)}
              AND NVL(L.REPROVADO, 'N') = 'N'
              AND (L.DHLIB IS NULL OR L.VLRATUAL > NVL(L.VLRLIBERADO, 0))
              AND O.DHLIB IS NOT NULL AND NVL(O.REPROVADO, 'N') = 'N' AND O.VLRLIBERADO > 0

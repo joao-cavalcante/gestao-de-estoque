@@ -179,7 +179,7 @@ object DiagnosticoInstalacao {
         val p = withContext(Dispatchers.IO) { TenantRepository.parametros(tenantId) }
         val erros = p.validar()
         add("Parâmetros", "Parâmetros operacionais", if (erros.isEmpty()) "OK" else "ERRO", if (erros.isEmpty()) "válidos" else erros.joinToString("; "))
-        if (Modulos.LIBERACAO_HERDADA in modulos && p.liberacaoHerdada.eventos.isEmpty()) {
+        if (Modulos.LIBERACAO_HERDADA in modulos && p.liberacaoHerdada.eventos.isEmpty() && !p.liberacaoHerdada.todosEventos) {
             add("Parâmetros", "Liberação herdada", "ALERTA", "módulo ligado sem eventos — a regra não roda")
         }
         val liberador = withContext(Dispatchers.IO) {

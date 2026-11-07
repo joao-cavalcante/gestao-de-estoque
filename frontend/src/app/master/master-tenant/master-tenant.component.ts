@@ -277,6 +277,7 @@ export class MasterTenantComponent implements OnInit {
     if (!this.param) return 'cadastre a integração Sankhya antes';
     const eventos = this.eventosTexto.split(/[,;\s]+/).filter(Boolean).map(Number);
     if (eventos.some((n) => !Number.isInteger(n) || n <= 0)) return 'eventos: informe códigos inteiros separados por vírgula';
+    if (eventos.includes(64)) return 'eventos: o corte (evento 64) nunca é herdado';
     const pct = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
     const acima = this.modoAcima === 'pct' ? pct(this.pctAcima) : null;
     const abaixo = this.modoAbaixo === 'pct' ? pct(this.pctAbaixo) : null;
@@ -325,7 +326,7 @@ export class MasterTenantComponent implements OnInit {
     if (ajuste.ajusteSaida && ajuste.topSaida === null) return 'diferença de peso: ajuste a menor ligado sem TOP de saída';
     return {
       ...this.param,
-      liberacaoHerdada: { ...this.param.liberacaoHerdada, eventos },
+      liberacaoHerdada: { ...this.param.liberacaoHerdada, eventos, todosEventos: !!this.param.liberacaoHerdada.todosEventos },
       toleranciaPesavel: {
         semConfiguracaoNucco:
           this.modoTolerancia === 'produto'

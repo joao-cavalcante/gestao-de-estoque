@@ -182,10 +182,16 @@
                   <div class="oq-form-card__titulo">Liberação herdada</div>
                   <div class="oq-form-card__body">
                     <span class="mp-somente-leitura">Módulo: {{ modulosSel.has('liberacao_herdada') ? 'ligado' : 'desligado (a regra não roda)' }}</span>
-                    <label class="oq-form-field">
-                      <span class="oq-form-field__label">Eventos elegíveis</span>
-                      <input [(ngModel)]="eventosTexto" name="eventos" placeholder="ex.: 3" />
+                    <label class="oq-form-switch">
+                      <input type="checkbox" [(ngModel)]="param.liberacaoHerdada.todosEventos" name="todosEventos" />
+                      Todos os eventos já liberados na origem (exceto corte, evento 64)
                     </label>
+                    @if (!param.liberacaoHerdada.todosEventos) {
+                      <label class="oq-form-field">
+                        <span class="oq-form-field__label">Eventos elegíveis</span>
+                        <input [(ngModel)]="eventosTexto" name="eventos" placeholder="ex.: 3" />
+                      </label>
+                    }
                     <label class="oq-form-switch">
                       <input type="checkbox" [(ngModel)]="param.liberacaoHerdada.compararValor" name="compararValor" />
                       Só herdar se o valor pedido na nota couber no liberado na origem

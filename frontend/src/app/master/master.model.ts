@@ -34,7 +34,7 @@ export interface ToleranciaPadrao {
 }
 
 export interface ParametrosTenant {
-  liberacaoHerdada: { eventos: number[]; compararValor: boolean };
+  liberacaoHerdada: { eventos: number[]; compararValor: boolean; todosEventos?: boolean };
   liberador: { fallbackVariavelAmbiente: boolean };
   toleranciaPesavel: { semConfiguracaoNucco: ToleranciaPadrao | null };
   fuso: string | null;

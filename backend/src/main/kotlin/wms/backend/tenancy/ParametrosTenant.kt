@@ -141,15 +141,22 @@ data class ParametrosAjustePesoCompra(
 
 /**
  * Módulo [Modulos.LIBERACAO_HERDADA]. [eventos] vazio = nada é herdado mesmo com o módulo ligado.
+ * [todosEventos] = herda QUALQUER evento já liberado na origem (a lista [eventos] é ignorada) — menos os de corte
+ * (64), que nunca são herdados (LiberacaoHerdada.EVENTOS_CORTE). Negri desde 06/11/2026 (V73).
  * [compararValor] = true só herda quando o valor pedido agora (VLRATUAL) não passa do liberado na origem;
  * false (perfil legado da Negri, decisão do cliente em 16/10/2026) herda qualquer valor.
  */
+/** Liberação de corte (TSILIB TGFCOI2, evento 64 — ConferenciaSP.cortar): decisão do liberador, nunca herdada. */
+val EVENTOS_CORTE: List<Int> = listOf(64)
+
 @Serializable
 data class ParametrosLiberacaoHerdada(
     val eventos: List<Int> = emptyList(),
     val compararValor: Boolean = true,
+    val todosEventos: Boolean = false,
 ) {
     fun validar(): List<String> = buildList {
+        if (eventos.any { it in EVENTOS_CORTE }) add("liberacaoHerdada.eventos: evento de corte (${EVENTOS_CORTE.joinToString()}) nunca é herdado")
         if (eventos.any { it <= 0 }) add("liberacaoHerdada.eventos: só códigos de evento positivos")
         if (eventos.distinct().size != eventos.size) add("liberacaoHerdada.eventos: evento repetido")
     }
