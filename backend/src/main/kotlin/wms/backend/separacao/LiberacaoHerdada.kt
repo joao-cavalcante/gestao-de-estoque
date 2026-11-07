@@ -11,7 +11,9 @@ import wms.backend.liberacaocorte.LiberacaoCorteService
  * sobe entre o pedido e a nota (nota 70000: 21.215,21 × 19.953,92 liberados no pedido 69995). Se o MESMO evento já foi
  * liberado num documento acima na cadeia da TGFVAR (pedido, orçamento...), libera sozinho — o liberador não libera de novo.
  *
- *  - Só TABELA TGFCAB (SEQUENCIA 0) e TGFITE (sequência de origem pela TGFVAR); só eventos de [EVENTOS_ELEGIVEIS].
+ *  - Só TABELA TGFCAB (SEQUENCIA 0) e TGFITE (sequência de origem pela TGFVAR); qualquer evento menos o corte
+ *    ([EVENTOS_CORTE]) — cliente, 06/11/2026: "com exceção dos eventos de corte, tudo que for liberado no pedido e
+ *    pedido de novo na nota é liberado automaticamente".
  *  - Pendente na conta do Sankhya: sem DHLIB ou VLRATUAL > VLRLIBERADO; reprovada nunca.
  *  - Origem liberada (DHLIB, VLRLIBERADO > 0, sem linha reprovada do evento); vale a etapa mais próxima.
  *    O valor NÃO é comparado (decisão do cliente, 16/10/2026).
@@ -21,8 +23,8 @@ import wms.backend.liberacaocorte.LiberacaoCorteService
  */
 object LiberacaoHerdada {
 
-    /** Eventos que herdam a liberação da etapa anterior. Definido pelo cliente: 3 (limite de crédito). */
-    private val EVENTOS_ELEGIVEIS = listOf(3)
+    /** Corte (TSILIB TGFCOI2, evento 64 — ConferenciaSP.cortar): decisão do liberador, nunca herdada. */
+    private val EVENTOS_CORTE = listOf(64)
 
     private const val TAM_OBSLIB = 255
 
@@ -84,7 +86,7 @@ object LiberacaoHerdada {
             LEFT JOIN TSIUSU U ON U.CODUSU = O.CODUSULIB
            WHERE L.NUCHAVE = $nunota
              AND L.TABELA IN ('TGFCAB', 'TGFITE')
-             AND L.EVENTO IN (${EVENTOS_ELEGIVEIS.joinToString()})
+             AND L.EVENTO NOT IN (${EVENTOS_CORTE.joinToString()})
              AND NVL(L.REPROVADO, 'N') = 'N'
              AND (L.DHLIB IS NULL OR L.VLRATUAL > NVL(L.VLRLIBERADO, 0))
              AND O.DHLIB IS NOT NULL AND NVL(O.REPROVADO, 'N') = 'N' AND O.VLRLIBERADO > 0
