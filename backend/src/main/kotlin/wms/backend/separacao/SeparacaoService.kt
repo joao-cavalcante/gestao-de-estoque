@@ -1593,10 +1593,10 @@ object SeparacaoService {
             // 09/11/2026: evento 25 pedido de novo, confirmarNota ok=true, STATUSNOTA 'A'). Por isso a situação é
             // conferida na TGFCAB, não só pela resposta.
             var aberta = erro != null || aindaSemConfirmar(tenantSlug, nunota, seFalhar = false)
-            // Liberação já dada no pedido e pedida de novo na nota: herda e confirma mais UMA vez — só se liberou algo
-            // e a nota segue sem confirmar. Só com o módulo liberacao_herdada.
+            // Liberação pedida na nota (qualquer evento menos corte, 09/11/2026): libera e confirma mais UMA vez — só se liberou algo
+            // e a nota segue sem confirmar.
             if (aberta && LiberacaoHerdada.herdar(tenantSlug, nunota) > 0 && aindaSemConfirmar(tenantSlug, nunota, seFalhar = true)) {
-                println("INFO: nota $nunota — liberação herdada do pedido, confirmando de novo")
+                println("INFO: nota $nunota — liberações pendentes liberadas automaticamente, confirmando de novo")
                 erro = confirmarNota(tenantSlug, nunota)
                 aberta = erro != null || aindaSemConfirmar(tenantSlug, nunota, seFalhar = false)
             }
