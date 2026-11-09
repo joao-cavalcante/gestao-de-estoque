@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { OqModalidadePinsComponent } from '../../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { CommonModule } from '@angular/common';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
-import { FasePedido, Tarefa, faseTarefa, tomNota } from '../tarefa.model';
+import { FasePedido, Tarefa, faseTarefa, partesMensagem, tomNota } from '../tarefa.model';
 import { EtapaVisual, StatusVisual, etapasVisiveis, statusVisual } from '../tarefa-visual';
 import { OqEtapaChipsComponent } from '../oq-etapa-chips/oq-etapa-chips.component';
 
@@ -31,6 +31,7 @@ export class OqTaskCardComponent {
   @Output() faturar = new EventEmitter<Tarefa>();
 
   readonly tomNota = tomNota;
+  readonly partesMensagem = partesMensagem;
 
   /** Fase do fluxo (conferir → corte → carregar → nota → pronto): decide o único botão principal. */
   get fase(): FasePedido {

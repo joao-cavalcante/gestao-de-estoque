@@ -65,7 +65,10 @@
         <td data-label="Pedido">{{ linha.t.nf }}</td>
         <td data-label="Nota fiscal">
           @if (linha.t.notaFiscal; as n) {
-            <span class="oq-nota" [class]="'oq-nota oq-nota--' + tomNota(n)" [title]="n.situacao">{{ n.numero ?? n.nunota }} · {{ n.situacao }}</span>
+            <span class="oq-nota" [class]="'oq-nota oq-nota--' + tomNota(n)" [title]="n.motivoRejeicao ?? n.situacao">{{ n.numero ?? n.nunota }} · {{ n.situacao }}</span>
+            @if (tomNota(n) === 'erro' && n.motivoRejeicao) {
+              <span class="oq-lista__alerta oq-lista__alerta--critical oq-lista__alerta--texto">{{ n.motivoRejeicao }}</span>
+            }
           } @else {
             —
           }
@@ -80,9 +83,9 @@
               <button type="button" class="oq-lista__btn" (click)="abrir(linha.t)">Iniciar carregamento</button>
             }
             @case ('nota') {
-              <button type="button" class="oq-lista__btn" [title]="linha.t.notaPendente?.erro ? 'Sankhya: ' + linha.t.notaPendente?.erro : ''" (click)="faturar.emit(linha.t)">Gerar nota</button>
+              <button type="button" class="oq-lista__btn" [title]="linha.t.notaPendente?.erro ?? ''" (click)="faturar.emit(linha.t)">Gerar nota</button>
               @if (linha.t.notaPendente?.erro) {
-                <span class="oq-lista__alerta oq-lista__alerta--critical" [title]="linha.t.notaPendente?.erro ?? ''"><oq-icon name="circle-alert" [size]="10" /> recusada</span>
+                <span class="oq-lista__alerta oq-lista__alerta--critical oq-lista__alerta--texto"><oq-icon name="circle-alert" [size]="10" /> {{ linha.t.notaPendente?.erro }}</span>
               }
             }
             @case ('fechamento') {

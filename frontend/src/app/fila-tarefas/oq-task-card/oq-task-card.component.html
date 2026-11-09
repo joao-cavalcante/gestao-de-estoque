@@ -81,10 +81,22 @@
 
   <!-- Área de ação — sempre encostada na base do card (margin-top:auto) pra
        alinhar entre cards da mesma linha, independente do conteúdo acima. -->
-  @if (fase === 'nota' && tarefa.notaPendente?.erro) {
-    <div class="oq-card__nota-erro" [title]="tarefa.notaPendente?.erro ?? ''">
-      <oq-icon name="circle-alert" [size]="12" />
-      <span>Sankhya: {{ tarefa.notaPendente?.erro }}</span>
+  @if (tarefa.notaFiscal && tomNota(tarefa.notaFiscal) === 'erro' && partesMensagem(tarefa.notaFiscal.motivoRejeicao); as m) {
+    <div class="oq-card__nota-erro" role="alert">
+      <oq-icon name="circle-alert" [size]="14" />
+      <div class="oq-card__nota-erro-texto">
+        <strong>{{ m.problema }}</strong>
+        @if (m.acao) { <span><b>O que fazer:</b> {{ m.acao }}</span> }
+      </div>
+    </div>
+  }
+  @if (fase === 'nota' && partesMensagem(tarefa.notaPendente?.erro); as m) {
+    <div class="oq-card__nota-erro" role="alert">
+      <oq-icon name="circle-alert" [size]="14" />
+      <div class="oq-card__nota-erro-texto">
+        <strong>{{ m.problema }}</strong>
+        @if (m.acao) { <span><b>O que fazer:</b> {{ m.acao }}</span> }
+      </div>
     </div>
   }
 

@@ -1,6 +1,7 @@
 package wms.backend.tarefas
 
 import kotlinx.serialization.Serializable
+import wms.backend.erp.MensagemOperador
 import wms.backend.erp.SankhyaDbExplorerClient
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -25,14 +26,16 @@ data class NotaFiscalPedidoDto(
     val confirmada: Boolean,
     /** true = NFC-e (descrição da TOP com "NFC"). */
     val nfce: Boolean,
+    /** Rejeitada/denegada/erro de validação: o que aconteceu e o que fazer (MensagemOperador.rejeicaoSefaz). */
+    val motivoRejeicao: String? = null,
 )
 
 object NotasFiscaisPedido {
     /** Rótulos do Sankhya (TDDOPC de TGFCAB.STATUSNFE). */
     private val SITUACAO = mapOf(
-        "A" to "Aprovada", "D" to "Denegada", "E" to "Aguardando Autorização", "I" to "Enviada", "M" to "Não é NF-e",
-        "P" to "Pendente de Retorno", "R" to "Aguardando Correção", "S" to "Enviada EPEC", "T" to "NF-e Terceiro",
-        "V" to "Com erro de Validação",
+        "A" to "Aprovada", "D" to "Denegada pela SEFAZ", "E" to "Aguardando Autorização", "I" to "Enviada", "M" to "Não é NF-e",
+        "P" to "Pendente de Retorno", "R" to "Rejeitada pela SEFAZ", "S" to "Enviada EPEC", "T" to "NF-e Terceiro",
+        "V" to "Com erro de validação",
     )
 
     private val cache = ConcurrentHashMap<UUID, Map<Long, NotaFiscalPedidoDto>>()
@@ -67,7 +70,9 @@ object NotasFiscaisPedido {
             SankhyaDbExplorerClient.executarQuery(
                 tenantSlug,
                 "SELECT V.NUNOTAORIG, N.NUNOTA, N.NUMNOTA, N.SERIENOTA, N.STATUSNFE, N.STATUSNOTA, " +
-                    "(SELECT T.DESCROPER FROM TGFTOP T WHERE T.CODTIPOPER = N.CODTIPOPER AND T.DHALTER = N.DHTIPOPER) AS DESCROPER " +
+                    "(SELECT T.DESCROPER FROM TGFTOP T WHERE T.CODTIPOPER = N.CODTIPOPER AND T.DHALTER = N.DHTIPOPER) AS DESCROPER, " +
+                    // Código da rejeição da SEFAZ (cStat) — só interessa com a nota rejeitada/denegada/com erro.
+                    "(SELECT MAX(R.CODREJEICAO) FROM TGFREJNFE R WHERE R.NUNOTA = N.NUNOTA) AS CODREJEICAO " +
                     "FROM TGFVAR V JOIN TGFCAB N ON N.NUNOTA = V.NUNOTA " +
                     "WHERE V.NUNOTAORIG IN (${lote.joinToString()}) AND V.NUNOTA <> V.NUNOTAORIG AND N.TIPMOV = 'V'",
             ).forEach { r ->
@@ -81,6 +86,9 @@ object NotasFiscaisPedido {
                     situacao = status?.let { SITUACAO[it] ?: it } ?: "Não enviada",
                     confirmada = r["STATUSNOTA"]?.trim() == "L",
                     nfce = r["DESCROPER"]?.uppercase()?.contains("NFC") == true,
+                    motivoRejeicao = if (status in setOf("R", "D", "V")) {
+                        MensagemOperador.rejeicaoSefaz(r["CODREJEICAO"]?.toBigDecimalOrNull()?.toInt(), r["NUMNOTA"]?.trim())
+                    } else null,
                 )
                 // Mais de uma nota por pedido (raro): fica a mais recente.
                 val atual = novo[orig]

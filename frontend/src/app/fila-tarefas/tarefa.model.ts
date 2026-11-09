@@ -60,10 +60,28 @@ export interface NotaFiscalPedido {
   serie: string | null;
   /** TGFCAB.STATUSNFE cru — A aprovada, E/I/P aguardando, R/D/V problema; null = não enviada. */
   statusNfe: string | null;
-  /** Rótulo do Sankhya (ex.: "Aprovada", "Aguardando Correção"). */
+  /** Rótulo da situação (ex.: "Aprovada", "Rejeitada pela SEFAZ"). */
   situacao: string;
   confirmada: boolean;
   nfce: boolean;
+  /** Rejeitada/denegada pela SEFAZ: problema + o que fazer (backend MensagemOperador). */
+  motivoRejeicao?: string | null;
+}
+
+/** Mensagem de erro do backend em duas partes: o problema e o que o operador deve fazer. */
+export interface MensagemOperador {
+  problema: string;
+  acao: string | null;
+}
+
+const SEPARADOR_ACAO = ' O que fazer: ';
+
+/** Separa "PROBLEMA. O que fazer: AÇÃO." (MensagemOperador do backend). Texto sem a ação vira só o problema. */
+export function partesMensagem(texto: string | null | undefined): MensagemOperador | null {
+  const t = texto?.trim();
+  if (!t) return null;
+  const i = t.indexOf(SEPARADOR_ACAO);
+  return i < 0 ? { problema: t, acao: null } : { problema: t.slice(0, i), acao: t.slice(i + SEPARADOR_ACAO.length) };
 }
 
 /** Tom da situação da nota: verde aprovada · vermelho com problema · âmbar no meio do caminho. */

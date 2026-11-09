@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import wms.backend.aguardandonota.AguardandoNotaService
+import wms.backend.erp.MensagemOperador
 import wms.backend.auth.exigirAuth
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -196,7 +197,7 @@ object FechamentoOcService {
     /** "60708 · Aprovada" — número da NF + situação no Sankhya (rótulos do STATUSNFE). */
     private fun rotuloNota(numero: String?, statusNfe: String?, statusNota: String?): String {
         val situacao = when (statusNfe?.trim()) {
-            "A" -> "Aprovada"; "R" -> "Aguardando Correção"; "D" -> "Denegada"; "V" -> "Com erro de Validação"
+            "A" -> "Aprovada"; "R" -> "Rejeitada pela SEFAZ"; "D" -> "Denegada pela SEFAZ"; "V" -> "Com erro de validação"
             "E" -> "Aguardando Autorização"; "I" -> "Enviada"; "P" -> "Pendente de Retorno"
             else -> if (statusNota?.trim() == "L") "Confirmada" else "Não confirmada"
         }
@@ -277,11 +278,11 @@ object FechamentoOcService {
             ProgressoEmissao.atualizar(chaveProgresso, ProgressoEmissaoDto("faturando", feitos, total, "${p.nunota}${p.cliente?.let { " — $it" } ?: ""}"))
             val r = runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
                 onSuccess = { (notas, aviso) ->
-                    p.copy(notasGeradas = notas, numerosNotas = numerosDasNotas(tenantSlug, notas), ok = aviso == null && notas.isNotEmpty(), erro = aviso)
+                    p.copy(notasGeradas = notas, numerosNotas = numerosDasNotas(tenantSlug, notas), ok = aviso == null && notas.isNotEmpty(), erro = MensagemOperador.erroSankhya(aviso))
                 },
                 onFailure = { e ->
                     println("AVISO: $contexto — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
-                    p.copy(ok = false, erro = e.message ?: "falha ao faturar no Sankhya")
+                    p.copy(ok = false, erro = MensagemOperador.erroSankhya(e.message ?: "falha ao faturar no Sankhya"))
                 },
             )
             feitos++

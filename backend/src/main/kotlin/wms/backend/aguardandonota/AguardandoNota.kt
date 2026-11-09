@@ -18,7 +18,7 @@ import java.util.UUID
 data class NotaPendenteDto(
     /** Sessão a faturar/confirmar (a conferência concluída mais recente da nota). */
     val sessaoId: String,
-    /** Último motivo de recusa do Sankhya (faturar ou confirmar). */
+    /** Último motivo de recusa do Sankhya (faturar ou confirmar), já em linguagem de operador (MensagemOperador). */
     val erro: String? = null,
 )
 
@@ -128,5 +128,5 @@ object AguardandoNotaService {
     fun pendentesLocal(tenantId: UUID): Map<Long, NotaPendenteDto> =
         sessoesAguardando(tenantId)
             .groupBy { it.nunota }
-            .mapValues { (_, l) -> l.first().let { NotaPendenteDto(it.sessaoId.toString(), it.erro) } }
+            .mapValues { (_, l) -> l.first().let { NotaPendenteDto(it.sessaoId.toString(), wms.backend.erp.MensagemOperador.erroSankhya(it.erro)) } }
 }

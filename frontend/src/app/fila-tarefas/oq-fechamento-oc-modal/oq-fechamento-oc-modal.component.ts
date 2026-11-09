@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { ActionFeedbackService } from '../../shared/action-feedback/action-feedback.service';
+import { partesMensagem } from '../tarefa.model';
 
 interface FechamentoPedido {
   nunota: number;
@@ -114,7 +115,15 @@ interface FechamentoOc {
                         @if (p.ok === true) {
                           <span class="fec__ok"><oq-icon name="check" [size]="12" /> NF {{ (p.numerosNotas?.length ? p.numerosNotas : p.notasGeradas).join(', ') }}</span>
                         } @else if (p.ok === false) {
-                          <span class="fec__falha" [title]="p.erro ?? ''"><oq-icon name="circle-alert" [size]="12" /> {{ p.erro }}</span>
+                          @if (partesMensagem(p.erro); as m) {
+                            <span class="fec__falha fec__falha--msg">
+                              <oq-icon name="circle-alert" [size]="14" />
+                              <span class="fec__msg">
+                                <strong>{{ m.problema }}</strong>
+                                @if (m.acao) { <span class="fec__acao"><b>O que fazer:</b> {{ m.acao }}</span> }
+                              </span>
+                            </span>
+                          }
                         } @else if (p.situacao === 'faturar') {
                           <span class="fec__neutro">a faturar</span>
                           @if (p.motivo) { <span class="fec__obs">{{ p.motivo }}</span> }
@@ -191,7 +200,13 @@ interface FechamentoOc {
     .fec__cliente { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .fec__tipo { padding: 1px 7px; border: 1px solid var(--oq-border-strong); border-radius: 999px; font-family: var(--oq-font-mono); font-size: 10px; font-weight: 700; }
     .fec__tipo--nfce { border-color: var(--oq-brand-accent); color: var(--oq-brand-accent); }
-    .fec__sit { min-width: 200px; }
+    .fec__sit { min-width: 260px; }
+    .fec__falha--msg { align-items: flex-start; gap: 8px; }
+    .fec__falha--msg oq-icon { flex: none; margin-top: 2px; }
+    .fec__msg { display: flex; flex-direction: column; gap: 4px; line-height: 1.4; }
+    .fec__msg strong { font-weight: 700; }
+    .fec__acao { color: var(--oq-text-primary); }
+    .fec__acao b { text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; color: var(--oq-critical-foreground); }
     .fec__ok, .fec__falha { display: inline-flex; align-items: center; gap: 5px; }
     .fec__ok { color: var(--oq-success-foreground); font-weight: 600; }
     .fec__ok--leve { font-weight: 400; }
@@ -209,6 +224,7 @@ interface FechamentoOc {
 export class OqFechamentoOcModalComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly feedback = inject(ActionFeedbackService);
+  readonly partesMensagem = partesMensagem;
 
   /** Fechar OC: a OC inteira. */
   @Input() oc: number | null = null;
