@@ -11,7 +11,8 @@ import wms.backend.liberacaocorte.LiberacaoCorteService
  * (limite de crédito) porque o pedido 82043 não tinha liberação de crédito pra herdar. Agora toda liberação pendente da
  * nota é liberada, tenha ou não liberação no pedido.
  *
- *  - Só TABELA TGFCAB e TGFITE da própria nota; nunca o corte ([EVENTOS_CORTE]) nem linha reprovada (decisão de alguém).
+ *  - Só TABELA TGFCAB e TGFITE da própria nota; qualquer evento, inclusive reprovado, menos o corte ([EVENTOS_CORTE])
+ *    (cliente, 09/11/2026: "todos menos o evento de corte").
  *  - Pendente na conta do Sankhya: sem DHLIB ou VLRATUAL > VLRLIBERADO.
  *  - Liberador de serviço (LIBERADOR_USUARIO / LIBERADOR_SENHA, validado no Sankhya) pelo
  *    LiberacaoLimitesSP.liberarNegarLimites com vlrLib 0 (VLRLIBERADO recebe o VLRATUAL). A OBSLIB diz que foi automática
@@ -87,7 +88,6 @@ object LiberacaoHerdada {
            WHERE L.NUCHAVE = $nunota
              AND L.TABELA IN ('TGFCAB', 'TGFITE')
              AND L.EVENTO NOT IN (${EVENTOS_CORTE.joinToString()})
-             AND NVL(L.REPROVADO, 'N') = 'N'
              AND (L.DHLIB IS NULL OR L.VLRATUAL > NVL(L.VLRLIBERADO, 0))
         ) WHERE RN = 1
     """.trimIndent()
