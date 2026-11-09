@@ -1589,21 +1589,35 @@ object SeparacaoService {
         if (notas.isEmpty()) return null
         val falhas = notasNaoConfirmadas(tenantSlug, notas).mapNotNull { nunota ->
             var erro = confirmarNota(tenantSlug, nunota)
-            // Recusou por limite já liberado no pedido (evento 3 pedido de novo na nota): herda a liberação e confirma
-            // mais UMA vez — só se liberou algo e a nota segue sem confirmar.
-            if (erro != null && LiberacaoHerdada.herdar(tenantSlug, nunota) > 0 &&
-                runCatching { notasNaoConfirmadas(tenantSlug, listOf(nunota)).isNotEmpty() }.getOrDefault(true)
-            ) {
+            // O Sankhya pode responder OK e deixar a nota sem confirmar quando pede de novo uma liberação (nota 82168,
+            // 09/11/2026: evento 25 pedido de novo, confirmarNota ok=true, STATUSNOTA 'A'). Por isso a situação é
+            // conferida na TGFCAB, não só pela resposta.
+            var aberta = erro != null || aindaSemConfirmar(tenantSlug, nunota, seFalhar = false)
+            // Liberação já dada no pedido e pedida de novo na nota: herda e confirma mais UMA vez — só se liberou algo
+            // e a nota segue sem confirmar. Só com o módulo liberacao_herdada.
+            if (aberta && LiberacaoHerdada.herdar(tenantSlug, nunota) > 0 && aindaSemConfirmar(tenantSlug, nunota, seFalhar = true)) {
                 println("INFO: nota $nunota — liberação herdada do pedido, confirmando de novo")
                 erro = confirmarNota(tenantSlug, nunota)
+                aberta = erro != null || aindaSemConfirmar(tenantSlug, nunota, seFalhar = false)
             }
-            erro?.let { e ->
-                println("AVISO: CACSP.confirmarNota nunota $nunota falhou: ${e.message}")
-                "nota $nunota gerada mas não confirmada (${e.message}) — confirme na Central de Notas"
+            when {
+                erro != null -> {
+                    println("AVISO: CACSP.confirmarNota nunota $nunota falhou: ${erro.message}")
+                    "nota $nunota gerada mas não confirmada (${erro.message}) — confirme na Central de Notas"
+                }
+                aberta -> {
+                    println("AVISO: CACSP.confirmarNota nunota $nunota respondeu OK mas a nota segue sem confirmar (liberação pendente)")
+                    "nota $nunota gerada mas não confirmada (liberação pendente no Sankhya) — libere e confirme na Central de Notas"
+                }
+                else -> null
             }
         }
         return falhas.takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
+
+    /** Nota ainda sem STATUSNOTA 'L' na TGFCAB; [seFalhar] = o que assumir se a consulta falhar. */
+    private suspend fun aindaSemConfirmar(tenantSlug: String, nunota: Long, seFalhar: Boolean): Boolean =
+        runCatching { notasNaoConfirmadas(tenantSlug, listOf(nunota)).isNotEmpty() }.getOrDefault(seFalhar)
 
     /** Um `CACSP.confirmarNota`, sem retry. Devolve a falha (null = confirmou). */
     private suspend fun confirmarNota(tenantSlug: String, nunota: Long): Throwable? =
