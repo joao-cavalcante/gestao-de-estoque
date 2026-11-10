@@ -6,6 +6,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import wms.backend.auth.exigirAdmin
 import wms.backend.auth.exigirAuth
+import wms.backend.tenancy.ParametrosAjustePesoCompra
 import wms.backend.tenancy.TenantRepository
 
 /** Mesmo padrão de tenant via JWT já usado em transferenciaRoutes()/inventarioRoutes(). */
@@ -79,6 +80,33 @@ fun Route.configConferenciaRoutes() {
                 ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
             ConferenciaOpcoesRepository.salvar(claims.tenantId, nucco, call.receive<OpcoesConferenciaDto>())
             call.respond(ConferenciaOpcoesRepository.buscar(claims.tenantId, nucco))
+        }
+
+        /**
+         * Diferença de peso na COMPRA (faixas 2 ajuste / 3 divergência — AjustePesoCompra), configuração do cliente
+         * inteiro (não é por NUCCO). Mesmo parâmetro do Painel Master, também editável aqui pelo ADMINISTRADOR do
+         * tenant (usuário, 10/11/2026: "trazer nossas novas configurações para a aba corte/divergência").
+         */
+        get("/ajuste-peso-compra") {
+            val claims = call.exigirAdmin() ?: return@get
+            call.respond(TenantRepository.parametros(claims.tenantId).ajustePesoCompra)
+        }
+
+        put("/ajuste-peso-compra") {
+            val claims = call.exigirAdmin() ?: return@put
+            val novo = try {
+                call.receive<ParametrosAjustePesoCompra>()
+            } catch (e: Exception) {
+                return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "configuração inválida: ${e.message}"))
+            }
+            val erros = novo.validar()
+            if (erros.isNotEmpty()) return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to erros.joinToString("; ")))
+            val atual = TenantRepository.parametros(claims.tenantId)
+            if (!TenantRepository.salvarParametros(claims.tenantId, atual.copy(ajustePesoCompra = novo))) {
+                return@put call.respond(HttpStatusCode.Conflict, mapOf("erro" to "cliente sem integração Sankhya cadastrada"))
+            }
+            println("INFO: ajustePesoCompra alterado pelo usuário ${claims.userId} (tenant ${claims.tenantId}): ${atual.ajustePesoCompra} -> $novo")
+            call.respond(TenantRepository.parametros(claims.tenantId).ajustePesoCompra)
         }
 
         post("/sincronizar") {

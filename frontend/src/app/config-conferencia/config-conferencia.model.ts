@@ -54,6 +54,21 @@ export interface OpcoesConferencia {
   configurada: boolean;
 }
 
+/**
+ * Diferença de peso na COMPRA — configuração do cliente inteiro (não é por NUCCO), a mesma do Painel Master.
+ * Faixa 2: até a tolerância (produto, senão NUCCO) a nota do fornecedor fica igual ao XML e a diferença vira nota
+ * de ajuste (TOP de entrada a maior / de saída a menor). Faixa 3: acima disso, divergência e liberação.
+ */
+export interface AjustePesoCompra {
+  habilitado: boolean;
+  ajusteEntrada: boolean;
+  ajusteSaida: boolean;
+  topEntrada: number | null;
+  topSaida: number | null;
+  serieEntrada: string | null;
+  serieSaida: string | null;
+}
+
 export interface ToleranciaPeso {
   acimaPct: number | null;
   abaixoPct: number | null;

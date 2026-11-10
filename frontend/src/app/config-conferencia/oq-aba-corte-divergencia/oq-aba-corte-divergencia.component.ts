@@ -12,21 +12,20 @@ import { agruparPorSubSecao, campoHabilitado } from '../config-conferencia.util'
 })
 export class OqAbaCorteDivergenciaComponent {
   private readonly camposSignal = signal<Record<string, string | null>>({});
-  private readonly mostrarTodosSignal = signal(false);
 
   @Input({ required: true }) set campos(v: Record<string, string | null>) {
     this.camposSignal.set(v);
   }
-  @Input() set mostrarTodos(v: boolean) {
-    this.mostrarTodosSignal.set(v);
-  }
+  /** Mantido pelo pai; esta aba mostra sempre todos os campos. */
+  @Input() mostrarTodos = false;
   @Output() campoAlterado = new EventEmitter<{ nome: string; valor: string }>();
 
   private readonly catalogoAba = CATALOGO_CONFIG_CONFERENCIA.filter((c) => c.aba === 'corte');
 
   readonly secoes = computed(() => {
-    const filtrado = this.mostrarTodosSignal() ? this.catalogoAba : this.catalogoAba.filter((c) => c.status === 'implementado');
-    return agruparPorSubSecao(filtrado);
+    // Aba inteira sempre visível (usuário, 10/11/2026): os campos de corte/divergência do Sankhya valem no corte que
+    // a Torre dispara (ConferenciaSP.cortar), mesmo os que a tela da Torre não usa diretamente.
+    return agruparPorSubSecao(this.catalogoAba);
   });
 
   habilitado(nome: string): boolean {

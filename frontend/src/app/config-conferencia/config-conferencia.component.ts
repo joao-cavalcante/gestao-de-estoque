@@ -9,7 +9,7 @@ import { OqAbaCorteDivergenciaComponent } from './oq-aba-corte-divergencia/oq-ab
 import { OqAbaFormacaoVolumesComponent } from './oq-aba-formacao-volumes/oq-aba-formacao-volumes.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConfigConferenciaService } from './config-conferencia.service';
-import { Aba, ConfigConferenciaDetalhe, ConfigConferenciaListItem } from './config-conferencia.model';
+import { Aba, AjustePesoCompra, ConfigConferenciaDetalhe, ConfigConferenciaListItem } from './config-conferencia.model';
 import { ABAS } from './config-conferencia.catalogo';
 
 @Component({
@@ -85,6 +85,71 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.carregarLista();
+    this.carregarAjuste();
+  }
+
+  // ─── Diferença de peso na compra (configuração do cliente, não do NUCCO) ───
+  ajuste: AjustePesoCompra = {
+    habilitado: false,
+    ajusteEntrada: false,
+    ajusteSaida: false,
+    topEntrada: null,
+    topSaida: null,
+    serieEntrada: null,
+    serieSaida: null,
+  };
+  readonly ajusteSalvando = signal(false);
+  readonly ajusteMensagem = signal<string | null>(null);
+
+  private carregarAjuste(): void {
+    this.service.ajustePesoCompra().subscribe({
+      next: (a) => (this.ajuste = { ...a }),
+      error: () => this.ajusteMensagem.set('Não foi possível carregar a configuração da diferença de peso na compra.'),
+    });
+  }
+
+  salvarAjuste(): void {
+    if (this.ajusteSalvando()) return;
+    const num = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(v));
+    const serie = (v: unknown) => (v === null || v === undefined ? '' : `${v}`).trim() || null;
+    const a: AjustePesoCompra = {
+      habilitado: !!this.ajuste.habilitado,
+      ajusteEntrada: !!this.ajuste.ajusteEntrada,
+      ajusteSaida: !!this.ajuste.ajusteSaida,
+      topEntrada: num(this.ajuste.topEntrada),
+      topSaida: num(this.ajuste.topSaida),
+      serieEntrada: serie(this.ajuste.serieEntrada),
+      serieSaida: serie(this.ajuste.serieSaida),
+    };
+    if ([a.topEntrada, a.topSaida].some((v) => v !== null && (!Number.isInteger(v) || v <= 0))) {
+      this.ajusteMensagem.set('Informe o código da TOP (número inteiro).');
+      return;
+    }
+    if (a.ajusteEntrada && a.topEntrada === null) {
+      this.ajusteMensagem.set('Peso a maior ligado: informe a TOP de entrada.');
+      return;
+    }
+    if (a.ajusteSaida && a.topSaida === null) {
+      this.ajusteMensagem.set('Peso a menor ligado: informe a TOP de saída.');
+      return;
+    }
+    this.ajusteSalvando.set(true);
+    this.ajusteMensagem.set(null);
+    this.service.salvarAjustePesoCompra(a).subscribe({
+      next: (salvo) => {
+        this.ajusteSalvando.set(false);
+        this.ajuste = { ...salvo };
+        this.ajusteMensagem.set(
+          salvo.habilitado
+            ? 'Salvo — LIGADO: vale para as próximas conferências de compra.'
+            : 'Salvo — desligado: a conferência de compra segue a regra anterior.',
+        );
+      },
+      error: (err) => {
+        this.ajusteSalvando.set(false);
+        this.ajusteMensagem.set(err.error?.erro ?? 'Não foi possível salvar.');
+      },
+    });
   }
 
   private carregarLista(): void {

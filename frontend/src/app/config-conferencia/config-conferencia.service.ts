@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  AjustePesoCompra,
   ConfigConferenciaDetalhe,
   ConfigConferenciaListItem,
   OpcoesConferencia,
@@ -40,6 +41,15 @@ export class ConfigConferenciaService {
 
   salvarToleranciaPeso(nucco: number, acimaPct: number | null, abaixoPct: number | null): Observable<ToleranciaPeso> {
     return this.http.put<ToleranciaPeso>(`/api/config-conferencia/${nucco}/tolerancia-peso`, { acimaPct, abaixoPct });
+  }
+
+  /** Diferença de peso na compra — configuração do cliente (todas as conferências de compra). */
+  ajustePesoCompra(): Observable<AjustePesoCompra> {
+    return this.http.get<AjustePesoCompra>('/api/config-conferencia/ajuste-peso-compra');
+  }
+
+  salvarAjustePesoCompra(ajuste: AjustePesoCompra): Observable<AjustePesoCompra> {
+    return this.http.put<AjustePesoCompra>('/api/config-conferencia/ajuste-peso-compra', ajuste);
   }
 
   /** Edição local — não escreve no Sankhya (ver ressalva no backend). */
