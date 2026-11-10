@@ -51,15 +51,33 @@ object NotasFiscaisPedido {
 
     fun ocAtualDoCache(tenantId: UUID): Map<Long, Long> = ocAtual[tenantId].orEmpty()
 
-    /** Relê no Sankhya as notas dos [pedidos] (em lotes) e troca o cache do tenant. */
+    /** Releitura de TODOS os pedidos (inclusive os de nota já aprovada) — no máximo a cada 10 min. */
+    private const val RELEITURA_COMPLETA_MS = 10 * 60_000L
+    private val ultimaCompleta = ConcurrentHashMap<UUID, Long>()
+
+    /**
+     * Relê no Sankhya as notas dos [pedidos] (em lotes) e troca o cache do tenant. Pedido com nota CONFIRMADA e
+     * APROVADA pela SEFAZ não muda mais: fica com o valor do cache e só é relido na releitura completa (10 min).
+     * 10/11/2026: relia a cada ciclo todos os conferidos dos últimos 15 dias (~8 lotes, ~2,3 s — a etapa mais
+     * pesada do sync).
+     */
     suspend fun atualizar(tenantSlug: String, tenantId: UUID, pedidos: Collection<Long>) {
         if (pedidos.isEmpty()) {
             cache[tenantId] = emptyMap()
             return
         }
+        val agora = System.currentTimeMillis()
+        val distintos = pedidos.distinct()
+        val anterior = cache[tenantId].orEmpty()
+        val ocsAnterior = ocAtual[tenantId].orEmpty()
+        val completa = (ultimaCompleta[tenantId] ?: 0L) + RELEITURA_COMPLETA_MS <= agora
+        val estaveis = if (completa) emptySet() else distintos.filter { p ->
+            anterior[p]?.let { it.confirmada && it.statusNfe == "A" } == true && p in ocsAnterior
+        }.toSet()
         val novo = HashMap<Long, NotaFiscalPedidoDto>()
         val ocs = HashMap<Long, Long>()
-        for (lote in pedidos.distinct().chunked(500)) {
+        estaveis.forEach { p -> novo[p] = anterior.getValue(p); ocs[p] = ocsAnterior.getValue(p) }
+        for (lote in distintos.filterNot { it in estaveis }.chunked(500)) {
             SankhyaDbExplorerClient.executarQuery(
                 tenantSlug,
                 "SELECT NUNOTA, NVL(ORDEMCARGA, 0) AS ORDEMCARGA FROM TGFCAB WHERE NUNOTA IN (${lote.joinToString()})",
@@ -97,5 +115,6 @@ object NotasFiscaisPedido {
         }
         cache[tenantId] = novo
         ocAtual[tenantId] = ocs
+        if (completa) ultimaCompleta[tenantId] = agora
     }
 }
