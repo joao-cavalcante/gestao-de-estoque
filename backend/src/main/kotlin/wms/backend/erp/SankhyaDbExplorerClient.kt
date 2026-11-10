@@ -27,7 +27,13 @@ object SankhyaDbExplorerClient {
 
     class SankhyaDbExplorerException(message: String) : Exception(message)
 
-    suspend fun executarQuery(tenantSlug: String, sql: String): List<Map<String, String?>> {
+    private val TABELA = Regex("""\bFROM\s+([A-Za-z0-9_]+)""", RegexOption.IGNORE_CASE)
+
+    /** Medida no log como `SANKHYA ms=.. chamada=DbExplorer:TABELA` (até 10/11/2026 o SQL cru não aparecia na medição). */
+    suspend fun executarQuery(tenantSlug: String, sql: String): List<Map<String, String?>> =
+        SankhyaMetricas.medir("DbExplorer:${TABELA.find(sql)?.groupValues?.get(1)?.uppercase() ?: "?"}") { executarQueryUmaVez(tenantSlug, sql) }
+
+    private suspend fun executarQueryUmaVez(tenantSlug: String, sql: String): List<Map<String, String?>> {
         val credenciais = withContext(Dispatchers.IO) {
             TenantRepository.obterCredenciaisErp(tenantSlug, "sankhya")
         } ?: throw SankhyaDbExplorerException("Tenant '$tenantSlug' não tem conexão Sankhya configurada")

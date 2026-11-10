@@ -1,6 +1,7 @@
 package wms.backend.liberacaocorte
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -740,11 +741,17 @@ object LiberacaoCorteService {
         // em recontagem ('R') no Sankhya, mas a fila só via isso no próximo ciclo do worker (~20 s)
         // e o front só relia no tick dele (60 s) — o operador voltava pra Fila, via o card ainda em
         // "aguardando corte" e tinha que clicar em sincronizar. Falha aqui não desfaz a liberação.
-        runCatching { wms.backend.tarefas.TarefaSyncService.sincronizarTenant(tenantSlug, tenantId) }
-            .onFailure { println("AVISO: resync após liberar/negar corte falhou (nuconf $nuconf): ${it.message}") }
+        // Em segundo plano (10/11/2026): rodava dentro da requisição e o liberador esperava ~4,5 s a mais pelo sync
+        // inteiro — a decisão já está gravada no Sankhya; a fila reflete assim que o sync terminar.
+        resyncEscopo.launch {
+            runCatching { wms.backend.tarefas.TarefaSyncService.sincronizarTenant(tenantSlug, tenantId) }
+                .onFailure { println("AVISO: resync após liberar/negar corte falhou (nuconf $nuconf): ${it.message}") }
+        }
 
         return selecionados.size
     }
+
+    private val resyncEscopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
 
     // ─── internos ────────────────────────────────────────────────────────
 

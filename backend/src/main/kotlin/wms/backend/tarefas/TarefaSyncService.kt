@@ -1,6 +1,8 @@
 package wms.backend.tarefas
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -73,6 +75,7 @@ object TarefaSyncService {
 
     /** Lança exceção em caso de falha — quem chama (SyncWorkerPool) decide o backoff. */
     suspend fun sincronizarTenant(tenantSlug: String, tenantId: UUID) {
+        val inicioSync = System.nanoTime()
         val raw = SankhyaLoadRecordsClient.loadRecords(
             tenantSlug,
             LoadRecordsRequest(
@@ -99,6 +102,7 @@ object TarefaSyncService {
             LinhaSankhya(nunota, nuconfAtual, libconf, statusTgfcon2Raw, dadosJson)
         }
 
+        println("SYNC tenant=$tenantSlug etapa=leitura-pedidos ms=${(System.nanoTime() - inicioSync) / 1_000_000}")
         val notasResetadas = withContext(Dispatchers.IO) {
             // 1 transação por tenant por ciclo, reconciliação em LOTE (1
             // SELECT + no máximo 2 lotes de escrita, não ~2 idas ao banco
@@ -118,37 +122,70 @@ object TarefaSyncService {
             }
         }
 
-        withContext(Dispatchers.IO) {
-            revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
+        medirEtapa(tenantSlug, "nao-vistas") {
+            withContext(Dispatchers.IO) {
+                revalidarNaoVistasNoCiclo(tenantSlug, tenantId, vistasNesteCiclo = linhas.map { it.nunota }.toSet())
+            }
         }
 
-        runCatching { withContext(Dispatchers.IO) { removerConcluidasExcluidas(tenantSlug, tenantId) } }
-            .onFailure { println("AVISO: conferidas excluídas no Sankhya (tenant $tenantSlug) falhou: ${it.message}") }
+        medirEtapa(tenantSlug, "concluidas-excluidas") {
+            runCatching { withContext(Dispatchers.IO) { removerConcluidasExcluidas(tenantSlug, tenantId) } }
+                .onFailure { println("AVISO: conferidas excluídas no Sankhya (tenant $tenantSlug) falhou: ${it.message}") }
+        }
 
         // Sessão com todas as etapas concluídas mas sem finalização (processo caiu no meio): destrava.
-        runCatching { wms.backend.separacao.SeparacaoService.destravarSessoesSemFinalizacao(tenantSlug, tenantId) }
-            .onFailure { println("AVISO: destravar sessões (tenant $tenantSlug) falhou: ${it.message}") }
+        medirEtapa(tenantSlug, "destravar-sessoes") {
+            runCatching { wms.backend.separacao.SeparacaoService.destravarSessoesSemFinalizacao(tenantSlug, tenantId) }
+                .onFailure { println("AVISO: destravar sessões (tenant $tenantSlug) falhou: ${it.message}") }
+        }
 
         // Notas de ajuste de peso da compra (nota do fornecedor já confirmada) — só com ajustePesoCompra.habilitado.
-        runCatching { wms.backend.separacao.AjustePesoCompra.processarPendentes(tenantSlug, tenantId) }
-            .onFailure { println("AVISO: ajuste de peso da compra (tenant $tenantSlug) falhou: ${it.message}") }
+        medirEtapa(tenantSlug, "ajuste-peso") {
+            runCatching { wms.backend.separacao.AjustePesoCompra.processarPendentes(tenantSlug, tenantId) }
+                .onFailure { println("AVISO: ajuste de peso da compra (tenant $tenantSlug) falhou: ${it.message}") }
+        }
 
-        // Situação (aberta/fechada) das OCs que estão na fila — reflete abrir/fechar no Sankhya em ~1 ciclo.
-        runCatching {
-            val ocs = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }.mapNotNull { it.ordemCarga }
-            wms.backend.mapaseparacao.TransporteOrdemCarga.atualizarSituacoes(tenantSlug, tenantId, ocs)
-        }.onFailure { println("AVISO: situação das OCs (tenant $tenantSlug) falhou: ${it.message}") }
+        // As três leituras abaixo são independentes — rodam juntas (10/11/2026: em sequência somavam o tempo de cada
+        // uma e o sync inteiro, inclusive o resync pós liberação de corte, levava ~4,5 s).
+        coroutineScope {
+            launch {
+                medirEtapa(tenantSlug, "situacao-ocs") {
+                    // Situação (aberta/fechada) das OCs que estão na fila — reflete abrir/fechar no Sankhya em ~1 ciclo.
+                    runCatching {
+                        val ocs = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }.mapNotNull { it.ordemCarga }
+                        wms.backend.mapaseparacao.TransporteOrdemCarga.atualizarSituacoes(tenantSlug, tenantId, ocs)
+                    }.onFailure { println("AVISO: situação das OCs (tenant $tenantSlug) falhou: ${it.message}") }
+                }
+            }
+            launch {
+                medirEtapa(tenantSlug, "notas-fiscais") {
+                    // Nota fiscal de cada pedido conferido (número + situação) pra fila.
+                    runCatching {
+                        val conferidos = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }
+                            .filter { it.statusOperacional in STATUS_CONFERIDA_NOTA && recente(it.dataMovimento) }.map { it.nunota }
+                        NotasFiscaisPedido.atualizar(tenantSlug, tenantId, conferidos)
+                    }.onFailure { println("AVISO: notas fiscais dos pedidos (tenant $tenantSlug) falhou: ${it.message}") }
+                }
+            }
+            launch {
+                medirEtapa(tenantSlug, "aguardando-nota") {
+                    // "Aguardando nota" (V58): nota faturada/confirmada direto no Sankhya, ou conferência reaberta, sai da fila.
+                    runCatching { wms.backend.aguardandonota.AguardandoNotaService.revalidarTodos(tenantSlug, tenantId) }
+                        .onFailure { println("AVISO: revalidação de aguardando nota (tenant $tenantSlug) falhou: ${it.message}") }
+                }
+            }
+        }
+        println("SYNC tenant=$tenantSlug etapa=total ms=${(System.nanoTime() - inicioSync) / 1_000_000}")
+    }
 
-        // Nota fiscal de cada pedido conferido (número + situação) pra fila.
-        runCatching {
-            val conferidos = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }
-                .filter { it.statusOperacional in STATUS_CONFERIDA_NOTA && recente(it.dataMovimento) }.map { it.nunota }
-            NotasFiscaisPedido.atualizar(tenantSlug, tenantId, conferidos)
-        }.onFailure { println("AVISO: notas fiscais dos pedidos (tenant $tenantSlug) falhou: ${it.message}") }
-
-        // "Aguardando nota" (V58): nota faturada/confirmada direto no Sankhya, ou conferência reaberta, sai da fila.
-        runCatching { wms.backend.aguardandonota.AguardandoNotaService.revalidarTodos(tenantSlug, tenantId) }
-            .onFailure { println("AVISO: revalidação de aguardando nota (tenant $tenantSlug) falhou: ${it.message}") }
+    /** `SYNC tenant=x etapa=y ms=z` no log — pra saber qual parte do ciclo pesa. */
+    private suspend fun <T> medirEtapa(tenantSlug: String, etapa: String, bloco: suspend () -> T): T {
+        val inicio = System.nanoTime()
+        try {
+            return bloco()
+        } finally {
+            println("SYNC tenant=$tenantSlug etapa=$etapa ms=${(System.nanoTime() - inicio) / 1_000_000}")
+        }
     }
 
     /**
