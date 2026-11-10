@@ -84,7 +84,11 @@ fun Route.liberacaoCorteRoutes() {
                     wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(claims.tenantId, body.nuconf)
                         ?.let { wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(claims.tenantId, it) }
                 }.getOrNull()
-                call.respond(LiberarCorteResponse(ok = true, itensProcessados = n, sessaoId = sessao?.id, fatAoConcluir = sessao?.fatAoConcluir))
+                // Compra/venda que já é nota (TIPMOV C/V): nada a faturar depois da liberação (10/11/2026).
+                val jaENota = sessao?.let {
+                    wms.backend.tarefas.TarefasRepository.buscarTipMovLocal(claims.tenantId, it.nunota)?.trim()?.uppercase() in setOf("C", "V")
+                } == true
+                call.respond(LiberarCorteResponse(ok = true, itensProcessados = n, sessaoId = sessao?.id, fatAoConcluir = if (jaENota) null else sessao?.fatAoConcluir))
             } catch (e: LiberacaoCorteService.LiberacaoCorteException) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to (e.message ?: "falha na liberação")))
             } catch (e: Exception) {

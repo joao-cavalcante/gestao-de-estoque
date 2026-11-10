@@ -336,9 +336,21 @@ object SeparacaoRepository {
      * Conclui a sessão. CCO com faturamento (FATAOCONCLUIR='S') já entra em "aguardando nota" (V58):
      * sai de lá só quando a nota for faturada E confirmada — inclusive se o operador pular o faturamento.
      */
-    fun marcarConcluida(tenantId: UUID, sessaoId: UUID): Unit = TenantTx.run(tenantId) {
+    fun marcarConcluida(tenantId: UUID, sessaoId: UUID) {
+        // Documento que JÁ É nota (compra 'C' / venda 'V') não fica "aguardando nota" (usuário, 10/11/2026).
+        val nunota = TenantTx.run(tenantId) {
+            SeparacaoSessoesTable.selectAll()
+                .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
+                .firstOrNull()?.get(SeparacaoSessoesTable.nunota)
+        }
+        val jaENota = nunota != null &&
+            wms.backend.tarefas.TarefasRepository.buscarTipMovLocal(tenantId, nunota.toLong())?.trim()?.uppercase() in setOf("C", "V")
+        marcarConcluidaTx(tenantId, sessaoId, permiteAguardarNota = !jaENota)
+    }
+
+    private fun marcarConcluidaTx(tenantId: UUID, sessaoId: UUID, permiteAguardarNota: Boolean): Unit = TenantTx.run(tenantId) {
         val filtro = (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId)
-        val fatura = SeparacaoSessoesTable.selectAll().where { filtro }
+        val fatura = permiteAguardarNota && SeparacaoSessoesTable.selectAll().where { filtro }
             .firstOrNull()?.get(SeparacaoSessoesTable.fatAoConcluir)?.trim() == "S"
         val agora = Instant.now()
         SeparacaoSessoesTable.update({ filtro }) {

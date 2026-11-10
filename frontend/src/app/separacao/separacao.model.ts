@@ -16,6 +16,8 @@ export interface SessaoSeparacao {
   conferenciaSegmentada: boolean;
   /** CCO.FATAOCONCLUIR cru — 'S' = oferecer faturamento (escolha de TOP) após finalizar. */
   fatAoConcluir: string | null;
+  /** TGFCAB.TIPMOV — 'C' compra / 'V' venda já são notas. */
+  tipMov?: string | null;
   /** OC atual do pedido (servidor) — a conferência não depende da navegação da fila pra saber. */
   ordemCarga?: number | null;
   // CCO "Comportamento da interface" (V28) — só 'N' explícito esconde o painel; null/'S'/outro = mostra.

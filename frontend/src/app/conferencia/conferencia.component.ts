@@ -238,6 +238,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   conferenciaSegmentada = false;
   /** CCO.FATAOCONCLUIR — 'S' = oferecer faturamento após finalizar. */
   fatAoConcluir: string | null = null;
+  /** TGFCAB.TIPMOV da sessão — compra (C) e venda (V) já são notas. Signal: os computed dos botões dependem dele. */
+  readonly tipMov = signal<string | null>(null);
   /** V50 — tolerância de peso da sessão (fração; null = sem limite). Definida ao abrir a sessão. */
   private toleranciaPeso: ToleranciaPeso = TOLERANCIA_PADRAO;
   /** V70 — o pop-up de pesagem pede a quantidade na unidade do pedido (opção do NUCCO, cópia da sessão). */
@@ -901,6 +903,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.obterQtdBalanca = sessao.obterQtdBalanca;
           this.conferenciaSegmentada = sessao.conferenciaSegmentada;
           this.fatAoConcluir = sessao.fatAoConcluir;
+          this.tipMov.set(sessao.tipMov?.trim().toUpperCase() ?? null);
           // OC vem do servidor (a da fila se perde num F5/link direto e o pedido parecia "sem OC" — 65752).
           if (sessao.ordemCarga != null) this.ordemCargaTarefa = sessao.ordemCarga;
           // V50 — tolerância de peso da sessão (%, null = sem limite). Campo ausente = regra de antes.
@@ -1418,7 +1421,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.encerrarOperacao();
     this.mostrarModalDivergencia.set(false);
     this.mostrarModalAvisoEtapa.set(false);
-    const temEtiqueta = infoEtapa.volumes > 0 || infoEtapa.pesaveis;
+    // Compra não imprime etiqueta (nem pop-up de fim de etapa pedindo etiqueta).
+    const temEtiqueta = !this.ehCompra() && (infoEtapa.volumes > 0 || infoEtapa.pesaveis);
     this.etapaImpressao.set(temEtiqueta ? infoEtapa : null);
     if (res.conferenciaFinalizada) {
       this.aposFinalizacao({ ok: true, aguardandoCorte: res.aguardandoCorte, nuconf: res.nuconf });
@@ -1556,10 +1560,19 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * (dentro da OC); sem OC e CCO com faturamento = gerar a nota já aqui; senão, nada a fazer.
    */
   proximoPasso(): 'carregar' | 'nota' | null {
+    // Compra: não tem carregamento nem nota a gerar (a nota é a do fornecedor).
+    if (this.ehCompra()) return null;
     if (this.ordemCargaTarefa != null) return 'carregar';
+    // Venda que já é nota (TIPMOV V): nada a emitir.
+    if (this.tipMov() === 'V') return null;
     // Sem OC: a nota sai aqui mesmo (TOP automática, fatura e confirma) — independe da CCO (usuário, 08/10/2026).
     if (!this.notaConfirmada()) return 'nota';
     return null;
+  }
+
+  /** Conferência de COMPRA (nota de entrada, TIPMOV C): sem nota a gerar e sem etiquetas (usuário, 10/11/2026). */
+  ehCompra(): boolean {
+    return this.tipMov() === 'C';
   }
 
   /** NUNOTA do pedido aberto, pro modal de nota. */
@@ -1609,10 +1622,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   // primeiros imprimem a ÚLTIMA etapa (as anteriores já imprimiram no pop-up de fim de etapa);
   // sem etapas, imprimem a nota inteira.
   readonly mostrarBotaoVolumeFinal = computed(() => {
+    if (this.ehCompra()) return false;
     const e = this.etapaImpressao();
     return e ? e.volumes > 0 : true;
   });
   readonly mostrarBotaoPesoFinal = computed(() => {
+    if (this.ehCompra()) return false;
     const e = this.etapaImpressao();
     return e ? e.pesaveis : this.temPesavelConferido();
   });

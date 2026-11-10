@@ -411,6 +411,7 @@ object TarefasRepository {
                     entrega = modalidadeDe(dados).entrega,
                     segundosDesdeSync = Instant.now().epochSecond - sankhyaAtualizadoEm.epochSecond,
                     pendenteWriteBack = row[TarefasTable.pendenteWriteBack],
+                    tipMov = dados?.get("TIPMOV")?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() },
                 )
             }
     }

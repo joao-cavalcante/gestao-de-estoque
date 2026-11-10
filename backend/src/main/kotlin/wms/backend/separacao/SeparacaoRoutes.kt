@@ -85,7 +85,7 @@ fun Route.separacaoRoutes() {
             // OC atual: a releitura do Sankhya (cache do sync) ganha do espelho local, que pode estar com a OC antiga.
             val oc = wms.backend.tarefas.NotasFiscaisPedido.ocAtualDoCache(tenantId)[sessao.nunota]?.let { it.takeIf { o -> o > 0 } }
                 ?: wms.backend.tarefas.TarefasRepository.buscarOrdemCargaLocal(tenantId, sessao.nunota)
-            call.respond(sessao.copy(ordemCarga = oc))
+            call.respond(sessao.copy(ordemCarga = oc, tipMov = wms.backend.tarefas.TarefasRepository.buscarTipMovLocal(tenantId, sessao.nunota)?.trim()))
         }
 
         get("/sessoes/{id}/itens") {

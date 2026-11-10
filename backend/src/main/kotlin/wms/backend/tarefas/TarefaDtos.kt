@@ -44,6 +44,11 @@ data class TarefaApiDto(
     val notaFiscal: NotaFiscalPedidoDto? = null,
     /** Compra: notas de ajuste de peso (entrada/saída) geradas pela Torre de Operação — ver AjustePesoCompra. */
     val ajustesPeso: List<AjustePesoDto>? = null,
+    /**
+     * TGFCAB.TIPMOV — 'P' pedido de venda, 'C' compra (nota), 'V' venda (nota)... Documento que JÁ É NOTA (C/V) não
+     * tem "Gerar nota" nem fechamento por nota (usuário, 10/11/2026).
+     */
+    val tipMov: String? = null,
 )
 
 /** sentido 'E' entrada (a maior) | 'S' saída (a menor); status pendente/criando/cabecalho/confirmado/erro. */

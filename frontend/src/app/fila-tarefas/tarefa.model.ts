@@ -54,6 +54,8 @@ export interface Tarefa {
   notaFiscal?: NotaFiscalPedido;
   /** Compra: notas de ajuste de peso (entrada = a maior, saída = a menor) geradas pela Torre de Operação. */
   ajustesPeso?: AjustePeso[];
+  /** TGFCAB.TIPMOV — 'C' compra e 'V' venda já são notas (sem "Gerar nota"). */
+  tipMov?: string | null;
 }
 
 /** sentido 'E' entrada | 'S' saída; status pendente/criando/cabecalho/confirmado/erro. */
@@ -152,12 +154,20 @@ export function faseTarefa(t: Tarefa): FasePedido {
   if (aCarregar(t)) return 'carregar';
   // Já tem nota confirmada no Sankhya (pelo WMS ou faturada por fora): concluído, com ou sem OC.
   if (t.notaFiscal?.confirmada) return 'pronto';
+  // O documento JÁ É uma nota (compra 'C' / venda 'V'): não tem nota a gerar nem fechamento por nota (10/11/2026).
+  if (jaENota(t.tipMov)) return 'pronto';
   // Com OC: depois de carregado, TODO pedido espera o "Fechar OC" (que fatura no Sankhya) — independente da CCO.
   if (t.ordemCarga != null) return 'fechamento';
   // Sem OC (retira/express): conferido e sem nota confirmada = gerar nota (independe da CCO, igual ao Fechar OC).
   // Só os recentes (o cache de notas cobre 15 dias) — antigos sem nota no cache contam como concluídos.
   if (t.notaPendente || recente(t.data, 15)) return 'nota';
   return 'pronto';
+}
+
+/** TIPMOV de documento que já é nota fiscal — compra (C) e venda (V). Pedido (P) e afins geram nota. */
+export function jaENota(tipMov: string | null | undefined): boolean {
+  const t = (tipMov ?? '').trim().toUpperCase();
+  return t === 'C' || t === 'V';
 }
 
 /** "dd/mm/aaaa ..." dentro dos últimos [dias] dias. Data ilegível = não. */

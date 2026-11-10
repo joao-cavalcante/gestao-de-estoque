@@ -82,6 +82,7 @@ export interface TarefaApiDto {
     motivoRejeicao?: string | null;
   } | null;
   ajustesPeso?: { sentido: 'E' | 'S'; status: string; nunotaAjuste?: number | null; erro?: string | null }[] | null;
+  tipMov?: string | null;
   pendenteWriteBack: boolean;
 }
 
@@ -179,6 +180,7 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     ajustesPeso: p.ajustesPeso?.length
       ? p.ajustesPeso.map((a) => ({ sentido: a.sentido, status: a.status, nunotaAjuste: a.nunotaAjuste ?? null, erro: a.erro ?? null }))
       : undefined,
+    tipMov: p.tipMov ?? null,
   };
 }
 

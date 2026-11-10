@@ -36,6 +36,8 @@ data class SessaoSeparacaoDto(
     val fatAoConcluir: String? = null,
     /** OC ATUAL do pedido (sync + releitura do Sankhya) — a tela não depende da navegação da fila pra saber (F5 perdia). */
     val ordemCarga: Long? = null,
+    /** TGFCAB.TIPMOV do documento — 'C' compra / 'V' venda já são notas: sem "gerar nota" (e compra sem etiquetas). */
+    val tipMov: String? = null,
     // CCO "Comportamento da interface" cru (V28) — o front gateia painéis com isso.
     // Só 'N' explícito esconde; null/'S'/outro = mostra.
     /** CCO.EXIBIRPROD — painel de pendentes. */
