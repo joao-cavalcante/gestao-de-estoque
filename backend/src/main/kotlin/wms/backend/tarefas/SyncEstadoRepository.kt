@@ -108,7 +108,7 @@ object SyncEstadoRepository {
         exec(
             """
             INSERT INTO tenancy.sync_estado (tenant_id, proximo_run_em, intervalo_segundos)
-            SELECT t.id, now(), 15
+            SELECT t.id, now(), 60
             FROM tenancy.tenants t
             JOIN tenancy.erp_connections ec ON ec.tenant_id = t.id
             WHERE ec.erp_type = 'sankhya' AND ec.ativo = true
