@@ -296,6 +296,7 @@ export class MasterTenantComponent implements OnInit {
       topSaida: null,
       serieEntrada: null,
       serieSaida: null,
+      codTipVenda: null,
     };
     const num = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(v));
     const serie = (v: string | null | undefined) => (v ?? '').toString().trim() || null;
@@ -307,6 +308,7 @@ export class MasterTenantComponent implements OnInit {
       topSaida: num(aj.topSaida),
       serieEntrada: serie(aj.serieEntrada),
       serieSaida: serie(aj.serieSaida),
+      codTipVenda: num(aj.codTipVenda),
     };
     if ([ajuste.serieEntrada, ajuste.serieSaida].some((v) => v !== null && v.length > 3)) {
       return 'ajuste de peso: série com até 3 caracteres';

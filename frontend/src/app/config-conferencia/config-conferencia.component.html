@@ -104,6 +104,14 @@
           Série
           <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieSaida" />
         </label>
+        <label class="oq-cc__tolerancia-campo">
+          Tipo de negociação
+          <input type="text" inputmode="numeric" placeholder="o da compra" [(ngModel)]="ajuste.codTipVenda" />
+        </label>
+        <span class="oq-cc__tolerancia-ajuda">
+          Tipo de negociação das notas de ajuste (vazio = o da nota de compra). Na nota de saída o Sankhya confere o grupo de
+          autorização do fornecedor — use um tipo sem grupo, ex.: 11 À VISTA (a TOP de ajuste não gera financeiro).
+        </span>
         <span class="oq-cc__tolerancia-ajuda">
           Faixa 3 — acima da tolerância (ou sentido desligado): vai o peso lido, segue para divergência/liberação e o
           Sankhya trata pelos campos de Divergência a maior/a menor da aba Corte/Divergência de cada NUCCO.

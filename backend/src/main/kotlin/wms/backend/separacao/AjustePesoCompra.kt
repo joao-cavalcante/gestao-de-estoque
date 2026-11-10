@@ -362,7 +362,7 @@ object AjustePesoCompra {
             }
             // Cabeçalho = o da nota do fornecedor (como o nativo: WmsHelper.getNovoCabecalhoNota clona a nota de origem)
             // com a TOP de ajuste — fornecedor, empresa, natureza, centro de resultado e tipo de negociação da compra.
-            val cab = dadosCabecalho(tenantSlug, top, doc.nunota)
+            val cab = dadosCabecalho(tenantSlug, top, doc.nunota, p.codTipVenda)
             marcar(tenantId, doc.id, "criando")
             val resposta = SankhyaSpClient.chamarRaw(
                 tenantSlug, "CACSP.incluirAlterarCabecalhoNota", "mgecom",
@@ -519,7 +519,7 @@ object AjustePesoCompra {
         val serie: String? = null,
     )
 
-    private suspend fun dadosCabecalho(tenantSlug: String, codTipOper: Int, nunotaCompra: Int): DadosCab {
+    private suspend fun dadosCabecalho(tenantSlug: String, codTipOper: Int, nunotaCompra: Int, codTipVendaFixo: Int? = null): DadosCab {
         val top = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             "SELECT T.TIPMOV, TO_CHAR(T.DHALTER, 'DD/MM/YYYY HH24:MI:SS') DH FROM TGFTOP T WHERE T.CODTIPOPER = $codTipOper " +
@@ -530,11 +530,19 @@ object AjustePesoCompra {
             "SELECT C.CODEMP, C.CODPARC, C.CODTIPVENDA, TO_CHAR(C.DHTIPVENDA, 'DD/MM/YYYY HH24:MI:SS') DHTIPVENDA, C.CODNAT, C.CODCENCUS " +
                 "FROM TGFCAB C WHERE C.NUNOTA = $nunotaCompra",
         ).firstOrNull() ?: error("nota de compra $nunotaCompra não encontrada")
+        // Tipo de negociação fixo do ajuste (parâmetro) — versão atual dele (DHALTER), como a Central de Notas manda.
+        val tpvFixo = codTipVendaFixo?.let { cod ->
+            SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT TO_CHAR(MAX(V.DHALTER), 'DD/MM/YYYY HH24:MI:SS') DH FROM TGFTPV V WHERE V.CODTIPVENDA = $cod",
+            ).firstOrNull()?.get("DH")?.trim()?.takeIf { it.isNotEmpty() }?.let { cod to it }
+                ?: error("tipo de negociação $cod (ajuste de peso) não existe no Sankhya")
+        }
         return DadosCab(
             codemp = compra["CODEMP"].inteiro() ?: error("nota $nunotaCompra sem empresa"),
             codParc = compra["CODPARC"].inteiro() ?: error("nota $nunotaCompra sem parceiro"),
-            codTipVenda = compra["CODTIPVENDA"].inteiro() ?: 0,
-            dhTipVenda = compra["DHTIPVENDA"]?.trim().orEmpty(),
+            codTipVenda = tpvFixo?.first ?: compra["CODTIPVENDA"].inteiro() ?: 0,
+            dhTipVenda = tpvFixo?.second ?: compra["DHTIPVENDA"]?.trim().orEmpty(),
             codNat = compra["CODNAT"]?.trim()?.substringBefore('.').orEmpty(),
             codCenCus = compra["CODCENCUS"]?.trim()?.substringBefore('.').orEmpty().ifEmpty { "0" },
             codTipOper = codTipOper,

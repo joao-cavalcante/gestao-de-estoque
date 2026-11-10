@@ -100,6 +100,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     topSaida: null,
     serieEntrada: null,
     serieSaida: null,
+    codTipVenda: null,
   };
   readonly ajusteSalvando = signal(false);
   readonly ajusteMensagem = signal<string | null>(null);
@@ -123,7 +124,12 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
       topSaida: num(this.ajuste.topSaida),
       serieEntrada: serie(this.ajuste.serieEntrada),
       serieSaida: serie(this.ajuste.serieSaida),
+      codTipVenda: num(this.ajuste.codTipVenda),
     };
+    if (a.codTipVenda !== null && (!Number.isInteger(a.codTipVenda) || a.codTipVenda <= 0)) {
+      this.ajusteMensagem.set('Informe o código do tipo de negociação (número inteiro) ou deixe vazio.');
+      return;
+    }
     if ([a.topEntrada, a.topSaida].some((v) => v !== null && (!Number.isInteger(v) || v <= 0))) {
       this.ajusteMensagem.set('Informe o código da TOP (número inteiro).');
       return;

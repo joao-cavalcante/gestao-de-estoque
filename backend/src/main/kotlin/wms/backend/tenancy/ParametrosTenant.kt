@@ -123,10 +123,18 @@ data class ParametrosAjustePesoCompra(
     /** Série das notas de ajuste por sentido (o nativo usa SERIETOPDIFMAIOR/MENOR da empresa). null = a da TOP. */
     val serieEntrada: String? = null,
     val serieSaida: String? = null,
+    /**
+     * Tipo de negociação das notas de ajuste. null = o da nota de compra (como o nativo, WmsHelper.getNovoCabecalhoNota).
+     * Na SAÍDA (TIPMOV V) o Sankhya confere o grupo de autorização (VerificacoesBasicas): tipo COM grupo + parceiro SEM
+     * grupo = "Tipo de negociação não autorizado para este cliente" (nota 83548, 10/11/2026: fornecedor 1364, tipo 73).
+     * Negri: 11 (À VISTA, sem grupo) — o mesmo das notas de ajuste manuais; a TOP de ajuste não gera financeiro.
+     */
+    val codTipVenda: Int? = null,
 ) {
     fun validar(): List<String> = buildList {
         if (listOfNotNull(serieEntrada, serieSaida).any { it.trim().length > 3 }) add("ajustePesoCompra: série com mais de 3 caracteres")
         if ((topEntrada ?: 1) <= 0 || (topSaida ?: 1) <= 0) add("ajustePesoCompra: TOP inválida")
+        if ((codTipVenda ?: 1) <= 0) add("ajustePesoCompra: tipo de negociação inválido")
         if (topEntrada != null && topEntrada == topSaida) add("ajustePesoCompra: TOP de entrada e de saída iguais")
         if (ajusteEntrada && topEntrada == null) add("ajustePesoCompra: ajuste do peso a maior ligado sem TOP de entrada")
         if (ajusteSaida && topSaida == null) add("ajustePesoCompra: ajuste do peso a menor ligado sem TOP de saída")
