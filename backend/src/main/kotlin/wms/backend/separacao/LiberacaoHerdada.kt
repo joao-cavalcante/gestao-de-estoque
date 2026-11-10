@@ -23,7 +23,12 @@ import java.util.UUID
  *  - Só TABELA TGFCAB (SEQUENCIA 0) e TGFITE (sequência de origem pela TGFVAR); só os eventos configurados, ou
  *    todos com `todosEventos` (Negri desde 06/11/2026: "com exceção dos eventos de corte, tudo que for liberado no
  *    pedido e pedido de novo na nota é liberado automaticamente"). Corte (EVENTOS_CORTE, 64) nunca é herdado.
- *  - Pendente na conta do Sankhya: sem DHLIB ou VLRATUAL > VLRLIBERADO; reprovada nunca.
+ *  - `todosEventos` (Negri desde 09/11/2026: "na nota todos os eventos serão liberados automaticamente ao invés de
+ *    fazer um espelho" / "todos menos o evento de corte"): libera TODA pendência da nota (TGFCAB/TGFITE), tenha ou
+ *    não liberação no pedido, inclusive linha reprovada — menos o corte. A origem, se houver, só vai pra OBSLIB/log;
+ *    `compararValor` não se aplica. Nota 82606 (evento 3 sem liberação no pedido 82043) foi o caso.
+ *  - Lista de eventos (sem `todosEventos`): espelho do pedido, regras abaixo.
+ *  - Pendente na conta do Sankhya: sem DHLIB ou VLRATUAL > VLRLIBERADO; reprovada nunca (só no espelho).
  *  - Origem liberada (DHLIB, VLRLIBERADO > 0, sem linha reprovada do evento); vale a etapa mais próxima.
  *  - Valor: com `compararValor` (padrão) só herda se VLRATUAL <= o liberado na origem. A Negri tem
  *    `compararValor = false` (decisão do cliente, 16/10/2026): herda qualquer valor.
@@ -67,12 +72,13 @@ object LiberacaoHerdada {
                 println("AVISO: liberação herdada — configuração do tenant $tenantSlug ilegível, nota $nunota fica manual: ${it.message}")
                 return 0
             } ?: return 0
-        val consultados = runCatching { porta.pendentes(tenantSlug, sqlPendentesComOrigem(nunota, config.eventos, config.todosEventos)) }
+        val sql = if (config.todosEventos) sqlTodasPendentes(nunota) else sqlPendentesComOrigem(nunota, config.eventos)
+        val consultados = runCatching { porta.pendentes(tenantSlug, sql) }
             .getOrElse {
                 println("AVISO: liberação herdada — consulta da nota $nunota falhou: ${it.message}")
                 return 0
             }
-        val pendentes = if (!config.compararValor) consultados else consultados.filter(::valorCobertoPelaOrigem)
+        val pendentes = if (config.todosEventos || !config.compararValor) consultados else consultados.filter(::valorCobertoPelaOrigem)
         if (pendentes.size < consultados.size) {
             println("INFO: liberação herdada — nota $nunota: ${consultados.size - pendentes.size} pendência(s) com valor acima do liberado na origem ficam manuais")
         }
@@ -87,8 +93,13 @@ object LiberacaoHerdada {
         }
         var liberadas = 0
         for (p in pendentes) {
-            val obs = ("Liberação automática: evento ${p["EVENTO"]} já liberado no Nro. Único ${p["NUNOTAORIG"]} " +
-                "por ${p["NOMEUSU"] ?: p["CODUSULIB"]} em ${p["DHLIBORIG"]} (liberado lá: ${p["VLRORIG"]}; aqui: ${p["VLRATUAL"]}).").take(TAM_OBSLIB)
+            val origem = p["NUNOTAORIG"]?.takeIf { it.isNotBlank() }
+            val obs = (if (origem == null) {
+                "Liberação automática da Torre de Operação na confirmação da nota: evento ${p["EVENTO"]}, valor ${p["VLRATUAL"]}."
+            } else {
+                "Liberação automática: evento ${p["EVENTO"]} já liberado no Nro. Único $origem " +
+                    "por ${p["NOMEUSU"] ?: p["CODUSULIB"]} em ${p["DHLIBORIG"]} (liberado lá: ${p["VLRORIG"]}; aqui: ${p["VLRATUAL"]})."
+            }).take(TAM_OBSLIB)
             // Chaves como inteiro puro ("3", não "3.0") — o chamarLiberarNegar lê com toIntOrNull/toLongOrNull.
             val linha = listOf("NUCHAVE", "EVENTO", "NUCLL", "SEQCASCATA", "SEQUENCIA").associateWith {
                 p[it]?.trim()?.toBigDecimalOrNull()?.toLong()?.toString() ?: "0"
@@ -97,7 +108,7 @@ object LiberacaoHerdada {
                 .onSuccess {
                     liberadas++
                     println("INFO: liberação herdada — nota $nunota ${linha["TABELA"]} seq ${linha["SEQUENCIA"]} evento ${linha["EVENTO"]} " +
-                        "liberada (origem ${p["NUNOTAORIG"]})")
+                        "liberada (${p["NUNOTAORIG"]?.takeIf { it.isNotBlank() }?.let { "origem $it" } ?: "sem liberação anterior, valor ${p["VLRATUAL"]}"})")
                 }.onFailure {
                     println("AVISO: liberação herdada — nota $nunota ${linha["TABELA"]} seq ${linha["SEQUENCIA"]} evento ${linha["EVENTO"]} falhou: ${it.message}")
                 }
@@ -127,6 +138,34 @@ object LiberacaoHerdada {
         val semCorte = "L.EVENTO NOT IN (${EVENTOS_CORTE.joinToString()})"
         return if (todos) semCorte else "L.EVENTO IN (${eventos.joinToString()}) AND $semCorte"
     }
+
+    /**
+     * `todosEventos`: toda pendência da nota menos o corte, inclusive reprovada. A liberação de origem mais próxima na
+     * TGFVAR vem só pra OBSLIB/log (LEFT JOIN — não é condição).
+     */
+    internal fun sqlTodasPendentes(nunota: Long) = """
+        SELECT * FROM (
+          SELECT L.NUCHAVE, L.TABELA, L.EVENTO, L.SEQUENCIA, L.SEQCASCATA, L.NUCLL, L.VLRATUAL,
+                 O.NUCHAVE AS NUNOTAORIG, O.CODUSULIB, O.VLRLIBERADO AS VLRORIG,
+                 TO_CHAR(O.DHLIB, 'DD/MM/YYYY HH24:MI') AS DHLIBORIG, U.NOMEUSU,
+                 ROW_NUMBER() OVER (PARTITION BY L.TABELA, L.EVENTO, L.SEQUENCIA, L.SEQCASCATA, L.NUCLL
+                                    ORDER BY CASE WHEN O.NUCHAVE IS NULL THEN 1 ELSE 0 END, V.NIVEL, O.DHLIB DESC) AS RN
+            FROM TSILIB L
+            LEFT JOIN (SELECT CONNECT_BY_ROOT V.SEQUENCIA AS SEQNOTA, V.NUNOTAORIG, V.SEQUENCIAORIG, LEVEL AS NIVEL
+                         FROM TGFVAR V
+                        START WITH V.NUNOTA = $nunota
+                      CONNECT BY NOCYCLE PRIOR V.NUNOTAORIG = V.NUNOTA AND PRIOR V.SEQUENCIAORIG = V.SEQUENCIA) V
+              ON L.TABELA = 'TGFCAB' OR V.SEQNOTA = L.SEQUENCIA
+            LEFT JOIN TSILIB O ON O.NUCHAVE = V.NUNOTAORIG AND O.TABELA = L.TABELA AND O.EVENTO = L.EVENTO
+                              AND O.SEQUENCIA = CASE WHEN L.TABELA = 'TGFCAB' THEN 0 ELSE V.SEQUENCIAORIG END
+                              AND O.DHLIB IS NOT NULL AND NVL(O.REPROVADO, 'N') = 'N'
+            LEFT JOIN TSIUSU U ON U.CODUSU = O.CODUSULIB
+           WHERE L.NUCHAVE = $nunota
+             AND L.TABELA IN ('TGFCAB', 'TGFITE')
+             AND ${filtroEventos(emptyList(), todos = true)}
+             AND (L.DHLIB IS NULL OR L.VLRATUAL > NVL(L.VLRLIBERADO, 0))
+        ) WHERE RN = 1
+    """.trimIndent()
 
     internal fun sqlPendentesComOrigem(nunota: Long, eventos: List<Int>, todos: Boolean = false) = """
         SELECT * FROM (

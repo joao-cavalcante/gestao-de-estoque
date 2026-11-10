@@ -130,6 +130,17 @@ class LiberacaoHerdadaModuloTest {
     }
 
     @Test
+    fun `Negri 09-11 - todos os eventos libera sem liberacao no pedido e inclusive reprovada`() {
+        val sql = LiberacaoHerdada.sqlTodasPendentes(82606)
+        assertTrue("LEFT JOIN TSILIB O" in sql, "origem deixou de ser condição")
+        assertFalse("NVL(L.REPROVADO" in sql, "reprovada também é liberada")
+        assertTrue("L.EVENTO NOT IN (64)" in sql)
+        // A lista de eventos (espelho do pedido) continua exigindo a origem e pulando reprovada.
+        val espelho = LiberacaoHerdada.sqlPendentesComOrigem(82606, listOf(3))
+        assertTrue("JOIN TSILIB O ON" in espelho && "NVL(L.REPROVADO, 'N') = 'N'" in espelho)
+    }
+
+    @Test
     fun `todos os eventos sem lista configurada tambem roda`() {
         val cfg = ParametrosLiberacaoHerdada(todosEventos = true)
         assertEquals(cfg, LiberacaoHerdada.configuracao(setOf(Modulos.LIBERACAO_HERDADA), cfg))

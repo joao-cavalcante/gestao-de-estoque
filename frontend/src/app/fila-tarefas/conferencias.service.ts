@@ -79,6 +79,7 @@ export interface TarefaApiDto {
     situacao: string;
     confirmada: boolean;
     nfce: boolean;
+    motivoRejeicao?: string | null;
   } | null;
   ajustesPeso?: { sentido: 'E' | 'S'; status: string; nunotaAjuste?: number | null; erro?: string | null }[] | null;
   pendenteWriteBack: boolean;

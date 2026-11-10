@@ -577,29 +577,35 @@ a.oq-lista__btn {
   color: var(--oq-concluido-foreground);
 }
 
-/* Fase NOTA: último motivo de recusa do Sankhya, logo acima do "Gerar nota". */
+/* Recusa do Sankhya (fase NOTA) ou rejeição da SEFAZ: o PROBLEMA em negrito e O QUE FAZER embaixo, sem cortar
+   o texto — o operador precisa ler a ação inteira (MensagemOperador no backend). */
 .oq-card__nota-erro {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   margin: 0 0 8px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   font-family: var(--oq-font-body);
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--oq-critical-foreground);
   background: var(--oq-critical-soft);
   border: 1px solid var(--oq-critical);
+  border-left-width: 4px;
   border-radius: var(--oq-radius-input);
 
-  oq-icon { flex: none; margin-top: 1px; }
+  oq-icon { flex: none; margin-top: 2px; }
+}
 
-  span {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
+.oq-card__nota-erro-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  strong { font-weight: 700; }
+  span { color: var(--oq-text-primary); }
+  b { font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; color: var(--oq-critical-foreground); }
 }
 
 /* "Continuar" (conferência em andamento) usa o mesmo azul institucional do "Conferir" — o dourado
@@ -763,6 +769,18 @@ a.oq-lista__btn {
 
   &--critical { color: var(--oq-critical-foreground); }
   &--attention { color: var(--oq-warning-foreground); }
+
+  // Mensagem inteira (recusa do Sankhya / rejeição da SEFAZ): texto normal, quebra linha, nada cortado.
+  &--texto {
+    align-items: flex-start;
+    max-width: 360px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: normal;
+  }
 }
 
 .oq-lista__chips {
