@@ -148,6 +148,26 @@ object LiberacaoCorteService {
     }
 
     /** Diagnóstico: STATUS da conferência + STATUSCONFERENCIA da nota (TGFCAB), que é o que o "já está aguardando recontagem" parece checar. */
+    /**
+     * A liberação (AOLIBERAR 'R') já reprocessou e FECHOU a conferência com devolução: CCO com PROCEDCORTE 'G' (gerar
+     * devolução) e status 'F'. O ConferenciaHelper.geraNotaDevolucao grava a devolução e marca 'F'; finalizar de novo em
+     * cima disso (com os eventos de "produtos divergentes") refecha como 'D' — a nota segue com a qtd do XML e o
+     * conferido é menor — e conferência 'D' não deixa confirmar a nota (Conferencia.beforeUpdate, CORE_E01879; compra
+     * 83671, 10/11/2026). Sem PROCEDCORTE 'G' nada muda (venda 'A' corta a nota e o finalizar mantém 'F').
+     */
+    private suspend fun jaFechadaComDevolucao(tenantSlug: String, tenantId: UUID, nuconf: Int): Boolean {
+        val procedCorte = withContext(Dispatchers.IO) {
+            val nunota = wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf)
+            val nucco = nunota?.let { wms.backend.tarefas.TarefasRepository.buscarNuccoLocal(tenantId, it) }
+            nucco?.let { wms.backend.configconferencia.ConfigConferenciaRepository.buscarPorNucco(tenantId, it) }
+                ?.campos?.get("PROCEDCORTE")?.trim()?.uppercase()
+        }
+        if (procedCorte != "G") return false
+        val status = runCatching { statusConferencia(tenantSlug, nuconf)?.trim() }.getOrNull()
+        if (status == "F") println("INFO: corte $nuconf — liberação já fechou a conferência com devolução ('F'); sem finalizar de novo")
+        return status == "F"
+    }
+
     private suspend fun statusParaLog(tenantSlug: String, nuconf: Int, nunota: Long?): String {
         val conf = runCatching { statusConferencia(tenantSlug, nuconf) }.getOrNull()
         val nota = if (nunota == null) null else runCatching {
@@ -448,7 +468,7 @@ object LiberacaoCorteService {
                 nucco?.let { wms.backend.configconferencia.ConfigConferenciaRepository.buscarPorNucco(tenantId, it) }
                     ?.campos?.get("AOLIBERAR")?.trim()?.uppercase()
             }
-            if (aoLiberar != "M") {
+            if (aoLiberar != "M" && !jaFechadaComDevolucao(tenantSlug, tenantId, nuconf)) {
                 runCatching {
                     SankhyaSpClient.chamarRaw(
                         tenantSlug, "ConferenciaSP.finalizarConferencia", "mgecom",
@@ -695,7 +715,7 @@ object LiberacaoCorteService {
                         ?.campos?.get("AOLIBERAR")?.trim()?.uppercase()
                 }
 
-                if (aoLiberar != "M") {
+                if (aoLiberar != "M" && !jaFechadaComDevolucao(tenantSlug, tenantId, nuconf)) {
                     runCatching {
                         SankhyaSpClient.chamarRaw(
                             tenantSlug,
