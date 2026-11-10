@@ -363,6 +363,7 @@ object AjustePesoCompra {
             // Cabeçalho = o da nota do fornecedor (como o nativo: WmsHelper.getNovoCabecalhoNota clona a nota de origem)
             // com a TOP de ajuste — fornecedor, empresa, natureza, centro de resultado e tipo de negociação da compra.
             val cab = dadosCabecalho(tenantSlug, top, doc.nunota, p.codTipVenda)
+            val observacao = observacaoAjuste(tenantSlug, tenantId, doc, itens)
             marcar(tenantId, doc.id, "criando")
             val resposta = SankhyaSpClient.chamarRaw(
                 tenantSlug, "CACSP.incluirAlterarCabecalhoNota", "mgecom",
@@ -376,7 +377,7 @@ object AjustePesoCompra {
                             serie = if (doc.sentido == ENTRADA) p.serieEntrada else p.serieSaida,
                         )
                     },
-                    observacao = "Ajuste de peso da nota ${doc.nunota} (Torre de Operação) ${marcador(doc.sessaoId, doc.sentido)}",
+                    observacao = observacao,
                 ),
                 retentar = false,
             )
@@ -407,6 +408,29 @@ object AjustePesoCompra {
         avisoVinculo?.let { println("AVISO: ajuste de peso nota ${doc.nunota} (${doc.sentido}) — $it") }
         marcar(tenantId, doc.id, "confirmado", nunotaAjuste = nAj, erro = avisoVinculo)
         println("INFO: ajuste de peso nota ${doc.nunota} (${doc.sentido}) — nota $nAj confirmada")
+    }
+
+    /**
+     * Observação da nota de ajuste com o motivo (usuário, 10/11/2026): peso da nota x pesado por produto, percentual e
+     * tolerância da sessão. Mantém o [marcador] (a busca pela nota depende dele). Falha ao montar = texto curto.
+     */
+    private suspend fun observacaoAjuste(tenantSlug: String, tenantId: UUID, doc: Doc, itens: List<ItemAjuste>): String {
+        val marca = marcador(doc.sessaoId, doc.sentido)
+        return runCatching {
+            val entrada = doc.sentido == ENTRADA
+            val (acima, abaixo) = withContext(Dispatchers.IO) {
+                TenantTx.run(tenantId) {
+                    SeparacaoSessoesTable.selectAll().where { SeparacaoSessoesTable.id eq doc.sessaoId }.firstOrNull()
+                        ?.let { it[SeparacaoSessoesTable.tolPesoAcimaPct] to it[SeparacaoSessoesTable.tolPesoAbaixoPct] }
+                } ?: (null to null)
+            }
+            val nomes = MotivoDivergenciaCompra.descricoes(tenantSlug, itens.map { it.codprod })
+            val linhas = itens.map { i ->
+                val pesado = if (entrada) i.qtdNota + i.quantidade else i.qtdNota - i.quantidade
+                MotivoDivergenciaCompra.LinhaItem(i.codprod, "KG", i.qtdNota, pesado) to nomes[i.codprod]
+            }
+            MotivoDivergenciaCompra.textoAjuste(doc.nunota, doc.nuconf, entrada, linhas, acima, abaixo, marca)
+        }.getOrElse { "Ajuste de peso da nota ${doc.nunota} (Torre de Operação) $marca" }.take(4000)
     }
 
     /** Quantidade do ajuste arredondada pelas casas decimais do produto (TGFPRO.DECQTD; sem valor = 3, a balança). */

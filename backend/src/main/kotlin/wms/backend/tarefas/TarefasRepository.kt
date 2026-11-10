@@ -530,6 +530,21 @@ object TarefasRepository {
     /** TIPMOV da nota (já sincronizado, ver TarefaSyncService.FIELDS) — 'V' venda, 'C' compra, etc. Usado pra listar TOPs de faturamento. */
     fun buscarTipMovLocal(tenantId: UUID, nunota: Long): String? = campoDosDados(tenantId, nunota, "TIPMOV")
 
+    /** Das [nunotas], as que têm TIPMOV = [tipMov] no espelho local — uma consulta só. */
+    fun nunotasComTipMov(tenantId: UUID, nunotas: Collection<Long>, tipMov: String): Set<Long> {
+        val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }.distinct()
+        if (ints.isEmpty()) return emptySet()
+        return TenantTx.run(tenantId) {
+            TarefasTable.selectAll()
+                .where { (TarefasTable.tenantId eq tenantId) and (TarefasTable.nunota inList ints) }
+                .mapNotNull { row ->
+                    val dados = runCatching { Json.parseToJsonElement(row[TarefasTable.dados]) as JsonObject }.getOrNull()
+                    row[TarefasTable.nunota].toLong().takeIf { dados?.get("TIPMOV")?.jsonPrimitive?.contentOrNull?.trim() == tipMov }
+                }
+                .toSet()
+        }
+    }
+
     /** CODPARC da nota (já sincronizado) — usado pra montar os dados da etiqueta de volume. */
     fun buscarCodParcLocal(tenantId: UUID, nunota: Long): Int? =
         campoDosDados(tenantId, nunota, "CODPARC")?.toIntOrNull()
