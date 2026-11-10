@@ -147,15 +147,17 @@ object MotivoDivergenciaCompra {
         val alvo = linkedMapOf<Long, Pair<SessaoCompra, Boolean>>()
         fun longo(v: String?) = v?.trim()?.substringBefore('.')?.toLongOrNull()
 
-        // 1. Devolução (a menor): o Sankhya grava em TGFCON2.NUNOTADEV; e qualquer nota ligada à compra pela TGFVAR.
+        // 1. O Sankhya grava na conferência a devolução (TGFCON2.NUNOTADEV, a menor) e o pedido/nota complementar
+        //    (TGFCON2.NUPEDCOMP, a maior); e qualquer nota ligada à compra pela TGFVAR.
         if (porNuconf.isNotEmpty()) {
             SankhyaDbExplorerClient.executarQuery(
                 tenantSlug,
-                "SELECT K.NUCONF, C.NUNOTA FROM TGFCON2 K JOIN TGFCAB C ON C.NUNOTA = K.NUNOTADEV " +
+                "SELECT K.NUCONF, C.NUNOTA, CASE WHEN C.NUNOTA = K.NUNOTADEV THEN 'S' ELSE 'N' END DEV FROM TGFCON2 K " +
+                    "JOIN TGFCAB C ON (C.NUNOTA = K.NUNOTADEV OR C.NUNOTA = K.NUPEDCOMP) " +
                     "WHERE K.NUCONF IN (${porNuconf.keys.joinToString()}) AND $semMarca",
             ).forEach { r ->
                 val s = r["NUCONF"]?.trim()?.substringBefore('.')?.toIntOrNull()?.let { porNuconf[it] } ?: return@forEach
-                longo(r["NUNOTA"])?.let { alvo[it] = s to true }
+                longo(r["NUNOTA"])?.let { alvo[it] = s to (r["DEV"]?.trim() == "S") }
             }
         }
         SankhyaDbExplorerClient.executarQuery(
@@ -167,8 +169,8 @@ object MotivoDivergenciaCompra {
             longo(r["NUNOTA"])?.let { n -> alvo.putIfAbsent(n, s to (r["TIPMOV"]?.trim() == "E")) }
         }
 
-        // 2. Complementar (a maior): o Sankhya NÃO liga à compra (nota 83698, 10/11/2026: sem TGFVAR). É a nota na TOP do
-        //    modelo de complemento da CCO (TGFCCO.MODNOTAPEDCOMPL), do mesmo fornecedor, com o produto que veio a maior.
+        // 2. Complementar (a maior) sem NUPEDCOMP (reserva): a complementar não tem TGFVAR com a compra (nota 83698). É a nota
+        //    na TOP do modelo de complemento da CCO (TGFCCO.MODNOTAPEDCOMPL), do mesmo fornecedor, com o produto a maior.
         val aMaior = divergentes.filter { (_, itens) -> itens.any { it.conferido > it.qtdNota } }
         if (aMaior.isNotEmpty()) {
             val parcPorCompra = aMaior.keys.associateWith { s -> withContext(Dispatchers.IO) { TarefasRepository.buscarCodParcLocal(tenantId, s.nunota) } }
