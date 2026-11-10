@@ -60,10 +60,10 @@ object MotivoDivergenciaCompra {
         return runCatching {
             SankhyaDbExplorerClient.executarQuery(
                 tenantSlug,
-                "SELECT CODPROD, DESCRPROD, COMPLEMENTO FROM TGFPRO WHERE CODPROD IN (${codprods.distinct().joinToString()})",
+                "SELECT CODPROD, DESCRPROD, COMPLDESC FROM TGFPRO WHERE CODPROD IN (${codprods.distinct().joinToString()})",
             ).mapNotNull { r ->
                 val cod = r["CODPROD"]?.trim()?.substringBefore('.')?.toIntOrNull() ?: return@mapNotNull null
-                val nome = listOfNotNull(r["DESCRPROD"]?.trim()?.takeIf { it.isNotEmpty() }, r["COMPLEMENTO"]?.trim()?.takeIf { it.isNotEmpty() })
+                val nome = listOfNotNull(r["DESCRPROD"]?.trim()?.takeIf { it.isNotEmpty() }, r["COMPLDESC"]?.trim()?.takeIf { it.isNotEmpty() })
                     .joinToString(" - ")
                 nome.takeIf { it.isNotEmpty() }?.let { cod to it }
             }.toMap()
