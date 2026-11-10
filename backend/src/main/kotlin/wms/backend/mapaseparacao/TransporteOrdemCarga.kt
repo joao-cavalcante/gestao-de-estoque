@@ -104,7 +104,13 @@ object TransporteOrdemCarga {
             .getOrNull() ?: cache[tenantId to oc]?.second
     }
 
-    private suspend fun carregar(tenantSlug: String, tenantId: UUID, ocs: List<Long>): Map<Long, Transporte> {
+    /** Oracle aceita no máximo 1000 itens num IN (ORA-01795) — a fila com muitas OCs passava disso e falhava todo poll. */
+    private const val LOTE_IN = 500
+
+    private suspend fun carregar(tenantSlug: String, tenantId: UUID, ocs: List<Long>): Map<Long, Transporte> =
+        ocs.distinct().chunked(LOTE_IN).fold(emptyMap()) { acc, lote -> acc + carregarLote(tenantSlug, tenantId, lote) }
+
+    private suspend fun carregarLote(tenantSlug: String, tenantId: UUID, ocs: List<Long>): Map<Long, Transporte> {
         if (ocs.isEmpty()) return emptyMap()
         val ordens = SankhyaLoadRecordsClient.parseRows(
             SankhyaLoadRecordsClient.loadRecords(
