@@ -759,8 +759,12 @@ object SeparacaoService {
         // (nota 58933, 01/10).
         // Compra (TIPMOV 'C'/'O') segue o MESMO cortar da venda (payload nativo capturado pelo
         // usuário, nota 58915, 01/10 — com a config certa no Sankhya) e a mesma auto-liberação por tolerância.
+        // Documentos auxiliares que o cortar gerou (devolução / pedido complementar — responseBody.notas). A tela nativa
+        // (PopUpConferenciaDivergente.cortar) só chama finalizar de novo quando o cortar NÃO gerou documento; com
+        // documento ela volta pra fila — finalizar em cima refecha a conferência 'D' e a nota não confirma (CORE_E01879).
+        var cortarGerouDocumentos = false
         try {
-            SankhyaSpClient.chamarRaw(
+            val respostaCortar = SankhyaSpClient.chamarRaw(
                 tenantSlug, "ConferenciaSP.cortar", "mgecom",
                 buildJsonObject {
                     putJsonObject("params") {
@@ -774,6 +778,8 @@ object SeparacaoService {
                 // já tinha processado o 1º, e a etapa era reaberta no WMS com a conferência finalizada lá (65331).
                 retentar = false,
             )
+            cortarGerouDocumentos = documentosDoCortar(respostaCortar)
+            if (cortarGerouDocumentos) println("INFO: cortar da nunota ${sessao.nunota} gerou documento(s) auxiliar(es) — sem finalizar de novo (como a tela nativa)")
         } catch (e: Exception) {
             println("AVISO: ConferenciaSP.cortar falhou (nunota ${sessao.nunota}, nuconf $nuconf): ${e.message}")
             // Timeout/queda/5xx: o Sankhya pode ter processado mesmo assim — confere antes de dar erro.
@@ -835,7 +841,7 @@ object SeparacaoService {
         // confirmação o Sankhya fica sem resposta pras decisões que só ele
         // resolve (PROCEDCORTE/GERARPEDCOMPL), suspeita mais forte do "corte
         // maior automático" relatado em secos divergente.
-        if (!aguardandoCorte && !resolvidoViaAutoLiberacao) {
+        if (!aguardandoCorte && !resolvidoViaAutoLiberacao && !cortarGerouDocumentos) {
             FinalizacaoProgresso.atualizar(sessaoId, "finalizando")
             try {
                 SankhyaSpClient.chamarRaw(
@@ -891,6 +897,24 @@ object SeparacaoService {
         return FinalizarResultadoDto(ok = true, aguardandoCorte = aguardandoCorte, nuconf = nuconf)
         } finally {
             FinalizacaoProgresso.limpar(sessaoId)
+        }
+    }
+
+    /** O cortar devolveu notas (responseBody.notas.nota: devolução / pedido complementar gerados)? */
+    internal fun documentosDoCortar(resposta: kotlinx.serialization.json.JsonObject?): Boolean {
+        val notas = (resposta?.get("responseBody") as? kotlinx.serialization.json.JsonObject)?.get("notas") ?: return false
+        return when (notas) {
+            is kotlinx.serialization.json.JsonNull -> false
+            is kotlinx.serialization.json.JsonObject -> notas["nota"]?.let { n ->
+                when (n) {
+                    is kotlinx.serialization.json.JsonArray -> n.isNotEmpty()
+                    is kotlinx.serialization.json.JsonNull -> false
+                    else -> true
+                }
+            } ?: false
+            is kotlinx.serialization.json.JsonArray -> notas.isNotEmpty()
+            is kotlinx.serialization.json.JsonPrimitive -> notas.content.isNotBlank()
+            else -> false
         }
     }
 
