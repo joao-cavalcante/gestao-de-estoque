@@ -152,7 +152,11 @@ object TarefaSyncService {
                 medirEtapa(tenantSlug, "situacao-ocs") {
                     // Situação (aberta/fechada) das OCs que estão na fila — reflete abrir/fechar no Sankhya em ~1 ciclo.
                     runCatching {
-                        val ocs = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }.mapNotNull { it.ordemCarga }
+                        // Só OCs de pedidos ainda não conferidos ou dos últimos 15 dias — antes relia toda OC da história
+                        // (>1000, 3 consultas por ciclo; 10/11/2026). As demais seguem pelo cache de transporte (10 min).
+                        val ocs = withContext(Dispatchers.IO) { TarefasRepository.listar(tenantId) }
+                            .filter { it.statusOperacional !in STATUS_CONFERIDA_NOTA || recente(it.dataMovimento) }
+                            .mapNotNull { it.ordemCarga }
                         wms.backend.mapaseparacao.TransporteOrdemCarga.atualizarSituacoes(tenantSlug, tenantId, ocs)
                     }.onFailure { println("AVISO: situação das OCs (tenant $tenantSlug) falhou: ${it.message}") }
                 }
