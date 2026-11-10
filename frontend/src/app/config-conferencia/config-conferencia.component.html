@@ -1,6 +1,16 @@
 <div class="oq-admin-page">
   <oq-panel-section icon="badge" title="CONFIGURAÇÃO DE CONFERÊNCIA" [count]="lista().length">
+    <div class="oq-cc__escopo" role="tablist">
+      <button type="button" role="tab" class="oq-cc__escopo-btn" [class.oq-cc__escopo-btn--ativo]="escopo() === 'nucco'" (click)="escopo.set('nucco')">
+        Por configuração (NUCCO)
+      </button>
+      <button type="button" role="tab" class="oq-cc__escopo-btn" [class.oq-cc__escopo-btn--ativo]="escopo() === 'cliente'" (click)="escopo.set('cliente')">
+        Gerais — todas as conferências
+      </button>
+    </div>
+
     <div class="oq-admin-toolbar oq-cc__toolbar">
+      @if (escopo() === 'nucco') {
       <select
         class="oq-cc__seletor"
         [ngModel]="nuccoSelecionado()"
@@ -15,6 +25,7 @@
       <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="mostrarTodos.set(!mostrarTodos())">
         {{ mostrarTodos() ? 'Mostrar só implementados' : 'Mostrar não implementados' }}
       </button>
+      }
 
       <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="sincronizando()" (click)="sincronizarAgora()">
         <oq-icon name="sync" [size]="13" />
@@ -32,9 +43,11 @@
         {{ ressinc()?.rodando ? 'Ressincronizando produtos…' : 'Ressincronizar produtos' }}
       </button>
 
-      <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!alterado() || salvando()" (click)="salvar()">
-        {{ salvando() ? 'Salvando…' : 'Salvar alterações' }}
-      </button>
+      @if (escopo() === 'nucco') {
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!alterado() || salvando()" (click)="salvar()">
+          {{ salvando() ? 'Salvando…' : 'Salvar alterações' }}
+        </button>
+      }
     </div>
 
     @if (ressinc(); as r) {
@@ -51,6 +64,59 @@
       <div class="oq-cc__alerta">{{ erro() }}</div>
     }
 
+    @if (escopo() === 'cliente') {
+      <div class="oq-cc__conteudo">
+      <!-- Configuração do CLIENTE (não é por NUCCO) — a mesma do Painel Master. -->
+      <div class="oq-cc__tolerancia">
+        <div class="oq-cc__tolerancia-titulo">
+          Diferença de peso na compra
+          <span class="oq-cc__tolerancia-sub">vale para todas as conferências de compra, em qualquer NUCCO</span>
+        </div>
+        <label class="oq-cc__tolerancia-campo">
+          <input type="checkbox" [(ngModel)]="ajuste.habilitado" />
+          Ligado (desligado = regra anterior: só o peso a maior dentro da tolerância vai com o peso da nota)
+        </label>
+        <span class="oq-cc__tolerancia-ajuda">
+          Faixa 2 — até a tolerância de peso (do produto, senão a do NUCCO da conferência): a nota do fornecedor fica igual ao XML
+          e a diferença entra por nota de ajuste, gerada e confirmada depois que a nota do fornecedor é confirmada.
+        </span>
+        <label class="oq-cc__tolerancia-campo">
+          <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" />
+          Peso a maior: nota de entrada
+        </label>
+        <label class="oq-cc__tolerancia-campo">
+          TOP de entrada
+          <input type="text" inputmode="numeric" placeholder="ex.: 1495" [(ngModel)]="ajuste.topEntrada" />
+        </label>
+        <label class="oq-cc__tolerancia-campo">
+          Série
+          <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieEntrada" />
+        </label>
+        <label class="oq-cc__tolerancia-campo">
+          <input type="checkbox" [(ngModel)]="ajuste.ajusteSaida" />
+          Peso a menor: nota de saída
+        </label>
+        <label class="oq-cc__tolerancia-campo">
+          TOP de saída
+          <input type="text" inputmode="numeric" placeholder="ex.: 1195" [(ngModel)]="ajuste.topSaida" />
+        </label>
+        <label class="oq-cc__tolerancia-campo">
+          Série
+          <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieSaida" />
+        </label>
+        <span class="oq-cc__tolerancia-ajuda">
+          Faixa 3 — acima da tolerância (ou sentido desligado): vai o peso lido, segue para divergência/liberação e o
+          Sankhya trata pelos campos de Divergência a maior/a menor da aba Corte/Divergência de cada NUCCO.
+        </span>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="ajusteSalvando()" (click)="salvarAjuste()">
+          {{ ajusteSalvando() ? 'Salvando…' : 'Salvar diferença de peso' }}
+        </button>
+        @if (ajusteMensagem()) {
+          <span class="oq-cc__tolerancia-msg">{{ ajusteMensagem() }}</span>
+        }
+      </div>
+      </div>
+    } @else {
     @if (alterado()) {
       <div class="oq-cc__aviso">Há alterações não salvas — gravadas só no nosso sistema (não escreve no Sankhya ainda).</div>
     }
@@ -128,55 +194,6 @@
               }
             </div>
 
-            <!-- Diferença de peso na compra — configuração do CLIENTE (todas as conferências de compra), a mesma do Painel Master. -->
-            <div class="oq-cc__tolerancia">
-              <div class="oq-cc__tolerancia-titulo">
-                Diferença de peso na compra
-                <span class="oq-cc__tolerancia-sub">vale para todas as conferências de compra (não é por NUCCO)</span>
-              </div>
-              <label class="oq-cc__tolerancia-campo">
-                <input type="checkbox" [(ngModel)]="ajuste.habilitado" />
-                Ligado (desligado = regra anterior: só o peso a maior dentro da tolerância vai com o peso da nota)
-              </label>
-              <span class="oq-cc__tolerancia-ajuda">
-                Faixa 2 — até a tolerância de peso (do produto, senão a deste NUCCO): a nota do fornecedor fica igual ao XML
-                e a diferença entra por nota de ajuste, gerada e confirmada depois que a nota do fornecedor é confirmada.
-              </span>
-              <label class="oq-cc__tolerancia-campo">
-                <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" />
-                Peso a maior: nota de entrada
-              </label>
-              <label class="oq-cc__tolerancia-campo">
-                TOP de entrada
-                <input type="text" inputmode="numeric" placeholder="ex.: 1495" [(ngModel)]="ajuste.topEntrada" />
-              </label>
-              <label class="oq-cc__tolerancia-campo">
-                Série
-                <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieEntrada" />
-              </label>
-              <label class="oq-cc__tolerancia-campo">
-                <input type="checkbox" [(ngModel)]="ajuste.ajusteSaida" />
-                Peso a menor: nota de saída
-              </label>
-              <label class="oq-cc__tolerancia-campo">
-                TOP de saída
-                <input type="text" inputmode="numeric" placeholder="ex.: 1195" [(ngModel)]="ajuste.topSaida" />
-              </label>
-              <label class="oq-cc__tolerancia-campo">
-                Série
-                <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieSaida" />
-              </label>
-              <span class="oq-cc__tolerancia-ajuda">
-                Faixa 3 — acima da tolerância (ou sentido desligado): vai o peso lido, segue para divergência/liberação e o
-                Sankhya trata pelos campos de Divergência a maior/a menor abaixo.
-              </span>
-              <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="ajusteSalvando()" (click)="salvarAjuste()">
-                {{ ajusteSalvando() ? 'Salvando…' : 'Salvar diferença de peso' }}
-              </button>
-              @if (ajusteMensagem()) {
-                <span class="oq-cc__tolerancia-msg">{{ ajusteMensagem() }}</span>
-              }
-            </div>
             <oq-aba-corte-divergencia [campos]="valoresEditados()" [mostrarTodos]="mostrarTodos()" (campoAlterado)="onCampoAlterado($event)" />
           }
           @case ('volumes') {
@@ -188,6 +205,7 @@
       <div class="oq-cc__conteudo" aria-busy="true">
         <oq-skeleton variant="detail-block" [count]="8" />
       </div>
+    }
     }
   </oq-panel-section>
 </div>

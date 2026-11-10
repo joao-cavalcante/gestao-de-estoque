@@ -76,6 +76,9 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
   erro = signal<string | null>(null);
 
   /** Vive na raiz de propósito — sobrevive à troca de aba, não reseta. */
+  /** 'nucco' = campos da CCO selecionada; 'cliente' = regras que valem para todas as conferências (não são por NUCCO). */
+  escopo = signal<'nucco' | 'cliente'>('nucco');
+
   mostrarTodos = signal(false);
   abaAtual = signal<Aba>('geral');
 
