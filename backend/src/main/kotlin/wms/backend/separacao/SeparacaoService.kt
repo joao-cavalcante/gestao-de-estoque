@@ -1188,53 +1188,78 @@ object SeparacaoService {
     /**
      * nunota → (tipo de separação → qtd de itens), base dos cards da fila ([etapasFila] e [itensFila]).
      * SQL agrupado (~1s) em vez de DatasetSP ItemNota (10–17s com a fila cheia, 2x a cada tick — fila lenta
-     * em 06/10/2026). Cache por nunota (2 min — item incluído/excluído leva até isso pra mudar o
-     * card; a conferência em si sempre lê o pedido ao vivo): mudar a fila só busca as notas novas; o mutex faz as duas
-     * chamadas paralelas da tela dividirem a mesma consulta.
+     * em 06/10/2026). Cache por nunota (2 min — item incluído/excluído leva até isso pra mudar o card; a conferência
+     * em si sempre lê o pedido ao vivo). Só nota NUNCA vista espera a consulta; a vencida devolve o valor anterior na
+     * hora e é relida em segundo plano (10/11/2026: todas venciam juntas a cada 2 min e a fila inteira esperava 3–7 s
+     * pela releitura). O mutex faz as chamadas paralelas da tela dividirem a mesma consulta.
      */
-    private suspend fun itensPorTipoFila(tenantSlug: String, tenantId: UUID, nunotas: List<Long>): Map<Long, Map<Int, Int>> =
-        itensFilaMutex.withLock {
-            val agora = System.currentTimeMillis()
-            itensFilaCache.entries.removeIf { it.value.expiraEm <= agora }
-            val faltando = nunotas.distinct().filter { !itensFilaCache.containsKey("$tenantId:$it") }
-            val porPeso = CriterioEtapa.ATIVO == CriterioEtapa.Criterio.PESO
-            for (lote in faltando.chunked(500)) {
-                val notas = lote.joinToString(",")
-                // Critério PESO: a etapa sai do pesável (produto + CODVOL da linha), decidido pela mesma regra da pesagem.
-                val linhas = SankhyaDbExplorerClient.executarQuery(
-                    tenantSlug,
-                    if (porPeso) {
-                        "SELECT I.NUNOTA, I.CODPROD, I.CODVOL, COUNT(*) AS QTD FROM TGFITE I " +
-                            "WHERE I.NUNOTA IN ($notas) GROUP BY I.NUNOTA, I.CODPROD, I.CODVOL"
-                    } else {
-                        "SELECT I.NUNOTA, P.AD_TIPOSEPARACAO, COUNT(*) AS QTD FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
-                            "WHERE I.NUNOTA IN ($notas) GROUP BY I.NUNOTA, P.AD_TIPOSEPARACAO"
-                    },
-                )
-                val decisor = if (!porPeso) wms.backend.produtos.RegraPesavel.NENHUM else runCatching {
-                    wms.backend.produtos.RegraPesavel.decisor(
-                        tenantSlug, tenantId,
-                        wms.backend.produtos.RegraPesavel.filtroCodprods(linhas.mapNotNull { it["CODPROD"]?.toBigDecimalOrNull()?.toInt() }),
-                    )
-                }.onFailure { println("AVISO: falha ao decidir pesáveis da fila (tenant $tenantId): ${it.message}") }
-                    .getOrDefault(wms.backend.produtos.RegraPesavel.NENHUM)
-                val porNota = mutableMapOf<Long, MutableMap<Int, Int>>()
-                for (r in linhas) {
-                    val nunota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: continue
-                    val qtd = r["QTD"]?.toBigDecimalOrNull()?.toInt() ?: continue
-                    val tipo = if (porPeso) {
-                        val codprod = r["CODPROD"]?.toBigDecimalOrNull()?.toInt() ?: continue
-                        CriterioEtapa.tipo(1, decisor.pesavel(codprod, r["CODVOL"]))
-                    } else {
-                        parseTipoSeparacao(r["AD_TIPOSEPARACAO"])
-                    }
-                    porNota.getOrPut(nunota) { mutableMapOf() }.merge(tipo.toInt(), qtd, Int::plus)
+    private suspend fun itensPorTipoFila(tenantSlug: String, tenantId: UUID, nunotas: List<Long>): Map<Long, Map<Int, Int>> {
+        val agora = System.currentTimeMillis()
+        val distintas = nunotas.distinct()
+        val vencidas = distintas.filter { n -> itensFilaCache["$tenantId:$n"]?.let { it.expiraEm <= agora } == true }
+        if (vencidas.isNotEmpty() && itensFilaRelendo.add(tenantId)) {
+            itensFilaEscopo.launch {
+                try {
+                    itensFilaMutex.withLock { carregarItensFila(tenantSlug, tenantId, vencidas) }
+                } catch (e: Exception) {
+                    println("AVISO: releitura dos itens da fila (tenant $tenantId) falhou: ${e.message}")
+                } finally {
+                    itensFilaRelendo.remove(tenantId)
                 }
-                // nota sem item também entra no cache (vazia) — senão seria reconsultada a cada tick
-                lote.forEach { itensFilaCache["$tenantId:$it"] = EntradaItensFila(porNota[it] ?: emptyMap(), agora + 120_000) }
             }
-            nunotas.associateWith { itensFilaCache["$tenantId:$it"]?.valor ?: emptyMap() }.filterValues { it.isNotEmpty() }
         }
+        return itensFilaMutex.withLock {
+            // Nunca vista (ou esquecida há mais de 30 min): espera a consulta.
+            itensFilaCache.entries.removeIf { it.value.expiraEm <= agora - 30 * 60_000 }
+            val faltando = distintas.filter { !itensFilaCache.containsKey("$tenantId:$it") }
+            if (faltando.isNotEmpty()) carregarItensFila(tenantSlug, tenantId, faltando)
+            distintas.associateWith { itensFilaCache["$tenantId:$it"]?.valor ?: emptyMap() }.filterValues { it.isNotEmpty() }
+        }
+    }
+
+    /** Consulta o Sankhya e grava no cache (validade 2 min). Chamar com [itensFilaMutex]. */
+    private suspend fun carregarItensFila(tenantSlug: String, tenantId: UUID, faltando: List<Long>) {
+        val agora = System.currentTimeMillis()
+        val porPeso = CriterioEtapa.ATIVO == CriterioEtapa.Criterio.PESO
+        for (lote in faltando.chunked(500)) {
+            val notas = lote.joinToString(",")
+            // Critério PESO: a etapa sai do pesável (produto + CODVOL da linha), decidido pela mesma regra da pesagem.
+            val linhas = SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                if (porPeso) {
+                    "SELECT I.NUNOTA, I.CODPROD, I.CODVOL, COUNT(*) AS QTD FROM TGFITE I " +
+                        "WHERE I.NUNOTA IN ($notas) GROUP BY I.NUNOTA, I.CODPROD, I.CODVOL"
+                } else {
+                    "SELECT I.NUNOTA, P.AD_TIPOSEPARACAO, COUNT(*) AS QTD FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
+                        "WHERE I.NUNOTA IN ($notas) GROUP BY I.NUNOTA, P.AD_TIPOSEPARACAO"
+                },
+            )
+            val decisor = if (!porPeso) wms.backend.produtos.RegraPesavel.NENHUM else runCatching {
+                wms.backend.produtos.RegraPesavel.decisor(
+                    tenantSlug, tenantId,
+                    wms.backend.produtos.RegraPesavel.filtroCodprods(linhas.mapNotNull { it["CODPROD"]?.toBigDecimalOrNull()?.toInt() }),
+                )
+            }.onFailure { println("AVISO: falha ao decidir pesáveis da fila (tenant $tenantId): ${it.message}") }
+                .getOrDefault(wms.backend.produtos.RegraPesavel.NENHUM)
+            val porNota = mutableMapOf<Long, MutableMap<Int, Int>>()
+            for (r in linhas) {
+                val nunota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: continue
+                val qtd = r["QTD"]?.toBigDecimalOrNull()?.toInt() ?: continue
+                val tipo = if (porPeso) {
+                    val codprod = r["CODPROD"]?.toBigDecimalOrNull()?.toInt() ?: continue
+                    CriterioEtapa.tipo(1, decisor.pesavel(codprod, r["CODVOL"]))
+                } else {
+                    parseTipoSeparacao(r["AD_TIPOSEPARACAO"])
+                }
+                porNota.getOrPut(nunota) { mutableMapOf() }.merge(tipo.toInt(), qtd, Int::plus)
+            }
+            // nota sem item também entra no cache (vazia) — senão seria reconsultada a cada tick
+            lote.forEach { itensFilaCache["$tenantId:$it"] = EntradaItensFila(porNota[it] ?: emptyMap(), agora + 120_000) }
+        }
+    }
+
+    private val itensFilaRelendo = java.util.concurrent.ConcurrentHashMap.newKeySet<UUID>()
+    private val itensFilaEscopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private data class EntradaItensFila(val valor: Map<Int, Int>, val expiraEm: Long)
     private val itensFilaCache = java.util.concurrent.ConcurrentHashMap<String, EntradaItensFila>()

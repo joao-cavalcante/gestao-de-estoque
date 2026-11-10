@@ -4,6 +4,9 @@ import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import wms.backend.aguardandonota.AguardandoNotaService
@@ -263,7 +266,17 @@ object FechamentoOcService {
         return itens
     }
 
-    /** Fatura + confirma cada item "faturar" (um por vez, sem retry). Falha num não para os outros. */
+    /**
+     * Fatura + confirma os pedidos "faturar" da OC TODOS AO MESMO TEMPO (decisão do usuário, 10/11/2026), sem retry —
+     * falha num não para os outros. O Sankhya não tem confirmação em lote no serviço (CACSP só tem confirmarNota, uma
+     * nota por chamada; o "confirmar em lote" da Central de Notas também vai uma a uma) e cada pedido leva ~8 s
+     * (faturar ~2,5 s + confirmar/liberar/confirmar ~5 s): em paralelo a OC sai no tempo do pedido mais lento. A
+     * numeração da NF é garantida pelo Sankhya (ver comentário de [PARALELO_FECHAMENTO]). Cada pedido continua com a
+     * própria trava (SeparacaoService.faturarPedido) — o mesmo pedido nunca fatura duas vezes junto.
+     * WMS_FECHAMENTO_PARALELO limita (ex.: 1 = um por vez, como até 10/11/2026); sem a variável, sem limite.
+     */
+    private val PARALELO_FECHAMENTO: Int = System.getenv("WMS_FECHAMENTO_PARALELO")?.toIntOrNull()?.coerceAtLeast(1) ?: Int.MAX_VALUE
+
     private suspend fun faturarItens(
         tenantSlug: String,
         tenantId: UUID,
@@ -272,22 +285,36 @@ object FechamentoOcService {
         chaveProgresso: String,
     ): List<FechamentoPedidoDto> {
         val total = itens.count { it.situacao == "faturar" }
-        var feitos = 0
-        return itens.map { p ->
-            if (p.situacao != "faturar") return@map p
-            ProgressoEmissao.atualizar(chaveProgresso, ProgressoEmissaoDto("faturando", feitos, total, "${p.nunota}${p.cliente?.let { " — $it" } ?: ""}"))
-            val r = runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
-                onSuccess = { (notas, aviso) ->
-                    p.copy(notasGeradas = notas, numerosNotas = numerosDasNotas(tenantSlug, notas), ok = aviso == null && notas.isNotEmpty(), erro = MensagemOperador.erroSankhya(aviso))
-                },
-                onFailure = { e ->
-                    println("AVISO: $contexto — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
-                    p.copy(ok = false, erro = MensagemOperador.erroSankhya(e.message ?: "falha ao faturar no Sankhya"))
-                },
-            )
-            feitos++
-            ProgressoEmissao.atualizar(chaveProgresso, ProgressoEmissaoDto("faturando", feitos, total, null))
-            r
+        val feitos = java.util.concurrent.atomic.AtomicInteger(0)
+        val emAndamento = java.util.concurrent.ConcurrentHashMap<Long, String>()
+        fun progresso() = ProgressoEmissao.atualizar(
+            chaveProgresso,
+            ProgressoEmissaoDto("faturando", feitos.get(), total, emAndamento.values.sorted().joinToString(" · ").ifEmpty { null }),
+        )
+        val limite = kotlinx.coroutines.sync.Semaphore(PARALELO_FECHAMENTO)
+        return kotlinx.coroutines.coroutineScope {
+            itens.map { p ->
+                async {
+                    if (p.situacao != "faturar") return@async p
+                    limite.withPermit {
+                        emAndamento[p.nunota] = "${p.nunota}${p.cliente?.let { " — $it" } ?: ""}"
+                        progresso()
+                        val r = runCatching { SeparacaoService.faturarPedido(tenantSlug, tenantId, p.nunota, p.codTipOper!!) }.fold(
+                            onSuccess = { (notas, aviso) ->
+                                p.copy(notasGeradas = notas, numerosNotas = numerosDasNotas(tenantSlug, notas), ok = aviso == null && notas.isNotEmpty(), erro = MensagemOperador.erroSankhya(aviso))
+                            },
+                            onFailure = { e ->
+                                println("AVISO: $contexto — faturar nunota ${p.nunota} TOP ${p.codTipOper} falhou: ${e.message}")
+                                p.copy(ok = false, erro = MensagemOperador.erroSankhya(e.message ?: "falha ao faturar no Sankhya"))
+                            },
+                        )
+                        emAndamento.remove(p.nunota)
+                        feitos.incrementAndGet()
+                        progresso()
+                        r
+                    }
+                }
+            }.awaitAll()
         }
     }
 
