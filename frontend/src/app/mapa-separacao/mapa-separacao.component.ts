@@ -510,10 +510,14 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     // do cabeçalho) — é esse sync que atualiza o progresso de conferência. Só
     // recarrega no painel: com um relatório aberto, não mexe (seria ida à toa ao
     // Sankhya e a lista nem está visível).
+    // O ciclo caiu pra 15 s (V74); o painel consulta o Sankhya, então segue relendo a cada ~60 s (1 tick em 4).
     this.syncSub = this.syncTick.onTick.subscribe(() => {
+      if (++this.ticksSync % 4 !== 0) return;
       if (!this.dados() && !this.carregando()) this.carregarPainel(true);
     });
   }
+
+  private ticksSync = 0;
 
   ngOnDestroy(): void {
     this.syncSub?.unsubscribe();

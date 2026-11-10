@@ -5,16 +5,17 @@ import { AuthService } from '../../auth/auth.service';
 
 /**
  * Mesmo intervalo do job de sync real (`tenancy.sync_estado.intervalo_segundos`,
- * default 60s — ver V3__tarefas_sync.sql / SyncWorkerPool.kt). Se o intervalo
- * do tenant mudar no banco, ajustar aqui também (não há endpoint ainda pra
- * ler esse valor dinamicamente do backend).
+ * 15 s desde a V74 — antes 60 s nos dois, e uma mudança no Sankhya levava até ~2 min
+ * pra aparecer na tela: 60 s do backend + 60 s da tela). Se o intervalo do tenant
+ * mudar no banco, ajustar aqui também (não há endpoint ainda pra ler esse valor
+ * dinamicamente do backend).
  *
  * Contador global (era local ao <oq-header> antes dele virar componente
  * global) — assim qualquer página (ex.: FilaTarefasComponent) pode reagir
  * a `onTick` pra recarregar dados, mesmo sem o header estar renderizado
  * na mesma árvore de componentes dela.
  */
-const CICLO_SYNC_SEGUNDOS = 60;
+const CICLO_SYNC_SEGUNDOS = 15;
 
 @Injectable({ providedIn: 'root' })
 export class SyncTickService implements OnDestroy {
