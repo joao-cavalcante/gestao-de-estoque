@@ -319,18 +319,6 @@
                       Tratar a diferença da balança por faixas (desligado = regra anterior)
                     </label>
 
-                    <span class="oq-form-field__label">1. Desconsiderar (gelo, água) — entra pelo peso da nota, sem documento</span>
-                    <div class="oq-form-row">
-                      <label class="oq-form-field">
-                        <span class="oq-form-field__label">Peso a maior até (%)</span>
-                        <input [(ngModel)]="aj.desconsiderarAcimaPct" name="ajDescAcima" inputmode="decimal" placeholder="desligado" />
-                      </label>
-                      <label class="oq-form-field">
-                        <span class="oq-form-field__label">Peso a menor até (%)</span>
-                        <input [(ngModel)]="aj.desconsiderarAbaixoPct" name="ajDescAbaixo" inputmode="decimal" placeholder="desligado" />
-                      </label>
-                    </div>
-
                     <span class="oq-form-field__label">2. Ajustar — até a tolerância (produto, senão NUCCO), a diferença entra por nota de ajuste</span>
                     <div class="oq-form-row">
                       <label class="oq-form-switch">

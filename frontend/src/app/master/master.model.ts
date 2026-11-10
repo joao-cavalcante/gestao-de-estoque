@@ -47,8 +47,6 @@ export interface ParametrosTenant {
   };
   ajustePesoCompra: {
     habilitado: boolean;
-    desconsiderarAcimaPct: number | null;
-    desconsiderarAbaixoPct: number | null;
     ajusteEntrada: boolean;
     ajusteSaida: boolean;
     topEntrada: number | null;

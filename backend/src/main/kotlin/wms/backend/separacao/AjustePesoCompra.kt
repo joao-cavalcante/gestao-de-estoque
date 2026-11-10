@@ -93,15 +93,15 @@ object AjustePesoCompra {
 
     // ─── 1. Decisão do peso enviado (puro, testável) ─────────────────────────────────────────────────
 
-    enum class Faixa { SEM_DIFERENCA, DESCONSIDERAR, AJUSTAR, DIVERGENCIA, REGRA_ANTIGA }
+    enum class Faixa { SEM_DIFERENCA, AJUSTAR, DIVERGENCIA, REGRA_ANTIGA }
 
     data class Decisao(val enviar: BigDecimal, val diferenca: BigDecimal?, val faixa: Faixa = Faixa.REGRA_ANTIGA)
 
     /**
      * Peso enviado ao Sankhya para um pesável da compra. [tolAcimaPct]/[tolAbaixoPct] = tolerância efetiva (produto,
      * senão NUCCO; null = sem limite). Com [p] desligado vale a regra de 19/10 (a maior dentro da tolerância vai com o
-     * peso da nota, sem ajuste). Ligado, as faixas — ver [ParametrosAjustePesoCompra]:
-     *  1. diferença até o "desconsiderar" do sentido → peso da nota, sem ajuste;
+     * peso da nota, sem ajuste). Ligado, duas faixas — ver [ParametrosAjustePesoCompra] (a faixa "desconsiderar"
+     * saiu em 10/11/2026, decisão do usuário):
      *  2. até a tolerância, com o ajuste do sentido ligado → peso da nota + diferença (arredondada a 3 casas, a balança);
      *     "sem limite" não ajusta (nada entra no estoque sem alguém ver);
      *  3. o resto → peso lido (divergência; o Sankhya trata pela CCO — complementar/devolução, com auto-liberação
@@ -125,25 +125,13 @@ object AjustePesoCompra {
             if (limite != null && pct > limite + 1e-9) return Decisao(lido, null, Faixa.DIVERGENCIA)
             return if (aMaior) Decisao(negociado, null, Faixa.REGRA_ANTIGA) else Decisao(lido, null, Faixa.REGRA_ANTIGA)
         }
-        val desconsiderar = (if (aMaior) p.desconsiderarAcimaPct else p.desconsiderarAbaixoPct)?.takeIf { it > 0 }
-        if (desconsiderar != null && pct <= desconsiderar + 1e-9) return Decisao(negociado, null, Faixa.DESCONSIDERAR)
         val ajusteLigado = if (aMaior) p.ajusteEntrada else p.ajusteSaida
         if (ajusteLigado && limite != null && pct <= limite + 1e-9) {
             val difBalanca = dif.setScale(3, RoundingMode.HALF_UP)
-            return if (difBalanca.signum() == 0) Decisao(negociado, null, Faixa.DESCONSIDERAR)
+            return if (difBalanca.signum() == 0) Decisao(negociado, null, Faixa.SEM_DIFERENCA)
             else Decisao(negociado, difBalanca, Faixa.AJUSTAR)
         }
         return Decisao(lido, null, Faixa.DIVERGENCIA)
-    }
-
-    /**
-     * Tolerância que a TELA usa pra dizer "dentro/fora": a maior entre a tolerância efetiva e o "desconsiderar" do
-     * sentido (diferença na faixa 1 nunca é divergência, mesmo se passar da tolerância). null = sem limite.
-     */
-    fun toleranciaTela(tolAcima: Double?, tolAbaixo: Double?, p: ParametrosAjustePesoCompra): Pair<Double?, Double?> {
-        if (!p.habilitado) return tolAcima to tolAbaixo
-        fun maior(tol: Double?, desc: Double?): Double? = if (tol == null) null else maxOf(tol, desc ?: 0.0)
-        return maior(tolAcima, p.desconsiderarAcimaPct) to maior(tolAbaixo, p.desconsiderarAbaixoPct)
     }
 
     // ─── Tolerância do produto (compra) ──────────────────────────────────────────────────────────────

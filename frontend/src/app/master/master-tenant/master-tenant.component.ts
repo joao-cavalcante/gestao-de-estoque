@@ -290,8 +290,6 @@ export class MasterTenantComponent implements OnInit {
     const u = this.param.usuarioSankhya;
     const aj = this.param.ajustePesoCompra ?? {
       habilitado: false,
-      desconsiderarAcimaPct: null,
-      desconsiderarAbaixoPct: null,
       ajusteEntrada: false,
       ajusteSaida: false,
       topEntrada: null,
@@ -301,11 +299,8 @@ export class MasterTenantComponent implements OnInit {
     };
     const num = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(v));
     const serie = (v: string | null | undefined) => (v ?? '').toString().trim() || null;
-    const pctDesc = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(`${v}`.replace(',', '.')));
     const ajuste = {
       habilitado: !!aj.habilitado,
-      desconsiderarAcimaPct: pctDesc(aj.desconsiderarAcimaPct),
-      desconsiderarAbaixoPct: pctDesc(aj.desconsiderarAbaixoPct),
       ajusteEntrada: !!aj.ajusteEntrada,
       ajusteSaida: !!aj.ajusteSaida,
       topEntrada: num(aj.topEntrada),
@@ -318,9 +313,6 @@ export class MasterTenantComponent implements OnInit {
     }
     if ([ajuste.topEntrada, ajuste.topSaida].some((v) => v !== null && (!Number.isInteger(v) || v <= 0))) {
       return 'ajuste de peso: informe o código da TOP';
-    }
-    if ([ajuste.desconsiderarAcimaPct, ajuste.desconsiderarAbaixoPct].some((v) => v !== null && (Number.isNaN(v) || v < 0 || v > 100))) {
-      return 'diferença de peso: percentual de desconsiderar inválido';
     }
     if (ajuste.ajusteEntrada && ajuste.topEntrada === null) return 'diferença de peso: ajuste a maior ligado sem TOP de entrada';
     if (ajuste.ajusteSaida && ajuste.topSaida === null) return 'diferença de peso: ajuste a menor ligado sem TOP de saída';

@@ -19,10 +19,8 @@ class AjustePesoCompraTest {
     private fun bd(s: String) = BigDecimal(s)
 
     private val desligado = ParametrosAjustePesoCompra()
-    /** Faixas ligadas, ajuste nos dois sentidos, sem "desconsiderar". */
+    /** Faixas ligadas, ajuste nos dois sentidos. */
     private val ajuste = ParametrosAjustePesoCompra(habilitado = true, ajusteEntrada = true, ajusteSaida = true, topEntrada = 1495, topSaida = 1195)
-    /** Cliente do gelo/água: desconsidera até 1% nos dois sentidos, ajusta até a tolerância. */
-    private val gelo = ajuste.copy(desconsiderarAcimaPct = 1.0, desconsiderarAbaixoPct = 1.0)
 
     // ─── Desligado = regra de 19/10 ──────────────────────────────────────
 
@@ -100,47 +98,6 @@ class AjustePesoCompraTest {
         assertEquals(AjustePesoCompra.Faixa.AJUSTAR, menor.faixa)
     }
 
-    // ─── Faixa 1: desconsiderar (gelo, água) ─────────────────────────────
-
-    @Test
-    fun `desconsiderar - ate 1 por cento entra pelo peso da nota sem ajuste, nos dois sentidos`() {
-        val maior = AjustePesoCompra.decidir(bd("10"), bd("10.08"), 2.0, 2.0, gelo)
-        assertEquals(0, maior.enviar.compareTo(bd("10")))
-        assertNull(maior.diferenca)
-        assertEquals(AjustePesoCompra.Faixa.DESCONSIDERAR, maior.faixa)
-        val menor = AjustePesoCompra.decidir(bd("10"), bd("9.92"), 2.0, 2.0, gelo)
-        assertEquals(0, menor.enviar.compareTo(bd("10")))
-        assertNull(menor.diferenca)
-    }
-
-    @Test
-    fun `desconsiderar - entre 1 e 2 por cento ajusta a diferenca inteira`() {
-        val d = AjustePesoCompra.decidir(bd("10"), bd("10.15"), 2.0, 2.0, gelo)
-        assertEquals(AjustePesoCompra.Faixa.AJUSTAR, d.faixa)
-        assertEquals(0, d.diferenca!!.compareTo(bd("0.15")))
-    }
-
-    @Test
-    fun `desconsiderar - so faixa 1, sem ajuste, o resto vai pra divergencia`() {
-        val so1 = gelo.copy(ajusteEntrada = false, ajusteSaida = false)
-        assertEquals(AjustePesoCompra.Faixa.DESCONSIDERAR, AjustePesoCompra.decidir(bd("10"), bd("10.05"), 2.0, 2.0, so1).faixa)
-        assertEquals(AjustePesoCompra.Faixa.DIVERGENCIA, AjustePesoCompra.decidir(bd("10"), bd("10.15"), 2.0, 2.0, so1).faixa)
-    }
-
-    @Test
-    fun `desconsiderar - vale mesmo maior que a tolerancia`() {
-        val d = AjustePesoCompra.decidir(bd("10"), bd("10.25"), 2.0, 2.0, gelo.copy(desconsiderarAcimaPct = 3.0))
-        assertEquals(AjustePesoCompra.Faixa.DESCONSIDERAR, d.faixa)
-    }
-
-    @Test
-    fun `tela - tolerancia nunca menor que o desconsiderar`() {
-        assertEquals(3.0 to 2.0, AjustePesoCompra.toleranciaTela(2.0, 2.0, gelo.copy(desconsiderarAcimaPct = 3.0)))
-        assertEquals(2.0 to 2.0, AjustePesoCompra.toleranciaTela(2.0, 2.0, gelo))
-        assertEquals(null to 2.0, AjustePesoCompra.toleranciaTela(null, 2.0, gelo))
-        assertEquals(1.0 to 1.0, AjustePesoCompra.toleranciaTela(1.0, 1.0, desligado.copy(desconsiderarAcimaPct = 5.0)))
-    }
-
     @Test
     fun `peso igual, sem negociado ou zerado nao mexe`() {
         assertNull(AjustePesoCompra.decidir(bd("5"), bd("5.000"), 2.0, 2.0, ajuste).diferenca)
@@ -185,11 +142,9 @@ class AjustePesoCompraTest {
         assertTrue(ParametrosAjustePesoCompra(habilitado = true, ajusteEntrada = true).validar().isNotEmpty())
         assertTrue(ParametrosAjustePesoCompra(habilitado = true, ajusteSaida = true, topEntrada = 1495).validar().isNotEmpty())
         assertTrue(ajuste.validar().isEmpty())
-        assertTrue(ParametrosAjustePesoCompra(habilitado = true, desconsiderarAcimaPct = 1.0).validar().isEmpty())
         assertTrue(ajuste.copy(topSaida = 1495).validar().isNotEmpty())
         assertTrue(ajuste.copy(serieEntrada = "0", serieSaida = "0").validar().isEmpty())
         assertTrue(ajuste.copy(serieEntrada = "ABCD").validar().isNotEmpty())
-        assertTrue(gelo.copy(desconsiderarAbaixoPct = -1.0).validar().isNotEmpty())
     }
 
     // ─── Payloads ────────────────────────────────────────────────────────

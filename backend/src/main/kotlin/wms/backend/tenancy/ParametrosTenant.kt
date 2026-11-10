@@ -105,9 +105,8 @@ data class ParametrosUsuarioSankhya(
 
 /**
  * Diferença de peso na COMPRA por faixas (wms.backend.separacao.AjustePesoCompra), configuração global do cliente.
- * Ligado ([habilitado]), cada sentido (a maior / a menor) passa por até três faixas:
- *  1. DESCONSIDERAR — até [desconsiderarAcimaPct]/[desconsiderarAbaixoPct] (gelo, água): entra pelo peso da nota, sem
- *     documento. null = faixa desligada naquele sentido.
+ * Ligado ([habilitado]), cada sentido (a maior / a menor) passa por duas faixas (a faixa "desconsiderar" saiu em
+ * 10/11/2026, decisão do usuário — numeração mantida):
  *  2. AJUSTAR — até a tolerância (produto, senão NUCCO): nota intacta e a diferença vira nota de ajuste (TOP
  *     [topEntrada]/[topSaida]). Desligada ([ajusteEntrada]/[ajusteSaida] = false) = vai pra faixa 3.
  *  3. DIVERGÊNCIA — o resto: peso lido, divergência e liberação; o Sankhya trata pela CCO (pedido complementar,
@@ -117,8 +116,6 @@ data class ParametrosUsuarioSankhya(
 @Serializable
 data class ParametrosAjustePesoCompra(
     val habilitado: Boolean = false,
-    val desconsiderarAcimaPct: Double? = null,
-    val desconsiderarAbaixoPct: Double? = null,
     val ajusteEntrada: Boolean = false,
     val ajusteSaida: Boolean = false,
     val topEntrada: Int? = null,
@@ -128,9 +125,6 @@ data class ParametrosAjustePesoCompra(
     val serieSaida: String? = null,
 ) {
     fun validar(): List<String> = buildList {
-        if (listOfNotNull(desconsiderarAcimaPct, desconsiderarAbaixoPct).any { it < 0 || it > 100 }) {
-            add("ajustePesoCompra: percentual de desconsiderar entre 0 e 100")
-        }
         if (listOfNotNull(serieEntrada, serieSaida).any { it.trim().length > 3 }) add("ajustePesoCompra: série com mais de 3 caracteres")
         if ((topEntrada ?: 1) <= 0 || (topSaida ?: 1) <= 0) add("ajustePesoCompra: TOP inválida")
         if (topEntrada != null && topEntrada == topSaida) add("ajustePesoCompra: TOP de entrada e de saída iguais")
