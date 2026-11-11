@@ -79,6 +79,7 @@ fun Route.liberacaoCorteRoutes() {
             try {
                 val n = LiberacaoCorteService.liberarOuNegar(
                     slug, claims.tenantId, body.nuconf, body.usuario, body.senha, body.liberar, body.sequencias, body.obs,
+                    usuarioTorre = runCatching { wms.backend.usuarios.UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome }.getOrNull(),
                 )
                 val sessao = runCatching {
                     wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(claims.tenantId, body.nuconf)

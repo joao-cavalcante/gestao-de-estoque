@@ -186,6 +186,9 @@ object LiberacaoCorteService {
      * VLRLIBERADO = VLRATUAL (lido no bytecode do LiberacaoLimitesSPBean) — precisa ser 0 em evento de valor (3, limite);
      * o corte (64) sempre mandou 1.
      */
+    /** Prefixo do login da Torre na OBSLIB da liberação manual — a Auditoria do pedido lê daqui. */
+    const val MARCA_USUARIO_TORRE = "usuário da Torre:"
+
     internal suspend fun chamarLiberarNegar(
         tenantSlug: String,
         itens: List<Map<String, String?>>,
@@ -596,6 +599,8 @@ object LiberacaoCorteService {
         liberar: String,
         sequencias: List<Int>,
         obs: String?,
+        /** Nome do login da Torre que clicou — o usuário Sankhya digitado no modal costuma ser o LIBERADOR compartilhado. */
+        usuarioTorre: String? = null,
     ): Int {
         if (sequencias.isEmpty()) throw LiberacaoCorteException("Selecione pelo menos um item para liberar ou negar.")
         val liberarNorm = if (liberar.trim().uppercase() == "S") "S" else "N"
@@ -621,9 +626,10 @@ object LiberacaoCorteService {
             )
         }
 
-        val obsFinal = obs?.trim()?.takeIf { it.isNotEmpty() }
+        val obsFinal = ((obs?.trim()?.takeIf { it.isNotEmpty() }
             ?: if (liberarNorm == "S") "Liberado manualmente pela tela de Liberação de Corte"
-            else "Negado manualmente pela tela de Liberação de Corte"
+            else "Negado manualmente pela tela de Liberação de Corte") +
+            (usuarioTorre?.takeIf { it.isNotBlank() }?.let { " — $MARCA_USUARIO_TORRE $it" } ?: "")).take(255)
 
         val nunotaLog = withContext(Dispatchers.IO) { wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(tenantId, nuconf) }
         // Vínculo ANTES de decidir: depois de negar a nota vai pra recontagem e os dados mudam.

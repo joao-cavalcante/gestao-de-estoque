@@ -247,7 +247,10 @@ object AuditoriaPedidoService {
     }
 
     /** Linha crua de liberação (TSILIB) — o texto é montado depois, com a conversão do produto. */
-    private data class LiberacaoBruta(val solicitada: String?, val decidida: String?, val negada: Boolean, val liberador: String?, val observacao: String?)
+    private data class LiberacaoBruta(
+        val solicitada: String?, val decidida: String?, val negada: Boolean, val liberador: String?, val observacao: String?,
+        val obsLib: String? = null,
+    )
 
     /** Conferências (início/fim) + liberações de corte cruas — lado do Sankhya. */
     private suspend fun buscarConferencias(tenantSlug: String, nunota: Long): Pair<List<AuditoriaEventoDto>, List<LiberacaoBruta>> {
@@ -280,12 +283,12 @@ object AuditoriaPedidoService {
         val libs = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             """
-            SELECT L.DHSOLICIT, L.DHLIB, L.REPROVADO, L.OBSERVACAO, U.NOMEUSU
+            SELECT L.DHSOLICIT, L.DHLIB, L.REPROVADO, L.OBSERVACAO, L.OBSLIB, U.NOMEUSU
             FROM TSILIB L LEFT JOIN TSIUSU U ON U.CODUSU = L.CODUSULIB
             WHERE L.EVENTO = 64 AND L.TABELA = 'TGFCOI2' AND L.NUCHAVE IN (${nuconfs.joinToString(",")})
             """.trimIndent(),
         ).map { l ->
-            LiberacaoBruta(dataSankhya(l["DHSOLICIT"]), dataSankhya(l["DHLIB"]), l["REPROVADO"]?.trim() == "S", l["NOMEUSU"], l["OBSERVACAO"])
+            LiberacaoBruta(dataSankhya(l["DHSOLICIT"]), dataSankhya(l["DHLIB"]), l["REPROVADO"]?.trim() == "S", l["NOMEUSU"], l["OBSERVACAO"], l["OBSLIB"])
         }
         return eventosConf to libs
     }
@@ -306,7 +309,13 @@ object AuditoriaPedidoService {
             val dif = conf - ped
             "pedido ${t(ped)} · conferido ${t(conf)} · " + if (dif > 0) "a maior ${t(dif)}" else "faltou ${t(-dif)}"
         }
-        val automatico = l.liberador?.trim()?.uppercase() == LIBERADOR_AUTOMATICO
+        // O usuário LIBERADOR é usado tanto pela auto-liberação quanto por quem digita esse login no modal da tela de
+        // Liberação de Corte — só a OBSLIB diz qual foi (caso 82305, 10/11/2026: manual, não automático).
+        val automatico = l.liberador?.trim()?.uppercase() == LIBERADOR_AUTOMATICO &&
+            (l.obsLib == null || l.obsLib.startsWith("Liberação automática"))
+        val usuarioTorre = l.obsLib?.substringAfter(wms.backend.liberacaocorte.LiberacaoCorteService.MARCA_USUARIO_TORRE, "")
+            ?.trim()?.takeIf { it.isNotEmpty() }
+        val manualTela = l.obsLib?.contains("manualmente pela tela de Liberação de Corte") == true
         return listOfNotNull(
             l.solicitada?.let { AuditoriaEventoDto(it, "SANKHYA", "liberacao", "Liberação de corte solicitada: $produto", diferenca, nivel = "alerta") },
             l.decidida?.let {
@@ -320,6 +329,11 @@ object AuditoriaPedidoService {
                     },
                     when {
                         automatico -> "Torre de Operação (automático)"
+                        manualTela -> listOfNotNull(
+                            "manual na tela de Liberação de Corte",
+                            usuarioTorre?.let { u -> "login da Torre $u" } ?: "login da Torre não registrado",
+                            l.liberador?.let { u -> "senha Sankhya $u" },
+                        ).joinToString(" · ")
                         else -> l.liberador?.let { u -> "liberador $u" }
                     },
                     nivel = if (l.negada) "erro" else "sucesso",
