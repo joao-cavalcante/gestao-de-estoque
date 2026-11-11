@@ -376,11 +376,15 @@ object AuditoriaPedidoService {
                             l["VLRLIBERADO"].dbl()?.takeIf { v -> v > 0 && !negada }?.let { v -> "liberado ${reais(v)}" },
                             l["OBSLIB"]?.takeIf { o -> o.isNotBlank() },
                         ).joinToString(" · ").ifEmpty { null },
-                        // Liberação herdada (Torre): o Sankhya grava como liberador quem liberou o documento de origem.
-                        if (l["OBSLIB"]?.startsWith("Liberado automaticamente") == true) {
-                            "Torre de Operação (automático)" + (l["LIBERADOR"]?.let { u -> " — herdado de $u" } ?: "")
-                        } else {
-                            l["LIBERADOR"]?.let { u -> if (negada) "negado por $u" else "liberado por $u" }
+                        // Liberação herdada: o liberador gravado é quem liberou o documento de origem, não uma pessoa
+                        // decidindo nesta nota. "Liberado automaticamente…" = herança nativa do Sankhya;
+                        // "Liberação automática…" = a da Torre (LiberacaoHerdada).
+                        when {
+                            l["OBSLIB"]?.startsWith("Liberado automaticamente") == true ->
+                                "Sankhya (automático)" + (l["LIBERADOR"]?.let { u -> " — herdado de $u" } ?: "")
+                            l["OBSLIB"]?.startsWith("Liberação automática") == true ->
+                                "Torre de Operação (automático)" + (l["LIBERADOR"]?.let { u -> " — herdado de $u" } ?: "")
+                            else -> l["LIBERADOR"]?.let { u -> if (negada) "negado por $u" else "liberado por $u" }
                         },
                         nivel = if (negada) "erro" else "sucesso",
                     )
