@@ -130,11 +130,18 @@ data class ParametrosAjustePesoCompra(
      * Negri: 11 (À VISTA, sem grupo) — o mesmo das notas de ajuste manuais; a TOP de ajuste não gera financeiro.
      */
     val codTipVenda: Int? = null,
+    /**
+     * Parceiro das notas de ajuste (entrada e saída). null = o fornecedor da compra (como o nativo). Negri: 1 (NEGRI
+     * ATACADISTA, o das notas de ajuste manuais) — o gatilho TRG_INC_TGFCAB exige parceiro marcado como CLIENTE em
+     * nota de saída e fornecedor não é (compra 84117, parceiro 2525, 11/11/2026).
+     */
+    val codParc: Int? = null,
 ) {
     fun validar(): List<String> = buildList {
         if (listOfNotNull(serieEntrada, serieSaida).any { it.trim().length > 3 }) add("ajustePesoCompra: série com mais de 3 caracteres")
         if ((topEntrada ?: 1) <= 0 || (topSaida ?: 1) <= 0) add("ajustePesoCompra: TOP inválida")
         if ((codTipVenda ?: 1) <= 0) add("ajustePesoCompra: tipo de negociação inválido")
+        if ((codParc ?: 1) <= 0) add("ajustePesoCompra: parceiro inválido")
         if (topEntrada != null && topEntrada == topSaida) add("ajustePesoCompra: TOP de entrada e de saída iguais")
         if (ajusteEntrada && topEntrada == null) add("ajustePesoCompra: ajuste do peso a maior ligado sem TOP de entrada")
         if (ajusteSaida && topSaida == null) add("ajustePesoCompra: ajuste do peso a menor ligado sem TOP de saída")

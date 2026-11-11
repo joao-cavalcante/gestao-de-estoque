@@ -105,10 +105,15 @@
           <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieSaida" />
         </label>
         <label class="oq-cc__tolerancia-campo">
+          Parceiro
+          <input type="text" inputmode="numeric" placeholder="o fornecedor" [(ngModel)]="ajuste.codParc" />
+        </label>
+        <label class="oq-cc__tolerancia-campo">
           Tipo de negociação
           <input type="text" inputmode="numeric" placeholder="o da compra" [(ngModel)]="ajuste.codTipVenda" />
         </label>
         <span class="oq-cc__tolerancia-ajuda">
+          Parceiro das notas de ajuste (vazio = o fornecedor; nota de saída exige parceiro marcado como cliente — ex.: 1).
           Tipo de negociação das notas de ajuste (vazio = o da nota de compra). Na nota de saída o Sankhya confere o grupo de
           autorização do fornecedor — use um tipo sem grupo, ex.: 11 À VISTA (a TOP de ajuste não gera financeiro).
         </span>

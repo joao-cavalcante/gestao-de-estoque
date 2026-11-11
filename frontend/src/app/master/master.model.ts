@@ -54,6 +54,7 @@ export interface ParametrosTenant {
     serieEntrada: string | null;
     serieSaida: string | null;
     codTipVenda?: number | null;
+    codParc?: number | null;
   };
 }
 

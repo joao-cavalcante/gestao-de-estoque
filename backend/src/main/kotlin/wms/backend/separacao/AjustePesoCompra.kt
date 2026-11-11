@@ -362,7 +362,7 @@ object AjustePesoCompra {
             }
             // Cabeçalho = o da nota do fornecedor (como o nativo: WmsHelper.getNovoCabecalhoNota clona a nota de origem)
             // com a TOP de ajuste — fornecedor, empresa, natureza, centro de resultado e tipo de negociação da compra.
-            val cab = dadosCabecalho(tenantSlug, top, doc.nunota, p.codTipVenda)
+            val cab = dadosCabecalho(tenantSlug, top, doc.nunota, p.codTipVenda).let { c -> p.codParc?.let { c.copy(codParc = it) } ?: c }
             val observacao = observacaoAjuste(tenantSlug, tenantId, doc, itens)
             marcar(tenantId, doc.id, "criando")
             val resposta = SankhyaSpClient.chamarRaw(

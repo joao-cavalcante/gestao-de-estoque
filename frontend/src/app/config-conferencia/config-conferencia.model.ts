@@ -69,6 +69,8 @@ export interface AjustePesoCompra {
   serieSaida: string | null;
   /** Tipo de negociação das notas de ajuste; null = o da nota de compra. */
   codTipVenda: number | null;
+  /** Parceiro das notas de ajuste; null = o fornecedor da compra. */
+  codParc: number | null;
 }
 
 export interface ToleranciaPeso {
