@@ -530,6 +530,10 @@ object TarefasRepository {
     /** TIPMOV da nota (já sincronizado, ver TarefaSyncService.FIELDS) — 'V' venda, 'C' compra, etc. Usado pra listar TOPs de faturamento. */
     fun buscarTipMovLocal(tenantId: UUID, nunota: Long): String? = campoDosDados(tenantId, nunota, "TIPMOV")
 
+    /** TGFCAB.NUCONFATUAL do espelho local ("9289" / "9289.0"). */
+    fun buscarNuconfAtualLocal(tenantId: UUID, nunota: Long): Int? =
+        campoDosDados(tenantId, nunota, "NUCONFATUAL")?.trim()?.substringBefore('.')?.toIntOrNull()
+
     /** Das [nunotas], as que têm TIPMOV = [tipMov] no espelho local — uma consulta só. */
     fun nunotasComTipMov(tenantId: UUID, nunotas: Collection<Long>, tipMov: String): Set<Long> {
         val ints = nunotas.mapNotNull { n -> n.takeIf { it in 0..Int.MAX_VALUE }?.toInt() }.distinct()

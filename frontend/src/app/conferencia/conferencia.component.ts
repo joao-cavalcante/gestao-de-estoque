@@ -1057,6 +1057,25 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * ou atualizar a quantidade parcial se ainda não bateu o total).
    */
   onConferido(resultado: ItemConferido): void {
+    // Linhas do mesmo produto+lote+unidade aparecem JUNTAS na tela (agruparLinhasMesmoProduto, 11/11/2026): o
+    // /conferir devolve a qtd de UMA linha (a última do grupo) e as demais em `linhas`. A linha da tela é a soma —
+    // sem isto a pesagem do pallet inteiro aparecia como "metade" conferida (compra 84117: 599,5 + 398,5 = 998 kg,
+    // a tela mostrava 398,5).
+    const linhasGrupo = resultado.linhas ?? [];
+    const controleGrupo = resultado.controle.trim();
+    const mesmoGrupo = (it: ConferenciaItem) =>
+      it.code === String(resultado.codprod) && (it.control === '—' ? '' : it.control) === controleGrupo;
+    // Só quando a tela mostra o grupo como UMA linha (unidades iguais — ver agruparLinhasMesmoProduto).
+    const linhasNaTela = new Set([...this.items(), ...this.conferred()].filter(mesmoGrupo).map((it) => it.seq)).size;
+    if (linhasGrupo.length > 1 && linhasNaTela <= 1) {
+      const total = linhasGrupo.reduce((acc, l) => acc + Number(l.qtdConferidaLocal), 0);
+      resultado = {
+        ...resultado,
+        sequencia: Math.min(...linhasGrupo.map((l) => l.sequencia)),
+        qtdConferidaLocal: String(total),
+        linhas: [],
+      };
+    }
     // Mesmo produto+controle pode estar espalhado em mais de uma SEQUENCIA da
     // nota (ex.: entregas parciais) — o backend redistribui a leitura entre
     // TODAS as linhas do grupo, não só a última (resultado.sequencia). Sem

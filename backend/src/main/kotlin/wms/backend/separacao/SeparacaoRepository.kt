@@ -1569,13 +1569,21 @@ object SeparacaoRepository {
     }
 
     /** NUCONF da conferência mais recente de uma nota (qualquer status de sessão). */
+    /**
+     * NUCONF da sessão mais recente da nota QUE TENHA NUCONF. Tentar abrir a nota aguardando corte cria uma sessão em
+     * erro, sem NUCONF — antes ela virava "a mais recente" e a Liberação de Corte dizia "NUCONF não encontrado
+     * localmente" (pedido 47947 / nunota 83784, 11/11/2026). Sem sessão com NUCONF: o NUCONFATUAL do espelho da tarefa.
+     */
     fun buscarNuconfPorNota(tenantId: UUID, nunota: Long): Int? = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.selectAll()
-            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) }
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.nunota eq nunota.toInt()) and
+                    SeparacaoSessoesTable.nuconf.isNotNull()
+            }
             .orderBy(SeparacaoSessoesTable.criadoEm to SortOrder.DESC)
             .firstOrNull()
             ?.get(SeparacaoSessoesTable.nuconf)
-    }
+    } ?: wms.backend.tarefas.TarefasRepository.buscarNuconfAtualLocal(tenantId, nunota)
 
     /**
      * Registra a decisão (liberado/negado) de um item numa rodada de
