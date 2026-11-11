@@ -570,9 +570,14 @@ object SeparacaoService {
                 // (NUCONF/SEQCONF/PESOLIQUIDO/PESOBRUTO) — a quantidade conferida continua sendo o qtdConf. codUMA fica
                 // vazio de propósito: com ele o Sankhya descontaria a tara da UMA de novo (a Torre já manda o líquido).
                 // A etiqueta de peso do Sankhya só sai com NUETIQPESO na CCO (Negri: vazio).
+                // ATENÇÃO (compra 84146, 11/11/2026): com o item aferido na balança o Sankhya usa o pesoLiquido COMO a
+                // quantidade conferida, por cima do qtdConf. O pesoLiquido tem que ser SEMPRE o qtdConf enviado — senão o
+                // ajuste de peso da compra (qtdConf = peso da nota) e o "negociado exato" do arredondamento voltam a
+                // divergir (gerou nota complementar). Bruto = qtdConf + a tara da balança.
                 grupo.pesoLiquido?.let { liq ->
-                    put("pesoLiquido", JsonPrimitive(liq))
-                    put("pesoBruto", JsonPrimitive((grupo.pesoBruto ?: liq).max(liq)))
+                    val tara = ((grupo.pesoBruto ?: liq) - liq).max(java.math.BigDecimal.ZERO)
+                    put("pesoLiquido", JsonPrimitive(grupo.qtdTotal))
+                    put("pesoBruto", JsonPrimitive(grupo.qtdTotal + tara))
                 }
             }
             println("ConferenciaSP.salvarItemConferido tenant=$tenantSlug nunota=${nunota} params=$params")
