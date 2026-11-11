@@ -787,6 +787,7 @@ object SeparacaoService {
                 retentar = false,
             )
             cortarGerouDocumentos = documentosDoCortar(respostaCortar)
+            if (cortarGerouDocumentos) MotivoDivergenciaCompra.solicitar(tenantId)
             if (cortarGerouDocumentos) println("INFO: cortar da nunota ${sessao.nunota} gerou documento(s) auxiliar(es) — sem finalizar de novo (como a tela nativa)")
         } catch (e: Exception) {
             println("AVISO: ConferenciaSP.cortar falhou (nunota ${sessao.nunota}, nuconf $nuconf): ${e.message}")

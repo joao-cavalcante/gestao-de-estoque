@@ -145,13 +145,6 @@ object TarefaSyncService {
                 .onFailure { println("AVISO: ajuste de peso da compra (tenant $tenantSlug) falhou: ${it.message}") }
         }
 
-        // Motivo da divergência na observação da devolução / nota complementar que o Sankhya gerou (10/11/2026).
-        medirEtapa(tenantSlug, "motivo-divergencia") {
-            runCatching {
-                val p = wms.backend.separacao.AjustePesoCompra.parametros(tenantId)
-                wms.backend.separacao.MotivoDivergenciaCompra.anotarDerivadas(tenantSlug, tenantId, listOfNotNull(p.topEntrada, p.topSaida))
-            }.onFailure { println("AVISO: motivo da divergência nas notas da compra (tenant $tenantSlug) falhou: ${it.message}") }
-        }
 
         // As três leituras abaixo são independentes — rodam juntas (10/11/2026: em sequência somavam o tempo de cada
         // uma e o sync inteiro, inclusive o resync pós liberação de corte, levava ~4,5 s).
@@ -177,6 +170,15 @@ object TarefaSyncService {
                             .filter { it.statusOperacional in STATUS_CONFERIDA_NOTA && recente(it.dataMovimento) }.map { it.nunota }
                         NotasFiscaisPedido.atualizar(tenantSlug, tenantId, conferidos)
                     }.onFailure { println("AVISO: notas fiscais dos pedidos (tenant $tenantSlug) falhou: ${it.message}") }
+                }
+            }
+            launch {
+                // Motivo da divergência na observação da devolução / nota complementar que o Sankhya gerou (10/11/2026).
+                medirEtapa(tenantSlug, "motivo-divergencia") {
+                    runCatching {
+                        val p = wms.backend.separacao.AjustePesoCompra.parametros(tenantId)
+                        wms.backend.separacao.MotivoDivergenciaCompra.anotarDerivadas(tenantSlug, tenantId, listOfNotNull(p.topEntrada, p.topSaida))
+                    }.onFailure { println("AVISO: motivo da divergência nas notas da compra (tenant $tenantSlug) falhou: ${it.message}") }
                 }
             }
             launch {

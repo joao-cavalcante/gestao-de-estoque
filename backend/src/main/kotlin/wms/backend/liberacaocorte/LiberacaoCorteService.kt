@@ -468,6 +468,7 @@ object LiberacaoCorteService {
                 nucco?.let { wms.backend.configconferencia.ConfigConferenciaRepository.buscarPorNucco(tenantId, it) }
                     ?.campos?.get("AOLIBERAR")?.trim()?.uppercase()
             }
+            wms.backend.separacao.MotivoDivergenciaCompra.solicitar(tenantId)
             if (aoLiberar != "M" && !jaFechadaComDevolucao(tenantSlug, tenantId, nuconf)) {
                 runCatching {
                     SankhyaSpClient.chamarRaw(
@@ -763,6 +764,7 @@ object LiberacaoCorteService {
         // "aguardando corte" e tinha que clicar em sincronizar. Falha aqui não desfaz a liberação.
         // Em segundo plano (10/11/2026): rodava dentro da requisição e o liberador esperava ~4,5 s a mais pelo sync
         // inteiro — a decisão já está gravada no Sankhya; a fila reflete assim que o sync terminar.
+        if (liberarNorm == "S") wms.backend.separacao.MotivoDivergenciaCompra.solicitar(tenantId)
         resyncEscopo.launch {
             runCatching { wms.backend.tarefas.TarefaSyncService.sincronizarTenant(tenantSlug, tenantId) }
                 .onFailure { println("AVISO: resync após liberar/negar corte falhou (nuconf $nuconf): ${it.message}") }

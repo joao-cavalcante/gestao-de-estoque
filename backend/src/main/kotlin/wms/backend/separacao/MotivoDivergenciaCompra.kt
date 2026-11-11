@@ -33,6 +33,19 @@ object MotivoDivergenciaCompra {
     /** Compras concluídas há até [JANELA] entram na procura das notas derivadas. */
     private val JANELA: Duration = Duration.ofDays(3)
 
+    /**
+     * A procura custa ~0,6 s de Sankhya (11/11/2026) e as notas derivadas só nascem no cortar/liberação: roda quando
+     * [solicitar] foi chamado (corte liberado ou cortar com documento) e, de reserva, no máximo a cada [INTERVALO].
+     */
+    private val INTERVALO: Duration = Duration.ofMinutes(5)
+    private val solicitados = java.util.concurrent.ConcurrentHashMap.newKeySet<UUID>()
+    private val ultimaVez = java.util.concurrent.ConcurrentHashMap<UUID, Instant>()
+
+    /** Pede a procura no próximo ciclo de sync (depois de liberar corte / cortar com devolução ou complementar). */
+    fun solicitar(tenantId: UUID) {
+        solicitados.add(tenantId)
+    }
+
     data class LinhaItem(val codprod: Int, val unidade: String, val qtdNota: BigDecimal, val conferido: BigDecimal)
 
     private fun num(v: BigDecimal, casas: Int = 3): String =
@@ -111,7 +124,11 @@ object MotivoDivergenciaCompra {
      * (TGFVAR com origem na compra, menos as de ajuste da Torre) ainda sem [MARCA] recebem o motivo na observação.
      */
     suspend fun anotarDerivadas(tenantSlug: String, tenantId: UUID, topsAjuste: Collection<Int>) {
-        val desde = Instant.now().minus(JANELA)
+        val agora = Instant.now()
+        val pedido = solicitados.remove(tenantId)
+        if (!pedido && ultimaVez[tenantId]?.plus(INTERVALO)?.isAfter(agora) == true) return
+        ultimaVez[tenantId] = agora
+        val desde = agora.minus(JANELA)
         val sessoes = withContext(Dispatchers.IO) {
             TenantTx.run(tenantId) {
                 SeparacaoSessoesTable.selectAll()
