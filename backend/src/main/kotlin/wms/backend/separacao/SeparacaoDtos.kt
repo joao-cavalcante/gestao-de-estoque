@@ -314,6 +314,11 @@ data class ConferirItemRequest(
     /** Pesável: quantidade na unidade do pedido informada no pop-up de pesagem (V61). Não vai pro Sankhya. */
     val qtdComercial: String? = null,
     val unidadeComercial: String? = null,
+    /** V74 — pesável: bruto da balança, tara total (KG), UMA escolhida e qtd de embalagens. [peso] continua o LÍQUIDO. */
+    val pesoBruto: String? = null,
+    val tara: String? = null,
+    val codUma: Int? = null,
+    val qtdUma: String? = null,
 )
 
 @Serializable

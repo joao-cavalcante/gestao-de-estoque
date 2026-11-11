@@ -908,6 +908,10 @@ object SeparacaoRepository {
         codigoBarra: String? = null,
         qtdComercial: BigDecimal? = null,
         unidadeComercial: String? = null,
+        pesoBruto: BigDecimal? = null,
+        tara: BigDecimal? = null,
+        codUma: Int? = null,
+        qtdUma: BigDecimal? = null,
     ): ItemConferidoResultado? =
         TenantTx.run(tenantId) {
             val controle = controleInformado.trim().ifEmpty { " " }
@@ -956,6 +960,10 @@ object SeparacaoRepository {
                 it[SeparacaoLeiturasTable.peso] = peso
                 it[SeparacaoLeiturasTable.qtdComercial] = qtdComercial
                 it[SeparacaoLeiturasTable.unidadeComercial] = unidadeComercial
+                it[SeparacaoLeiturasTable.pesoBruto] = pesoBruto
+                it[SeparacaoLeiturasTable.tara] = tara
+                it[SeparacaoLeiturasTable.codUma] = codUma
+                it[SeparacaoLeiturasTable.qtdUma] = qtdUma
                 it[criadoEm] = agora
             }
 
@@ -1931,6 +1939,9 @@ object SeparacaoRepository {
         /** Diagnóstico: negociado (soma de qtd_neg) e lido (soma de qtd_conferida_local) do grupo, antes do ajuste de arredondamento. */
         val qtdNegociada: BigDecimal? = null,
         val qtdLida: BigDecimal? = null,
+        /** V74 — pesável: soma dos pesos LÍQUIDOS lidos e dos BRUTOS (bruto ausente = o líquido). null = sem pesagem. */
+        val pesoLiquido: BigDecimal? = null,
+        val pesoBruto: BigDecimal? = null,
     )
 
     /**
@@ -2086,7 +2097,17 @@ object SeparacaoRepository {
                     // sempre em unidade padrão (o que já é correto pra imensa maioria
                     // dos itens — só frações tipo 1/12, 1/3 sofrem esse arredondamento,
                     // e ficam aguardando liberação manual, o que é seguro).
-                    GrupoConferido(chave.first, chave.second, enviar, codigoBarra = cb, qtdNegociada = negociado, qtdLida = total)
+                    val pesagens = leiturasDoGrupo.filter {
+                        it[SeparacaoLeiturasTable.codprod] == chave.first && it[SeparacaoLeiturasTable.controle] == chave.second &&
+                            it[SeparacaoLeiturasTable.peso] != null
+                    }
+                    val liquido = pesagens.takeIf { it.isNotEmpty() }?.fold(BigDecimal.ZERO) { a, l -> a + l[SeparacaoLeiturasTable.peso]!! }
+                    val bruto = pesagens.takeIf { it.isNotEmpty() }
+                        ?.fold(BigDecimal.ZERO) { a, l -> a + (l[SeparacaoLeiturasTable.pesoBruto] ?: l[SeparacaoLeiturasTable.peso]!!) }
+                    GrupoConferido(
+                        chave.first, chave.second, enviar, codigoBarra = cb, qtdNegociada = negociado, qtdLida = total,
+                        pesoLiquido = liquido?.takeIf { it.signum() > 0 }, pesoBruto = bruto?.takeIf { it.signum() > 0 },
+                    )
                 }
             }
     }

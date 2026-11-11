@@ -566,6 +566,14 @@ object SeparacaoService {
                 put("volume", JsonPrimitive(""))
                 put("exigeIdentificadores", JsonPrimitive("N"))
                 put("codUMA", JsonPrimitive(""))
+                // V74 — como a tela nativa: com o pesável aferido na balança o Sankhya grava a PesoConferencia
+                // (NUCONF/SEQCONF/PESOLIQUIDO/PESOBRUTO) — a quantidade conferida continua sendo o qtdConf. codUMA fica
+                // vazio de propósito: com ele o Sankhya descontaria a tara da UMA de novo (a Torre já manda o líquido).
+                // A etiqueta de peso do Sankhya só sai com NUETIQPESO na CCO (Negri: vazio).
+                grupo.pesoLiquido?.let { liq ->
+                    put("pesoLiquido", JsonPrimitive(liq))
+                    put("pesoBruto", JsonPrimitive((grupo.pesoBruto ?: liq).max(liq)))
+                }
             }
             println("ConferenciaSP.salvarItemConferido tenant=$tenantSlug nunota=${nunota} params=$params")
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)

@@ -132,6 +132,8 @@ export class SeparacaoService {
     codigoBarra?: string | null,
     qtdComercial?: number | null,
     unidadeComercial?: string | null,
+    /** V74 — pesável: bruto da balança, tara total, UMA e qtd de embalagens (peso = líquido). */
+    pesagem?: { pesoBruto: number; tara: number; codUma: number | null; qtdUma: number | null } | null,
   ): Observable<ItemConferido> {
     return this.http.post<ItemConferido>(
       `${this.baseUrl}/sessoes/${sessaoId}/conferir`,
@@ -144,6 +146,10 @@ export class SeparacaoService {
         codigoBarra: codigoBarra ?? null,
         qtdComercial: qtdComercial != null ? String(qtdComercial) : null,
         unidadeComercial: qtdComercial != null ? (unidadeComercial ?? null) : null,
+        pesoBruto: pesagem ? String(pesagem.pesoBruto) : null,
+        tara: pesagem ? String(pesagem.tara) : null,
+        codUma: pesagem?.codUma ?? null,
+        qtdUma: pesagem?.qtdUma != null ? String(pesagem.qtdUma) : null,
       },
       { params: { tenant } },
     );

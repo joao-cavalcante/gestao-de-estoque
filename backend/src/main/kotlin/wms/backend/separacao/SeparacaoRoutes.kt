@@ -320,12 +320,19 @@ fun Route.separacaoRoutes() {
             val qtdComercial = body.qtdComercial?.trim()?.replace(",", ".")?.takeIf { it.isNotEmpty() }?.toBigDecimalOrNull()
                 ?.takeIf { it.signum() > 0 }
             val permitirQtdMaior = SeparacaoRepository.permiteQtdMaior(tenantId, sessaoId)
+            fun dec(v: String?) = v?.trim()?.replace(",", ".")?.takeIf { it.isNotEmpty() }?.toBigDecimalOrNull()?.takeIf { it.signum() >= 0 }
+            // Bruto só vale com o líquido e não pode ser menor que ele (senão é lixo da tela: grava sem bruto).
+            val pesoBruto = dec(body.pesoBruto)?.takeIf { peso != null && it >= peso }
             val resultado = try {
                 SeparacaoRepository.conferirItem(
                     tenantId, sessaoId, body.codprod, body.controle, qtd, permitirQtdMaior, peso,
                     codvolEscanado = body.codvol, codigoBarra = body.codigoBarra,
                     qtdComercial = qtdComercial,
                     unidadeComercial = body.unidadeComercial?.trim()?.takeIf { qtdComercial != null && it.isNotEmpty() },
+                    pesoBruto = pesoBruto,
+                    tara = if (pesoBruto != null) dec(body.tara) else null,
+                    codUma = body.codUma?.takeIf { pesoBruto != null && it > 0 },
+                    qtdUma = if (pesoBruto != null && body.codUma != null) dec(body.qtdUma) else null,
                 )
             } catch (e: SeparacaoRepository.QuantidadeExcedeException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to "quantidade excede o pendente (máximo ${e.maximo})"))

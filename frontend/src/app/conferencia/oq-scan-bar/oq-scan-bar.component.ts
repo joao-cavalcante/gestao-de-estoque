@@ -482,8 +482,11 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     if (this.somenteBalanca) this.peso = '';
     // Abre direto na Balança se houver balança serial/TCP escolhida — ou se o usuário tem balança mas
     // ainda não escolheu nenhuma (o seletor fica no topo da aba Balança).
+    // "Pela balança" sem balança HTTP: a aba Manual nem aparece — abre sempre na Balança.
     this.modoEntradaPeso =
-      (this.balancaAtiva && this.balancaAtiva.tipoComunicacao !== 'HTTP') || (!this.balancaAtiva && this.balancas.length > 0)
+      (this.balancaAtiva && this.balancaAtiva.tipoComunicacao !== 'HTTP') ||
+      (!this.balancaAtiva && this.balancas.length > 0) ||
+      (this.somenteBalanca && this.balancaAtiva?.tipoComunicacao !== 'HTTP')
         ? 'balanca'
         : 'manual';
     if (this.modoEntradaPeso === 'balanca') {
@@ -682,6 +685,15 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     // qtdN é o que o operador digitou (na unidade de conferência). O backend
     // sempre recebe a qtd na unidade BASE do produto.
     const qtdBase = this.qtdParaBase(qtdN);
+    // V74 — bruto da balança e a tara (embalagens + variável): o Sankhya grava a PesoConferencia como na tela nativa.
+    const pesagem = this.precisaPeso
+      ? {
+          pesoBruto: this.lerKg(this.peso),
+          tara: Number(this.taraTotalN.toFixed(3)),
+          codUma: this.taraUmaN > 0 ? this.codUmaSelecionada : null,
+          qtdUma: this.taraUmaN > 0 ? this.qtdUmaN : null,
+        }
+      : null;
     this.carregando = true;
     this.separacaoService
       .conferir(
@@ -695,6 +707,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
         this.codigoBarraEscanado,
         qtdComercialN,
         this.unidadeQtdComercial,
+        pesagem && Number.isFinite(pesagem.pesoBruto) ? pesagem : null,
       )
       .subscribe({
       next: (resultado) => {

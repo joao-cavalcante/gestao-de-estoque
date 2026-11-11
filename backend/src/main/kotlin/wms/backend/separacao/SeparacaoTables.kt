@@ -164,6 +164,11 @@ object SeparacaoLeiturasTable : Table("app.separacao_leituras") {
     /** V61 — quantidade na unidade do pedido (CX, UN, PC) informada na pesagem do pesável. Só registro/etiqueta. */
     val qtdComercial = decimal("qtd_comercial", 15, 5).nullable()
     val unidadeComercial = text("unidade_comercial").nullable()
+    /** V74 — pesável: bruto da balança, tara total (embalagens + variável), UMA e qtd de embalagens. */
+    val pesoBruto = decimal("peso_bruto", 15, 5).nullable()
+    val tara = decimal("tara", 15, 5).nullable()
+    val codUma = integer("coduma").nullable()
+    val qtdUma = decimal("qtd_uma", 15, 5).nullable()
     val criadoEm = timestamp("criado_em")
 
     override val primaryKey = PrimaryKey(id)

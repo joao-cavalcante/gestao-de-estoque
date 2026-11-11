@@ -125,18 +125,20 @@
 
         <!-- 2. Manual / Balança -->
         <div class="oq-peso-modal__tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            class="oq-peso-modal__tab"
-            [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'manual'"
-            [attr.aria-selected]="modoEntradaPeso === 'manual'"
-            [disabled]="somenteBalanca && balancaAtiva?.tipoComunicacao !== 'HTTP'"
-            [title]="somenteBalanca && balancaAtiva?.tipoComunicacao !== 'HTTP' ? 'Esta conferência exige o peso da balança' : ''"
-            (click)="alternarModoPeso('manual')"
-          >
-            {{ somenteBalanca && balancaAtiva?.tipoComunicacao === 'HTTP' ? 'Balança (rede)' : 'Manual' }}
-          </button>
+          <!-- CCO "Pela balança" (OBTERQTDBALANCA 'B'): sem digitação — a aba Manual some (antes ficava só desabilitada).
+               Balança HTTP continua aqui, como "Balança (rede)": o peso vem pelo "Obter da balança". -->
+          @if (!somenteBalanca || balancaAtiva?.tipoComunicacao === 'HTTP') {
+            <button
+              type="button"
+              role="tab"
+              class="oq-peso-modal__tab"
+              [class.oq-peso-modal__tab--ativa]="modoEntradaPeso === 'manual'"
+              [attr.aria-selected]="modoEntradaPeso === 'manual'"
+              (click)="alternarModoPeso('manual')"
+            >
+              {{ somenteBalanca ? 'Balança (rede)' : 'Manual' }}
+            </button>
+          }
           <button
             type="button"
             role="tab"
@@ -254,7 +256,9 @@
               <div class="oq-peso-modal__recuperar">
                 <span>Sem leitura da balança.</span>
                 <button type="button" class="oq-peso-modal__link" (click)="reconectarBalanca()">Reconectar</button>
-                <button type="button" class="oq-peso-modal__link" (click)="alternarModoPeso('manual')">Digitar manual</button>
+                @if (!somenteBalanca) {
+                  <button type="button" class="oq-peso-modal__link" (click)="alternarModoPeso('manual')">Digitar manual</button>
+                }
               </div>
             }
             @if (erroBalanca) {
