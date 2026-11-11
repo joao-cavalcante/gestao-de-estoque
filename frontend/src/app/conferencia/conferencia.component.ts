@@ -104,6 +104,36 @@ function pesoNaToleranciaAbaixo(usaConfPeso: boolean | undefined, scanned: numbe
   return !!usaConfPeso && scanned > 0 && round3(scanned) < round3(expected) && !pesoForaDaTolerancia(scanned, expected, tol);
 }
 
+/**
+ * Linhas do MESMO produto, lote e unidade (ex.: nota de compra 84117 — mussarela 2871 em duas linhas, 599,5 + 399,8 kg,
+ * no mesmo pallet) viram UMA linha na tela, com as quantidades somadas: o operador pesa tudo de uma vez. O backend já
+ * trata por produto+lote (conferirItem distribui a leitura entre as linhas na ordem da SEQUENCIA e o envio ao Sankhya
+ * soma o grupo) — só a tela mostrava separado (usuário, 11/11/2026).
+ */
+function agruparLinhasMesmoProduto(itens: ItemSeparacao[]): ItemSeparacao[] {
+  const soma = (a: string | null | undefined, b: string | null | undefined): string | null =>
+    a == null && b == null ? null : String(Number(a ?? 0) + Number(b ?? 0));
+  const grupos = new Map<string, ItemSeparacao>();
+  for (const i of itens) {
+    const chave = [i.codprod, i.controle.trim(), i.codvol ?? '', i.unidadeComercial ?? '', i.foraPedido, i.usaConfPeso, i.tipoSeparacao].join('|');
+    const g = grupos.get(chave);
+    if (!g) {
+      grupos.set(chave, { ...i });
+      continue;
+    }
+    g.sequencia = Math.min(g.sequencia, i.sequencia);
+    g.qtdNeg = soma(g.qtdNeg, i.qtdNeg) ?? '0';
+    g.qtdEntregue = soma(g.qtdEntregue, i.qtdEntregue) ?? '0';
+    g.qtdConferidaLocal = soma(g.qtdConferidaLocal, i.qtdConferidaLocal) ?? '0';
+    g.quantidadeComercial = soma(g.quantidadeComercial, i.quantidadeComercial);
+    g.quantidadePadrao = soma(g.quantidadePadrao, i.quantidadePadrao);
+    g.quantidadeComercialConferida = soma(g.quantidadeComercialConferida, i.quantidadeComercialConferida);
+    g.quantidadePadraoConferida = soma(g.quantidadePadraoConferida, i.quantidadePadraoConferida);
+    g.qtdComercialInformada = soma(g.qtdComercialInformada, i.qtdComercialInformada);
+  }
+  return [...grupos.values()];
+}
+
 /** Mapeia o item real (vindo de app.separacao_itens) pro modelo visual do painel — mesmo shape do mock anterior. */
 function mapearItem(item: ItemSeparacao, tol: ToleranciaPeso): ConferenciaItem {
   const expected = Number(item.qtdNeg);
@@ -862,7 +892,9 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       next: (itens) => {
         // Fora do pedido sem nada bipado não aparece em lugar nenhum (foi só
         // identificado e não conferido) — a lista de pendentes é o pedido.
-        let mapeados = itens.map((i) => mapearItem(i, this.toleranciaDoItem(i.codprod))).filter((i) => !(i.foraPedido && i.scanned === 0));
+        let mapeados = agruparLinhasMesmoProduto(itens)
+          .map((i) => mapearItem(i, this.toleranciaDoItem(i.codprod)))
+          .filter((i) => !(i.foraPedido && i.scanned === 0));
         this.todosItensMapeados.set(mapeados);
         // Conferência por etapa (V29): a tela só enxerga os itens do tipo de separação da etapa.
         const etapa = this.etapaAtual();
