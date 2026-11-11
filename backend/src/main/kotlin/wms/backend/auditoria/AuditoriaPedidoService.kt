@@ -88,6 +88,8 @@ object AuditoriaPedidoService {
             .getOrDefault(emptyList<AuditoriaEventoDto>() to emptyList())
         val liberacoes = libsBrutas.flatMap { eventosLiberacao(it, unidades, porNome) }
         val notas = notasAsync.await().onFailure { avisos += "Notas geradas: ${it.message}" }.getOrDefault(emptyList())
+        val liberacoesDocumentos = runCatching { buscarLiberacoesDocumentos(tenantSlug, nunota, notas) }
+            .onFailure { avisos += "Liberações do pedido: ${it.message}" }.getOrDefault(emptyList())
 
         // Conferências que o WMS abriu mas não existem mais no Sankhya (excluídas depois) — antes a linha do tempo só "parava".
         val nuconfsWms = runCatching { withContext(Dispatchers.IO) { nuconfsDoWms(tenantId, nunota) } }.getOrDefault(emptyList())
@@ -133,6 +135,7 @@ object AuditoriaPedidoService {
             }
             addAll(conferencias)
             addAll(liberacoes)
+            addAll(liberacoesDocumentos)
             addAll(locais)
             notas.forEach { n ->
                 n.geradaEm?.let {
@@ -323,6 +326,67 @@ object AuditoriaPedidoService {
                 )
             },
         )
+    }
+
+    /** Eventos de liberação mais comuns na Negri; o resto aparece como "evento N". */
+    private val EVENTOS_LIBERACAO = mapOf(3 to "limite de crédito", 25 to "aprovação comercial")
+
+    /**
+     * Liberações do cabeçalho (TSILIB, TABELA TGFCAB) do pedido e das notas geradas — limite de crédito, aprovação
+     * comercial etc. —, com quem pediu e QUEM LIBEROU. Corte (evento 64, na conferência) fica em [eventosLiberacao].
+     */
+    private suspend fun buscarLiberacoesDocumentos(tenantSlug: String, nunota: Long, notas: List<AuditoriaNotaGeradaDto>): List<AuditoriaEventoDto> {
+        val numeroNota = notas.associate { it.nunota to it.numnota }
+        val chaves = (listOf(nunota) + notas.map { it.nunota }).distinct()
+        return SankhyaDbExplorerClient.executarQuery(
+            tenantSlug,
+            """
+            SELECT L.NUCHAVE, L.EVENTO, L.DHSOLICIT, L.DHLIB, L.REPROVADO, L.VLRATUAL, L.VLRLIMITE, L.VLRLIBERADO,
+                   L.OBSLIB, US.NOMEUSU SOLICITANTE, UL.NOMEUSU LIBERADOR
+            FROM TSILIB L
+            LEFT JOIN TSIUSU US ON US.CODUSU = L.CODUSUSOLICIT
+            LEFT JOIN TSIUSU UL ON UL.CODUSU = L.CODUSULIB
+            WHERE L.TABELA = 'TGFCAB' AND L.NUCHAVE IN (${chaves.joinToString(",")})
+            """.trimIndent(),
+        ).flatMap { l ->
+            val chave = l["NUCHAVE"].long()
+            val doc = if (chave == nunota) "pedido" else "nota ${chave?.let { numeroNota[it] } ?: chave}"
+            val evento = l["EVENTO"].int()
+            val nomeEvento = evento?.let { EVENTOS_LIBERACAO[it] ?: "evento $it" } ?: "liberação"
+            val negada = l["REPROVADO"]?.trim() == "S"
+            val valores = listOfNotNull(
+                l["VLRATUAL"].dbl()?.takeIf { it > 0 }?.let { "valor ${reais(it)}" },
+                l["VLRLIMITE"].dbl()?.takeIf { it > 0 }?.let { "limite ${reais(it)}" },
+            ).joinToString(" · ").ifEmpty { null }
+            val decidida = dataSankhya(l["DHLIB"])
+            listOfNotNull(
+                dataSankhya(l["DHSOLICIT"])?.let {
+                    AuditoriaEventoDto(
+                        it, "SANKHYA", "liberacao", "Liberação solicitada ($doc): $nomeEvento",
+                        listOfNotNull(valores, if (decidida == null && !negada) "pendente" else null).joinToString(" · ").ifEmpty { null },
+                        l["SOLICITANTE"]?.let { u -> "solicitado por $u" },
+                        nivel = "alerta",
+                    )
+                },
+                decidida?.let {
+                    AuditoriaEventoDto(
+                        it, "SANKHYA", "liberacao",
+                        if (negada) "Liberação NEGADA ($doc): $nomeEvento" else "Liberado ($doc): $nomeEvento",
+                        listOfNotNull(
+                            l["VLRLIBERADO"].dbl()?.takeIf { v -> v > 0 && !negada }?.let { v -> "liberado ${reais(v)}" },
+                            l["OBSLIB"]?.takeIf { o -> o.isNotBlank() },
+                        ).joinToString(" · ").ifEmpty { null },
+                        // Liberação herdada (Torre): o Sankhya grava como liberador quem liberou o documento de origem.
+                        if (l["OBSLIB"]?.startsWith("Liberado automaticamente") == true) {
+                            "Torre de Operação (automático)" + (l["LIBERADOR"]?.let { u -> " — herdado de $u" } ?: "")
+                        } else {
+                            l["LIBERADOR"]?.let { u -> if (negada) "negado por $u" else "liberado por $u" }
+                        },
+                        nivel = if (negada) "erro" else "sucesso",
+                    )
+                },
+            )
+        }
     }
 
     private suspend fun buscarNotasGeradas(tenantSlug: String, nunota: Long): List<AuditoriaNotaGeradaDto> =
