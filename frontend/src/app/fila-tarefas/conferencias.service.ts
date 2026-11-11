@@ -86,6 +86,19 @@ export interface TarefaApiDto {
   pendenteWriteBack: boolean;
 }
 
+/** Pendência do ajuste de peso da compra (GET /api/tarefas/ajuste-peso/pendencias). */
+export interface PendenciaAjustePeso {
+  nunota: number;
+  numeroNota: number | null;
+  fornecedor: string | null;
+  sentido: 'E' | 'S';
+  status: string;
+  tentativas: number;
+  erro: string | null;
+  nunotaAjuste: number | null;
+  atualizadoEm: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ConferenciasService {
   private readonly http = inject(HttpClient);
@@ -112,6 +125,11 @@ export class ConferenciasService {
         );
       }),
     );
+  }
+
+  /** Ajustes de peso com erro / falhando / parados — tela "Pendências de integração". */
+  pendenciasAjustePeso(): Observable<PendenciaAjustePeso[]> {
+    return this.http.get<PendenciaAjustePeso[]>(`${this.baseUrl}/ajuste-peso/pendencias`);
   }
 
   /** Compra: ajuste de peso que parou em erro volta pra fila (gera no próximo ciclo de sincronização). */

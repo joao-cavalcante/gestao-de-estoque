@@ -22,6 +22,7 @@ import { UsuarioListComponent } from './usuarios/usuario-list/usuario-list.compo
 import { BalancaListComponent } from './balancas/balanca-list/balanca-list.component';
 import { DownloadsComponent } from './downloads/downloads.component';
 import { LiberacaoCorteComponent } from './liberacao-corte/liberacao-corte.component';
+import { PendenciasIntegracaoComponent } from './pendencias-integracao/pendencias-integracao.component';
 import { EtiquetasComponent } from './etiquetas/etiquetas.component';
 import { CrachasImpressaoComponent } from './crachas/crachas-impressao.component';
 import { EtiquetaPesoComponent } from './etiqueta-peso/etiqueta-peso.component';
@@ -50,6 +51,7 @@ export const routes: Routes = [
   { path: 'inventarios/:id', component: InventarioDetalheComponent, canActivate: [authGuard] },
   { path: 'config-conferencia', component: ConfigConferenciaComponent, canActivate: [adminGuard] },
   { path: 'liberacao-corte', component: LiberacaoCorteComponent, canActivate: [authGuard] },
+  { path: 'pendencias-integracao', component: PendenciasIntegracaoComponent, canActivate: [authGuard] },
   { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
   { path: 'impressao-oc', component: ImpressaoOcComponent, canActivate: [authGuard] },
   { path: 'carregamento', component: CarregamentoComponent, canActivate: [authGuard] },

@@ -51,6 +51,20 @@ data class TarefaApiDto(
     val tipMov: String? = null,
 )
 
+/** Pendência de ajuste de peso (tela "Pendências de integração") — ver AjustePesoCompra.pendencias. */
+@Serializable
+data class PendenciaAjustePesoDto(
+    val nunota: Long,
+    val numeroNota: Long? = null,
+    val fornecedor: String? = null,
+    val sentido: String,
+    val status: String,
+    val tentativas: Int,
+    val erro: String? = null,
+    val nunotaAjuste: Int? = null,
+    val atualizadoEm: String,
+)
+
 /** sentido 'E' entrada (a maior) | 'S' saída (a menor); status pendente/criando/cabecalho/confirmado/erro. */
 @Serializable
 data class AjustePesoDto(val sentido: String, val status: String, val nunotaAjuste: Int? = null, val erro: String? = null)

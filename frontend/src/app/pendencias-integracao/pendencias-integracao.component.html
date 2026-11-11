@@ -1,0 +1,48 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="circle-alert" title="PENDÊNCIAS DE INTEGRAÇÃO" [count]="itens().length">
+    <div class="oq-form-hint">
+      Ajustes de peso da compra que não foram gerados no Sankhya. Corrija a causa (permissão, cadastro, configuração) e
+      clique em "Gerar ajuste de novo". A lista atualiza sozinha a cada minuto.
+    </div>
+    @if (mensagem()) {
+      <div class="oq-form-hint">{{ mensagem() }}</div>
+    }
+    @if (erro()) {
+      <div class="oq-empty-row">{{ erro() }}</div>
+    } @else if (carregando()) {
+      <ul class="oq-admin-lista" aria-busy="true">
+        <oq-skeleton variant="admin-row" [count]="3" />
+      </ul>
+    } @else if (itens().length === 0) {
+      <div class="oq-empty-row">Nenhuma pendência — todos os ajustes de peso foram gerados.</div>
+    } @else {
+      <ul class="oq-admin-lista">
+        @for (p of itens(); track p.nunota + p.sentido) {
+          <li class="oq-admin-row">
+            <oq-icon name="circle-alert" [size]="18" class="oq-admin-row__icon" />
+            <div class="oq-admin-row__main">
+              <span class="oq-admin-row__titulo">
+                Compra NF {{ p.numeroNota ?? '—' }} · nº único {{ p.nunota }}{{ p.fornecedor ? ' · ' + p.fornecedor : '' }}
+              </span>
+              <span class="oq-admin-row__sub">
+                {{ rotuloSentido(p) }} · {{ rotuloStatus(p) }} · atualizado {{ p.atualizadoEm | date: 'dd/MM HH:mm' }}
+              </span>
+              @if (p.erro) {
+                <span class="oq-admin-row__sub">{{ p.erro }}</span>
+              }
+            </div>
+            <button
+              type="button"
+              class="oq-admin-btn oq-admin-btn--primary"
+              [disabled]="reprocessando() != null || p.status !== 'erro'"
+              [title]="p.status !== 'erro' ? 'Ainda tentando sozinho — o botão libera quando parar em erro' : ''"
+              (click)="reprocessar(p)"
+            >
+              {{ reprocessando() === p.nunota ? 'Enviando…' : 'Gerar ajuste de novo' }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </oq-panel-section>
+</div>

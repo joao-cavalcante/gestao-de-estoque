@@ -102,6 +102,12 @@ fun Route.tarefasRoutes() {
             call.respond(HttpStatusCode.Accepted, mapOf("ok" to true, "pendenteWriteBack" to true))
         }
 
+        // Pendências do ajuste de peso (erro / falhando / parado no meio) — tela "Pendências de integração".
+        get("/ajuste-peso/pendencias") {
+            val claims = call.exigirAuth() ?: return@get
+            call.respond(wms.backend.separacao.AjustePesoCompra.pendencias(claims.tenantId))
+        }
+
         // Compra: ajuste de peso que parou em erro (5 tentativas) volta pra fila do ciclo de sincronização.
         post("/{nunota}/ajuste-peso/reprocessar") {
             val claims = call.exigirAuth() ?: return@post

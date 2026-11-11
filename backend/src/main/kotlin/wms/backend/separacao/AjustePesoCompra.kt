@@ -314,6 +314,41 @@ object AjustePesoCompra {
         }
     }
 
+    /**
+     * Pendências do ajuste de peso pra tela "Pendências de integração" (usuário, 11/11/2026: "quando der esse erro ficar
+     * registrado e tratarmos"): parou em erro; está falhando (tentativas > 0); ou ficou no meio do caminho (criando /
+     * cabeçalho) há mais de 10 min. Aguardando a nota do fornecedor ser confirmada NÃO é pendência — é o normal.
+     */
+    fun pendencias(tenantId: UUID): List<wms.backend.tarefas.PendenciaAjustePesoDto> {
+        val limite = Instant.now().minusSeconds(10 * 60)
+        val linhas = TenantTx.run(tenantId) {
+            CompraAjustePesoNotasTable.selectAll()
+                .where { CompraAjustePesoNotasTable.tenantId eq tenantId }
+                .filter {
+                    val st = it[CompraAjustePesoNotasTable.status]
+                    st == "erro" ||
+                        (st in setOf("pendente", "criando", "cabecalho") && it[CompraAjustePesoNotasTable.tentativas] > 0) ||
+                        (st in setOf("criando", "cabecalho") && it[CompraAjustePesoNotasTable.atualizadoEm].isBefore(limite))
+                }
+                .sortedByDescending { it[CompraAjustePesoNotasTable.atualizadoEm] }
+                .toList()
+        }
+        return linhas.map { r ->
+            val nunota = r[CompraAjustePesoNotasTable.nunota].toLong()
+            wms.backend.tarefas.PendenciaAjustePesoDto(
+                nunota = nunota,
+                numeroNota = wms.backend.tarefas.TarefasRepository.buscarNumNotaLocal(tenantId, nunota),
+                fornecedor = wms.backend.tarefas.TarefasRepository.buscarNomeParceiroLocal(tenantId, nunota),
+                sentido = r[CompraAjustePesoNotasTable.sentido],
+                status = r[CompraAjustePesoNotasTable.status],
+                tentativas = r[CompraAjustePesoNotasTable.tentativas],
+                erro = r[CompraAjustePesoNotasTable.ultimoErro]?.takeIf { it.isNotBlank() },
+                nunotaAjuste = r[CompraAjustePesoNotasTable.nunotaAjuste],
+                atualizadoEm = r[CompraAjustePesoNotasTable.atualizadoEm].toString(),
+            )
+        }
+    }
+
     /** Recoloca na fila um ajuste que parou em erro (botão "Gerar ajuste de novo" do card). */
     fun reprocessar(tenantId: UUID, nunota: Long): Int = TenantTx.run(tenantId) {
         CompraAjustePesoNotasTable.update({

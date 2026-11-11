@@ -33,6 +33,7 @@ const ITENS: ItemMenu[] = [
   // Fica aberta no computador da expedição: romaneio + DANFEs saem sozinhos (agente) ao fechar a OC.
   { rota: '/impressao-oc', label: 'Impressão de OCs', icone: 'impressora' },
   { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
+  { rota: '/pendencias-integracao', label: 'Pendências de Integração', icone: 'circle-alert' },
   { rota: '/consulta-produtos', label: 'Consulta de Produtos', icone: 'search' },
   { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },
   // TV de acompanhamento (painel de parede) — permissão TV: admin (a conta de TV já cai direto nela).
