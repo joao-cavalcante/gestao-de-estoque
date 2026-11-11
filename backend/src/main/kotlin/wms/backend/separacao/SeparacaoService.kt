@@ -1170,31 +1170,39 @@ object SeparacaoService {
         }
         if (!segmentado) return emptyMap()
 
-        val tiposPorNunota = itensPorTipoFila(tenantSlug, tenantId, nunotas).mapValues { (_, porTipo) -> porTipo.keys.sorted() }
-
-        val concluidos = withContext(Dispatchers.IO) {
-            SeparacaoRepository.etapasConcluidasPorNunota(tenantId, nunotas)
+        // As consultas são independentes — rodam juntas, num escopo só (11/11/2026: em sequência somavam ~0,4 s por
+        // chamada da fila).
+        class Leituras(
+            val tiposPorNunota: Map<Long, List<Int>>,
+            val concluidos: Map<Long, List<Int>>,
+            val divergentes: Map<Long, List<Int>>,
+            val progresso: Map<Long, Map<Int, SeparacaoRepository.ProgressoEtapa>>,
+            val emRecontagem: Set<Long>,
+            val semEtapa: Set<Long>,
+        )
+        val l = coroutineScope {
+            val tipos = async { itensPorTipoFila(tenantSlug, tenantId, nunotas).mapValues { (_, porTipo) -> porTipo.keys.sorted() } }
+            val concluidos = async(Dispatchers.IO) { SeparacaoRepository.etapasConcluidasPorNunota(tenantId, nunotas) }
+            val divergentes = async(Dispatchers.IO) { SeparacaoRepository.etapasDivergentesPorNunota(tenantId, nunotas) }
+            val progresso = async(Dispatchers.IO) { SeparacaoRepository.progressoEtapasPorNunota(tenantId, nunotas) }
+            // RECONTAGEM é sempre etapa única (ver carregarEmBackground/ehRecontagem) — nota com sessão CONCLUIDA anterior
+            // não entra no breakdown, senão o card oferece "Conferir por etapa" pra uma conferência que vai abrir sem etapa.
+            val recontagem = async(Dispatchers.IO) { SeparacaoRepository.nunotasComSessaoConcluida(tenantId, nunotas) }
+            // TOP com conferência por etapa desligada (V49, ex.: entrada/compra): card sem chips de etapa,
+            // igual à sessão que vai abrir (carregarEmBackground aplica a mesma regra).
+            val semEtapa = async(Dispatchers.IO) {
+                val topsSemEtapa = wms.backend.tipooperacao.TipoOperacaoRepository.topsSemConferenciaPorEtapa(tenantId)
+                if (topsSemEtapa.isEmpty()) emptySet()
+                else TarefasRepository.codTipOperPorNunota(tenantId, nunotas).filterValues { it in topsSemEtapa }.keys
+            }
+            Leituras(tipos.await(), concluidos.await(), divergentes.await(), progresso.await(), recontagem.await(), semEtapa.await())
         }
-        val divergentes = withContext(Dispatchers.IO) {
-            SeparacaoRepository.etapasDivergentesPorNunota(tenantId, nunotas)
-        }
-        val progresso = withContext(Dispatchers.IO) {
-            SeparacaoRepository.progressoEtapasPorNunota(tenantId, nunotas)
-        }
-        // RECONTAGEM é sempre etapa única (ver carregarEmBackground/ehRecontagem)
-        // — nota com sessão CONCLUIDA anterior não entra no breakdown, senão o
-        // card oferece "Conferir por etapa" pra uma conferência que vai abrir
-        // sem etapa nenhuma.
-        val emRecontagem = withContext(Dispatchers.IO) {
-            SeparacaoRepository.nunotasComSessaoConcluida(tenantId, nunotas)
-        }
-        // TOP com conferência por etapa desligada (V49, ex.: entrada/compra): card sem chips de etapa,
-        // igual à sessão que vai abrir (carregarEmBackground aplica a mesma regra).
-        val semEtapa = withContext(Dispatchers.IO) {
-            val topsSemEtapa = wms.backend.tipooperacao.TipoOperacaoRepository.topsSemConferenciaPorEtapa(tenantId)
-            if (topsSemEtapa.isEmpty()) emptySet()
-            else TarefasRepository.codTipOperPorNunota(tenantId, nunotas).filterValues { it in topsSemEtapa }.keys
-        }
+        val tiposPorNunota = l.tiposPorNunota
+        val concluidos = l.concluidos
+        val divergentes = l.divergentes
+        val progresso = l.progresso
+        val emRecontagem = l.emRecontagem
+        val semEtapa = l.semEtapa
         return nunotas.associateWith { nunota ->
             // Conferência já aberta: as etapas são as da sessão (critério com que ela nasceu — ver CriterioEtapa),
             // senão o card mostraria Não pesáveis/Pesáveis pra uma sessão aberta em Secos/Refrigerado/Congelado.
@@ -1566,6 +1574,13 @@ object SeparacaoService {
         // txProperties "central.notas.pode.efetivar_2587" = true (payload capturado da tela nativa, pedido 64886, 09/10/2026).
         // Um produto por rodada — repete até passar.
         val confirmacoes = LinkedHashMap<String, String>()
+        // Já confirma TODOS os produtos do pedido na 1ª chamada (11/11/2026): a Torre sempre responde "sim" a essa
+        // pergunta, e cada rodada era um faturar inteiro de 2,5–5 s (pedido 83571: 3 faturar, ~10 s, segurou o Fechar OC
+        // de 21 s). A confirmação de um produto com estoque sobrando não muda nada. Falha na leitura = rodadas como antes.
+        runCatching {
+            SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT DISTINCT CODPROD FROM TGFITE WHERE NUNOTA = $nunota")
+                .mapNotNull { it["CODPROD"]?.trim()?.substringBefore('.')?.takeIf { c -> c.isNotEmpty() } }
+        }.getOrDefault(emptyList()).forEach { confirmacoes["central.notas.pode.efetivar_$it"] = "true" }
         fun requestBody() = buildJsonObject {
             putJsonObject("notas") {
                 put("codTipOper", codTipOper)
