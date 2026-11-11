@@ -1241,6 +1241,11 @@ object SeparacaoService {
                 }
             }
         }
+        // Tudo em cache (o caso comum): responde sem a trava — antes esperava a releitura de fundo, que segura a trava
+        // enquanto o Sankhya responde (itens-fila/etapas-fila com p95 de 5–6 s, 11/11/2026).
+        if (distintas.all { itensFilaCache.containsKey("$tenantId:$it") }) {
+            return distintas.associateWith { itensFilaCache["$tenantId:$it"]?.valor ?: emptyMap() }.filterValues { it.isNotEmpty() }
+        }
         return itensFilaMutex.withLock {
             // Nunca vista (ou esquecida há mais de 30 min): espera a consulta.
             itensFilaCache.entries.removeIf { it.value.expiraEm <= agora - 30 * 60_000 }
@@ -1268,9 +1273,8 @@ object SeparacaoService {
                 },
             )
             val decisor = if (!porPeso) wms.backend.produtos.RegraPesavel.NENHUM else runCatching {
-                wms.backend.produtos.RegraPesavel.decisor(
-                    tenantSlug, tenantId,
-                    wms.backend.produtos.RegraPesavel.filtroCodprods(linhas.mapNotNull { it["CODPROD"]?.toBigDecimalOrNull()?.toInt() }),
+                wms.backend.produtos.RegraPesavel.decisorEmCache(
+                    tenantSlug, tenantId, linhas.mapNotNull { it["CODPROD"]?.toBigDecimalOrNull()?.toInt() },
                 )
             }.onFailure { println("AVISO: falha ao decidir pesáveis da fila (tenant $tenantId): ${it.message}") }
                 .getOrDefault(wms.backend.produtos.RegraPesavel.NENHUM)

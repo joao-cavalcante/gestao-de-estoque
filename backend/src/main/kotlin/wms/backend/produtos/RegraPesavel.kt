@@ -43,6 +43,53 @@ object RegraPesavel {
     /** Nenhum item pesável — fallback de quem não pode travar por falha de leitura (ex.: abrir conferência). */
     val NENHUM = Decisor { _, _ -> false }
 
+    // ─── Cache curto pra fila (cards a cada poll) ─────────────────────────────────────────────
+    // A fila consultava a TGFPRO a cada releitura dos cards (112 consultas em 15 min, 11/11/2026). Cadastro de
+    // produto quase não muda: 10 min de cache. A abertura da conferência e o Mapa continuam lendo ao vivo ([decisor]).
+    private const val TTL_CACHE_MS = 10 * 60_000L
+    private data class Cadastro(val porProduto: Boolean, val adPesavel: String?, val codvol: String?, val lidoEm: Long)
+    private val cacheProduto = java.util.concurrent.ConcurrentHashMap<Pair<UUID, Int>, Cadastro>()
+    private val cacheUnidades = java.util.concurrent.ConcurrentHashMap<UUID, Pair<Set<String>, Long>>()
+
+    /** Mesma regra de [decisor], com o cadastro dos produtos em cache de 10 min — só pros cards da fila. */
+    suspend fun decisorEmCache(tenantSlug: String, tenantId: UUID, codprods: Collection<Int>): Decisor {
+        val distintos = codprods.distinct()
+        if (distintos.isEmpty()) return NENHUM
+        val porProduto = withContext(Dispatchers.IO) { TenantRepository.modulosHabilitados(tenantId).contains(Modulos.PESAVEL_POR_PRODUTO) }
+        val agora = System.currentTimeMillis()
+        val faltam = distintos.filter { c ->
+            cacheProduto[tenantId to c]?.let { it.porProduto == porProduto && agora - it.lidoEm < TTL_CACHE_MS } != true
+        }
+        if (faltam.isNotEmpty()) {
+            val coluna = if (porProduto) "AD_PESAVEL" else "CODVOL"
+            val lidos = HashMap<Int, String?>()
+            for (lote in faltam.chunked(500)) {
+                SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT CODPROD, $coluna FROM TGFPRO WHERE CODPROD IN (${lote.joinToString(",")})")
+                    .forEach { r -> r["CODPROD"]?.toIntOrNull()?.let { lidos[it] = r[coluna] } }
+            }
+            if (porProduto) {
+                val semCadastro = faltam.filter { lidos[it].isNullOrBlank() }
+                if (semCadastro.isNotEmpty()) {
+                    println("AVISO: TGFPRO.AD_PESAVEL nulo/vazio (tenant $tenantSlug) — tratado como NÃO pesável: produtos ${semCadastro.sorted()}")
+                }
+            }
+            faltam.forEach { c ->
+                cacheProduto[tenantId to c] = Cadastro(porProduto, if (porProduto) lidos[c] else null, if (porProduto) null else lidos[c], agora)
+            }
+        }
+        val unidades = if (porProduto) emptySet() else {
+            cacheUnidades[tenantId]?.takeIf { agora - it.second < TTL_CACHE_MS }?.first
+                ?: SankhyaDbExplorerClient.executarQuery(tenantSlug, "SELECT CODVOL FROM TGFVOL WHERE UTILICONFPESO = 'S'")
+                    .mapNotNull { it["CODVOL"]?.trim()?.takeIf { cv -> cv.isNotEmpty() } }
+                    .toSet()
+                    .also { cacheUnidades[tenantId] = it to agora }
+        }
+        return Decisor { codprod, codvolLinha ->
+            val c = cacheProduto[tenantId to codprod]
+            ehPesavel(porProduto, c?.adPesavel, c?.codvol, codvolLinha, unidades)
+        }
+    }
+
     /** Filtro SQL de produtos por lista de códigos (só inteiros — sem risco de injeção). */
     fun filtroCodprods(codprods: Collection<Int>): String? =
         codprods.distinct().takeIf { it.isNotEmpty() }?.let { "CODPROD IN (${it.joinToString(",")})" }
