@@ -289,7 +289,11 @@ export class PlantaEditorComponent implements OnInit, OnDestroy {
     this.alterar((g) => ({ ...g, setores: [...g.setores, { codigo: `SETOR${i}`, nome: `Setor ${i}`, cor: '#7a6aa8' }] }));
   }
 
-  alterarSetor(indice: number, campo: keyof SetorPlanta, valor: string): void {
+  alterarTipoSetor(indice: number, tipo: number | null): void {
+    this.alterar((g) => ({ ...g, setores: g.setores.map((s, i) => (i === indice ? { ...s, tipoSeparacao: tipo } : s)) }));
+  }
+
+  alterarSetor(indice: number, campo: 'codigo' | 'nome' | 'cor', valor: string): void {
     const antigo = this.g().setores[indice];
     const v = campo === 'codigo' ? valor.trim().toUpperCase() : valor;
     if (campo === 'codigo' && (!v || this.g().setores.some((s, i) => i !== indice && s.codigo === v))) {

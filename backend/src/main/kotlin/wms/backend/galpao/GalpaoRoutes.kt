@@ -119,6 +119,53 @@ fun Route.galpaoRoutes() {
                 }
         }
 
+        /**
+         * Alertas da planta. Cada nova fotografia do Sankhya gera/atualiza os alertas (deduplicados); Sankhya fora =
+         * lista o que já existe com aviso. `?atualizar=true` força nova leitura.
+         */
+        get("/plantas/{id}/alertas") {
+            val claims = call.exigirGalpao() ?: return@get
+            val id = call.uuid("id") ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val planta = GalpaoRepository.buscarPlanta(claims.tenantId, id)
+                ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Planta não encontrada"))
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
+                ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Instalação não encontrada"))
+            val forcar = call.request.queryParameters["atualizar"] == "true"
+            val geracao = runCatching {
+                val (leitura, analises) = GalpaoAnalisesService.fotografia(claims.tenantId, slug, planta, forcar)
+                val fisicos = analises.produtos.associate { it.codprod to FisicoProduto(it.pesoBruto, it.m3) }
+                GalpaoAlertas.gerarSeNovo(claims.tenantId, id, leitura.lidoEm, analises.parametros.slaAlertaHoras) {
+                    val visao = GalpaoRepository.visao(claims.tenantId, id, fisicos) ?: error("Planta não encontrada")
+                    GalpaoAlertas.ocorrencias(leitura, analises, visao)
+                }
+                leitura.lidoEm.toString()
+            }.onFailure { println("AVISO: galpão — alertas não gerados: ${it.message}") }
+            call.respond(
+                AlertasPlantaDto(
+                    alertas = GalpaoAlertas.listar(claims.tenantId, id),
+                    geradoEm = geracao.getOrNull(),
+                    aviso = geracao.exceptionOrNull()?.let {
+                        if (it is GalpaoAnalisesService.PlantaSemLocal) it.message
+                        else "Sankhya indisponível — alertas da última leitura: ${it.message}"
+                    },
+                ),
+            )
+        }
+
+        /** Reconhecer / atribuir / resolver / reabrir um alerta (TV não trata). Versão velha = 409. */
+        post("/plantas/{id}/alertas/{alertaId}") {
+            val claims = call.exigirGalpao() ?: return@post
+            if (claims.perfil == "TV") return@post call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "Perfil sem permissão para tratar alertas"))
+            val id = call.uuid("id") ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val alertaId = call.uuid("alertaId") ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val body = call.receive<TratarAlertaRequest>()
+            when (val r = GalpaoAlertas.tratar(claims.tenantId, id, alertaId, body, nomeUsuario(claims))) {
+                is GalpaoAlertas.ResultadoTratamento.Ok -> call.respond(r.alerta)
+                is GalpaoAlertas.ResultadoTratamento.Erro ->
+                    call.respond(if (r.conflito) HttpStatusCode.Conflict else HttpStatusCode.BadRequest, mapOf("erro" to r.mensagem))
+            }
+        }
+
         /** Feed da visão: últimos movimentos físicos da planta (consulta, qualquer usuário). */
         get("/plantas/{id}/feed") {
             val claims = call.exigirGalpao() ?: return@get

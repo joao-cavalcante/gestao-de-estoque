@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { GalpaoService } from '../galpao.service';
-import { AnalisesPlanta, Endereco, IndicadoresPlanta, Movimento, ProdutoAnalise, ROTULO_MOVIMENTO, ROTULO_VALIDADE, SaldoEndereco, VisaoPlanta } from '../galpao.model';
+import { AlertasPlanta, AnalisesPlanta, Endereco, IndicadoresPlanta, Movimento, ProdutoAnalise, ROTULO_MOVIMENTO, ROTULO_VALIDADE, SaldoEndereco, VisaoPlanta } from '../galpao.model';
 import { MovimentoModalComponent, TipoModal, novoId } from '../movimento-modal/movimento-modal.component';
 import { Camadas, Camera, Cena3d } from '../cena-3d';
-import { COR_LIVRE_PADRAO, ContextoAnalise, MODOS_ANALISE, ModoCor, OPCOES_MODO, corEndereco, faixaRazao, faixaValidade, legendaModo, recente } from '../modos-cor';
+import { COR_LIVRE_PADRAO, ContextoAlertas, ContextoAnalise, MODOS_ANALISE, ModoCor, OPCOES_MODO, corEndereco, faixaRazao, faixaValidade, legendaModo, recente } from '../modos-cor';
 import { exportarEnderecosCsv, exportarEnderecosExcel } from '../enderecos-exportacao';
 import { mensagemErro } from '../plantas-lista/plantas-lista.component';
 
@@ -68,6 +68,23 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
   readonly analises = signal<AnalisesPlanta | null>(null);
   readonly carregandoAnalises = signal(false);
   readonly rotuloValidade = ROTULO_VALIDADE;
+  readonly alertas = signal<AlertasPlanta | null>(null);
+  readonly contextoAlertas = computed<ContextoAlertas | null>(() => {
+    const a = this.alertas();
+    if (!a) return null;
+    const porProduto = new Map<number, 'CRITICO' | 'ATENCAO'>();
+    const porEndereco = new Map<string, 'CRITICO' | 'ATENCAO'>();
+    const marcar = <K>(m: Map<K, 'CRITICO' | 'ATENCAO'>, k: K, sev: 'CRITICO' | 'ATENCAO') => {
+      if (m.get(k) !== 'CRITICO') m.set(k, sev);
+    };
+    for (const x of a.alertas) {
+      if (x.status === 'RESOLVIDO' || x.severidade === 'INFO') continue;
+      if (x.enderecoId) marcar(porEndereco, x.enderecoId, x.severidade);
+      else if (x.codprod != null) marcar(porProduto, x.codprod, x.severidade);
+    }
+    return { porProduto, porEndereco };
+  });
+  readonly criticosAbertos = computed(() => this.alertas()?.alertas.filter((x) => x.status !== 'RESOLVIDO' && x.severidade === 'CRITICO').length ?? 0);
   readonly feed = signal<Movimento[]>([]);
   readonly modo = signal<ModoCor>('setor');
   readonly vista = signal<'3d' | 'tabela'>('3d');
@@ -171,6 +188,7 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     this.carregar();
     this.carregarIndicadores();
     this.carregarAnalises(false);
+    this.carregarAlertas(false);
     this.service.disponivel().subscribe({ next: (r) => this.podeMovimentar.set(r.podeEditar), error: () => undefined });
     this.timerFeed = setInterval(() => this.carregarFeed(true), INTERVALO_FEED_MS);
   }
@@ -234,6 +252,20 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  carregarAlertas(atualizar: boolean): void {
+    this.service.alertas(this.plantaId, atualizar).subscribe({
+      next: (a) => {
+        this.alertas.set(a);
+        if (this.modo() === 'alertas') this.aplicarCores();
+      },
+      error: () => undefined,
+    });
+  }
+
+  abrirAlertas(): void {
+    this.router.navigate(['/galpao', this.plantaId, 'alertas']);
+  }
+
   /** Análise do produto (ABC, saúde…) pro painel do endereço. */
   analiseDe(codprod: number): ProdutoAnalise | undefined {
     return this.contextoAnalise()?.porProduto.get(codprod);
@@ -266,6 +298,7 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     this.carregar(true);
     this.carregarIndicadores();
     this.carregarAnalises(true);
+    this.carregarAlertas(true);
   }
 
   voltar(): void {
@@ -287,6 +320,7 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     if (!opcao?.disponivel) return;
     this.modo.set(m as ModoCor);
     if (MODOS_ANALISE.has(m) && !this.analises() && !this.carregandoAnalises()) this.carregarAnalises(false);
+    if (m === 'alertas' && !this.alertas()) this.carregarAlertas(false);
     this.aplicarCores();
   }
 
@@ -296,7 +330,8 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     const modo = this.modo();
     const agora = Date.now();
     const ctx = this.contextoAnalise();
-    this.cena?.definirCores((_p, i) => corEndereco(lista[i], modo, setores, this.corLivre, agora, ctx));
+    const al = this.contextoAlertas();
+    this.cena?.definirCores((_p, i) => corEndereco(lista[i], modo, setores, this.corLivre, agora, ctx, al));
   }
 
   trocarCamera(c: Camera): void {

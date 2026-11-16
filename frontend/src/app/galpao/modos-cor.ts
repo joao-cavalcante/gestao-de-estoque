@@ -7,7 +7,16 @@ import { Endereco, FaixaValidade, ProdutoAnalise, SetorPlanta } from './galpao.m
  */
 export type ModoCor =
   | 'setor' | 'ocupacao' | 'peso' | 'volume' | 'movimento' | 'separacao' | 'tipo'
-  | 'abc' | 'abc_qtd' | 'abc_freq' | 'validade' | 'saude' | 'cobertura' | 'parado';
+  | 'abc' | 'abc_qtd' | 'abc_freq' | 'validade' | 'saude' | 'cobertura' | 'parado' | 'alertas';
+
+/**
+ * Alertas em aberto (não resolvidos) por produto e por endereço — modo "Alertas e divergências".
+ * INFO não pinta (ex.: "validade não informada" em todo lote deixaria a planta inteira amarela).
+ */
+export interface ContextoAlertas {
+  porProduto: Map<number, 'CRITICO' | 'ATENCAO'>;
+  porEndereco: Map<string, 'CRITICO' | 'ATENCAO'>;
+}
 
 /** Modos que precisam da fotografia analítica. */
 export const MODOS_ANALISE = new Set<string>(['abc', 'abc_qtd', 'abc_freq', 'validade', 'saude', 'cobertura', 'parado']);
@@ -41,7 +50,7 @@ export const OPCOES_MODO: OpcaoModo[] = [
   { valor: 'parado', rotulo: 'Estoque parado', disponivel: true },
   { valor: 'separacao', rotulo: 'Separação em andamento', disponivel: true },
   { valor: 'movimento', rotulo: 'Movimentação física recente', disponivel: true },
-  { valor: 'alertas', rotulo: 'Alertas e divergências', disponivel: false },
+  { valor: 'alertas', rotulo: 'Alertas e divergências', disponivel: true },
   { valor: 'peso', rotulo: 'Capacidade por peso', disponivel: true },
   { valor: 'volume', rotulo: 'Capacidade por volume', disponivel: true },
   { valor: 'tipo', rotulo: 'Picking × pulmão', disponivel: true },
@@ -127,8 +136,14 @@ export function corEndereco(
   livre: string,
   agora = Date.now(),
   analise: ContextoAnalise | null = null,
+  alertas: ContextoAlertas | null = null,
 ): string {
-  if (e.bloqueado && modo !== 'setor') return COR_BLOQUEADO;
+  if (e.bloqueado && modo !== 'setor' && modo !== 'alertas') return COR_BLOQUEADO;
+  if (modo === 'alertas') {
+    if (!alertas) return ND;
+    const sev = [alertas.porEndereco.get(e.id), ...e.saldos.map((s) => alertas.porProduto.get(s.codprod))];
+    return sev.includes('CRITICO') ? VERMELHO : sev.includes('ATENCAO') ? AMBAR : e.quantidade > 0 || e.bloqueado ? VERDE : livre;
+  }
   if (MODOS_ANALISE.has(modo)) return corAnalise(e, modo, livre, analise);
   switch (modo) {
     case 'setor':
@@ -197,6 +212,8 @@ export function legendaModo(
       ];
     case 'parado':
       return [['Sem venda na janela', AMBAR], ['Com venda', VERDE], ...fim];
+    case 'alertas':
+      return [['Crítico', VERMELHO], ['Atenção', AMBAR], ['Sem alerta', VERDE], ['Vazio', livre], ['N/D', ND]];
   }
 }
 

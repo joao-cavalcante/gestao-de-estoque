@@ -182,6 +182,17 @@
                   <input type="color" [ngModel]="s.cor" (change)="alterarSetor(i, 'cor', $any($event.target).value)" title="Cor" />
                   <input class="ge-setores__codigo" [ngModel]="s.codigo" (change)="alterarSetor(i, 'codigo', $any($event.target).value)" title="Código" />
                   <input [ngModel]="s.nome" (change)="alterarSetor(i, 'nome', $any($event.target).value)" title="Nome" />
+                  <select
+                    class="ge-setores__tipo"
+                    [ngModel]="s.tipoSeparacao ?? null"
+                    (ngModelChange)="alterarTipoSetor(i, $event)"
+                    title="Tipo de separação do produto no Sankhya (AD_TIPOSEPARACAO) que este setor recebe — usado nos alertas de setor incompatível e no slotting"
+                  >
+                    <option [ngValue]="null">Qualquer produto</option>
+                    <option [ngValue]="1">Seco (1)</option>
+                    <option [ngValue]="2">Refrigerado (2)</option>
+                    <option [ngValue]="3">Congelado (3)</option>
+                  </select>
                   <button type="button" (click)="removerSetor(i)" title="Remover setor"><oq-icon name="x" [size]="11" /></button>
                 </li>
               }

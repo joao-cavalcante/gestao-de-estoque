@@ -20,7 +20,7 @@ object GalpaoAnalisesService {
     private val ZONA = ZoneId.of("America/Sao_Paulo")
 
     /** Só o que vem do Sankhya fica em cache; o endereçado (muda a cada movimentação) é lido a cada pedido. */
-    private data class Leitura(
+    data class Leitura(
         val produtos: List<LinhaProduto>,
         val estoque: List<LinhaEstoque>,
         val vendas: List<GalpaoAnalises.LinhaVenda>,
@@ -35,7 +35,11 @@ object GalpaoAnalisesService {
     /** Parâmetros em uso. Hoje os padrões do Planta Log; a Administração da planta passa a gravá-los. */
     fun parametros(@Suppress("UNUSED_PARAMETER") tenantId: UUID, @Suppress("UNUSED_PARAMETER") plantaId: UUID) = ParametrosAnaliseDto()
 
-    suspend fun analises(tenantId: UUID, slug: String, planta: PlantaDto, forcar: Boolean = false): AnalisesPlantaDto {
+    suspend fun analises(tenantId: UUID, slug: String, planta: PlantaDto, forcar: Boolean = false): AnalisesPlantaDto =
+        fotografia(tenantId, slug, planta, forcar).second
+
+    /** Leitura bruta do Sankhya (estoque por lote etc.) + a análise montada — base dos alertas. */
+    suspend fun fotografia(tenantId: UUID, slug: String, planta: PlantaDto, forcar: Boolean = false): Pair<Leitura, AnalisesPlantaDto> {
         val codemp = planta.codemp ?: throw PlantaSemLocal()
         val codlocal = planta.codlocal ?: throw PlantaSemLocal()
         val plantaId = UUID.fromString(planta.id)
@@ -53,7 +57,7 @@ object GalpaoAnalisesService {
                 Leitura(produtos.await(), estoque.await(), vendas.await(), compras.await(), p, Instant.now())
             }.also { cache[chave] = it }
         }
-        return montar(
+        return leitura to montar(
             leitura.produtos, leitura.estoque, leitura.vendas, leitura.compras,
             GalpaoRepository.enderecadoPorProduto(tenantId, plantaId), p, LocalDate.now(ZONA), leitura.lidoEm,
         )

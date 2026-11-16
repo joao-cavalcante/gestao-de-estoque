@@ -196,10 +196,11 @@
   flex-direction: column;
   gap: 6px;
 
-  li { display: flex; align-items: center; gap: 6px; }
-  input { font: 12px var(--oq-font-body); padding: 5px 6px; border: 1px solid var(--oq-border); border-radius: var(--oq-radius-input); background: var(--oq-surface); min-width: 0; flex: 1; }
+  li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  input, select { font: 12px var(--oq-font-body); padding: 5px 6px; border: 1px solid var(--oq-border); border-radius: var(--oq-radius-input); background: var(--oq-surface); min-width: 0; flex: 1; }
   input[type='color'] { flex: none; width: 30px; height: 28px; padding: 1px; }
   &__codigo { font-family: var(--oq-font-mono) !important; max-width: 100px; }
+  &__tipo { flex: 1 1 100%; color: var(--oq-text-primary); }
   button { border: 0; background: transparent; cursor: pointer; color: var(--oq-text-secondary); }
 }
 

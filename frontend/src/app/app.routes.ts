@@ -86,6 +86,11 @@ export const routes: Routes = [
     loadComponent: () => import('./galpao/planta-produtos/planta-produtos.component').then((m) => m.PlantaProdutosComponent),
   },
   {
+    path: 'galpao/:id/alertas',
+    canActivate: [authGuard],
+    loadComponent: () => import('./galpao/planta-alertas/planta-alertas.component').then((m) => m.PlantaAlertasComponent),
+  },
+  {
     path: 'galpao/:id/editor',
     canActivate: [adminGuard],
     loadComponent: () => import('./galpao/planta-editor/planta-editor.component').then((m) => m.PlantaEditorComponent),

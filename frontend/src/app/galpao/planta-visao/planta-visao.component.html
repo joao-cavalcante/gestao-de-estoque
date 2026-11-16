@@ -25,6 +25,9 @@
       </button>
       <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirEditor()">Editor da planta</button>
     }
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirAlertas()" title="Alertas da operação: evidências, prioridade e tratamento">
+      Alertas @if (criticosAbertos()) { <span class="gv-chip gv-chip--alerta">{{ criticosAbertos() }} crítico(s)</span> }
+    </button>
     <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirProdutos()" title="Curva ABC, cobertura, validade e saúde do estoque">
       Produtos
     </button>

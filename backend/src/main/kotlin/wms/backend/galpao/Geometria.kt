@@ -32,7 +32,13 @@ data class GeometriaPlanta(
 )
 
 @Serializable
-data class SetorPlanta(val codigo: String, val nome: String, val cor: String = "#4a7bd0")
+data class SetorPlanta(
+    val codigo: String,
+    val nome: String,
+    val cor: String = "#4a7bd0",
+    /** AD_TIPOSEPARACAO do Sankhya que este setor recebe (1 Seco, 2 Refrigerado, 3 Congelado); null = qualquer. */
+    val tipoSeparacao: Int? = null,
+)
 
 @Serializable
 data class ObjetoPlanta(

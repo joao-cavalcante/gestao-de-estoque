@@ -198,6 +198,8 @@ data class ParametrosAnaliseDto(
     val setorPeloGrupo: Boolean = false,
     /** TIPMOV das notas usadas como "última compra" na idade aproximada. */
     val tipmovCompra: List<String> = listOf("C"),
+    /** Prazo de tratamento dos alertas (ALERT / SLA_HOURS do Planta Log). */
+    val slaAlertaHoras: Int = 24,
 )
 
 @Serializable

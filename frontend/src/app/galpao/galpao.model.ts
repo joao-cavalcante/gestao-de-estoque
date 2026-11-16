@@ -6,6 +6,8 @@ export interface SetorPlanta {
   codigo: string;
   nome: string;
   cor: string;
+  /** AD_TIPOSEPARACAO do Sankhya que o setor recebe (1 Seco, 2 Refrigerado, 3 Congelado); ausente = qualquer. */
+  tipoSeparacao?: number | null;
 }
 
 export interface ObjetoPlanta {
@@ -383,3 +385,65 @@ export function abcDa(p: ProdutoAnalise, m: MetricaAbc): { classe: ClasseAbc; pa
   if (m === 'FREQUENCIA') return { classe: p.abcFreq, participacao: p.participacaoFreq, acumulado: p.acumuladoFreq };
   return { classe: p.abc, participacao: p.participacao, acumulado: p.acumulado };
 }
+
+// ─── Alertas — GET/POST /plantas/{id}/alertas ───
+
+export type SeveridadeAlerta = 'CRITICO' | 'ATENCAO' | 'INFO';
+export type StatusAlerta = 'ABERTO' | 'RECONHECIDO' | 'RESOLVIDO';
+
+export interface Alerta {
+  id: string;
+  codigo: string;
+  severidade: SeveridadeAlerta;
+  entidade: 'PRODUTO' | 'ESTOQUE' | 'ENDERECO' | 'CONFERENCIA';
+  mensagem: string;
+  evidencia: Record<string, unknown>;
+  codprod: number | null;
+  produto: string | null;
+  controle: string | null;
+  enderecoId: string | null;
+  endereco: string | null;
+  status: StatusAlerta;
+  atribuido: string | null;
+  slaHoras: number;
+  versao: number;
+  criadoEm: string;
+  vistoEm: string;
+  reconhecidoEm: string | null;
+  resolvidoEm: string | null;
+  tratadoPor: string | null;
+  slaVencido: boolean;
+  /** A última geração ainda encontrou a condição. */
+  vigente: boolean;
+}
+
+export interface AlertasPlanta {
+  alertas: Alerta[];
+  geradoEm: string | null;
+  aviso: string | null;
+}
+
+export const ROTULO_SEVERIDADE: Record<SeveridadeAlerta, string> = { CRITICO: 'Crítico', ATENCAO: 'Atenção', INFO: 'Informativo' };
+export const ROTULO_STATUS_ALERTA: Record<StatusAlerta, string> = { ABERTO: 'Aberto', RECONHECIDO: 'Reconhecido', RESOLVIDO: 'Resolvido' };
+
+export const ROTULO_CODIGO_ALERTA: Record<string, string> = {
+  ESTOQUE_NEGATIVO: 'Estoque negativo',
+  RESERVA_EXCEDENTE: 'Reserva maior que o estoque',
+  VALIDADE_AUSENTE: 'Validade não informada',
+  SEM_SETOR: 'Produto sem setor',
+  DIMENSOES_AUSENTES: 'Peso/volume ausentes',
+  ESTOQUE_PARADO: 'Estoque parado',
+  COBERTURA_BAIXA: 'Cobertura baixa',
+  COBERTURA_ALTA: 'Cobertura alta',
+  VALIDADE_VENCIDO: 'Validade vencida',
+  VALIDADE_ATE_30: 'Vence em até 30 dias',
+  VALIDADE_31_90: 'Vence em 31–90 dias',
+  RUPTURA: 'Ruptura',
+  CAPACIDADE_AUSENTE: 'Capacidade não parametrizada',
+  SOBRECAPACIDADE: 'Acima da capacidade',
+  BLOQUEADO_COM_SALDO_TAREFA: 'Bloqueado com saldo',
+  SETOR_INCOMPATIVEL: 'Setor incompatível',
+  SALDO_SEM_ENDERECO: 'Saldo sem endereço',
+  RECONCILIACAO: 'Diferença contábil × endereçado',
+  CONFERENCIA_DIVERGENTE: 'Conferência divergente',
+};

@@ -1,0 +1,151 @@
+<div class="gp">
+  <div class="gv-barra">
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="voltar()" title="Voltar para a planta">
+      <oq-icon name="arrow-left" [size]="12" />
+    </button>
+    <div class="gv-titulo">
+      <span class="gv-titulo__nome">Alertas da operação — {{ planta()?.nome ?? '' }}</span>
+      <span class="gv-titulo__sub">
+        Evidências, prioridade e tratamento das ocorrências
+        @if (dados()?.geradoEm; as g) { · leitura do Sankhya de {{ g | date: 'dd/MM/yyyy HH:mm' }} }
+      </span>
+    </div>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="exportar('csv')" [disabled]="!linhas().length">CSV ↓</button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="exportar('xlsx')" [disabled]="!linhas().length || exportando()">
+      {{ exportando() ? 'Gerando…' : 'Excel ↓' }}
+    </button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregar(true)" [disabled]="carregando()" title="Ler o Sankhya de novo e gerar os alertas">
+      <oq-icon name="sync" [size]="12" /> {{ carregando() ? 'Lendo…' : 'Atualizar' }}
+    </button>
+  </div>
+
+  @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+  @if (dados()?.aviso; as av) { <div class="gc-aviso">{{ av }}</div> }
+  @if (feedback(); as f) { <span class="oq-form-hint" [class.oq-form-hint--erro]="f.erro">{{ f.texto }}</span> }
+
+  @if (dados()) {
+    <div class="gp-kpis">
+      <div class="ga-kpi ga-kpi--critico"><b>{{ resumo().criticos }}</b>críticos em aberto</div>
+      <div class="ga-kpi ga-kpi--atencao"><b>{{ resumo().atencao }}</b>de atenção em aberto</div>
+      <div class="ga-kpi ga-kpi--info"><b>{{ resumo().info }}</b>informativos em aberto</div>
+      <div><b>{{ resumo().reconhecidos }}</b>reconhecidos</div>
+      <div><b>{{ resumo().slaVencido }}</b>com SLA vencido</div>
+    </div>
+
+    <div class="ga-chips" aria-label="Filtrar por tipo de ocorrência">
+      @for (c of porCodigo(); track c.codigo) {
+        <button type="button" class="ga-chip" [class.ga-chip--ativo]="filtroCodigo() === c.codigo" (click)="filtrarCodigo(c.codigo)">
+          {{ rotuloCodigo[c.codigo] ?? c.codigo }} <b>{{ c.total }}</b>
+        </button>
+      }
+    </div>
+
+    <div class="gc-filtros">
+      <label>Pesquisar<input [ngModel]="busca()" (ngModelChange)="busca.set($event); pagina.set(1)" placeholder="Produto, endereço, lote, responsável" /></label>
+      <label>Status
+        <select [ngModel]="filtroStatus()" (ngModelChange)="filtroStatus.set($event); pagina.set(1)">
+          <option value="EM_ABERTO">Em aberto (aberto + reconhecido)</option>
+          <option value="ABERTO">Aberto</option>
+          <option value="RECONHECIDO">Reconhecido</option>
+          <option value="RESOLVIDO">Resolvido</option>
+          <option value="">Todos</option>
+        </select>
+      </label>
+      <label>Severidade
+        <select [ngModel]="filtroSev()" (ngModelChange)="filtroSev.set($event); pagina.set(1)">
+          <option value="">Todas</option>
+          <option value="CRITICO">Crítico</option>
+          <option value="ATENCAO">Atenção</option>
+          <option value="INFO">Informativo</option>
+        </select>
+      </label>
+      <label class="gc-check">
+        <input type="checkbox" [ngModel]="somenteVigentes()" (ngModelChange)="somenteVigentes.set($event); pagina.set(1)" />
+        Só os que a última leitura ainda encontrou
+      </label>
+      <span class="gv-dica">{{ linhas().length }} alerta(s)</span>
+    </div>
+
+    <div class="gp-corpo">
+      <div class="gc-tabela-wrap">
+        <table class="gc-tabela">
+          <thead>
+            <tr><th>Severidade</th><th>Ocorrência</th><th>Produto / lote</th><th>Endereço</th><th>Status</th><th>Responsável</th><th>Desde</th><th>Ações</th></tr>
+          </thead>
+          <tbody>
+            @for (a of paginaAtual(); track a.id) {
+              <tr [class.gp-sel]="selecionado()?.id === a.id" (click)="selecionar(a)">
+                <td><span class="ga-sev ga-sev--{{ sevCss(a.severidade) }}">{{ rotuloSev[a.severidade] }}</span></td>
+                <td>
+                  {{ rotuloCodigo[a.codigo] ?? a.codigo }}
+                  @if (!a.vigente) { <span class="gp-tag" title="A última leitura não encontrou mais esta condição">não se repete</span> }
+                </td>
+                <td>{{ a.codprod ? a.codprod + ' · ' + (a.produto ?? '') : '—' }}{{ a.controle ? ' · ' + a.controle : '' }}</td>
+                <td class="mono">{{ a.endereco ?? '—' }}</td>
+                <td>{{ rotuloStatus[a.status] }}@if (a.slaVencido) { <span class="gp-tag ga-sla" title="Em aberto há mais de {{ a.slaHoras }} h">SLA vencido</span> }</td>
+                <td>{{ a.atribuido ?? '—' }}</td>
+                <td class="nowrap">{{ a.criadoEm | date: 'dd/MM HH:mm' }}</td>
+                <td class="nowrap" (click)="$event.stopPropagation()">
+                  @if (a.status === 'ABERTO') {
+                    <button type="button" class="ga-acao" [disabled]="salvando() === a.id" (click)="tratar(a, 'RECONHECIDO')">Reconhecer</button>
+                  }
+                  @if (a.status !== 'RESOLVIDO') {
+                    <button type="button" class="ga-acao" [disabled]="salvando() === a.id" (click)="tratar(a, 'RESOLVIDO')">Resolver</button>
+                  } @else {
+                    <button type="button" class="ga-acao" [disabled]="salvando() === a.id" (click)="tratar(a, 'ABERTO')">Reabrir</button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="gv-vazio">{{ carregando() ? 'Carregando…' : 'Nenhum alerta com esses filtros.' }}</td></tr>
+            }
+          </tbody>
+        </table>
+        @if (totalPaginas() > 1) {
+          <div class="gp-paginas">
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="pagina() <= 1" (click)="pagina.set(pagina() - 1)">Anterior</button>
+            <span>Página {{ pagina() }} de {{ totalPaginas() }}</span>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="pagina() >= totalPaginas()" (click)="pagina.set(pagina() + 1)">Próxima</button>
+          </div>
+        }
+      </div>
+
+      @if (selecionado(); as a) {
+        <aside class="gp-detalhe" aria-label="Detalhe do alerta">
+          <button type="button" class="gp-detalhe__fechar" (click)="selecionar(null)" aria-label="Fechar">×</button>
+          <small class="mono">{{ a.codigo }} · {{ a.entidade }}</small>
+          <strong>{{ rotuloCodigo[a.codigo] ?? a.codigo }}</strong>
+          <span><span class="ga-sev ga-sev--{{ sevCss(a.severidade) }}">{{ rotuloSev[a.severidade] }}</span> {{ a.mensagem }}</span>
+          <dl>
+            <div><dt>Status</dt><dd>{{ rotuloStatus[a.status] }} (versão {{ a.versao }})</dd></div>
+            <div><dt>Criado</dt><dd>{{ a.criadoEm | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+            <div><dt>Encontrado pela última vez</dt><dd>{{ a.vistoEm | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+            @if (a.reconhecidoEm) { <div><dt>Reconhecido</dt><dd>{{ a.reconhecidoEm | date: 'dd/MM/yyyy HH:mm' }}</dd></div> }
+            @if (a.resolvidoEm) { <div><dt>Resolvido</dt><dd>{{ a.resolvidoEm | date: 'dd/MM/yyyy HH:mm' }}</dd></div> }
+            @if (a.tratadoPor) { <div><dt>Último tratamento por</dt><dd>{{ a.tratadoPor }}</dd></div> }
+            <div><dt>SLA</dt><dd>{{ a.slaHoras }} h{{ a.slaVencido ? ' · vencido' : '' }}</dd></div>
+          </dl>
+          <h3>Evidência</h3>
+          <dl>
+            @for (e of evidencias(a); track e[0]) { <div><dt>{{ e[0] }}</dt><dd>{{ e[1] }}</dd></div> }
+          </dl>
+          <label class="ga-atribuir">Responsável
+            <input [(ngModel)]="atribuidoEdicao" placeholder="Em branco = você" />
+          </label>
+          <div class="ga-botoes">
+            @if (a.status === 'ABERTO') { <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="salvando() === a.id" (click)="tratar(a, 'RECONHECIDO')">Reconhecer</button> }
+            @if (a.status !== 'RESOLVIDO') {
+              <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="salvando() === a.id" (click)="tratar(a, 'RESOLVIDO')">Resolver</button>
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="salvando() === a.id" (click)="tratar(a, a.status)">Salvar responsável</button>
+            } @else {
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="salvando() === a.id" (click)="tratar(a, 'ABERTO')">Reabrir</button>
+            }
+          </div>
+          <p class="gv-dica">Resolver não corrige nada no Sankhya: se a condição continuar na próxima leitura, o alerta volta a aberto.</p>
+        </aside>
+      }
+    </div>
+  } @else if (carregando()) {
+    <div class="gv-vazio">Lendo o Sankhya e gerando os alertas…</div>
+  }
+</div>
