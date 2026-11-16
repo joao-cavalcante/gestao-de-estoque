@@ -34,8 +34,14 @@ object Modulos {
      */
     const val LIBERACAO_HERDADA = "liberacao_herdada"
 
+    /**
+     * Planta do Galpão (wms.backend.galpao): desenho da planta, endereços projetados das estruturas e
+     * visualização 3D. Trazido do Negri Planta Log 3D; tabelas no banco do WMS, Sankhya só leitura.
+     */
+    const val PLANTA_GALPAO = "planta_galpao"
+
     /** Todos os módulos conhecidos — usado pelo Painel Master pra listar as opções. */
-    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO, LIBERACAO_HERDADA)
+    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO, LIBERACAO_HERDADA, PLANTA_GALPAO)
 
     /** Texto do Painel Master pra cada módulo. */
     fun descricao(modulo: String): String = when (modulo) {
@@ -43,6 +49,7 @@ object Modulos {
         PESAVEL_POR_PRODUTO -> "Pesável pelo produto (TGFPRO.AD_PESAVEL), não pela unidade"
         SEM_VERIFICACAO_PEDIDO -> "Não conferir o pedido com o Sankhya ao concluir etapa/finalizar (mais rápido, menos seguro)"
         LIBERACAO_HERDADA -> "Liberação herdada: evento de limite já liberado no pedido é liberado na nota (eventos nos parâmetros)"
+        PLANTA_GALPAO -> "Planta do Galpão: desenho da planta, endereços e visualização 3D"
         else -> modulo
     }
 }

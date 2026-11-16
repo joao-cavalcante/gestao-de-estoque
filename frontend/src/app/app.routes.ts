@@ -69,6 +69,27 @@ export const routes: Routes = [
   { path: 'crachas', component: CrachasImpressaoComponent, canActivate: [adminGuard] },
   { path: 'balancas', component: BalancaListComponent, canActivate: [adminGuard] },
   { path: 'downloads', component: DownloadsComponent, canActivate: [adminGuard] },
+  // Planta do Galpão (módulo planta_galpao): consulta pra todos; o backend recusa se o módulo estiver desligado.
+  {
+    path: 'galpao',
+    canActivate: [authGuard],
+    loadComponent: () => import('./galpao/plantas-lista/plantas-lista.component').then((m) => m.PlantasListaComponent),
+  },
+  {
+    path: 'galpao/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./galpao/planta-visao/planta-visao.component').then((m) => m.PlantaVisaoComponent),
+  },
+  {
+    path: 'galpao/:id/editor',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./galpao/planta-editor/planta-editor.component').then((m) => m.PlantaEditorComponent),
+  },
+  {
+    path: 'galpao/:id/controle',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./galpao/planta-controle/planta-controle.component').then((m) => m.PlantaControleComponent),
+  },
   // Painel Master (administração da PLATAFORMA): login e sessão próprios, nunca o ADMINISTRADOR de um cliente.
   { path: 'master/login', component: MasterLoginComponent },
   { path: 'master', component: MasterTenantsComponent, canActivate: [masterGuard] },

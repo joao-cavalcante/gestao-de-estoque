@@ -1,0 +1,113 @@
+<div class="oq-modal-backdrop" (click)="!enviando() && fechar.emit()">
+  <div class="oq-modal" (click)="$event.stopPropagation()">
+    <div class="oq-modal__header">
+      <span class="oq-modal__titulo">{{ titulo() }} — {{ endereco.codigo }}</span>
+      <button type="button" class="oq-modal__fechar" (click)="fechar.emit()" [disabled]="enviando()">
+        <oq-icon name="x" [size]="12" />
+      </button>
+    </div>
+
+    <form class="oq-modal__body mm" (ngSubmit)="confirmar()">
+      <!-- Produto -->
+      @if (produto(); as p) {
+        <div class="mm-produto">
+          <div>
+            <span class="mm-rotulo">Produto</span>
+            <span class="mm-produto__nome">{{ p.codprod }} · {{ p.produto }}</span>
+            @if (controle()) { <span class="mm-produto__sub">Controle {{ controle() }}</span> }
+          </div>
+          @if (precisaEscolherProduto()) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="trocarProduto()">Trocar</button>
+          }
+        </div>
+      } @else {
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Produto (código ou descrição)</span>
+          <input name="termo" [ngModel]="termo()" (ngModelChange)="aoDigitar($event)" autocomplete="off" placeholder="ex: 2716 ou farinha" />
+        </div>
+        @if (buscando()) { <span class="oq-form-hint">Buscando…</span> }
+        @if (resultados().length) {
+          <ul class="mm-lista">
+            @for (r of resultados(); track r.codprod) {
+              <li><button type="button" (click)="escolherProduto(r)"><strong>{{ r.codprod }}</strong> · {{ r.produto }}@if (r.unidade) { <span class="mm-un">{{ r.unidade }}</span> }</button></li>
+            }
+          </ul>
+        }
+      }
+
+      <!-- Endereçar: saldo do Sankhya por controle -->
+      @if (tipo === 'ENDERECAR' && produto()) {
+        @if (carregandoEstoque()) {
+          <span class="oq-form-hint">Lendo estoque no Sankhya…</span>
+        } @else {
+          @if (estoque(); as e) {
+          @if (e.aviso) { <span class="oq-form-hint oq-form-hint--erro">{{ e.aviso }}</span> }
+          @if (e.controles.length === 0 && !e.aviso) {
+            <span class="oq-form-hint oq-form-hint--erro">Produto sem saldo no Sankhya neste empresa/local — nada a endereçar.</span>
+          } @else if (e.controles.length) {
+            <table class="mm-tabela">
+              <thead><tr><th></th><th>Controle</th><th class="num">Sankhya</th><th class="num">Endereçado</th><th class="num">Sem endereço</th></tr></thead>
+              <tbody>
+                @for (c of e.controles; track c.controle) {
+                  <tr (click)="escolherControle(c)" [class.ativo]="c.controle === controle()">
+                    <td><input type="radio" name="controle" [checked]="c.controle === controle()" /></td>
+                    <td>{{ c.controle || '—' }}</td>
+                    <td class="num">{{ num(c.contabil) }}</td>
+                    <td class="num">{{ num(c.enderecado) }}</td>
+                    <td class="num"><strong>{{ num(c.semEndereco) }}</strong></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+          @if (e.enderecos.length) {
+            <span class="oq-form-hint">Já está em: {{ enderecosTexto(e) }}</span>
+          }
+          }
+        }
+      }
+
+      <!-- Transferir: destino -->
+      @if (tipo === 'TRANSFERIR') {
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Endereço de destino</span>
+          <input name="destino" [(ngModel)]="destinoCodigo" autocomplete="off" placeholder="ex: R02-M01-N01" class="mono" list="mm-destinos" />
+          <datalist id="mm-destinos">
+            @for (d of destinosSugeridos(); track d.id) { <option [value]="d.codigo"></option> }
+          </datalist>
+        </div>
+      }
+
+      @if (produto()) {
+        <div class="oq-form-row">
+          <div class="oq-form-field">
+            <span class="oq-form-field__label">{{ tipo === 'CONTAR' ? 'Quantidade contada' : 'Quantidade' }}</span>
+            <input name="quantidade" type="number" min="0" step="any" [(ngModel)]="quantidade" />
+          </div>
+          @if (tipo !== 'ENDERECAR') {
+            <div class="oq-form-field">
+              <span class="oq-form-field__label">Saldo no endereço</span>
+              <input [value]="num(saldoAtualNoEndereco())" disabled />
+            </div>
+          }
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Motivo / observação (opcional)</span>
+          <input name="motivo" [(ngModel)]="motivo" maxlength="200" [placeholder]="tipo === 'RETIRAR' ? 'ex: separação do pedido 12345' : ''" />
+        </div>
+        @if (tipo === 'CONTAR') {
+          <span class="oq-form-hint">A contagem não altera o saldo: se houver diferença, fica pendente para aprovação.</span>
+        }
+      }
+
+      @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+
+      <div class="oq-modal__footer">
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fechar.emit()" [disabled]="enviando()">Cancelar</button>
+        <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="enviando() || !produto()">
+          {{ enviando() ? 'Registrando…' : 'Confirmar' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

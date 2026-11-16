@@ -1,0 +1,324 @@
+<div class="ge">
+  <div class="gv-barra">
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="voltar()" title="Voltar para as plantas">
+      <oq-icon name="arrow-left" [size]="12" />
+    </button>
+    <div class="gv-titulo">
+      <span class="gv-titulo__nome">Editor — {{ planta()?.nome ?? '' }}</span>
+      <span class="gv-titulo__sub">
+        {{ g().objetos.length }} objetos · {{ totalEnd().toLocaleString('pt-BR') }} endereços
+        · {{ rascunhoId() ? 'Rascunho' : 'Sem rascunho aberto' }}{{ alterado() ? ' · alterações não salvas' : '' }}
+      </span>
+    </div>
+    <label class="oq-admin-btn oq-admin-btn--outline ge-importar" title="Abrir um desenho exportado em JSON">
+      Importar
+      <input type="file" accept="application/json,.json" (change)="importarJson($event)" />
+    </label>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="exportarJson()">Exportar JSON</button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="validar()" [disabled]="validando()">
+      {{ validando() ? 'Validando…' : 'Validar' }}
+    </button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="salvar()" [disabled]="salvando()" title="Ctrl+S">
+      {{ salvando() ? 'Salvando…' : 'Salvar rascunho' }}
+    </button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirPublicar()" [disabled]="salvando() || g().objetos.length === 0">
+      Publicar
+    </button>
+  </div>
+
+  @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+  @if (aviso()) {
+    <div class="ge-aviso">
+      <span>{{ aviso() }}</span>
+      <button type="button" (click)="aviso.set(null)" title="Fechar"><oq-icon name="x" [size]="11" /></button>
+    </div>
+  }
+  @if (errosValidacao()?.length) {
+    <div class="ge-erros">
+      <div class="ge-erros__titulo">{{ errosValidacao()!.length }} problema(s) impedem a publicação</div>
+      <ul>
+        @for (e of errosValidacao(); track $index) { <li>{{ e }}</li> }
+      </ul>
+    </div>
+  }
+
+  <div class="ge-ferramentas">
+    <span class="ge-ferramentas__rotulo">Adicionar</span>
+    @for (t of tipos; track t) {
+      <button type="button" class="ge-ferr" [class.ativo]="ferramenta() === t" (click)="escolherFerramenta(t)"
+              [title]="'Clique no desenho para posicionar: ' + rotulo[t]">
+        {{ rotulo[t] }}
+      </button>
+    }
+    <span class="ge-sep"></span>
+    <button type="button" class="ge-ferr" (click)="duplicar()" [disabled]="!selecao().size" title="Ctrl+D">Duplicar</button>
+    <button type="button" class="ge-ferr" (click)="girar()" [disabled]="!selecao().size" title="R">Girar 90°</button>
+    <button type="button" class="ge-ferr" (click)="excluir()" [disabled]="!selecao().size" title="Delete">Excluir</button>
+    <span class="ge-sep"></span>
+    <button type="button" class="ge-ferr" (click)="desfazerAcao()" [disabled]="!podeDesfazer()" title="Ctrl+Z">Desfazer</button>
+    <button type="button" class="ge-ferr" (click)="refazerAcao()" [disabled]="!podeRefazer()" title="Ctrl+Y">Refazer</button>
+    <span class="ge-sep"></span>
+    <label class="ge-passo">
+      Grade
+      <select [ngModel]="passo()" (ngModelChange)="passo.set(+$event)">
+        <option [ngValue]="0">livre</option>
+        <option [ngValue]="0.1">0,1 m</option>
+        <option [ngValue]="0.5">0,5 m</option>
+        <option [ngValue]="1">1 m</option>
+      </select>
+    </label>
+    <button type="button" class="ge-ferr" (click)="enquadrar()" [disabled]="modo3d()">Enquadrar</button>
+    <button type="button" class="ge-ferr" [class.ativo]="modo3d()" (click)="alternar3d()">Prévia 3D</button>
+  </div>
+
+  <div class="ge-corpo">
+    <div class="ge-palco">
+      <svg #svg class="ge-svg" [class.ge-svg--oculto]="modo3d()" [class.ge-svg--adicionar]="ferramenta()"
+           [attr.viewBox]="viewBox()" preserveAspectRatio="xMidYMid meet"
+           (pointermove)="aoMover($event)" (pointerup)="aoSoltar()" (pointerleave)="cursor.set(null)" (wheel)="aoRolar($event)">
+        <rect class="ge-fundo" [attr.x]="caixa().x" [attr.y]="caixa().y" [attr.width]="caixa().w" [attr.height]="caixa().h"
+              (pointerdown)="aoPressionarFundo($event)" />
+        <rect class="ge-piso" x="0" y="0" [attr.width]="g().largura" [attr.height]="g().profundidade" [attr.stroke-width]="espessura() * 2"
+              (pointerdown)="aoPressionarFundo($event)" />
+        <g class="ge-grade" [attr.stroke-width]="espessura()">
+          @for (x of grade().xs; track x) { <line [attr.x1]="x" y1="0" [attr.x2]="x" [attr.y2]="g().profundidade" /> }
+          @for (z of grade().zs; track z) { <line x1="0" [attr.y1]="z" [attr.x2]="g().largura" [attr.y2]="z" /> }
+        </g>
+
+        @for (o of g().objetos; track o.codigo) {
+          <g class="ge-obj" [class.selecionado]="selecao().has(o.codigo)" [attr.transform]="transform(o)"
+             (pointerdown)="aoPressionarObjeto($event, o)">
+            <rect [attr.x]="-o.largura / 2" [attr.y]="-o.profundidade / 2" [attr.width]="o.largura" [attr.height]="o.profundidade"
+                  [attr.fill]="corObjeto(o)" [attr.fill-opacity]="o.tipo === 'ESTRUTURA' ? 0.75 : o.tipo === 'AREA' ? 0.6 : 1"
+                  [attr.stroke-width]="espessura() * (selecao().has(o.codigo) ? 3 : 1)" />
+            @for (z of linhasModulo(o); track $index) {
+              <line [attr.x1]="-o.largura / 2" [attr.y1]="z" [attr.x2]="o.largura / 2" [attr.y2]="z" class="ge-modulo" [attr.stroke-width]="espessura()" />
+            }
+            @if (rotuloVisivel(o)) {
+              <text class="ge-rotulo" [attr.font-size]="tamanhoFonte()" [attr.transform]="'rotate(' + -o.rotacao + ')'"
+                    text-anchor="middle" dominant-baseline="central">{{ o.codigo }}</text>
+            }
+          </g>
+        }
+      </svg>
+      <div #palco3d class="ge-3d" [class.ge-3d--visivel]="modo3d()"></div>
+
+      <div class="ge-status">
+        @if (cursor(); as c) { <span>X {{ c.x | number: '1.1-1' }} · Z {{ c.z | number: '1.1-1' }} m</span> }
+        @if (ferramenta()) { <span>Clique no desenho para posicionar · Esc cancela</span> }
+        @else { <span>Arraste o fundo para deslocar · roda aproxima · Shift seleciona vários · setas movem</span> }
+      </div>
+    </div>
+
+    <aside class="ge-painel">
+      <div class="gv-grupo gv-grupo--cheio" role="tablist">
+        <button type="button" [class.ativo]="aba() === 'objeto'" (click)="aba.set('objeto')">Objeto</button>
+        <button type="button" [class.ativo]="aba() === 'setores'" (click)="aba.set('setores')">Setores</button>
+        <button type="button" [class.ativo]="aba() === 'planta'" (click)="aba.set('planta')">Planta</button>
+        <button type="button" [class.ativo]="aba() === 'versoes'" (click)="aba.set('versoes')">Versões</button>
+      </div>
+
+      <div class="gv-bloco ge-painel__conteudo">
+        @switch (aba()) {
+          @case ('objeto') {
+            @if (unico(); as o) {
+              <div class="gv-bloco__titulo">{{ rotulo[o.tipo] }}</div>
+              <div class="ge-campos">
+                <label class="ge-campo ge-campo--cheio">Código
+                  <input [ngModel]="o.codigo" (change)="alterarCampo('codigo', $any($event.target).value)" maxlength="30" />
+                </label>
+                <label class="ge-campo">X (m)<input type="number" step="0.1" [ngModel]="o.x" (change)="alterarCampo('x', $any($event.target).value)" /></label>
+                <label class="ge-campo">Z (m)<input type="number" step="0.1" [ngModel]="o.z" (change)="alterarCampo('z', $any($event.target).value)" /></label>
+                <label class="ge-campo">Largura (m)<input type="number" step="0.1" min="0.05" [ngModel]="o.largura" (change)="alterarCampo('largura', $any($event.target).value)" /></label>
+                <label class="ge-campo">Comprimento (m)<input type="number" step="0.1" min="0.05" [ngModel]="o.profundidade" (change)="alterarCampo('profundidade', $any($event.target).value)" /></label>
+                <label class="ge-campo">Altura (m)<input type="number" step="0.1" min="0.01" [ngModel]="o.altura" (change)="alterarCampo('altura', $any($event.target).value)" /></label>
+                <label class="ge-campo">Rotação (°)<input type="number" step="15" [ngModel]="o.rotacao" (change)="alterarCampo('rotacao', $any($event.target).value)" /></label>
+              </div>
+
+              @if (o.tipo === 'ESTRUTURA') {
+                <div class="gv-bloco__titulo">Endereços</div>
+                <div class="ge-campos">
+                  <label class="ge-campo ge-campo--cheio">Setor
+                    <select [ngModel]="o.setor" (ngModelChange)="alterarCampo('setor', $event)">
+                      @for (s of g().setores; track s.codigo) { <option [ngValue]="s.codigo">{{ s.nome }}</option> }
+                    </select>
+                  </label>
+                  <label class="ge-campo">Módulos<input type="number" min="1" max="500" [ngModel]="o.modulos" (change)="alterarCampo('modulos', $any($event.target).value)" /></label>
+                  <label class="ge-campo">Níveis<input type="number" min="1" max="30" [ngModel]="o.niveis" (change)="alterarCampo('niveis', $any($event.target).value)" /></label>
+                  <label class="ge-campo ge-campo--cheio" title="Níveis de 1 até este são picking; acima, pulmão">Níveis de picking (a partir do chão)
+                    <input type="number" min="0" [attr.max]="o.niveis" [ngModel]="o.nivelPicking" (change)="alterarCampo('nivelPicking', $any($event.target).value)" />
+                  </label>
+                </div>
+                <div class="gv-bloco__titulo">Capacidade por endereço</div>
+                <div class="ge-campos">
+                  <label class="ge-campo">Quantidade<input type="number" min="0" [ngModel]="o.capQtd" (change)="alterarCampo('capQtd', $any($event.target).value)" /></label>
+                  <label class="ge-campo">Peso (kg)<input type="number" min="0" [ngModel]="o.capPeso" (change)="alterarCampo('capPeso', $any($event.target).value)" /></label>
+                  <label class="ge-campo">Volume (m³)<input type="number" min="0" step="0.01" [ngModel]="o.capVolume" (change)="alterarCampo('capVolume', $any($event.target).value)" /></label>
+                </div>
+                <div class="ge-info">{{ enderecosDe(o) }} endereços · {{ exemploEndereco() }}</div>
+
+                <div class="gv-bloco__titulo">Repetir em fileira</div>
+                <div class="ge-campos">
+                  <label class="ge-campo">Cópias<input type="number" min="1" max="200" [(ngModel)]="fileira.quantidade" /></label>
+                  <label class="ge-campo" title="Distância entre os centros, no eixo X">Distância (m)<input type="number" min="0.1" step="0.1" [(ngModel)]="fileira.distancia" /></label>
+                </div>
+                <button type="button" class="oq-admin-btn oq-admin-btn--outline ge-botao-cheio" (click)="repetirEmFileira()">Criar cópias lado a lado</button>
+              }
+            } @else if (selecionados().length > 1) {
+              <div class="gv-vazio">{{ selecionados().length }} objetos selecionados. Arraste para mover juntos, ou use Duplicar, Girar e Excluir.</div>
+            } @else {
+              <div class="gv-vazio">
+                Escolha um item em <strong>Adicionar</strong> e clique no desenho para posicioná-lo, ou clique num objeto para editar.
+                Cada estrutura gera seus endereços por módulo × nível.
+              </div>
+            }
+          }
+
+          @case ('setores') {
+            <div class="gv-bloco__titulo">Setores da planta</div>
+            <ul class="ge-setores">
+              @for (s of g().setores; track s.codigo; let i = $index) {
+                <li>
+                  <input type="color" [ngModel]="s.cor" (change)="alterarSetor(i, 'cor', $any($event.target).value)" title="Cor" />
+                  <input class="ge-setores__codigo" [ngModel]="s.codigo" (change)="alterarSetor(i, 'codigo', $any($event.target).value)" title="Código" />
+                  <input [ngModel]="s.nome" (change)="alterarSetor(i, 'nome', $any($event.target).value)" title="Nome" />
+                  <button type="button" (click)="removerSetor(i)" title="Remover setor"><oq-icon name="x" [size]="11" /></button>
+                </li>
+              }
+            </ul>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline ge-botao-cheio" (click)="adicionarSetor()">Adicionar setor</button>
+          }
+
+          @case ('planta') {
+            <div class="gv-bloco__titulo">Medidas e regras</div>
+            <div class="ge-campos">
+              <label class="ge-campo">Largura (m)<input type="number" min="1" step="0.1" [ngModel]="g().largura" (change)="alterarPlanta('largura', $any($event.target).value)" /></label>
+              <label class="ge-campo">Profundidade (m)<input type="number" min="1" step="0.1" [ngModel]="g().profundidade" (change)="alterarPlanta('profundidade', $any($event.target).value)" /></label>
+              <label class="ge-campo ge-campo--cheio">Largura mínima de corredor (m)
+                <input type="number" min="0" step="0.1" [ngModel]="g().corredorMinimo" (change)="alterarPlanta('corredorMinimo', $any($event.target).value)" />
+              </label>
+              <label class="ge-campo ge-campo--cheio" title="Use {estrutura}, {modulo} e {nivel}">Padrão do código de endereço
+                <input class="mono" [ngModel]="g().padraoEndereco" (change)="alterarPlanta('padraoEndereco', $any($event.target).value)" />
+              </label>
+              <label class="ge-campo ge-campo--cheio">Observação do rascunho
+                <input [ngModel]="observacao()" (ngModelChange)="observacao.set($event)" maxlength="200" placeholder="ex: inclusão da câmara fria" />
+              </label>
+            </div>
+            <div class="ge-info">Trocar o padrão muda o código de todos os endereços na próxima publicação.</div>
+          }
+
+          @case ('versoes') {
+            <div class="gv-bloco__titulo">Histórico</div>
+            @if (versoes().length === 0) {
+              <div class="gv-vazio">Nenhuma versão salva ainda.</div>
+            } @else {
+              <ul class="ge-versoes">
+                @for (v of versoes(); track v.id) {
+                  <li>
+                    <div class="ge-versoes__cab">
+                      <strong>Versão {{ v.numero }}</strong>
+                      <span class="ge-versoes__status" [attr.data-status]="v.status">{{ v.status }}</span>
+                    </div>
+                    <span class="ge-versoes__sub">
+                      {{ v.totalObjetos }} objetos · {{ v.status === 'PUBLICADA' || v.status === 'ARQUIVADA' ? (v.publicadoPorNome + ' em ' + (v.publicadoEm | date: 'dd/MM/yyyy HH:mm')) : (v.criadoPorNome + ' em ' + (v.criadoEm | date: 'dd/MM/yyyy HH:mm')) }}
+                    </span>
+                    @if (v.observacao) { <span class="ge-versoes__sub">{{ v.observacao }}</span> }
+                    <div class="ge-versoes__acoes">
+                      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirVersao(v)">Abrir</button>
+                      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="comparar(v)" title="Comparar esta versão com o desenho aberto">Comparar</button>
+                      @if (v.status !== 'RASCUNHO') {
+                        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="restaurar(v)">Restaurar como rascunho</button>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        }
+      </div>
+    </aside>
+  </div>
+</div>
+
+@if (publicarAberto()) {
+  <div class="oq-modal-backdrop" (click)="!publicando() && publicarAberto.set(false)">
+    <div class="oq-modal" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">Publicar desenho</span>
+        <button type="button" class="oq-modal__fechar" (click)="publicarAberto.set(false)" [disabled]="publicando()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+      <form class="oq-modal__body" (ngSubmit)="publicar()">
+        <p class="ge-texto">
+          A publicação atualiza o cadastro de endereços desta planta ({{ totalEnd().toLocaleString('pt-BR') }} endereços).
+          Endereços que saíram do desenho ficam inativos; se algum deles tiver saldo, a publicação é recusada.
+        </p>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Para confirmar, digite o nome da planta: <strong>{{ planta()?.nome }}</strong></span>
+          <input name="confirmacao" [ngModel]="confirmacao()" (ngModelChange)="confirmacao.set($event)" autocomplete="off" />
+        </div>
+        @if (erroPublicar(); as erros) {
+          <div class="ge-erros">
+            <div class="ge-erros__titulo">{{ erros[0] }}</div>
+            @if (erros.length > 1) {
+              <ul>@for (e of erros.slice(1); track $index) { <li>{{ e }}</li> }</ul>
+            }
+          </div>
+        }
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="publicarAberto.set(false)" [disabled]="publicando()">Cancelar</button>
+          <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="publicando() || confirmacao().trim() !== planta()?.nome">
+            {{ publicando() ? 'Publicando…' : 'Publicar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+</div>
+}
+
+@if (comparacao(); as c) {
+  <div class="oq-modal-backdrop" (click)="comparacao.set(null)">
+    <div class="oq-modal ge-comparacao" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">Comparar versões</span>
+        <button type="button" class="oq-modal__fechar" (click)="comparacao.set(null)" title="Fechar"><oq-icon name="x" [size]="12" /></button>
+      </div>
+      <div class="oq-modal__body">
+        <p class="ge-comparacao__sub">{{ c.titulo }}</p>
+        <div class="ge-comparacao__resumo">
+          <div><span>Endereços</span><b>{{ c.totalAntes.toLocaleString('pt-BR') }} → {{ c.totalDepois.toLocaleString('pt-BR') }}</b></div>
+          <div><span>Objetos novos</span><b>{{ c.adicionados.length }}</b></div>
+          <div><span>Objetos removidos</span><b>{{ c.removidos.length }}</b></div>
+          <div><span>Objetos alterados</span><b>{{ c.alterados.length }}</b></div>
+        </div>
+        @if (!c.geral.length && !c.adicionados.length && !c.removidos.length && !c.alterados.length) {
+          <div class="gv-vazio">Nenhuma diferença: o desenho aberto é igual a esta versão.</div>
+        }
+        @for (g of c.geral; track g) { <div class="ge-comparacao__linha">{{ g }}</div> }
+        @if (c.adicionados.length) { <div class="ge-comparacao__linha"><strong>Novos:</strong> {{ c.adicionados.join(', ') }}</div> }
+        @if (c.removidos.length) { <div class="ge-comparacao__linha ge-comparacao__linha--neg"><strong>Removidos:</strong> {{ c.removidos.join(', ') }}</div> }
+        @for (a of c.alterados; track a.codigo) {
+          <div class="ge-comparacao__linha"><strong class="mono">{{ a.codigo }}</strong>: {{ a.campos.map(rotuloCampoFn).join(', ') }}</div>
+        }
+        @if (c.enderecosRemovidos.length) {
+          <div class="ge-comparacao__linha ge-comparacao__linha--neg">
+            <strong>Endereços que deixam de existir ({{ c.enderecosRemovidos.length }}):</strong>
+            <span class="mono">{{ c.enderecosRemovidos.slice(0, 60).join(', ') }}{{ c.enderecosRemovidos.length > 60 ? '…' : '' }}</span>
+            <span class="gv-vazio">Na publicação, endereço removido com saldo bloqueia a publicação.</span>
+          </div>
+        }
+        @if (c.enderecosNovos.length) {
+          <div class="ge-comparacao__linha">
+            <strong>Endereços novos ({{ c.enderecosNovos.length }}):</strong>
+            <span class="mono">{{ c.enderecosNovos.slice(0, 60).join(', ') }}{{ c.enderecosNovos.length > 60 ? '…' : '' }}</span>
+          </div>
+        }
+      </div>
+      <div class="oq-modal__footer">
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="comparacao.set(null)">Fechar</button>
+      </div>
+    </div>
+  </div>
+}

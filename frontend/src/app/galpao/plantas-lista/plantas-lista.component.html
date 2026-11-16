@@ -1,0 +1,115 @@
+<div class="oq-admin-page">
+  <oq-panel-section icon="building" title="PLANTA DO GALPÃO" [count]="plantas().length">
+    @if (!carregando() && !disponivel()) {
+      <div class="oq-empty-row">Planta do Galpão não habilitada para esta instalação. Solicite a ativação ao suporte do WMS.</div>
+    } @else {
+      @if (podeEditar()) {
+        <div class="oq-admin-toolbar">
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirCriacao()">
+            <oq-icon name="building" [size]="13" />
+            Nova planta
+          </button>
+        </div>
+      }
+
+      @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+
+      @if (carregando()) {
+        <ul class="oq-admin-lista" aria-busy="true">
+          <oq-skeleton variant="admin-row" [count]="3" />
+        </ul>
+      } @else if (plantas().length === 0) {
+        <div class="oq-empty-row">
+          Nenhuma planta cadastrada{{ podeEditar() ? ' — use "Nova planta" para começar o desenho.' : '.' }}
+        </div>
+      } @else {
+        <ul class="oq-admin-lista">
+          @for (p of plantas(); track p.id) {
+            <li class="oq-admin-row">
+              <oq-icon name="building" [size]="18" class="oq-admin-row__icon" />
+              <div class="oq-admin-row__main">
+                <span class="oq-admin-row__titulo">{{ p.nome }}</span>
+                <span class="oq-admin-row__sub">
+                  {{ medidas(p) }} · {{ p.totalEnderecos.toLocaleString('pt-BR') }} endereços
+                  @if (p.codemp) { · Empresa {{ p.codemp }} }
+                  @if (p.codlocal) { · Local {{ p.codlocal }} }
+                </span>
+              </div>
+              @if (p.versaoPublicada) {
+                <oq-status-chip tone="success">VERSÃO {{ p.versaoPublicada }}</oq-status-chip>
+              } @else {
+                <oq-status-chip tone="neutral">SEM PUBLICAÇÃO</oq-status-chip>
+              }
+              @if (p.temRascunho && podeEditar()) {
+                <oq-status-chip tone="warning">RASCUNHO</oq-status-chip>
+              }
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="visualizar(p)" [disabled]="!p.versaoPublicada"
+                      [title]="p.versaoPublicada ? 'Visualização 3D e tabela de endereços' : 'Publique o desenho para visualizar'">
+                Visualizar
+              </button>
+              @if (podeEditar()) {
+                <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="desenhar(p)">Editar desenho</button>
+                <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirEdicao(p)" title="Nome, empresa, local e medidas">
+                  <oq-icon name="gear" [size]="12" />
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
+    }
+  </oq-panel-section>
+</div>
+
+@if (modalAberto()) {
+  <div class="oq-modal-backdrop" (click)="fecharModal()">
+    <div class="oq-modal" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span class="oq-modal__titulo">{{ editandoId() ? 'Dados da planta' : 'Nova planta' }}</span>
+        <button type="button" class="oq-modal__fechar" (click)="fecharModal()">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+      <form class="oq-modal__body" (ngSubmit)="salvar()">
+        <div class="oq-form-card">
+          <div class="oq-form-card__body">
+            <div class="oq-form-field">
+              <span class="oq-form-field__label">Nome</span>
+              <input name="nome" [(ngModel)]="form.nome" maxlength="80" placeholder="ex: CD Principal" required />
+            </div>
+            <div class="oq-form-row">
+              <div class="oq-form-field">
+                <span class="oq-form-field__label">Largura (m)</span>
+                <input name="largura" type="number" min="1" step="0.1" [(ngModel)]="form.largura" />
+              </div>
+              <div class="oq-form-field">
+                <span class="oq-form-field__label">Profundidade (m)</span>
+                <input name="profundidade" type="number" min="1" step="0.1" [(ngModel)]="form.profundidade" />
+              </div>
+            </div>
+            <div class="oq-form-row">
+              <div class="oq-form-field">
+                <span class="oq-form-field__label">Empresa (opcional)</span>
+                <input name="codemp" type="number" [(ngModel)]="form.codemp" placeholder="Código Sankhya" />
+              </div>
+              <div class="oq-form-field">
+                <span class="oq-form-field__label">Local de estoque (opcional)</span>
+                <input name="codlocal" type="number" [(ngModel)]="form.codlocal" placeholder="Código Sankhya" />
+              </div>
+            </div>
+            @if (editandoId()) {
+              <span class="oq-form-hint">As medidas do desenho publicado prevalecem; ajuste também no editor.</span>
+            }
+          </div>
+        </div>
+        @if (erroModal()) { <span class="oq-form-hint oq-form-hint--erro">{{ erroModal() }}</span> }
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModal()">Cancelar</button>
+          <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="salvando()">
+            {{ salvando() ? 'Salvando…' : editandoId() ? 'Salvar' : 'Criar e desenhar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

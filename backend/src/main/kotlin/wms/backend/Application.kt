@@ -21,6 +21,7 @@ import wms.backend.configconferencia.configConferenciaRoutes
 import wms.backend.auditoria.auditoriaPedidoRoutes
 import wms.backend.consultaprodutos.consultaProdutosRoutes
 import wms.backend.downloads.downloadsRoutes
+import wms.backend.galpao.galpaoRoutes
 import wms.backend.inventario.inventarioRoutes
 import wms.backend.liberacaocorte.liberacaoCorteRoutes
 import wms.backend.ordemcarga.fechamentoOcRoutes
@@ -111,6 +112,7 @@ fun Application.module() {
         separacaoRoutes()
         transferenciaRoutes()
         inventarioRoutes()
+        galpaoRoutes()
         configConferenciaRoutes()
         tipoOperacaoRoutes()
         liberacaoCorteRoutes()

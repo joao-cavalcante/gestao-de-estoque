@@ -1,0 +1,343 @@
+<div class="gv" [class.gv--tabela]="vista() === 'tabela'">
+  <!-- Barra superior: planta, situação e ações gerais -->
+  <div class="gv-barra">
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="voltar()" title="Voltar para as plantas">
+      <oq-icon name="arrow-left" [size]="12" />
+    </button>
+    <div class="gv-titulo">
+      <span class="gv-titulo__eyebrow">Controle operacional</span>
+      <span class="gv-titulo__nome">{{ visao()?.planta?.nome ?? 'Planta do Galpão' }}</span>
+    </div>
+    <div class="gv-status">
+      @if (visao(); as v) {
+        <span class="gv-chip gv-chip--ok"><i></i>Dados atualizados {{ hora(v.geradoEm) }}</span>
+        @if (v.planta.codemp && v.planta.codlocal) {
+          <span class="gv-chip">Empresa {{ v.planta.codemp }} · Local {{ v.planta.codlocal }}</span>
+        }
+        @if (resumo().pendentes > 0) {
+          <span class="gv-chip gv-chip--alerta">{{ resumo().pendentes }} contagem(ns) pendente(s)</span>
+        }
+      }
+    </div>
+    @if (podeMovimentar()) {
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirControle()" title="Histórico de movimentos, contagens pendentes e conciliação com o Sankhya">
+        Movimentações e conciliação
+      </button>
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirEditor()">Editor da planta</button>
+    }
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="atualizarTudo()" title="Atualizar dados">
+      <oq-icon name="sync" [size]="12" /> Atualizar dados
+    </button>
+  </div>
+
+  @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+  @if (feedback(); as f) {
+    <div class="gv-feedback" [class.gv-feedback--erro]="f.erro">
+      <span>{{ f.texto }}</span>
+      <button type="button" (click)="feedback.set(null)" title="Fechar"><oq-icon name="x" [size]="11" /></button>
+    </div>
+  }
+  @if (semWebgl()) { <span class="oq-form-hint">Este computador não suporta visualização 3D (WebGL). Use a tabela de posições.</span> }
+
+  <div class="gv-area">
+    <!-- ── Esquerda: localizar, filtros, visualização, câmera ── -->
+    <aside class="gv-esq">
+      <div class="gv-secao">
+        <label class="gv-rotulo" for="gv-busca">Localizar na planta</label>
+        <form class="gv-busca" (ngSubmit)="buscar()">
+          <oq-icon name="search" [size]="13" />
+          <input id="gv-busca" name="busca" [ngModel]="busca()" (ngModelChange)="busca.set($event)" placeholder="Produto, endereço ou documento" />
+          @if (buscando()) { <span class="gv-busca__total">…</span> }
+          @else if (resultadoBusca()) {
+            <span class="gv-busca__total">{{ resultadoBusca()!.length }}</span>
+            <button type="button" class="gv-busca__limpar" (click)="limparBusca()" title="Limpar busca"><oq-icon name="x" [size]="11" /></button>
+          }
+        </form>
+        <span class="gv-dica">Enter para localizar. Número busca produto, endereço e documento (pedido ou nota).</span>
+      </div>
+
+      <div class="gv-secao">
+        <h3 class="gv-secao__titulo">Filtros da operação</h3>
+        <label class="gv-campo">Setor
+          <select [ngModel]="filtroSetor()" (ngModelChange)="filtroSetor.set($event); aoFiltrar()">
+            <option value="">Todos os setores</option>
+            @for (s of setores(); track s.codigo) { <option [value]="s.codigo">{{ s.nome }}</option> }
+          </select>
+        </label>
+        <label class="gv-campo">Estrutura / corredor
+          <input [ngModel]="filtroEstrutura()" (ngModelChange)="filtroEstrutura.set($event); aoFiltrar()" placeholder="Ex.: R01" list="gv-estruturas" />
+        </label>
+        <datalist id="gv-estruturas">
+          @for (e of estruturas(); track e) { <option [value]="e"></option> }
+        </datalist>
+      </div>
+
+      <div class="gv-secao">
+        <h3 class="gv-secao__titulo">Visualização</h3>
+        <label class="gv-campo">Colorir posições por
+          <select [ngModel]="modo()" (ngModelChange)="trocarModo($event)">
+            @for (o of opcoesModo; track o.valor) {
+              <option [value]="o.valor" [disabled]="!o.disponivel">{{ o.rotulo }}{{ o.disponivel ? '' : ' (fase 5)' }}</option>
+            }
+          </select>
+        </label>
+        <div class="gv-camadas">
+          @for (c of opcoesCamadas; track c.id) {
+            <label class="gv-alternar">
+              <span>{{ c.rotulo }}</span>
+              <input type="checkbox" [checked]="camadas()[c.id]" (change)="alternarCamada(c.id, $any($event.target).checked)" />
+              <i></i>
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="gv-secao">
+        <h3 class="gv-secao__titulo">Modos de câmera</h3>
+        <div class="gv-cameras">
+          @for (c of cameras; track c.id) {
+            <button type="button" [class.ativo]="camera() === c.id" (click)="trocarCamera(c.id)" [disabled]="semWebgl() || vista() !== '3d'">
+              <oq-icon [name]="$any(c.icone)" [size]="13" />
+              <span>{{ c.rotulo }}</span>
+              @if (c.dica) { <small>{{ c.dica }}</small> }
+            </button>
+          }
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Centro: indicadores + 3D (ou a tabela de posições) ── -->
+    <section class="gv-centro">
+      <div class="gv-kpis">
+        <div class="gv-kpi">
+          <span class="gv-kpi__rotulo">Posições ocupadas</span>
+          <span class="gv-kpi__valor">{{ resumo().ocupados.toLocaleString('pt-BR') }}<small> / {{ resumo().total.toLocaleString('pt-BR') }}</small></span>
+          <span class="gv-kpi__sub">{{ resumo().pct == null ? 'N/D' : num(resumo().pct, 1) + '% dos endereços' }}</span>
+        </div>
+        <div class="gv-kpi">
+          <span class="gv-kpi__rotulo">Saldo contábil</span>
+          <span class="gv-kpi__valor">{{ indicadores()?.saldoContabil == null ? 'N/D' : num(indicadores()!.saldoContabil, 0) }}<small> un</small></span>
+          <span class="gv-kpi__sub">{{ indicadores()?.aviso ?? 'Estoque do Sankhya neste empresa/local' }}</span>
+        </div>
+        <div class="gv-kpi">
+          <span class="gv-kpi__rotulo">Em separação</span>
+          <span class="gv-kpi__valor">{{ visao()?.documentosEmSeparacao ?? 0 }}<small> documentos</small></span>
+          <span class="gv-kpi__sub">Conferências abertas na Torre</span>
+        </div>
+        <div class="gv-kpi">
+          <span class="gv-kpi__rotulo">Setores logísticos</span>
+          <span class="gv-kpi__valor">{{ setores().length.toString().padStart(2, '0') }}<small> setores</small></span>
+          <span class="gv-kpi__sub">{{ resumoSetores() }}</span>
+        </div>
+      </div>
+
+      <div class="gv-cabecalho">
+        <div>
+          <span class="gv-titulo__eyebrow">Visão operacional</span>
+          <h1 class="gv-cabecalho__titulo">
+            {{ vista() === '3d' ? 'Planta do armazém' : 'Tabela de posições' }}
+            @if (visao()?.planta?.versaoPublicada) { <span class="gv-pill">Versão {{ visao()!.planta.versaoPublicada }}</span> }
+          </h1>
+        </div>
+        <div class="gv-cabecalho__acoes">
+          @if (vista() === '3d') {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="visaoGeral()">Visão geral</button>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="trocarVista('tabela')"><oq-icon name="list" [size]="12" /> Tabela de posições</button>
+          } @else {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="exportar('csv')">CSV <oq-icon name="download" [size]="11" /></button>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="exportar('xlsx')" [disabled]="exportando()">Excel <oq-icon name="download" [size]="11" /></button>
+            <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="trocarVista('3d')" [disabled]="semWebgl()"><oq-icon name="box" [size]="12" /> Planta 3D</button>
+          }
+        </div>
+      </div>
+
+      <div class="gv-palco-wrap" [class.gv-oculto]="vista() !== '3d'">
+        <div class="gv-palco" #palco>
+          <div class="gv-legenda-palco">
+            <span class="gv-aovivo"></span>{{ visao()?.planta?.nome ?? '' }}
+            <span class="gv-dica">Arraste para orbitar · roda para aproximar · botão direito para deslocar</span>
+          </div>
+          @if (carregando()) { <div class="gv-palco__aviso">Carregando planta…</div> }
+          @else if (!visao()?.geometria) {
+            <div class="gv-palco__aviso">
+              <strong>Comece pelo desenho do armazém</strong>
+              <span>Desenhe a planta, gere os endereços e publique uma versão no editor.</span>
+              @if (podeMovimentar()) { <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirEditor()">Abrir editor da planta</button> }
+            </div>
+          }
+        </div>
+        <div class="gv-rodape-palco">
+          <ul class="gv-legenda">
+            @for (l of legenda(); track l[0]) { <li><span class="gv-cor" [style.background]="l[1]"></span>{{ l[0] }}</li> }
+          </ul>
+          <span class="gv-dica">Unidades: metros · ocupação pela maior razão entre quantidade, peso e volume</span>
+        </div>
+      </div>
+
+      @if (vista() === 'tabela') {
+        <div class="gv-tabela-filtros">
+          <form class="gv-busca" (submit)="$event.preventDefault()">
+            <oq-icon name="search" [size]="13" />
+            <input name="buscaTabela" [ngModel]="buscaTabela()" (ngModelChange)="buscaTabela.set($event); pagina.set(1)" placeholder="Pesquisar nesta visão" />
+          </form>
+          <select class="gv-select" [ngModel]="filtroSetor()" (ngModelChange)="filtroSetor.set($event); pagina.set(1); aoFiltrar()">
+            <option value="">Todos os setores</option>
+            @for (s of setores(); track s.codigo) { <option [value]="s.codigo">{{ s.nome }}</option> }
+          </select>
+          @if (resultadoBusca()) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="limparBusca()">Limpar localização ({{ resultadoBusca()!.length }})</button>
+          }
+          <span class="gv-dica gv-dica--direita">{{ linhasTabela().length.toLocaleString('pt-BR') }} registros</span>
+        </div>
+        <div class="gv-tabela-wrap">
+          <table class="gv-tabela">
+            <thead>
+              <tr>
+                <th (click)="ordenar('codigo')">Endereço {{ setaOrdem('codigo') }}</th>
+                <th (click)="ordenar('estrutura')">Estrutura {{ setaOrdem('estrutura') }}</th>
+                <th (click)="ordenar('modulo')" class="num">Módulo {{ setaOrdem('modulo') }}</th>
+                <th (click)="ordenar('nivel')" class="num">Nível {{ setaOrdem('nivel') }}</th>
+                <th (click)="ordenar('setor')">Setor {{ setaOrdem('setor') }}</th>
+                <th (click)="ordenar('tipo')">Tipo {{ setaOrdem('tipo') }}</th>
+                <th (click)="ordenar('quantidade')" class="num">Físico {{ setaOrdem('quantidade') }}</th>
+                <th (click)="ordenar('ocupacao')" class="num">Ocupação {{ setaOrdem('ocupacao') }}</th>
+                <th (click)="ordenar('base')">Base {{ setaOrdem('base') }}</th>
+                <th (click)="ordenar('bloqueado')">Bloqueado {{ setaOrdem('bloqueado') }}</th>
+                <th>Produtos</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of paginaTabela(); track e.id) {
+                <tr [class.bloqueado]="e.bloqueado">
+                  <td class="mono">{{ e.codigo }}</td>
+                  <td>{{ e.estrutura }}</td>
+                  <td class="num">{{ e.modulo }}</td>
+                  <td class="num">{{ e.nivel }}</td>
+                  <td><span class="gv-ponto" [style.background]="corSetor(e.setor)"></span>{{ nomeSetor(e.setor) }}</td>
+                  <td>{{ e.tipo === 'PICKING' ? 'Picking' : 'Pulmão' }}</td>
+                  <td class="num">{{ num(e.quantidade, 3) }}</td>
+                  <td class="num"><span class="gv-cor gv-cor--mini" [style.background]="corFaixa(e.ocupacao, e.quantidade)"></span>{{ ocupacaoTexto(e) }}</td>
+                  <td>{{ baseTexto(e) }}</td>
+                  <td>{{ e.bloqueado ? 'Sim' : 'Não' }}</td>
+                  <td class="gv-tabela__produtos">{{ e.saldos.length === 0 ? '—' : e.saldos.length === 1 ? e.saldos[0].produto : e.saldos.length + ' produtos' }}</td>
+                  <td><button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="detalhar(e)" [disabled]="semWebgl()">Detalhar</button></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="12" class="gv-vazio">Nenhum endereço encontrado.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="gv-paginacao">
+          <span>{{ ((pagina() - 1) * 100 + 1).toLocaleString('pt-BR') }}–{{ (pagina() * 100 > linhasTabela().length ? linhasTabela().length : pagina() * 100).toLocaleString('pt-BR') }} de {{ linhasTabela().length.toLocaleString('pt-BR') }}</span>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="irPagina(pagina() - 1)" [disabled]="pagina() <= 1">Anterior</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="irPagina(pagina() + 1)" [disabled]="pagina() >= totalPaginas()">Próxima</button>
+        </div>
+      }
+    </section>
+
+    <!-- ── Direita: endereço selecionado + feed ── -->
+    <aside class="gv-dir">
+      <div class="gv-secao gv-selecao">
+        @if (selecionado(); as e) {
+          <span class="gv-titulo__eyebrow">Endereço selecionado</span>
+          <div class="gv-endereco">{{ e.codigo }}</div>
+          <span class="gv-dica">Estrutura {{ e.estrutura }} · Módulo {{ e.modulo }} · Nível {{ e.nivel }} · {{ e.tipo === 'PICKING' ? 'Picking' : 'Pulmão' }}</span>
+          <div class="gv-tags">
+            <span class="gv-tag"><span class="gv-ponto" [style.background]="corSetor(e.setor)"></span>{{ nomeSetor(e.setor) }}</span>
+            @if (e.bloqueado) { <span class="gv-tag gv-tag--bloqueado">Bloqueado</span> }
+            @if (e.emSeparacao) { <span class="gv-tag gv-tag--ok">Em separação</span> }
+          </div>
+
+          <div class="gv-ocupacao">
+            <div class="gv-ocupacao__linha"><span>Ocupação</span><strong>{{ ocupacaoTexto(e) }}</strong></div>
+            <div class="gv-barra-progresso"><i [style.width.%]="larguraBarra(e)" [style.background]="corFaixa(e.ocupacao, e.quantidade)"></i></div>
+            <span class="gv-dica">Base: {{ baseTexto(e) }}</span>
+            <div class="gv-capacidade">
+              <div><span>Qtd.</span><b>{{ num(e.quantidade, 3) }} / {{ num(e.capQtd) }}</b><em>{{ razaoTexto(e.ocupacaoQtd) }}</em></div>
+              <div><span>Peso kg</span><b>{{ num(e.pesoKg, 1) }} / {{ num(e.capPeso) }}</b><em>{{ razaoTexto(e.ocupacaoPeso) }}</em></div>
+              <div><span>Volume m³</span><b>{{ num(e.volumeM3, 3) }} / {{ num(e.capVolume) }}</b><em>{{ razaoTexto(e.ocupacaoVolume) }}</em></div>
+            </div>
+          </div>
+
+          @if (e.contagensPendentes > 0) {
+            <div class="gv-pendente">{{ e.contagensPendentes }} contagem(ns) aguardando aprovação</div>
+          }
+          @if (podeMovimentar()) {
+            <div class="gv-acoes">
+              <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirModal('ENDERECAR', e)" [disabled]="e.bloqueado">Endereçar produto</button>
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirModal('CONTAR', e)" [disabled]="e.bloqueado">Contar</button>
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="alternarBloqueio(e)" [disabled]="bloqueando()">
+                {{ e.bloqueado ? 'Desbloquear' : 'Bloquear' }}
+              </button>
+            </div>
+          }
+
+          <div class="gv-produtos">
+            @for (s of e.saldos; track s.codprod + s.controle) {
+              <div class="gv-produto">
+                <small class="mono">Produto {{ s.codprod }}</small>
+                <strong>{{ s.produto }}</strong>
+                <dl>
+                  <div><dt>Quantidade física</dt><dd>{{ num(s.quantidade, 3) }}</dd></div>
+                  <div><dt>Controle / lote</dt><dd>{{ s.controle || 'N/D' }}</dd></div>
+                </dl>
+                @if (podeMovimentar() && !e.bloqueado) {
+                  <div class="gv-produto__acoes">
+                    <button type="button" (click)="abrirModal('TRANSFERIR', e, s)">Transferir</button>
+                    <button type="button" (click)="abrirModal('RETIRAR', e, s)">Retirar</button>
+                    <button type="button" (click)="abrirModal('CONTAR', e, s)">Contar</button>
+                  </div>
+                }
+              </div>
+            } @empty {
+              <div class="gv-vazio">Posição sem saldo endereçado.</div>
+            }
+          </div>
+        } @else {
+          <div class="gv-sem-selecao">
+            <oq-icon name="circle" [size]="22" />
+            <strong>Endereço selecionado</strong>
+            <span>Clique numa posição na planta para explorar seus produtos.</span>
+          </div>
+        }
+      </div>
+
+      <div class="gv-secao gv-feed">
+        <div class="gv-feed__cabecalho"><span class="gv-titulo__eyebrow">Feed de movimentações</span><span class="gv-aovivo" title="Atualiza a cada 30 segundos"></span></div>
+        @for (m of feed(); track m.id) {
+          <button type="button" class="gv-feed__item" (click)="abrirDoFeed(m)" [disabled]="!(m.destino || m.origem)">
+            <span class="gv-feed__marca">{{ m.tipo === 'TRANSFERIR' ? '⇄' : m.tipo === 'RETIRAR' ? '↓' : m.tipo === 'ENDERECAR' ? '↑' : '•' }}</span>
+            <span class="gv-feed__texto">
+              <strong>{{ rotuloMov[m.tipo] || m.tipo }}@if (m.codprod) { <small> #{{ m.codprod }}</small> }</strong>
+              <span>{{ m.origem ?? '' }}{{ m.origem && m.destino ? ' → ' : '' }}{{ m.destino ?? '' }}@if (m.tipo !== 'BLOQUEAR' && m.tipo !== 'DESBLOQUEAR') { · {{ num(m.quantidade, 3) }} un }</span>
+              <em>{{ m.usuarioNome }}</em>
+            </span>
+            <time>{{ hora(m.criadoEm) }}</time>
+          </button>
+        } @empty {
+          <div class="gv-vazio">Nenhum movimento registrado nesta planta.</div>
+        }
+      </div>
+    </aside>
+  </div>
+
+  <footer class="gv-statusbar">
+    <span><i class="gv-aovivo"></i>{{ carregando() ? 'Atualizando…' : 'Planta conectada' }}</span>
+    <span>{{ resumo().total.toLocaleString('pt-BR') }} posições · {{ resumo().bloqueados }} bloqueada(s)</span>
+    <span>{{ visao()?.geradoEm ? 'Atualizado ' + (visao()!.geradoEm | date: 'dd/MM/yyyy HH:mm:ss') : '' }}</span>
+  </footer>
+
+  @if (modal(); as m) {
+    <app-movimento-modal
+      [plantaId]="plantaId"
+      [tipo]="m.tipo"
+      [endereco]="m.endereco"
+      [saldo]="m.saldo"
+      [enderecos]="enderecos()"
+      (concluido)="aoConcluirMovimento($event)"
+      (fechar)="modal.set(null)"
+    />
+  }
+</div>

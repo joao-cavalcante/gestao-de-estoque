@@ -1,0 +1,165 @@
+<div class="gc">
+  <div class="gv-barra">
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="voltar()" title="Voltar para a planta">
+      <oq-icon name="arrow-left" [size]="12" />
+    </button>
+    <div class="gv-titulo">
+      <span class="gv-titulo__nome">Movimentações e conciliação — {{ planta()?.nome ?? '' }}</span>
+      @if (planta(); as p) {
+        <span class="gv-titulo__sub">
+          @if (p.codemp && p.codlocal) { Empresa {{ p.codemp }} · Local {{ p.codlocal }} }
+          @else { Planta sem empresa/local cadastrados — endereçamento e conciliação indisponíveis }
+        </span>
+      }
+    </div>
+    <div class="gv-grupo" role="tablist">
+      <button type="button" [class.ativo]="aba() === 'movimentos'" (click)="trocarAba('movimentos')">Movimentações</button>
+      <button type="button" [class.ativo]="aba() === 'contagens'" (click)="trocarAba('contagens')">Contagens</button>
+      <button type="button" [class.ativo]="aba() === 'conciliacao'" (click)="trocarAba('conciliacao')">Conciliação</button>
+    </div>
+  </div>
+
+  @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+
+  @switch (aba()) {
+    @case ('movimentos') {
+      <form class="gc-filtros" (ngSubmit)="carregarMovimentos(1)">
+        <label>Tipo
+          <select name="tipo" [(ngModel)]="filtroTipo">
+            <option value="">Todos</option>
+            @for (t of tiposMov; track t) { <option [value]="t">{{ rotuloMov[t] }}</option> }
+          </select>
+        </label>
+        <label>Produto (código)<input name="produto" type="number" [(ngModel)]="filtroProduto" /></label>
+        <label>Endereço<input name="endereco" class="mono" [(ngModel)]="filtroEndereco" placeholder="ex: R01-M03-N01" /></label>
+        <button type="submit" class="oq-admin-btn oq-admin-btn--primary">Filtrar</button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="limparFiltros()">Limpar</button>
+      </form>
+
+      <div class="gc-tabela-wrap">
+        <table class="gc-tabela">
+          <thead>
+            <tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Origem</th><th>Destino</th><th class="num">Quantidade</th><th>Usuário</th><th>Motivo</th></tr>
+          </thead>
+          <tbody>
+            @for (m of movimentos()?.itens ?? []; track m.id) {
+              <tr>
+                <td class="nowrap">{{ m.criadoEm | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ rotuloMov[m.tipo] || m.tipo }}</td>
+                <td>{{ m.codprod ? m.codprod + ' · ' + m.produto : '—' }}{{ m.controle ? ' · ' + m.controle : '' }}</td>
+                <td class="mono">{{ m.origem ?? '—' }}</td>
+                <td class="mono">{{ m.destino ?? '—' }}</td>
+                <td class="num">{{ m.tipo === 'AJUSTE_CONTAGEM' ? sinal(m.quantidade) : m.tipo === 'BLOQUEAR' || m.tipo === 'DESBLOQUEAR' ? '—' : num(m.quantidade) }}</td>
+                <td>{{ m.usuarioNome }}</td>
+                <td>{{ m.motivo ?? '' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="gv-vazio">{{ carregandoMov() ? 'Carregando…' : 'Nenhuma movimentação encontrada.' }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (movimentos(); as m) {
+        <div class="gc-paginacao">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarMovimentos(m.paginaAtual - 1)" [disabled]="m.paginaAtual <= 1">Anterior</button>
+          <span>Página {{ m.paginaAtual }} de {{ m.totalPaginas }} · {{ m.totalRegistros.toLocaleString('pt-BR') }} movimentos</span>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarMovimentos(m.paginaAtual + 1)" [disabled]="m.paginaAtual >= m.totalPaginas">Próxima</button>
+        </div>
+      }
+    }
+
+    @case ('contagens') {
+      <div class="gc-filtros">
+        <label class="gc-check"><input type="checkbox" [checked]="somentePendentes()" (change)="alternarPendentes()" /> Só pendentes</label>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarContagens()"><oq-icon name="sync" [size]="12" /></button>
+      </div>
+      @if (aviso()) { <div class="gc-aviso">{{ aviso() }}</div> }
+      <div class="gc-tabela-wrap">
+        <table class="gc-tabela">
+          <thead>
+            <tr><th>Contado em</th><th>Endereço</th><th>Produto</th><th class="num">Sistema</th><th class="num">Contado</th><th class="num">Diferença</th><th>Contado por</th><th>Situação / decisão</th></tr>
+          </thead>
+          <tbody>
+            @for (c of contagens(); track c.id) {
+              <tr>
+                <td class="nowrap">{{ c.contadoEm | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="mono">{{ c.endereco }}</td>
+                <td>{{ c.codprod }} · {{ c.produto }}{{ c.controle ? ' · ' + c.controle : '' }}@if (c.motivo) { <span class="gc-sub">{{ c.motivo }}</span> }</td>
+                <td class="num">{{ num(c.quantidadeSistema) }}</td>
+                <td class="num">{{ num(c.quantidadeContada) }}</td>
+                <td class="num" [class.gc-neg]="c.diferenca < 0" [class.gc-pos]="c.diferenca > 0">{{ sinal(c.diferenca) }}</td>
+                <td>{{ c.contadoPorNome }}</td>
+                <td>
+                  @if (c.status === 'PENDENTE') {
+                    <div class="gc-decisao">
+                      <input [(ngModel)]="observacoes[c.id]" placeholder="Observação (opcional)" maxlength="200" />
+                      <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="decidir(c, true)" [disabled]="decidindo() === c.id">Aprovar ajuste</button>
+                      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="decidir(c, false)" [disabled]="decidindo() === c.id">Descartar</button>
+                    </div>
+                  } @else {
+                    <span class="gc-status" [attr.data-status]="c.status">{{ c.status === 'APROVADA' ? 'Aprovada' : 'Descartada' }}</span>
+                    <span class="gc-sub">{{ c.decididoPorNome }} · {{ c.decididoEm | date: 'dd/MM/yyyy HH:mm' }}{{ c.observacaoDecisao ? ' · ' + c.observacaoDecisao : '' }}</span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="gv-vazio">{{ carregandoCont() ? 'Carregando…' : somentePendentes() ? 'Nenhuma contagem pendente.' : 'Nenhuma contagem registrada.' }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @case ('conciliacao') {
+      <div class="gc-filtros">
+        <div class="gv-grupo" role="group">
+          <button type="button" [class.ativo]="filtroSituacao() === 'DIVERGENTES'" (click)="filtroSituacao.set('DIVERGENTES')">Divergentes ({{ resumoConc().total - resumoConc().ok }})</button>
+          <button type="button" [class.ativo]="filtroSituacao() === 'SEM_ENDERECO'" (click)="filtroSituacao.set('SEM_ENDERECO')">Sem endereço ({{ resumoConc().sem }})</button>
+          <button type="button" [class.ativo]="filtroSituacao() === 'PARCIAL'" (click)="filtroSituacao.set('PARCIAL')">Parcial ({{ resumoConc().parcial }})</button>
+          <button type="button" [class.ativo]="filtroSituacao() === 'EXCEDENTE'" (click)="filtroSituacao.set('EXCEDENTE')">Acima do Sankhya ({{ resumoConc().excedente }})</button>
+          <button type="button" [class.ativo]="filtroSituacao() === 'NEGATIVO'" (click)="filtroSituacao.set('NEGATIVO')">Negativo no Sankhya ({{ resumoConc().negativo }})</button>
+          <button type="button" [class.ativo]="filtroSituacao() === 'OK'" (click)="filtroSituacao.set('OK')">Conferidos ({{ resumoConc().ok }})</button>
+          <button type="button" [class.ativo]="filtroSituacao() === 'TODAS'" (click)="filtroSituacao.set('TODAS')">Todos</button>
+        </div>
+        <form class="gv-busca" (submit)="$event.preventDefault()">
+          <oq-icon name="search" [size]="13" />
+          <input name="buscaConc" [ngModel]="buscaConc()" (ngModelChange)="buscaConc.set($event)" placeholder="Produto (código ou descrição)" />
+        </form>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregarConciliacao()" [disabled]="carregandoConc()" title="Ler o Sankhya de novo">
+          <oq-icon name="sync" [size]="12" />
+        </button>
+      </div>
+      <span class="oq-form-hint">
+        Compara o saldo endereçado no galpão com o estoque próprio do Sankhya (TGFEST) neste empresa/local. Só mostra a diferença — nada é corrigido automaticamente.
+        @if (conciliacao(); as c) { Lido em {{ c.lidoEm | date: 'dd/MM/yyyy HH:mm' }}. }
+      </span>
+      @if (erroConc()) { <span class="oq-form-hint oq-form-hint--erro">{{ erroConc() }}</span> }
+      <div class="gc-tabela-wrap">
+        <table class="gc-tabela">
+          <thead>
+            <tr><th>Produto</th><th>Controle</th><th class="num">Sankhya</th><th class="num">Reservado</th><th class="num">Endereçado</th><th class="num">Sem endereço</th><th class="num">Acima do Sankhya</th><th>Situação</th></tr>
+          </thead>
+          <tbody>
+            @for (l of linhasConc().slice(0, 500); track l.codprod + '|' + l.controle) {
+              <tr>
+                <td>{{ l.codprod }} · {{ l.produto }}</td>
+                <td>{{ l.controle || '—' }}</td>
+                <td class="num">{{ num(l.contabil) }}</td>
+                <td class="num">{{ num(l.reservado) }}</td>
+                <td class="num">{{ num(l.enderecado) }}</td>
+                <td class="num">{{ l.semEndereco ? num(l.semEndereco) : '—' }}</td>
+                <td class="num" [class.gc-neg]="l.excedente > 0">{{ l.excedente ? num(l.excedente) : '—' }}</td>
+                <td><span class="gc-situacao" [attr.data-situacao]="l.situacao">{{ rotuloSituacao[l.situacao] }}</span></td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="gv-vazio">{{ carregandoConc() ? 'Lendo o Sankhya…' : 'Nenhum item nesta situação.' }}</td></tr>
+            }
+          </tbody>
+        </table>
+        @if (linhasConc().length > 500) {
+          <span class="oq-form-hint">Mostrando 500 de {{ linhasConc().length.toLocaleString('pt-BR') }} itens — use a busca para refinar.</span>
+        }
+      </div>
+    }
+  }
+</div>

@@ -4,6 +4,7 @@ import { filter } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { OqIconComponent, OqIconName } from '../icons/oq-icon.component';
 import { NavMenuService } from './nav-menu.service';
+import { GalpaoService } from '../../galpao/galpao.service';
 
 interface ItemMenu {
   rota?: string;
@@ -11,6 +12,8 @@ interface ItemMenu {
   icone: OqIconName;
   subItens?: ItemMenu[];
   somenteAdmin?: boolean;
+  /** Só aparece com a Planta do Galpão habilitada pro tenant (módulo planta_galpao). */
+  somenteGalpao?: boolean;
 }
 
 /**
@@ -36,6 +39,7 @@ const ITENS: ItemMenu[] = [
   { rota: '/pendencias-integracao', label: 'Pendências de Integração', icone: 'circle-alert' },
   { rota: '/consulta-produtos', label: 'Consulta de Produtos', icone: 'search' },
   { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },
+  { rota: '/galpao', label: 'Planta do Galpão', icone: 'grid', somenteGalpao: true },
   // TV de acompanhamento (painel de parede) — permissão TV: admin (a conta de TV já cai direto nela).
   {
     label: 'TV de Conferência',
@@ -91,11 +95,15 @@ export class NavMenuComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly nav = inject(NavMenuService);
+  private readonly galpao = inject(GalpaoService);
+  /** null = ainda não perguntado ao backend nesta sessão. */
+  private readonly galpaoDisponivel = signal<boolean | null>(null);
 
   /** Menu do usuário logado — grupo Administração só pra ADMINISTRADOR. */
   get itens(): ItemMenu[] {
     const admin = this.auth.usuario()?.perfil === 'ADMINISTRADOR';
-    return ITENS.filter((i) => admin || !i.somenteAdmin);
+    const galpao = this.galpaoDisponivel() === true;
+    return ITENS.filter((i) => (admin || !i.somenteAdmin) && (galpao || !i.somenteGalpao));
   }
   readonly aberto = this.nav.aberto;
   escondido = false;
@@ -115,6 +123,11 @@ export class NavMenuComponent {
     // Painel Master também fica sem o menu do tenant: senão os links e o "Sair" operacional seguiam no DOM do
     // painel (alcançáveis por Tab), e o "Sair" encerrava a sessão do tenant, não a do Master.
     this.escondido = url.startsWith('/login') || url === '/master' || url.startsWith('/master/');
+    if (url.startsWith('/login')) this.galpaoDisponivel.set(null);
+    else if (!this.escondido && this.galpaoDisponivel() === null && this.auth.usuario() && this.auth.usuario()?.perfil !== 'TV') {
+      this.galpaoDisponivel.set(false);
+      this.galpao.disponivel().subscribe({ next: (r) => this.galpaoDisponivel.set(r.disponivel), error: () => undefined });
+    }
   }
 
   grupoAberto(label: string): boolean {
