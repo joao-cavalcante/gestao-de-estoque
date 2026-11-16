@@ -43,9 +43,13 @@
               @if (p.temRascunho && podeEditar()) {
                 <oq-status-chip tone="warning">RASCUNHO</oq-status-chip>
               }
+              <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="operar(p)" [disabled]="!p.versaoPublicada"
+                      [title]="p.versaoPublicada ? 'Onde está, endereçar, transferir, retirar e contar' : 'Publique o desenho para operar'">
+                Operação
+              </button>
               <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="visualizar(p)" [disabled]="!p.versaoPublicada"
-                      [title]="p.versaoPublicada ? 'Visualização 3D e tabela de endereços' : 'Publique o desenho para visualizar'">
-                Visualizar
+                      [title]="p.versaoPublicada ? 'Mapa 3D, ocupação e pendências' : 'Publique o desenho para visualizar'">
+                Painel
               </button>
               @if (podeEditar()) {
                 <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="desenhar(p)">Editar desenho</button>

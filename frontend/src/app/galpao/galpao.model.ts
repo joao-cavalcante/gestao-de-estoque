@@ -146,6 +146,8 @@ export interface DocumentoBusca {
   numnota: number | null;
   tipmov: string | null;
   codprods: number[];
+  /** Nome de cada produto (cache da Torre). */
+  nomes?: Record<number, string>;
 }
 
 export interface PublicacaoOk {

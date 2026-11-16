@@ -67,6 +67,10 @@ export class PlantasListaComponent implements OnInit {
     });
   }
 
+  operar(p: Planta): void {
+    this.router.navigate(['/galpao', p.id, 'operacao']);
+  }
+
   visualizar(p: Planta): void {
     this.router.navigate(['/galpao', p.id]);
   }

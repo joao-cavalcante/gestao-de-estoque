@@ -185,7 +185,8 @@ fun Route.galpaoRoutes() {
             val doc = runCatching { GalpaoErp.documento(slug, numero, planta.codemp) }.getOrElse {
                 return@get call.respond(HttpStatusCode.ServiceUnavailable, mapOf("erro" to "Sankhya indisponível para buscar o documento"))
             } ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Documento $numero não encontrado"))
-            call.respond(doc)
+            val nomes = wms.backend.tenancy.TenantTx.run(claims.tenantId) { GalpaoRepository.nomesProdutos(claims.tenantId, doc.codprods) }
+            call.respond(doc.copy(nomes = nomes))
         }
 
         galpaoMovimentacaoRoutes()

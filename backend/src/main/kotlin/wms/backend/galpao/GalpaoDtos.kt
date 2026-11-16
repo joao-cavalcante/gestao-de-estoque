@@ -127,6 +127,8 @@ data class DocumentoBuscaDto(
     val numnota: Int?,
     val tipmov: String?,
     val codprods: List<Int>,
+    /** "Descrição - Complemento" de cada produto (cache de produtos da Torre); ausente = sem nome no cache. */
+    val nomes: Map<Int, String> = emptyMap(),
 )
 
 // ─── Movimentação (fase 4) ──────────────────────────────────────────────────

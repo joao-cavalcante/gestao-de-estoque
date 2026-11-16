@@ -1,0 +1,220 @@
+<div class="go">
+  <div class="go-topo">
+    <div class="go-titulo">
+      <span class="go-titulo__nome">{{ visao()?.planta?.nome ?? 'Planta' }}</span>
+      <span class="go-titulo__sub">Operação</span>
+    </div>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirPainel()" title="Painel com o mapa da planta">Ver mapa</button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregar()" [disabled]="carregando()" title="Atualizar">
+      <oq-icon name="sync" [size]="12" />
+    </button>
+  </div>
+
+  @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+  @if (feedback(); as f) {
+    <div class="go-feedback" [class.go-feedback--erro]="f.erro" role="status">{{ f.texto }}</div>
+  }
+
+  <!-- Onde está? -->
+  <form class="go-busca" (ngSubmit)="buscar()" role="search">
+    <label for="go-termo" class="go-busca__rotulo">Onde está?</label>
+    <div class="go-busca__linha">
+      <input
+        id="go-termo"
+        name="termo"
+        [(ngModel)]="termo"
+        placeholder="Produto, endereço ou nº do pedido"
+        autocomplete="off"
+        enterkeyhint="search"
+      />
+      <button type="submit" class="go-btn go-btn--primario" [disabled]="buscando() || !termo.trim()">
+        {{ buscando() ? 'Buscando…' : 'Buscar' }}
+      </button>
+    </div>
+  </form>
+
+  @if (semResultado(); as s) { <div class="go-vazio">{{ s }}</div> }
+
+  @if (resultado(); as r) {
+    <section class="go-resultado" aria-live="polite">
+      @switch (r.tipo) {
+        @case ('produtos') {
+          <h2>Escolha o produto</h2>
+          <ul class="go-lista">
+            @for (p of r.lista; track p.codprod) {
+              <li><button type="button" class="go-item" (click)="abrirProduto(p.codprod)"><span class="mono">{{ p.codprod }}</span> {{ p.produto }}</button></li>
+            }
+          </ul>
+        }
+
+        @case ('produto') {
+          <h2><span class="mono">{{ r.estoque.codprod }}</span> {{ r.estoque.produto }}</h2>
+          @if (r.estoque.aviso) { <p class="go-aviso">{{ r.estoque.aviso }}</p> }
+          <ul class="go-lista">
+            @for (x of r.estoque.enderecos; track x.enderecoId + x.controle) {
+              <li class="go-local">
+                <div class="go-local__info">
+                  <strong class="mono">{{ x.endereco }}</strong>
+                  <span>{{ num(x.quantidade) }} un{{ x.controle ? ' · lote ' + x.controle : '' }}</span>
+                </div>
+                @if (enderecoPorId(x.enderecoId); as e) {
+                  <div class="go-local__acoes">
+                    <button type="button" class="go-btn" (click)="abrirPainel(x.endereco)">Mapa</button>
+                    <button type="button" class="go-btn" (click)="abrirModal('TRANSFERIR', e, saldoDe(e, r.estoque.codprod, x.controle))">Transferir</button>
+                    <button type="button" class="go-btn" (click)="abrirModal('RETIRAR', e, saldoDe(e, r.estoque.codprod, x.controle))">Retirar</button>
+                    <button type="button" class="go-btn" (click)="abrirModal('CONTAR', e, saldoDe(e, r.estoque.codprod, x.controle))">Contar</button>
+                  </div>
+                }
+              </li>
+            } @empty {
+              <li class="go-vazio">Este produto não está em nenhum endereço da planta.</li>
+            }
+          </ul>
+          @if (semEnderecoTotal(r.estoque) > 0) {
+            <div class="go-pendente">
+              <span><b>{{ num(semEnderecoTotal(r.estoque)) }} un</b> no estoque do Sankhya ainda sem endereço.</span>
+              <button type="button" class="go-btn go-btn--primario" (click)="iniciar('ENDERECAR')">Endereçar</button>
+            </div>
+          }
+        }
+
+        @case ('endereco') {
+          <h2 class="mono">{{ r.endereco.codigo }}</h2>
+          <p class="go-sub">
+            Estrutura {{ r.endereco.estrutura }} · módulo {{ r.endereco.modulo }} · nível {{ r.endereco.nivel }}
+            · {{ r.endereco.tipo === 'PICKING' ? 'picking' : 'pulmão' }}
+            @if (r.endereco.bloqueado) { · <b>bloqueado</b> }
+          </p>
+          <ul class="go-lista">
+            @for (s of r.endereco.saldos; track s.codprod + s.controle) {
+              <li class="go-local">
+                <div class="go-local__info">
+                  <strong>{{ s.produto }}</strong>
+                  <span><span class="mono">{{ s.codprod }}</span> · {{ num(s.quantidade) }} un{{ s.controle ? ' · lote ' + s.controle : '' }}</span>
+                </div>
+                <div class="go-local__acoes">
+                  <button type="button" class="go-btn" (click)="abrirModal('TRANSFERIR', r.endereco, s)">Transferir</button>
+                  <button type="button" class="go-btn" (click)="abrirModal('RETIRAR', r.endereco, s)">Retirar</button>
+                  <button type="button" class="go-btn" (click)="abrirModal('CONTAR', r.endereco, s)">Contar</button>
+                </div>
+              </li>
+            } @empty {
+              <li class="go-vazio">Endereço vazio.</li>
+            }
+          </ul>
+          <div class="go-acoes-linha">
+            <button type="button" class="go-btn" (click)="abrirPainel(r.endereco.codigo)">Ver no mapa</button>
+            <button type="button" class="go-btn" (click)="abrirModal('ENDERECAR', r.endereco, null)">Guardar produto aqui</button>
+            <button type="button" class="go-btn" (click)="abrirModal('CONTAR', r.endereco, null)">Contar endereço</button>
+          </div>
+        }
+
+        @case ('pedido') {
+          <h2>Pedido {{ r.numnota ?? r.nunota }} <small class="go-sub">· NUNOTA {{ r.nunota }}</small></h2>
+          <p class="go-sub">Ordem de coleta pelo endereço.</p>
+          <ol class="go-lista go-coleta">
+            @for (i of r.itens; track i.codprod) {
+              <li class="go-local">
+                <div class="go-local__info">
+                  <strong>{{ i.produto }}</strong>
+                  @if (i.enderecos.length) {
+                    <span>
+                      @for (x of i.enderecos; track x.endereco.id + x.saldo.controle; let ult = $last) {
+                        <span class="mono">{{ x.endereco.codigo }}</span> ({{ num(x.saldo.quantidade) }}){{ ult ? '' : ' · ' }}
+                      }
+                    </span>
+                  } @else {
+                    <span class="go-aviso"><span class="mono">{{ i.codprod }}</span> · sem endereço na planta</span>
+                  }
+                </div>
+                @if (i.enderecos.length) {
+                  <div class="go-local__acoes">
+                    <button type="button" class="go-btn" (click)="abrirPainel(i.enderecos[0].endereco.codigo)">Mapa</button>
+                  </div>
+                }
+              </li>
+            }
+          </ol>
+        }
+      }
+    </section>
+  }
+
+  <!-- Ações -->
+  @if (!acao()) {
+    <section class="go-acoes" aria-label="Ações">
+      @for (a of acoes; track a) {
+        <button type="button" class="go-acao" (click)="iniciar(a)">
+          <span class="go-acao__icone" aria-hidden="true">{{ a === 'ENDERECAR' ? '↑' : a === 'TRANSFERIR' ? '⇄' : a === 'RETIRAR' ? '↓' : '#' }}</span>
+          {{ rotuloAcao[a] }}
+        </button>
+      }
+    </section>
+    @if (!podeMovimentar()) {
+      <p class="go-sub">Consulta liberada. Movimentar na planta, por enquanto, só com o perfil ADMINISTRADOR.</p>
+    }
+    @if (contagensPendentes()) {
+      <p class="go-sub">{{ contagensPendentes() }} contagem(ns) aguardando aprovação do supervisor.</p>
+    }
+  } @else {
+    <section class="go-passo" aria-live="polite">
+      <div class="go-passo__topo">
+        <h2>{{ rotuloAcao[acao()!] }}</h2>
+        <button type="button" class="go-btn" (click)="cancelarAcao()">Cancelar</button>
+      </div>
+
+      @if (enderecoEscolhido(); as e) {
+        <p class="go-pergunta">Qual produto de <span class="mono">{{ e.codigo }}</span>?</p>
+        <ul class="go-lista">
+          @for (s of e.saldos; track s.codprod + s.controle) {
+            <li>
+              <button type="button" class="go-item" (click)="abrirModal(acao()!, e, s)">
+                <strong>{{ s.produto }}</strong>
+                <span><span class="mono">{{ s.codprod }}</span> · {{ num(s.quantidade) }} un{{ s.controle ? ' · lote ' + s.controle : '' }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="go-pergunta">{{ perguntaEndereco[acao()!] }}</p>
+        <form class="go-busca__linha" (ngSubmit)="confirmarEnderecoDigitado()">
+          <input
+            name="codigoEndereco"
+            class="mono"
+            [ngModel]="codigoEndereco"
+            (ngModelChange)="aoDigitarEndereco($event)"
+            placeholder="Digite ou leia o código, ex.: R01-M03-N01"
+            autocomplete="off"
+            autofocus
+          />
+        </form>
+        <ul class="go-grade">
+          @for (e of sugestoesEndereco(); track e.id) {
+            <li>
+              <button type="button" class="go-item go-item--endereco" (click)="escolherEndereco(e)" [disabled]="e.bloqueado && acao() !== 'CONTAR'">
+                <strong class="mono">{{ e.codigo }}</strong>
+                <span>{{ e.quantidade > 0 ? num(e.quantidade) + ' un · ' + e.saldos.length + ' produto(s)' : 'vazio' }}{{ e.bloqueado ? ' · bloqueado' : '' }}</span>
+              </button>
+            </li>
+          } @empty {
+            <li class="go-vazio">Nenhum endereço com esse código{{ acao() === 'TRANSFERIR' || acao() === 'RETIRAR' ? ' e com saldo' : '' }}.</li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  @if (carregando() && !visao()) { <div class="go-vazio">Carregando a planta…</div> }
+
+  @if (modal(); as m) {
+    <app-movimento-modal
+      [plantaId]="plantaId"
+      [tipo]="m.tipo"
+      [endereco]="m.endereco"
+      [saldo]="m.saldo"
+      [enderecos]="enderecos()"
+      (concluido)="aoConcluirMovimento($event)"
+      (fechar)="modal.set(null)"
+    />
+  }
+</div>

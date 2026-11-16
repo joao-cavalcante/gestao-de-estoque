@@ -33,10 +33,23 @@ const CAMADAS: { id: keyof Camadas; rotulo: string }[] = [
   { id: 'rotas', rotulo: 'Rotas de eventos físicos' },
 ];
 
+/** Modos de cor sempre à mão no Painel; os demais ficam em "Mais". */
+const MODOS_PRINCIPAIS: ModoCor[] = ['ocupacao', 'setor', 'alertas', 'abc'];
+const ROTULO_CURTO: Partial<Record<ModoCor, string>> = { ocupacao: 'Ocupação', setor: 'Setor', alertas: 'Alertas', abc: 'Curva ABC' };
+
+/** Item da lista "Precisa de atenção". [indice] = endereço a acender no 3D. */
+interface ItemAtencao {
+  chave: string;
+  severidade: 'CRITICO' | 'ATENCAO';
+  texto: string;
+  sub: string;
+  indice: number | null;
+}
+
 /**
- * Visão operacional da planta publicada — mesmo arranjo do Planta Log: filtros, cor e câmera à esquerda;
- * indicadores e 3D no centro; endereço selecionado e feed de movimentações à direita. A "Tabela de posições"
- * é a alternativa sem WebGL (ordenação, filtro, CSV/Excel). Movimentar: só ADMINISTRADOR por enquanto.
+ * Painel da planta (supervisor): 4 números, o 3D com poucos controles e a lista do que precisa de atenção. O que é
+ * de análise/gestão (Produtos, Alertas, Movimentações, Editor, Tabela de posições) fica no menu "Gestão"; a busca e o
+ * passo a passo do galpão ficam na tela de Operação. Movimentar: só ADMINISTRADOR por enquanto.
  */
 @Component({
   selector: 'app-planta-visao',
@@ -85,9 +98,42 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     }
     return { porProduto, porEndereco };
   });
+  /** Produtos com estoque no Sankhya e nada endereçado na planta (precisa da fotografia analítica). */
+  readonly semEndereco = computed(() => {
+    const a = this.analises();
+    return a ? a.produtos.filter((p) => p.estoque > 0 && p.enderecado <= 0).length : null;
+  });
+
+  /** O que o supervisor precisa olhar agora — contagens, capacidade, bloqueio com saldo e alertas críticos. */
+  readonly atencao = computed<ItemAtencao[]>(() => {
+    const lista = this.enderecos();
+    const itens: ItemAtencao[] = [];
+    lista.forEach((e, i) => {
+      if (e.contagensPendentes > 0) itens.push({ chave: 'c' + e.id, severidade: 'ATENCAO', texto: `Contagem a aprovar em ${e.codigo}`, sub: `${e.contagensPendentes} contagem(ns)`, indice: i });
+      if ((e.ocupacao ?? 0) > 1) itens.push({ chave: 's' + e.id, severidade: 'CRITICO', texto: `${e.codigo} acima da capacidade`, sub: `${Math.round((e.ocupacao ?? 0) * 100)}% · ${e.baseOcupacao ?? ''}`.trim(), indice: i });
+      if (e.bloqueado && e.quantidade > 0) itens.push({ chave: 'b' + e.id, severidade: 'ATENCAO', texto: `${e.codigo} bloqueado com saldo`, sub: `${this.num(e.quantidade, 3)} un`, indice: i });
+    });
+    const porProduto = new Map<number, number>();
+    lista.forEach((e, i) => e.saldos.forEach((s) => { if (!porProduto.has(s.codprod)) porProduto.set(s.codprod, i); }));
+    const porEnderecoId = new Map(lista.map((e, i) => [e.id, i]));
+    for (const al of this.alertas()?.alertas ?? []) {
+      if (al.status === 'RESOLVIDO' || al.severidade !== 'CRITICO') continue;
+      const idx = al.enderecoId ? porEnderecoId.get(al.enderecoId) : al.codprod != null ? porProduto.get(al.codprod) : undefined;
+      if (idx == null) continue; // crítico fora da planta: fica na tela de Alertas
+      itens.push({ chave: 'a' + al.id, severidade: 'CRITICO', texto: al.mensagem, sub: [al.produto, al.endereco].filter(Boolean).join(' · '), indice: idx });
+    }
+    return itens.sort((a, b) => (a.severidade === b.severidade ? 0 : a.severidade === 'CRITICO' ? -1 : 1));
+  });
+
   readonly criticosAbertos = computed(() => this.alertas()?.alertas.filter((x) => x.status !== 'RESOLVIDO' && x.severidade === 'CRITICO').length ?? 0);
   readonly feed = signal<Movimento[]>([]);
-  readonly modo = signal<ModoCor>('setor');
+  readonly modo = signal<ModoCor>('ocupacao');
+  readonly modosPrincipais = MODOS_PRINCIPAIS;
+  readonly rotuloCurto = ROTULO_CURTO;
+  readonly outrosModos = OPCOES_MODO.filter((o) => o.disponivel && !MODOS_PRINCIPAIS.includes(o.valor as ModoCor));
+  readonly outrasCameras = CAMERAS.filter((c) => c.id !== 'iso' && c.id !== 'aerea');
+  readonly menuGestao = signal(false);
+  readonly ajustes = signal(false);
   readonly vista = signal<'3d' | 'tabela'>('3d');
   readonly camera = signal<Camera>('iso');
   readonly camadas = signal<Camadas>({ estruturas: true, posicoes: true, rotulos: true, rotas: false });
@@ -221,6 +267,9 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
   }
 
   /** [manterSelecao] = depois de um movimento: recarrega sem mexer na câmera e volta a selecionar o endereço. */
+  /** ?endereco=CODIGO (vindo da Operação, botão "Mapa"): abre já com o endereço aceso e enquadrado. */
+  private enderecoInicial: string | null = this.route.snapshot.queryParamMap.get('endereco');
+
   carregar(manterSelecao = false): void {
     const codigoSelecionado = manterSelecao ? this.selecionado()?.codigo : undefined;
     this.carregando.set(true);
@@ -242,6 +291,10 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
         if (codigoSelecionado) {
           const i = v.enderecos.findIndex((e) => e.codigo === codigoSelecionado);
           if (i >= 0) this.selecionarIndice(i);
+        } else if (this.enderecoInicial) {
+          const i = v.enderecos.findIndex((e) => e.codigo === this.enderecoInicial);
+          this.enderecoInicial = null;
+          if (i >= 0) this.selecionarIndice(i, true);
         }
       },
       error: (e) => {
@@ -282,6 +335,27 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
       },
       error: () => undefined,
     });
+  }
+
+  abrirOperacao(): void {
+    this.router.navigate(['/galpao', this.plantaId, 'operacao']);
+  }
+
+  abrirContagens(): void {
+    this.router.navigate(['/galpao', this.plantaId, 'controle'], { queryParams: { aba: 'contagens' } });
+  }
+
+  /** Menu "Gestão". */
+  irGestao(destino: 'produtos' | 'alertas' | 'controle' | 'editor' | 'tabela'): void {
+    this.menuGestao.set(false);
+    if (destino === 'tabela') return this.trocarVista('tabela');
+    this.router.navigate(['/galpao', this.plantaId, destino]);
+  }
+
+  focarAtencao(item: ItemAtencao): void {
+    if (item.indice == null) return;
+    if (this.vista() !== '3d') this.trocarVista('3d');
+    this.selecionarIndice(item.indice, true);
   }
 
   abrirAlertas(): void {
