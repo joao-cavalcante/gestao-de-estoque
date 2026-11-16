@@ -276,3 +276,110 @@ export const ROTULO_MOVIMENTO: Record<string, string> = {
   BLOQUEAR: 'Bloqueio',
   DESBLOQUEAR: 'Desbloqueio',
 };
+
+// ─── Análises (ABC, cobertura, validade, saúde) — GET /plantas/{id}/analises ───
+
+export interface ComponenteSaude {
+  componente: 'CONSISTENCIA' | 'COBERTURA' | 'RECENCIA' | 'VALIDADE' | 'ENDERECO';
+  peso: number;
+  /** 0–1; null = sem dado (sai da conta e baixa a confiança). */
+  qualidade: number | null;
+  pontos: number | null;
+}
+
+export interface SaudeEstoque {
+  score: number | null;
+  confianca: number;
+  faixa: 'CRÍTICO' | 'ATENÇÃO' | 'SAUDÁVEL' | 'EXCELENTE' | 'N/D';
+  formula: string;
+  componentes: ComponenteSaude[];
+}
+
+export type ClasseAbc = 'A' | 'B' | 'C' | 'N/D';
+export type FaixaValidade = 'VENCIDO' | 'ATE_30' | '31_90' | 'ACIMA_90' | 'N/D';
+
+export interface ProdutoAnalise {
+  codprod: number;
+  descricao: string;
+  ativo: boolean;
+  codvol: string | null;
+  codgrupo: number | null;
+  grupo: string | null;
+  /** AD_TIPOSEPARACAO: 1 Seco, 2 Refrigerado, 3 Congelado; null = sem setor. */
+  setor: number | null;
+  setorOrigem: 'PRODUTO' | 'GRUPO' | 'N/D';
+  pesoBruto: number | null;
+  m3: number | null;
+  valorVendido: number;
+  quantidadeVendida: number;
+  frequencia: number;
+  ultimaVenda: string | null;
+  abc: ClasseAbc;
+  participacao: number | null;
+  acumulado: number | null;
+  abcQtd: ClasseAbc;
+  participacaoQtd: number | null;
+  acumuladoQtd: number | null;
+  abcFreq: ClasseAbc;
+  participacaoFreq: number | null;
+  acumuladoFreq: number | null;
+  estoque: number;
+  reservado: number;
+  disponivel: number;
+  enderecado: number;
+  demandaDia: number;
+  cobertura: number | null;
+  coberturaOrigem: string;
+  dtval: string | null;
+  validade: FaixaValidade;
+  parado: boolean;
+  idadeDias: number | null;
+  idadeOrigem: string;
+  saude: SaudeEstoque;
+  origem: string;
+}
+
+export interface ParametrosAnalise {
+  dias: number;
+  limiteA: number;
+  limiteB: number;
+  coberturaMinDias: number;
+  coberturaMaxDias: number;
+  setorPeloGrupo: boolean;
+  tipmovCompra: string[];
+}
+
+export interface AnalisesPlanta {
+  lidoEm: string;
+  parametros: ParametrosAnalise;
+  produtos: ProdutoAnalise[];
+  validadesLote: { codprod: number; controle: string; dtval: string }[];
+  aviso: string | null;
+}
+
+export type MetricaAbc = 'VALOR' | 'QUANTIDADE' | 'FREQUENCIA';
+
+export const ROTULO_SETOR_PRODUTO: Record<number, string> = { 1: 'Seco', 2: 'Refrigerado', 3: 'Congelado' };
+
+export const ROTULO_VALIDADE: Record<FaixaValidade, string> = {
+  VENCIDO: 'Vencido',
+  ATE_30: 'Até 30 dias',
+  '31_90': '31–90 dias',
+  ACIMA_90: 'Acima de 90 dias',
+  'N/D': 'N/D',
+};
+
+export const ROTULO_COMPONENTE: Record<ComponenteSaude['componente'], string> = {
+  CONSISTENCIA: 'Consistência (Sankhya × endereçado)',
+  COBERTURA: 'Cobertura',
+  RECENCIA: 'Recência de venda',
+  VALIDADE: 'Validade',
+  ENDERECO: 'Endereçamento',
+};
+
+/** Classe, participação e acumulado do produto na métrica escolhida. */
+export function abcDa(p: ProdutoAnalise, m: MetricaAbc): { classe: ClasseAbc; participacao: number | null; acumulado: number | null } {
+  if (m === 'QUANTIDADE') return { classe: p.abcQtd, participacao: p.participacaoQtd, acumulado: p.acumuladoQtd };
+  if (m === 'FREQUENCIA') return { classe: p.abcFreq, participacao: p.participacaoFreq, acumulado: p.acumuladoFreq };
+  return { classe: p.abc, participacao: p.participacao, acumulado: p.acumulado };
+}

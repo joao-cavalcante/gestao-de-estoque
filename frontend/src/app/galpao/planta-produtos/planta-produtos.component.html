@@ -1,0 +1,195 @@
+<div class="gp">
+  <div class="gv-barra">
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="voltar()" title="Voltar para a planta">
+      <oq-icon name="arrow-left" [size]="12" />
+    </button>
+    <div class="gv-titulo">
+      <span class="gv-titulo__nome">Produtos — {{ planta()?.nome ?? '' }}</span>
+      <span class="gv-titulo__sub">
+        @if (analises(); as a) {
+          Fotografia de {{ a.lidoEm | date: 'dd/MM/yyyy HH:mm' }} · vendas dos últimos {{ a.parametros.dias }} dias ·
+          ABC: A até {{ a.parametros.limiteA }}%, B até {{ a.parametros.limiteB }}% do acumulado
+        } @else if (planta()) {
+          Empresa {{ planta()?.codemp ?? '—' }} · Local {{ planta()?.codlocal ?? '—' }}
+        }
+      </span>
+    </div>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="exportar('csv')" [disabled]="!linhas().length">CSV ↓</button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="exportar('xlsx')" [disabled]="!linhas().length || exportando()">
+      {{ exportando() ? 'Gerando…' : 'Excel ↓' }}
+    </button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="carregar(true)" [disabled]="carregando()" title="Ler o Sankhya de novo">
+      <oq-icon name="sync" [size]="12" /> {{ carregando() ? 'Lendo o Sankhya…' : 'Atualizar' }}
+    </button>
+  </div>
+
+  @if (erro()) { <span class="oq-form-hint oq-form-hint--erro">{{ erro() }}</span> }
+
+  @if (analises(); as a) {
+    <div class="gp-kpis">
+      <div><b>{{ resumo().comEstoque }}</b>com estoque no local</div>
+      <div><b>{{ resumo().parados }}</b>parados (sem venda na janela)</div>
+      <div><b>{{ resumo().semCobertura }}</b>com estoque e cobertura N/D</div>
+      <div><b>{{ resumo().vencendo }}</b>vencidos ou vencendo em 30 dias</div>
+      <div><b>{{ resumo().criticos }}</b>com saúde crítica</div>
+      <div><b>{{ resumo().semValidade }}</b>com estoque sem validade no Sankhya</div>
+    </div>
+
+    <section class="gp-abc" aria-labelledby="gp-abc-titulo">
+      <div class="gp-abc__topo">
+        <h2 id="gp-abc-titulo">Curva ABC por {{ rotuloMetrica[metrica()] }}</h2>
+        <div class="gv-grupo" role="tablist" aria-label="Métrica da curva ABC">
+          @for (m of metricas; track m) {
+            <button type="button" [class.ativo]="metrica() === m" (click)="trocarMetrica(m)">
+              {{ m === 'VALOR' ? 'Valor' : m === 'QUANTIDADE' ? 'Quantidade' : 'Frequência' }}
+            </button>
+          }
+        </div>
+      </div>
+      <ul class="gp-barras">
+        @for (d of distribuicao(); track d.classe) {
+          <li>
+            <button
+              type="button"
+              class="gp-barra"
+              [class.gp-barra--filtro]="filtroClasse() === d.classe"
+              (click)="filtrarClasse(d.classe)"
+              [title]="'Classe ' + d.classe + ': ' + d.produtos + ' produtos (' + pct(d.pctProdutos) + ' do catálogo) · ' + pct(d.participacao) + ' do ' + rotuloMetrica[metrica()] + ' · clique para filtrar a tabela'"
+            >
+              <span class="gp-barra__rotulo">{{ d.classe === 'N/D' ? 'N/D' : 'Classe ' + d.classe }}</span>
+              <span class="gp-barra__trilho">
+                <span class="gp-barra__valor gp-barra__valor--{{ classeCss(d.classe) }}" [style.width.%]="(d.produtos / maiorBarra()) * 100"></span>
+              </span>
+              <span class="gp-barra__texto">
+                <b>{{ d.produtos }}</b> produtos
+                @if (d.classe !== 'N/D') { · {{ pct(d.participacao) }} do {{ rotuloMetrica[metrica()] }} }
+                @else { · sem venda na janela }
+              </span>
+            </button>
+          </li>
+        }
+      </ul>
+      <p class="gv-dica">
+        Classe pelo acumulado da métrica (incluindo o próprio produto), calculado sobre todos os produtos com venda antes de
+        qualquer filtro. Clique numa barra para filtrar a tabela.
+      </p>
+    </section>
+
+    <div class="gc-filtros">
+      <label>Pesquisar<input [ngModel]="busca()" (ngModelChange)="busca.set($event); pagina.set(1)" placeholder="Código, descrição ou grupo" /></label>
+      <label>Setor
+        <select [ngModel]="filtroSetor()" (ngModelChange)="filtroSetor.set($event); pagina.set(1)">
+          <option value="">Todos os setores</option>
+          <option value="1">Seco</option>
+          <option value="2">Refrigerado</option>
+          <option value="3">Congelado</option>
+          <option value="ND">Sem setor</option>
+        </select>
+      </label>
+      <label>Classe
+        <select [ngModel]="filtroClasse()" (ngModelChange)="filtroClasse.set($event); pagina.set(1)">
+          <option value="">Todas</option>
+          @for (c of classes; track c) { <option [value]="c">{{ c }}</option> }
+        </select>
+      </label>
+      <label class="gc-check">
+        <input type="checkbox" [ngModel]="somenteComEstoque()" (ngModelChange)="somenteComEstoque.set($event); pagina.set(1)" />
+        Só com estoque, endereço ou venda
+      </label>
+      <span class="gv-dica">{{ linhas().length }} produto(s)</span>
+    </div>
+
+    <div class="gp-corpo">
+      <div class="gc-tabela-wrap">
+        <table class="gc-tabela">
+          <thead>
+            <tr>
+              <th (click)="ordenar('codprod')">Código {{ seta('codprod') }}</th>
+              <th (click)="ordenar('descricao')">Produto {{ seta('descricao') }}</th>
+              <th (click)="ordenar('setor')">Setor {{ seta('setor') }}</th>
+              <th (click)="ordenar('abc')">ABC {{ seta('abc') }}</th>
+              <th class="num" (click)="ordenar('participacao')">Part. {{ seta('participacao') }}</th>
+              <th class="num" (click)="ordenar('acumulado')">Acum. {{ seta('acumulado') }}</th>
+              <th class="num" (click)="ordenar('vendido')">Vendido {{ seta('vendido') }}</th>
+              <th class="num" (click)="ordenar('estoque')">Estoque {{ seta('estoque') }}</th>
+              <th class="num" (click)="ordenar('enderecado')">Endereçado {{ seta('enderecado') }}</th>
+              <th class="num" (click)="ordenar('cobertura')">Cobertura {{ seta('cobertura') }}</th>
+              <th (click)="ordenar('validade')">Validade {{ seta('validade') }}</th>
+              <th (click)="ordenar('parado')">Parado {{ seta('parado') }}</th>
+              <th class="num" (click)="ordenar('idade')">Idade {{ seta('idade') }}</th>
+              <th (click)="ordenar('saude')">Saúde {{ seta('saude') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of paginaAtual(); track p.codprod) {
+              <tr [class.gp-sel]="selecionado()?.codprod === p.codprod" (click)="selecionado.set(p)">
+                <td class="mono">{{ p.codprod }}</td>
+                <td>{{ p.descricao }}@if (!p.ativo) { <span class="gp-tag">inativo</span> }</td>
+                <td>{{ p.setor ? rotuloSetor[p.setor] : 'N/D' }}</td>
+                <td><span class="gp-abc-tag gp-abc-tag--{{ classeCss(abc(p).classe) }}">{{ abc(p).classe }}</span></td>
+                <td class="num">{{ pct(abc(p).participacao) }}</td>
+                <td class="num">{{ pct(abc(p).acumulado) }}</td>
+                <td class="num">{{ vendido(p) }}</td>
+                <td class="num">{{ num(p.estoque, 3) }}</td>
+                <td class="num" [class.gp-difere]="p.estoque !== p.enderecado">{{ num(p.enderecado, 3) }}</td>
+                <td class="num">{{ p.cobertura == null ? 'N/D' : num(p.cobertura, 1) + ' d' }}</td>
+                <td>{{ rotuloValidade[p.validade] }}</td>
+                <td>{{ p.parado ? 'Sim' : 'Não' }}</td>
+                <td class="num">{{ p.idadeDias == null ? 'N/D' : p.idadeDias + ' d' }}@if (p.idadeOrigem.startsWith('APROX')) { <span class="gp-tag" title="Pela última compra — o Sankhya não tem a data de entrada do lote">aprox.</span> }</td>
+                <td><span class="gp-saude gp-saude--{{ faixaCss(p.saude.faixa) }}">{{ p.saude.score ?? 'N/D' }} · {{ p.saude.faixa }}</span></td>
+              </tr>
+            } @empty {
+              <tr><td colspan="14" class="gv-vazio">Nenhum produto com esses filtros.</td></tr>
+            }
+          </tbody>
+        </table>
+        @if (totalPaginas() > 1) {
+          <div class="gp-paginas">
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="pagina() <= 1" (click)="pagina.set(pagina() - 1)">Anterior</button>
+            <span>Página {{ pagina() }} de {{ totalPaginas() }}</span>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="pagina() >= totalPaginas()" (click)="pagina.set(pagina() + 1)">Próxima</button>
+          </div>
+        }
+      </div>
+
+      @if (selecionado(); as p) {
+        <aside class="gp-detalhe" aria-label="Detalhe do produto">
+          <button type="button" class="gp-detalhe__fechar" (click)="selecionado.set(null)" aria-label="Fechar">×</button>
+          <small class="mono">Produto {{ p.codprod }} · {{ p.codvol ?? '' }}</small>
+          <strong>{{ p.descricao }}</strong>
+          <dl>
+            <div><dt>Grupo</dt><dd>{{ p.codgrupo ?? '' }} {{ p.grupo ?? 'N/D' }}</dd></div>
+            <div><dt>Setor</dt><dd>{{ p.setor ? rotuloSetor[p.setor] : 'N/D' }}{{ p.setorOrigem === 'GRUPO' ? ' (herdado do grupo)' : '' }}</dd></div>
+            <div><dt>ABC valor · qtd · freq.</dt><dd>{{ p.abc }} · {{ p.abcQtd }} · {{ p.abcFreq }}</dd></div>
+            <div><dt>Vendido na janela</dt><dd>{{ moeda(p.valorVendido) }} · {{ num(p.quantidadeVendida, 3) }} un · {{ p.frequencia }} venda(s)</dd></div>
+            <div><dt>Última venda</dt><dd>{{ data(p.ultimaVenda) }}</dd></div>
+            <div><dt>Estoque · reservado · disponível</dt><dd>{{ num(p.estoque, 3) }} · {{ num(p.reservado, 3) }} · {{ num(p.disponivel, 3) }}</dd></div>
+            <div><dt>Endereçado na planta</dt><dd>{{ num(p.enderecado, 3) }}</dd></div>
+            <div><dt>Demanda por dia</dt><dd>{{ num(p.demandaDia, 3) }}</dd></div>
+            <div><dt>Cobertura</dt><dd>{{ p.cobertura == null ? 'N/D (sem demanda)' : num(p.cobertura, 1) + ' dias' }}</dd></div>
+            <div><dt>Validade</dt><dd>{{ data(p.dtval) }} · {{ rotuloValidade[p.validade] }}</dd></div>
+            <div><dt>Idade</dt><dd>{{ p.idadeDias == null ? 'N/D' : p.idadeDias + ' dias' }} · {{ p.idadeOrigem }}</dd></div>
+            <div><dt>Peso bruto · m³</dt><dd>{{ num(p.pesoBruto, 3) }} kg · {{ num(p.m3, 4) }}</dd></div>
+          </dl>
+          <h3>Saúde do estoque: <span class="gp-saude gp-saude--{{ faixaCss(p.saude.faixa) }}">{{ p.saude.score ?? 'N/D' }} · {{ p.saude.faixa }}</span></h3>
+          <p class="gv-dica">{{ p.saude.formula }} · confiança {{ pct(p.saude.confianca * 100) }}</p>
+          <table class="gc-tabela">
+            <thead><tr><th>Componente</th><th class="num">Peso</th><th class="num">Qualidade</th><th class="num">Pontos</th></tr></thead>
+            <tbody>
+              @for (c of p.saude.componentes; track c.componente) {
+                <tr>
+                  <td>{{ rotuloComponente[c.componente] }}</td>
+                  <td class="num">{{ c.peso }}</td>
+                  <td class="num">{{ c.qualidade == null ? 'N/D' : num(c.qualidade, 2) }}</td>
+                  <td class="num">{{ c.pontos == null ? '—' : num(c.pontos, 1) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </aside>
+      }
+    </div>
+  } @else if (carregando()) {
+    <div class="gv-vazio">Lendo produtos, estoque e vendas do Sankhya…</div>
+  }
+</div>

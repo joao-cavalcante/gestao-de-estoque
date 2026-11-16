@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   DocumentoBusca,
+  AnalisesPlanta,
   IndicadoresPlanta,
   Movimento,
   Conciliacao,
@@ -46,6 +47,11 @@ export class GalpaoService {
 
   visao(id: string): Observable<VisaoPlanta> {
     return this.http.get<VisaoPlanta>(`${this.base}/plantas/${id}/visao`);
+  }
+
+  /** Análises dos produtos (fotografia de 10 min no backend; [atualizar] força nova leitura do Sankhya). */
+  analises(id: string, atualizar = false): Observable<AnalisesPlanta> {
+    return this.http.get<AnalisesPlanta>(`${this.base}/plantas/${id}/analises`, { params: atualizar ? { atualizar: 'true' } : {} });
   }
 
   indicadores(id: string): Observable<IndicadoresPlanta> {

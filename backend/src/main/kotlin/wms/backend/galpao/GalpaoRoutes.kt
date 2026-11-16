@@ -95,6 +95,30 @@ fun Route.galpaoRoutes() {
             )
         }
 
+        /**
+         * Análises dos produtos do empresa/local da planta (ABC por valor/quantidade/frequência, cobertura, validade,
+         * estoque parado, idade e saúde) — fotografia em memória por 10 min; `?atualizar=true` força nova leitura.
+         */
+        get("/plantas/{id}/analises") {
+            val claims = call.exigirGalpao() ?: return@get
+            val id = call.uuid("id") ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val planta = GalpaoRepository.buscarPlanta(claims.tenantId, id)
+                ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Planta não encontrada"))
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
+                ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Instalação não encontrada"))
+            val forcar = call.request.queryParameters["atualizar"] == "true"
+            runCatching { GalpaoAnalisesService.analises(claims.tenantId, slug, planta, forcar) }
+                .onSuccess { call.respond(it) }
+                .onFailure { e ->
+                    if (e is GalpaoAnalisesService.PlantaSemLocal) {
+                        call.respond(HttpStatusCode.UnprocessableEntity, mapOf("erro" to e.message))
+                    } else {
+                        println("AVISO: galpão — análises não lidas do Sankhya: ${e.message}")
+                        call.respond(HttpStatusCode.ServiceUnavailable, mapOf("erro" to "Sankhya indisponível: ${e.message}"))
+                    }
+                }
+        }
+
         /** Feed da visão: últimos movimentos físicos da planta (consulta, qualquer usuário). */
         get("/plantas/{id}/feed") {
             val claims = call.exigirGalpao() ?: return@get

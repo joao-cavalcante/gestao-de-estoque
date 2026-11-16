@@ -370,6 +370,15 @@ object GalpaoRepository {
             .map { it[GalpaoSaldosEnderecoTable.codprod] }
     }
 
+    /** Quantidade endereçada por produto na planta (soma dos saldos dos endereços ativos) — base das análises. */
+    fun enderecadoPorProduto(tenantId: UUID, plantaId: UUID): Map<Int, Double> = TenantTx.run(tenantId) {
+        GalpaoSaldosEnderecoTable.join(GalpaoEnderecosTable, org.jetbrains.exposed.sql.JoinType.INNER, GalpaoSaldosEnderecoTable.enderecoId, GalpaoEnderecosTable.id)
+            .select(GalpaoSaldosEnderecoTable.codprod, GalpaoSaldosEnderecoTable.quantidade)
+            .where { (GalpaoEnderecosTable.plantaId eq plantaId) and (GalpaoEnderecosTable.ativo eq true) }
+            .groupBy({ it[GalpaoSaldosEnderecoTable.codprod] }, { it[GalpaoSaldosEnderecoTable.quantidade].toDouble() })
+            .mapValues { (_, v) -> v.sum() }
+    }
+
     /** "Descrição - Complemento" (padrão de todas as telas). Chamar dentro de TenantTx. */
     fun nomesProdutos(tenantId: UUID, codprods: List<Int>): Map<Int, String> {
         if (codprods.isEmpty()) return emptyMap()

@@ -22,6 +22,10 @@ import wms.backend.auditoria.auditoriaPedidoRoutes
 import wms.backend.consultaprodutos.consultaProdutosRoutes
 import wms.backend.downloads.downloadsRoutes
 import wms.backend.galpao.galpaoRoutes
+import io.ktor.server.plugins.compression.Compression
+import io.ktor.server.plugins.compression.condition
+import io.ktor.server.plugins.compression.gzip
+import io.ktor.server.plugins.compression.minimumSize
 import wms.backend.inventario.inventarioRoutes
 import wms.backend.liberacaocorte.liberacaoCorteRoutes
 import wms.backend.ordemcarga.fechamentoOcRoutes
@@ -59,6 +63,15 @@ fun Application.module() {
                                   // mas o frontend precisa vê-los sempre, não só
                                   // quando divergem do valor default do DTO.
         })
+    }
+
+    // gzip só na Planta do Galpão: a fotografia analítica passa de 4 MB em JSON (compressão ~10x). O resto da API
+    // (inclusive SSE/streams) segue como estava.
+    install(Compression) {
+        gzip {
+            condition { request.local.uri.startsWith("/api/galpao/") }
+            minimumSize(8 * 1024)
+        }
     }
 
     install(CORS) {

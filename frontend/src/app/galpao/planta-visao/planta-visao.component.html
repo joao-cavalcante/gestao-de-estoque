@@ -25,6 +25,9 @@
       </button>
       <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirEditor()">Editor da planta</button>
     }
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="abrirProdutos()" title="Curva ABC, cobertura, validade e saúde do estoque">
+      Produtos
+    </button>
     <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="atualizarTudo()" title="Atualizar dados">
       <oq-icon name="sync" [size]="12" /> Atualizar dados
     </button>
@@ -282,6 +285,13 @@
                 <dl>
                   <div><dt>Quantidade física</dt><dd>{{ num(s.quantidade, 3) }}</dd></div>
                   <div><dt>Controle / lote</dt><dd>{{ s.controle || 'N/D' }}</dd></div>
+                  <div><dt>Validade do lote</dt><dd>{{ validadeDoLote(s) }}</dd></div>
+                  @if (analiseDe(s.codprod); as a) {
+                    <div><dt>Curva ABC (valor · qtd · freq.)</dt><dd>{{ a.abc }} · {{ a.abcQtd }} · {{ a.abcFreq }}</dd></div>
+                    <div><dt>Saúde do estoque</dt><dd>{{ a.saude.score ?? 'N/D' }} · {{ a.saude.faixa }}</dd></div>
+                    <div><dt>Cobertura</dt><dd>{{ a.cobertura == null ? 'N/D' : num(a.cobertura, 1) + ' dias' }}</dd></div>
+                    <div><dt>Estoque parado</dt><dd>{{ a.parado ? 'Sim — sem venda na janela' : 'Não' }}</dd></div>
+                  }
                 </dl>
                 @if (podeMovimentar() && !e.bloqueado) {
                   <div class="gv-produto__acoes">

@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { GalpaoService } from '../galpao.service';
-import { Endereco, IndicadoresPlanta, Movimento, ROTULO_MOVIMENTO, SaldoEndereco, VisaoPlanta } from '../galpao.model';
+import { AnalisesPlanta, Endereco, IndicadoresPlanta, Movimento, ProdutoAnalise, ROTULO_MOVIMENTO, ROTULO_VALIDADE, SaldoEndereco, VisaoPlanta } from '../galpao.model';
 import { MovimentoModalComponent, TipoModal, novoId } from '../movimento-modal/movimento-modal.component';
 import { Camadas, Camera, Cena3d } from '../cena-3d';
-import { COR_LIVRE_PADRAO, ModoCor, OPCOES_MODO, corEndereco, faixaRazao, legendaModo, recente } from '../modos-cor';
+import { COR_LIVRE_PADRAO, ContextoAnalise, MODOS_ANALISE, ModoCor, OPCOES_MODO, corEndereco, faixaRazao, faixaValidade, legendaModo, recente } from '../modos-cor';
 import { exportarEnderecosCsv, exportarEnderecosExcel } from '../enderecos-exportacao';
 import { mensagemErro } from '../plantas-lista/plantas-lista.component';
 
@@ -64,6 +64,10 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
   readonly semWebgl = signal(false);
   readonly visao = signal<VisaoPlanta | null>(null);
   readonly indicadores = signal<IndicadoresPlanta | null>(null);
+  /** Fotografia analítica (ABC, validade, saúde…) — carregada à parte, a 3D não espera o Sankhya. */
+  readonly analises = signal<AnalisesPlanta | null>(null);
+  readonly carregandoAnalises = signal(false);
+  readonly rotuloValidade = ROTULO_VALIDADE;
   readonly feed = signal<Movimento[]>([]);
   readonly modo = signal<ModoCor>('setor');
   readonly vista = signal<'3d' | 'tabela'>('3d');
@@ -93,7 +97,21 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
   readonly mapaSetores = computed(() => new Map(this.setores().map((s) => [s.codigo, s.cor])));
   readonly estruturas = computed(() => [...new Set(this.enderecos().map((e) => e.estrutura))].sort());
   readonly resumoSetores = computed(() => this.setores().map((s) => s.nome).join(' · ') || 'Nenhum setor');
-  readonly legenda = computed(() => legendaModo(this.modo(), this.setores(), this.corLivre));
+  readonly contextoAnalise = computed<ContextoAnalise | null>(() => {
+    const a = this.analises();
+    if (!a) return null;
+    return {
+      porProduto: new Map(a.produtos.map((p) => [p.codprod, p])),
+      validadeLote: new Map(a.validadesLote.map((v) => [`${v.codprod}|${v.controle}`, v.dtval])),
+      hoje: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()),
+      coberturaMin: a.parametros.coberturaMinDias,
+      coberturaMax: a.parametros.coberturaMaxDias,
+    };
+  });
+  readonly legenda = computed(() => {
+    const p = this.analises()?.parametros;
+    return legendaModo(this.modo(), this.setores(), this.corLivre, p ? { a: p.limiteA, b: p.limiteB, coberturaMin: p.coberturaMinDias, coberturaMax: p.coberturaMaxDias } : undefined);
+  });
   readonly resumo = computed(() => {
     const e = this.enderecos();
     const ocupados = e.filter((x) => x.quantidade > 0).length;
@@ -152,6 +170,7 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     this.criarCena();
     this.carregar();
     this.carregarIndicadores();
+    this.carregarAnalises(false);
     this.service.disponivel().subscribe({ next: (r) => this.podeMovimentar.set(r.podeEditar), error: () => undefined });
     this.timerFeed = setInterval(() => this.carregarFeed(true), INTERVALO_FEED_MS);
   }
@@ -200,6 +219,37 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  carregarAnalises(atualizar: boolean): void {
+    this.carregandoAnalises.set(true);
+    this.service.analises(this.plantaId, atualizar).subscribe({
+      next: (a) => {
+        this.analises.set(a);
+        this.carregandoAnalises.set(false);
+        if (MODOS_ANALISE.has(this.modo())) this.aplicarCores();
+      },
+      error: (e) => {
+        this.carregandoAnalises.set(false);
+        if (MODOS_ANALISE.has(this.modo())) this.feedback.set({ texto: mensagemErro(e, 'Análises indisponíveis: as posições ficam N/D.'), erro: true });
+      },
+    });
+  }
+
+  /** Análise do produto (ABC, saúde…) pro painel do endereço. */
+  analiseDe(codprod: number): ProdutoAnalise | undefined {
+    return this.contextoAnalise()?.porProduto.get(codprod);
+  }
+
+  validadeDoLote(s: SaldoEndereco): string {
+    const ctx = this.contextoAnalise();
+    if (!ctx) return 'N/D';
+    const d = ctx.validadeLote.get(`${s.codprod}|${s.controle}`);
+    return d ? `${d.split('-').reverse().join('/')} · ${this.rotuloValidade[faixaValidade(d, ctx.hoje)]}` : 'N/D';
+  }
+
+  abrirProdutos(): void {
+    this.router.navigate(['/galpao', this.plantaId, 'produtos']);
+  }
+
   /** [recarregarSeNovo] = no ciclo automático: chegou movimento novo, a planta é recarregada. */
   carregarFeed(recarregarSeNovo: boolean): void {
     this.service.feed(this.plantaId).subscribe({
@@ -215,6 +265,7 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
   atualizarTudo(): void {
     this.carregar(true);
     this.carregarIndicadores();
+    this.carregarAnalises(true);
   }
 
   voltar(): void {
@@ -235,6 +286,7 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     const opcao = OPCOES_MODO.find((o) => o.valor === m);
     if (!opcao?.disponivel) return;
     this.modo.set(m as ModoCor);
+    if (MODOS_ANALISE.has(m) && !this.analises() && !this.carregandoAnalises()) this.carregarAnalises(false);
     this.aplicarCores();
   }
 
@@ -243,7 +295,8 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
     const setores = this.mapaSetores();
     const modo = this.modo();
     const agora = Date.now();
-    this.cena?.definirCores((_p, i) => corEndereco(lista[i], modo, setores, this.corLivre, agora));
+    const ctx = this.contextoAnalise();
+    this.cena?.definirCores((_p, i) => corEndereco(lista[i], modo, setores, this.corLivre, agora, ctx));
   }
 
   trocarCamera(c: Camera): void {
