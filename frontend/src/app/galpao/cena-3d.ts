@@ -91,6 +91,7 @@ export class Cena3d {
   private cores = {
     palco: '#ece8f4', piso: '#f7f5fb', grade: '#ddd6ea', contorno: '#3d2c6b', rotulo: '#18181b',
     rotuloFundo: '#ffffff', montante: '#5b6b8a', longarina: '#d08a2e', doca: '#3d7f86', vazio: '#d9d4e4',
+    area: '#e6dcc4', parede: '#b8b2c4',
   };
 
   aoSelecionar: ((indice: number | null) => void) | null = null;
@@ -182,6 +183,21 @@ export class Cena3d {
     this.montarRotas();
     this.aplicarCamadas();
     if (!manterCamera) this.definirCamera('iso');
+    this.precisaRender = true;
+  }
+
+  /**
+   * Tema claro/escuro trocado com a tela aberta: relê as cores (--gp-*) e redesenha piso, estruturas, rótulos e
+   * minimapa — câmera, seleção, destaque e camadas ficam como estavam.
+   */
+  aplicarTema(): void {
+    this.lerCores();
+    this.limpar(this.grupoPlanta);
+    this.limpar(this.grupoEstrutura);
+    this.limpar(this.grupoRotulos);
+    if (this.geometria) this.montarPlanta(this.geometria);
+    this.aplicarCamadas();
+    this.pintar();
     this.precisaRender = true;
   }
 
@@ -382,13 +398,13 @@ export class Cena3d {
         grupo.add(caixa(0.02, this.cores.grade));
         break;
       case 'AREA':
-        grupo.add(caixa(0.02, '#e6dcc4', 0.7));
+        grupo.add(caixa(0.02, this.cores.area, 0.7));
         break;
       case 'DOCA':
         grupo.add(caixa(0.12, this.cores.doca));
         break;
       case 'PAREDE':
-        grupo.add(caixa(o.altura, '#b8b2c4', 0.45));
+        grupo.add(caixa(o.altura, this.cores.parede, 0.45));
         break;
     }
     return grupo;
@@ -698,6 +714,8 @@ export class Cena3d {
       longarina: ler('--gp-longarina', this.cores.longarina),
       doca: ler('--gp-doca', this.cores.doca),
       vazio: ler('--gp-vazio', this.cores.vazio),
+      area: ler('--gp-area', this.cores.area),
+      parede: ler('--gp-parede', this.cores.parede),
     };
     this.renderer.setClearColor(new THREE.Color(this.cores.palco));
   }

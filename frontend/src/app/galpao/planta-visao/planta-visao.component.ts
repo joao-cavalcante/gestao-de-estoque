@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ThemeService } from '../../shared/theme/theme.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -105,7 +106,28 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
   readonly modal = signal<{ tipo: TipoModal; endereco: Endereco; saldo: SaldoEndereco | null } | null>(null);
   readonly feedback = signal<{ texto: string; erro: boolean } | null>(null);
   readonly bloqueando = signal(false);
-  private corLivre = COR_LIVRE_PADRAO;
+  /** Cor de posição vazia — vem do tema (--gp-vazio) e muda junto com ele. */
+  private readonly corLivreSig = signal(COR_LIVRE_PADRAO);
+  private get corLivre(): string {
+    return this.corLivreSig();
+  }
+  private readonly tema = inject(ThemeService);
+  /** Tema claro/escuro trocado com a planta aberta: redesenha a cena e repinta sem perder câmera/seleção. */
+  private readonly aoTrocarTema = effect(() => {
+    this.tema.tema();
+    untracked(() => {
+      if (!this.cena) return;
+      requestAnimationFrame(() => {
+        this.lerCorLivre();
+        this.cena?.aplicarTema();
+        this.aplicarCores();
+      });
+    });
+  });
+
+  private lerCorLivre(): void {
+    this.corLivreSig.set(getComputedStyle(this.host.nativeElement).getPropertyValue('--gp-vazio').trim() || COR_LIVRE_PADRAO);
+  }
 
   readonly plantaId = this.route.snapshot.paramMap.get('id') ?? '';
 
@@ -183,7 +205,7 @@ export class PlantaVisaoComponent implements AfterViewInit, OnDestroy {
   });
 
   ngAfterViewInit(): void {
-    this.corLivre = getComputedStyle(this.host.nativeElement).getPropertyValue('--gp-vazio').trim() || COR_LIVRE_PADRAO;
+    this.lerCorLivre();
     this.criarCena();
     this.carregar();
     this.carregarIndicadores();

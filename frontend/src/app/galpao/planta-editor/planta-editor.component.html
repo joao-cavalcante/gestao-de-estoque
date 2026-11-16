@@ -89,7 +89,7 @@
           <g class="ge-obj" [class.selecionado]="selecao().has(o.codigo)" [attr.transform]="transform(o)"
              (pointerdown)="aoPressionarObjeto($event, o)">
             <rect [attr.x]="-o.largura / 2" [attr.y]="-o.profundidade / 2" [attr.width]="o.largura" [attr.height]="o.profundidade"
-                  [attr.fill]="corObjeto(o)" [attr.fill-opacity]="o.tipo === 'ESTRUTURA' ? 0.75 : o.tipo === 'AREA' ? 0.6 : 1"
+                  [style.fill]="corObjeto(o)" [attr.fill-opacity]="o.tipo === 'ESTRUTURA' ? 0.75 : o.tipo === 'AREA' ? 0.6 : 1"
                   [attr.stroke-width]="espessura() * (selecao().has(o.codigo) ? 3 : 1)" />
             @for (z of linhasModulo(o); track $index) {
               <line [attr.x1]="-o.largura / 2" [attr.y1]="z" [attr.x2]="o.largura / 2" [attr.y2]="z" class="ge-modulo" [attr.stroke-width]="espessura()" />

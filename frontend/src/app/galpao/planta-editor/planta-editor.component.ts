@@ -1,4 +1,5 @@
-import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ThemeService } from '../../shared/theme/theme.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -49,6 +50,14 @@ const MAX_HISTORICO = 100;
 export class PlantaEditorComponent implements OnInit, OnDestroy {
   private readonly service = inject(GalpaoService);
   private readonly route = inject(ActivatedRoute);
+  private readonly tema = inject(ThemeService);
+  /** Prévia 3D acompanha a troca de tema (o 2D já usa as variáveis CSS direto). */
+  private readonly aoTrocarTema = effect(() => {
+    this.tema.tema();
+    untracked(() => {
+      if (this.cena) requestAnimationFrame(() => this.cena?.aplicarTema());
+    });
+  });
   private readonly router = inject(Router);
 
   @ViewChild('svg') svg?: ElementRef<SVGSVGElement>;
@@ -328,10 +337,11 @@ export class PlantaEditorComponent implements OnInit, OnDestroy {
   corObjeto(o: ObjetoPlanta): string {
     switch (o.tipo) {
       case 'ESTRUTURA': return this.corSetor().get(o.setor ?? '') ?? '#7a6aa8';
-      case 'CORREDOR': return '#d8d2e6';
-      case 'DOCA': return '#8b5e34';
-      case 'AREA': return '#e6dcc4';
-      default: return '#8b8398';
+      // Variáveis do tema (_galpao-comum.scss) — acompanham claro/escuro.
+      case 'CORREDOR': return 'var(--gp-corredor)';
+      case 'DOCA': return 'var(--gp-doca)';
+      case 'AREA': return 'var(--gp-area)';
+      default: return 'var(--gp-parede)';
     }
   }
 
