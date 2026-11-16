@@ -77,6 +77,11 @@
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  // Rolagem própria: o drawer tem a altura da tela; em tela baixa (notebook, tablet deitado) ou com grupo aberto
+  // os itens de baixo ficavam fora da tela sem como descer. min-height 0 deixa o item flex encolher e rolar.
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 
   a {
     display: flex;
