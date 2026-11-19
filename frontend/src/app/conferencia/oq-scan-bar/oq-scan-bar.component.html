@@ -169,6 +169,7 @@
                   #inputPeso
                   id="pesoModal"
                   [(ngModel)]="peso"
+                  (ngModelChange)="onPesoDigitado()"
                   name="pesoModal"
                   inputmode="decimal"
                   [readonly]="somenteBalanca"

@@ -319,7 +319,12 @@ data class ConferirItemRequest(
     val tara: String? = null,
     val codUma: Int? = null,
     val qtdUma: String? = null,
+    /** V77 — pesável: "BALANCA" (peso capturado da balança) ou "MANUAL" (digitado). Só registro (auditoria). */
+    val origemPeso: String? = null,
 )
+
+/** Valores aceitos em [ConferirItemRequest.origemPeso] (coluna separacao_leituras.origem_peso, V77). */
+val ORIGENS_PESO = setOf("BALANCA", "MANUAL")
 
 @Serializable
 data class DevolverItemRequest(val codprod: Int, val controle: String)

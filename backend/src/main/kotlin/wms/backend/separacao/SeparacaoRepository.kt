@@ -912,6 +912,8 @@ object SeparacaoRepository {
         tara: BigDecimal? = null,
         codUma: Int? = null,
         qtdUma: BigDecimal? = null,
+        /** V77 — "BALANCA" | "MANUAL" (só com peso); nula = não informado. */
+        origemPeso: String? = null,
     ): ItemConferidoResultado? =
         TenantTx.run(tenantId) {
             val controle = controleInformado.trim().ifEmpty { " " }
@@ -964,6 +966,7 @@ object SeparacaoRepository {
                 it[SeparacaoLeiturasTable.tara] = tara
                 it[SeparacaoLeiturasTable.codUma] = codUma
                 it[SeparacaoLeiturasTable.qtdUma] = qtdUma
+                it[SeparacaoLeiturasTable.origemPeso] = origemPeso?.takeIf { peso != null }
                 it[criadoEm] = agora
             }
 

@@ -133,7 +133,14 @@ export class SeparacaoService {
     qtdComercial?: number | null,
     unidadeComercial?: string | null,
     /** V74 — pesável: bruto da balança, tara total, UMA e qtd de embalagens (peso = líquido). */
-    pesagem?: { pesoBruto: number; tara: number; codUma: number | null; qtdUma: number | null } | null,
+    pesagem?: {
+      pesoBruto: number;
+      tara: number;
+      codUma: number | null;
+      qtdUma: number | null;
+      /** V77 — peso capturado da balança ou digitado (só registro, aparece na Auditoria de Pedidos). */
+      origemPeso?: 'BALANCA' | 'MANUAL';
+    } | null,
   ): Observable<ItemConferido> {
     return this.http.post<ItemConferido>(
       `${this.baseUrl}/sessoes/${sessaoId}/conferir`,
@@ -150,6 +157,7 @@ export class SeparacaoService {
         tara: pesagem ? String(pesagem.tara) : null,
         codUma: pesagem?.codUma ?? null,
         qtdUma: pesagem?.qtdUma != null ? String(pesagem.qtdUma) : null,
+        origemPeso: pesagem?.origemPeso ?? null,
       },
       { params: { tenant } },
     );

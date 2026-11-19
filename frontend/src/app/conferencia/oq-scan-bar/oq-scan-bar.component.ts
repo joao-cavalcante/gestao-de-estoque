@@ -302,6 +302,11 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   /** O peso atual veio da balança (captura ao vivo, automática ou "Obter da balança"). */
   private pesoDaBalanca = false;
 
+  /** Operador mexeu no campo de peso: deixa de ser o peso da balança (vira MANUAL na auditoria). */
+  onPesoDigitado(): void {
+    this.pesoDaBalanca = false;
+  }
+
   /** Pela balança e sem nenhuma balança disponível pro usuário: não há como pesar. */
   get semBalancaParaPesar(): boolean {
     return this.somenteBalanca && this.balancas.length === 0;
@@ -692,6 +697,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
           tara: Number(this.taraTotalN.toFixed(3)),
           codUma: this.taraUmaN > 0 ? this.codUmaSelecionada : null,
           qtdUma: this.taraUmaN > 0 ? this.qtdUmaN : null,
+          // V77 — auditoria: peso capturado da balança ou digitado.
+          origemPeso: this.pesoDaBalanca ? ('BALANCA' as const) : ('MANUAL' as const),
         }
       : null;
     this.carregando = true;
@@ -818,6 +825,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
     this.controle = '';
     this.qtd = '1';
     this.peso = '';
+    this.pesoDaBalanca = false;
     this.tara = '';
     this.qtdUma = '1';
     this.erroTara = null;

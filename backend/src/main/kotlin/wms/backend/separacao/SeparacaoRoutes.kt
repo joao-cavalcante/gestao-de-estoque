@@ -333,6 +333,7 @@ fun Route.separacaoRoutes() {
                     tara = if (pesoBruto != null) dec(body.tara) else null,
                     codUma = body.codUma?.takeIf { pesoBruto != null && it > 0 },
                     qtdUma = if (pesoBruto != null && body.codUma != null) dec(body.qtdUma) else null,
+                    origemPeso = body.origemPeso?.trim()?.uppercase()?.takeIf { peso != null && it in ORIGENS_PESO },
                 )
             } catch (e: SeparacaoRepository.QuantidadeExcedeException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to "quantidade excede o pendente (máximo ${e.maximo})"))

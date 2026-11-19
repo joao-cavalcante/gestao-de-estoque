@@ -284,3 +284,46 @@ h2 {
     background: var(--oq-warning-soft);
   }
 }
+
+// Conferências/pesagens do item na Torre: hora (com segundos) + quantidade + origem do peso.
+.ap-leituras {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+
+  &__linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+    font-size: 10px;
+    color: var(--oq-text-secondary);
+  }
+
+  &__hora {
+    font-family: var(--oq-font-mono);
+    color: var(--oq-text-primary);
+  }
+
+  &__origem {
+    padding: 0 5px;
+    border: 1px solid var(--oq-border);
+    border-radius: 4px;
+    font-family: var(--oq-font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    &--balanca {
+      border-color: var(--oq-success);
+      color: var(--oq-success);
+    }
+
+    // Digitado: não é erro, mas é o que o auditor quer achar — destaca.
+    &--manual {
+      border-color: var(--oq-warning-foreground);
+      background: var(--oq-warning-soft);
+      color: var(--oq-warning-foreground);
+    }
+  }
+}
