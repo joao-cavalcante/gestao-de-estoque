@@ -31,6 +31,8 @@ object SeparacaoSessoesTable : Table("app.separacao_sessoes") {
     val exibirProdConf = text("exibir_prod_conf").nullable()
     val exibirQtdConf = text("exibir_qtd_conf").nullable()
     val exibirImgProd = text("exibir_img_prod").nullable()
+    // CCO.EXIBIRALERTASONORO (V76) — 'N' = sem som nos alertas de divergência; NULL/'S' = com som.
+    val exibirAlertaSonoro = text("exibir_alerta_sonoro").nullable()
     // Quantidade de volumes (modo simplificado, V30) — contador local, +/- na UI;
     // empurrado pro Sankhya só no `cortar` da finalização.
     val qtdVol = integer("qtd_vol").default(0)

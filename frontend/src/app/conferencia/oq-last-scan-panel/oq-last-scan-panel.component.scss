@@ -31,8 +31,8 @@
   font-family: var(--oq-font-display);
   font-weight: 600;
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-primary);
 }
 
@@ -88,10 +88,10 @@
 
 .oq-last-scan__aguardando {
   margin: 0 auto;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
 }
 
@@ -133,7 +133,7 @@
 .oq-last-scan-strip__name {
   flex: 1;
   min-width: 0;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
   font-weight: 600;
   color: var(--oq-text-primary);
@@ -149,9 +149,79 @@
 
 .oq-last-scan-strip__qty {
   flex: none;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--oq-text-primary);
+}
+
+// 17/11/2026: título em texto normal; "Aguardando bipe" discreto (sem bolinha nem texto espaçado).
+.oq-last-scan__title {
+  font-family: var(--oq-font-body);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.oq-last-scan__dot {
+  display: none;
+}
+
+.oq-last-scan__aguardando {
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--oq-text-secondary);
+}
+
+// 17/11/2026: sem a barra roxa grossa no topo do painel (mesma família da "faixa lateral" — cara de IA).
+.oq-last-scan {
+  border-top: 1px solid var(--oq-border);
+}
+
+// ─── Coletor (17/11/2026): tarja da última leitura no sinaleiro (andon) — verde sólido deu certo, vermelho sólido
+// deu erro. Lê de longe, junto com o som e a vibração do bipe.
+.oq-last-scan-strip {
+  height: 48px;
+}
+
+.oq-last-scan-strip__cod {
+  margin-right: 4px;
+  font-weight: 800;
+}
+
+.oq-last-scan-strip__name {
+  font-size: 13.5px;
+}
+
+.oq-last-scan-strip--ok,
+.oq-last-scan-strip--critical {
+  border-bottom: 0;
+
+  .oq-last-scan-strip__name,
+  .oq-last-scan-strip__qty {
+    color: #fff !important;
+  }
+
+  .oq-last-scan-strip__thumb {
+    border-color: transparent;
+  }
+}
+
+.oq-last-scan-strip--ok {
+  background: #12A150;
+}
+
+.oq-last-scan-strip--critical {
+  background: #E0261B;
+}
+
+.oq-last-scan-strip__qty {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+}
+
+// Produto lido, aguardando a quantidade (ainda nada conferido): tarja neutra — verde só depois de conferir.
+.oq-last-scan-strip:not(.oq-last-scan-strip--ok):not(.oq-last-scan-strip--critical) .oq-last-scan-strip__name {
+  font-weight: 700;
 }

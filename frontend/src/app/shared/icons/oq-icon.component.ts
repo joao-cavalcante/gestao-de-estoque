@@ -2,12 +2,12 @@ import { Component, Input } from '@angular/core';
 
 export type OqIconName =
   | 'circle' | 'circle-filled' | 'circle-alert' | 'gear' | 'check' | 'triangle'
-  | 'search' | 'filter' | 'sync' | 'barcode' | 'x' | 'arrow-left'
+  | 'search' | 'filter' | 'sync' | 'barcode' | 'x' | 'arrow-left' | 'chevron-right'
   | 'receipt' | 'handshake' | 'badge' | 'clock' | 'list-check' | 'hash'
   | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
   | 'sun' | 'moon' | 'grid' | 'list'
   | 'seco' | 'refrigerado' | 'congelado' | 'ajuste'
-  | 'express' | 'retira' | 'entrega' | 'tv' | 'grip';
+  | 'express' | 'retira' | 'entrega' | 'tv' | 'grip' | 'teclado';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -90,6 +90,13 @@ export type OqIconName =
         }
         @case ('arrow-left') {
           <path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        }
+        @case ('teclado') {
+          <rect x="2.5" y="6" width="19" height="12" rx="2" stroke="currentColor" stroke-width="1.6" />
+          <path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        }
+        @case ('chevron-right') {
+          <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
         }
         @case ('receipt') {
           <path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />

@@ -17,13 +17,16 @@ import { ConferenciaItem } from '../conferencia.model';
 export class OqPendingListComponent {
   @Input({ required: true }) items: ConferenciaItem[] = [];
   /** CCO.EXIBIRQTD — false esconde a quantidade negociada de cada item. */
+  /** Conferência às cegas (CCO EXIBIRQTD = 'N'): sem esperado nem divergência durante a contagem. */
+  @Input() cega = false;
   @Input() exibirQtd = true;
   /** Clique no item — identifica o produto sem bipar/digitar o código (elimina o Tab no mobile). */
   @Output() selecionar = new EventEmitter<ConferenciaItem>();
 
-  /** Mesmo formato da conferência antiga: decimal pt-BR com 3 casas (1.3-3). */
+  /** Quantidade pt-BR: 6 / 11,35 / 0,125. */
   formatarQtd(n: number): string {
-    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    // 17/11/2026: "6,000 FD" lia como seis mil — inteiro sem casas, fração até 3 (só exibição).
+    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
   }
 
   /** true quando a unidade do pedido (comercial) difere da unidade base do produto. */

@@ -50,6 +50,8 @@ data class SessaoSeparacaoDto(
     val exibirQtdConf: String? = null,
     /** CCO.EXIBIRIMGPROD — painel de imagem / última leitura. */
     val exibirImgProd: String? = null,
+    /** CCO.EXIBIRALERTASONORO (V76) — 'N' = sem som nos alertas de divergência; NULL/'S' = com som. */
+    val exibirAlertaSonoro: String? = null,
     /** Quem bipou o crachá pra assumir esta conferência (V33) — null = ninguém bipou ainda, tela deve bloquear. */
     val operadorId: String? = null,
     /** Conta logada no navegador quando o crachá foi bipado (V35) — ex.: "Stage1"/"Stage2", pra filtrar depois. */
@@ -209,6 +211,18 @@ data class ConferenciaFinalizadaDto(
     val parcial: Boolean = false,
     /** Etapas concluídas (1 Secos | 2 Refrigerado | 3 Congelado). */
     val etapasConcluidas: List<Int> = emptyList(),
+    /**
+     * Balcão de reimpressão (17/11/2026): quantas etiquetas saem — volumes (mesmo total do "X de Y": soma das etapas
+     * ou contador da sessão; na parcial, só as etapas concluídas) e etiquetas de peso (uma por item pesável conferido).
+     */
+    val qtdVolumes: Int = 0,
+    val qtdEtiquetasPeso: Int = 0,
+    /** TGFCAB.ORDEMCARGA do pedido (mirror local); null = sem OC. */
+    val ordemCarga: Long? = null,
+    /** Quando a conferência (ou a última etapa) terminou — ISO-8601 UTC. */
+    val finalizadaEm: String? = null,
+    /** Quem conferiu (crachá bipado na sessão — separacao_sessoes.operador_id → app.users.nome); null = sem crachá. */
+    val conferente: String? = null,
 )
 
 @Serializable

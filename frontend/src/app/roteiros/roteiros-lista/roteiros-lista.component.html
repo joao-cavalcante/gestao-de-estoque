@@ -1,0 +1,147 @@
+<div class="oq-page">
+  <header class="oq-page__header">
+    <div class="oq-toolbar">
+      <div class="oq-toolbar__title-block">
+        <h1 class="oq-toolbar__title">Roteiros Operacionais</h1>
+        <span class="rt-selo">Protótipo</span>
+        <span class="oq-toolbar__counter">[ {{ contagem('TODOS') }} roteiros · dados de demonstração ]</span>
+      </div>
+      <div class="oq-toolbar__actions">
+        <div class="oq-toolbar__pills" role="tablist" aria-label="Categoria">
+          @for (f of filtros; track f.valor) {
+            <button
+              type="button"
+              role="tab"
+              class="oq-toolbar__pill"
+              [class.oq-toolbar__pill--active]="filtro() === f.valor"
+              [attr.aria-selected]="filtro() === f.valor"
+              (click)="filtro.set(f.valor)"
+            >
+              {{ f.rotulo }} · {{ contagem(f.valor) }}
+            </button>
+          }
+        </div>
+        <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirNovo()">
+          <oq-icon name="list-check" [size]="13" />
+          Novo roteiro
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="rt-conteudo">
+    <div class="rt-aviso" role="note">
+      <oq-icon name="circle-alert" [size]="16" />
+      <p>
+        <strong>Protótipo de interface.</strong> Os roteiros abaixo são demonstrativos e ficam salvos só neste navegador.
+        Nada aqui altera a conferência, o faturamento ou o Sankhya.
+      </p>
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="restaurar()">Restaurar demonstração</button>
+    </div>
+
+    <section class="oq-panel rt-painel">
+      <div class="rt-tabela" role="table" aria-label="Roteiros cadastrados">
+        <div class="rt-linha rt-linha--cabecalho" role="row">
+          <span role="columnheader">Roteiro</span>
+          <span role="columnheader">Tipo</span>
+          <span role="columnheader" class="rt-num">Etapas</span>
+          <span role="columnheader">Status</span>
+          <span role="columnheader" class="rt-num">Versão</span>
+          <span role="columnheader">Última alteração</span>
+          <span role="columnheader" class="rt-acoes-col">Ações</span>
+        </div>
+
+        @for (r of lista(); track r.id) {
+          <div class="rt-linha" role="row">
+            <div class="rt-nome" role="cell">
+              <button type="button" class="rt-nome__link" (click)="visualizar(r)">{{ r.nome }}</button>
+              <span class="rt-nome__desc">{{ r.descricao || 'Sem descrição' }}</span>
+            </div>
+            <div role="cell" class="rt-tipo">
+              <span class="rt-tipo__nome">{{ rotuloTipo[r.tipo] }}</span>
+              @if (conceitual(r)) {
+                <span class="rt-conceitual" title="Processo que ainda não existe na aplicação">Conceitual</span>
+              }
+            </div>
+            <span role="cell" class="rt-num rt-mono">{{ contarEtapas(r) }}</span>
+            <span role="cell"><oq-status-chip [tone]="tomStatus(r.status)">{{ rotuloStatus[r.status] }}</oq-status-chip></span>
+            <span role="cell" class="rt-num rt-mono">v{{ r.versao }}</span>
+            <span role="cell" class="rt-mono rt-data">{{ r.atualizadoEm | date: 'dd/MM/yyyy HH:mm' }}</span>
+            <div role="cell" class="rt-acoes">
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="visualizar(r)">Visualizar</button>
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="editar(r)">Editar</button>
+              <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="duplicar(r)">Duplicar</button>
+            </div>
+          </div>
+        } @empty {
+          <div class="oq-empty-row">Nenhum roteiro nesta categoria</div>
+        }
+      </div>
+    </section>
+
+    <section class="rt-modelos" aria-labelledby="rt-modelos-titulo">
+      <h2 id="rt-modelos-titulo" class="rt-secao-titulo">Modelos prontos</h2>
+      <div class="rt-modelos__grid">
+        @for (m of modelos; track m.id) {
+          <article class="oq-panel rt-modelo">
+            <div class="rt-modelo__topo">
+              <span class="rt-tipo__nome">{{ rotuloTipo[m.tipo] }}</span>
+              @if (m.conceitual) {
+                <span class="rt-conceitual">Conceitual</span>
+              }
+            </div>
+            <h3 class="rt-modelo__nome">{{ m.nome }}</h3>
+            <p class="rt-modelo__trilha">{{ m.trilha }}</p>
+            <p class="rt-modelo__desc">{{ m.descricao }}</p>
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline rt-modelo__usar" (click)="abrirNovo(m)">Usar modelo</button>
+          </article>
+        }
+      </div>
+    </section>
+  </div>
+</div>
+
+@if (modalNovo()) {
+  <div class="oq-modal-backdrop" (click)="modalNovo.set(false)">
+    <div class="oq-modal" role="dialog" aria-modal="true" aria-labelledby="rt-novo-titulo" (click)="$event.stopPropagation()">
+      <div class="oq-modal__header">
+        <span id="rt-novo-titulo" class="oq-modal__titulo">Novo roteiro</span>
+        <button type="button" class="oq-modal__fechar" aria-label="Fechar" (click)="modalNovo.set(false)">
+          <oq-icon name="x" [size]="12" />
+        </button>
+      </div>
+      <form class="oq-modal__body" (ngSubmit)="criar()">
+        <label class="oq-form-field">
+          <span class="oq-form-field__label">Nome</span>
+          <input name="nome" [(ngModel)]="form.nome" required maxlength="60" placeholder="Ex.: Expedição Noturna" autofocus />
+        </label>
+        <label class="oq-form-field">
+          <span class="oq-form-field__label">Tipo de operação</span>
+          <select name="tipo" [(ngModel)]="form.tipo" (ngModelChange)="aoMudarTipo()">
+            <option value="SAIDA">Saída</option>
+            <option value="ENTRADA">Entrada (conceitual)</option>
+            <option value="DEVOLUCAO">Devolução (conceitual)</option>
+          </select>
+        </label>
+        <label class="oq-form-field">
+          <span class="oq-form-field__label">Descrição</span>
+          <input name="descricao" [(ngModel)]="form.descricao" maxlength="120" placeholder="Para que serve este roteiro" />
+        </label>
+        <label class="oq-form-field">
+          <span class="oq-form-field__label">Começar de</span>
+          <select name="modelo" [(ngModel)]="form.modelo">
+            <option value="">Em branco (só o Início)</option>
+            @for (m of modelosDoTipo(); track m.id) {
+              <option [value]="m.id">Modelo: {{ m.nome }}</option>
+            }
+          </select>
+        </label>
+        <span class="oq-form-hint">O roteiro é criado como rascunho, salvo só neste navegador.</span>
+        <div class="rt-modal-acoes">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="modalNovo.set(false)">Cancelar</button>
+          <button type="submit" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!form.nome.trim()">Criar e abrir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

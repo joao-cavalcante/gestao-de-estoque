@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, HostListener, EventEmitter, Input, Output } from '@angular/core';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 
@@ -17,13 +17,15 @@ export class OqConferenciaFooterComponent {
   @Input() progressoFeito = 0;
   /** Total de itens distintos (parcial não conta 2x) — denominador da barra PROGRESSO. */
   @Input() progressoTotal = 0;
+  /** Conferência às cegas (CCO EXIBIRQTD = 'N'): sem esperado nem divergência durante a contagem. */
+  @Input() cega = false;
   @Input() canConfirm = false;
   /** true = requisição de confirmar/concluir etapa em voo — mostra spinner no botão primário. */
   @Input() confirmando = false;
   /** CCO.FORMACAOVOLUMES 'S'/'T'/'D' — exige volume > 0; destaca o contador quando ainda zerado. */
   @Input() exigeVolume = false;
   /** Rótulo do botão primário — "Confirmar Conferência" (normal) ou "Concluir Etapa X" (conferência por etapa). */
-  @Input() confirmarLabel = 'Confirmar Conferência';
+  @Input() confirmarLabel = 'Confirmar conferência';
   /** Rótulo do botão de sair — "Voltar" (normal) ou "Salvar e sair" (conferência por etapa: progresso persiste). */
   @Input() voltarLabel = 'Voltar';
   /** Modo simplificado (sem dimensão) — só a quantidade de volumes do pedido, nativo do Sankhya. */
@@ -39,6 +41,62 @@ export class OqConferenciaFooterComponent {
   /** "Atualizar com Sankhya" — relê o pedido e corrige os itens da sessão. */
   @Output() sincronizar = new EventEmitter<void>();
   @Input() sincronizando = false;
+  /** "Atualizar com Sankhya" no menu ⚙ (precisa de sessão aberta). */
+  @Input() mostrarSincronizar = false;
+  /** Menu ⚙ (Atualizar com Sankhya / Cancelar pedido) aberto. */
+  maisAberto = false;
+  /** Coletor: passo "Quantos volumes?" aberto (opção A — volumes ao confirmar). */
+  passoVolume = false;
+  /** Tela de coletor (≤639px) — rodapé só com ⚙ e Confirmar. */
+  coletor = OqConferenciaFooterComponent.ehColetor();
+
+  private static ehColetor(): boolean {
+    return typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 639px)').matches;
+  }
+
+  @HostListener('window:resize')
+  aoRedimensionar(): void {
+    this.coletor = OqConferenciaFooterComponent.ehColetor();
+  }
+
+  /** "Ver conferidos" no menu ⚙ do coletor (sempre que há sessão). */
+  @Input() podeVerConferidosNoMenu = false;
+
+  /**
+   * No coletor com formação de volumes o Confirmar abre o passo de volumes — então fica habilitado mesmo com
+   * volume 0 (canConfirm só fica falso por volume ou envio em andamento; o passo exige volume > 0).
+   */
+  get podeTocarConfirmar(): boolean {
+    return this.canConfirm || (this.coletor && this.exigeVolume);
+  }
+
+  onConfirmarClick(event: MouseEvent): void {
+    if (!this.soPonteiro(event)) return;
+    if (this.coletor && this.exigeVolume) {
+      this.passoVolume = true;
+      return;
+    }
+    this.confirmar.emit();
+  }
+
+  confirmarDoPasso(): void {
+    if (this.volume === 0 || this.confirmando) return;
+    this.passoVolume = false;
+    this.confirmar.emit();
+  }
+
+  @HostListener('document:click')
+  @HostListener('document:keydown.escape')
+  fecharMais(): void {
+    this.maisAberto = false;
+  }
+
+  /** "Atualizar com Sankhya" do menu ⚙ — mesma guarda do botão antigo (soPonteiro) e fecha o menu. */
+  sincronizarDoMenu(ev: Event): void {
+    if (!this.soPonteiro(ev as MouseEvent)) return;
+    this.maisAberto = false;
+    this.sincronizar.emit();
+  }
 
   /**
    * true só pra clique/toque de verdade. Enter/Espaço num botão com foco também

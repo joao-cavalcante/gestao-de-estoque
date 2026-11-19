@@ -190,7 +190,10 @@ private fun comTransporte(slug: String, tenantId: UUID, tarefas: List<TarefaApiD
     if (ocs.isEmpty()) return tarefas
     val transporte = wms.backend.mapaseparacao.TransporteOrdemCarga.doCache(slug, tenantId, ocs)
     return tarefas.map { t ->
-        t.ordemCarga?.let { transporte[it] }?.let { t.copy(motorista = it.motorista, placa = it.placa, veiculo = it.veiculo, ordemCargaFechada = it.situacao == "F") } ?: t
+        t.ordemCarga?.let { transporte[it] }?.let { t.copy(
+            motorista = it.motorista, placa = it.placa, veiculo = it.veiculo, ordemCargaFechada = it.situacao == "F",
+            ocPesoMax = it.pesoMax, ocSaidaPrevista = it.saidaPrevista,
+        ) } ?: t
     }
 }
 

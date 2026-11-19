@@ -2,7 +2,7 @@
    Design tokens — Torre de Operações (HMI-OPS)
    Valores extraídos do código-fonte real de referência (Lovable/React+Tailwind),
    não de interpretação visual de print — ver print referencia/lovable-project.
-   Cor é reservada: marca (azul-aço) só em logo/avatar/botão primário/pill ativo
+   Cor é reservada: marca (roxo) só em logo/avatar/botão primário/pill ativo
    de alerta. NÃO existe uma cor de "acento" espalhada pela UI — a maioria do
    texto pequeno é cinza (muted) ou preto/branco (foreground), nunca a cor de
    marca.
@@ -11,7 +11,7 @@
    nunca uma característica fixa de uma tela. Os tokens abaixo estão
    divididos em duas camadas:
    - `:root`: tokens de SIGNIFICADO — marca, crítico, atenção, sucesso. Não
-     mudam entre temas: crítico é sempre vermelho, marca é sempre azul-aço,
+     mudam entre temas: crítico é sempre vermelho, marca é sempre roxa,
      em qualquer tela, em qualquer tema.
    - `[data-theme="light"]` / `[data-theme="dark"]`: tokens de SUPERFÍCIE —
      fundo, borda, texto neutro, e os fundos tonalizados de alerta (que
@@ -52,21 +52,26 @@
 /* ---------- Tema claro (padrão) ---------- */
 :root,
 [data-theme="light"] {
-  /* Branco/cinzas com leve tom de lavanda (30/09/2026 — combina com a marca roxa; antes cinza neutro). */
-  --oq-bg-page: #E0D9EE;
-  --oq-surface: #FBF9FF;       /* única superfície "clara" do sistema — header, card, botões, inputs */
-  --oq-surface-2: #F1EDFA;     /* superfície secundária (barra de bipagem, cabeçalho de painel/tabela) */
-  --oq-border: #D3CAE5;
-  --oq-border-strong: #756E82; /* ênfase em input crítico (campo de código de barras) */
-  --oq-header-border: #A498BC; /* só a borda inferior do header (Fila de Tarefas) usa esse cinza mais escuro */
-  --oq-kpi-strip-bg: #E9E3F5;  /* fundo da faixa de KPI (blocos neutros ficam transparentes sobre isso) */
+  color-scheme: light; /* controles nativos (barra de rolagem, date picker) acompanham o tema */
+  /* Neutros com o MESMO tom de lavanda nos dois temas (matiz 256°, saturação baixa) — 17/11/2026: o claro era
+     lavanda forte (#E0D9EE) e o escuro quase neutro, e os textos/cinzas eram zinc puro; agora fundo, borda, texto
+     e cinzas de status são uma família só. Roxo de verdade só na marca. (Tom de lavanda: escolha de 30/09/2026.) */
+  --oq-bg-page: #EDECF1;
+  --oq-surface: #FDFCFE;       /* única superfície "clara" do sistema — header, card, botões, inputs */
+  --oq-surface-2: #F5F4F8;     /* superfície secundária (barra de bipagem, cabeçalho de painel/tabela) */
+  --oq-border: #D9D6E0;
+  --oq-border-strong: #726E7C; /* ênfase em input crítico (campo de código de barras) */
+  --oq-header-border: #B4B0BF; /* só a borda inferior do header (Fila de Tarefas) usa esse cinza mais escuro */
+  --oq-kpi-strip-bg: #F0EEF3;  /* fundo da faixa de KPI (blocos neutros ficam transparentes sobre isso) */
+  --oq-scroll-thumb: #C5C1CE;
+  --oq-scroll-thumb-hover: #8E8A99;
 
-  --oq-text-primary: #18181B;
-  --oq-text-secondary: #6B6B76; /* única cor "muted" do sistema — não existe um 3º tom mais claro */
+  --oq-text-primary: #18171C;
+  --oq-text-secondary: #686572; /* única cor "muted" do sistema — não existe um 3º tom mais claro (4,8:1 no fundo) */
 
   /* Ícone de status do card */
-  --oq-status-idle: #71717A;   /* aguardando */
-  --oq-status-active: #3F3F46; /* andamento */
+  --oq-status-idle: #75727E;   /* aguardando */
+  --oq-status-active: #403E46; /* andamento */
 
   --oq-critical-bg: #FDECEB;     /* tela Fila de Tarefas */
   --oq-critical-foreground: #7A1610;
@@ -98,21 +103,30 @@
 
 /* ---------- Tema escuro ---------- */
 [data-theme="dark"] {
-  /* Fundo com leve tom de roxo (30/09/2026 — combina com a marca roxa; antes cinza neutro #0F1114/#17191D). */
-  --oq-bg-page: #110E18;
-  --oq-surface: #19151F;
-  --oq-surface-2: #201B28;
-  --oq-border: #2F2839;
-  --oq-border-strong: #5A5068;
-  --oq-header-border: #352D40;
-  --oq-kpi-strip-bg: #1C1723;
+  color-scheme: dark;
+  /* Mesma família do tema claro (matiz 256°, saturação baixa) — ver comentário lá (17/11/2026). */
+  --oq-bg-page: #0F0E13;
+  --oq-surface: #17151B;
+  --oq-surface-2: #1E1C23;
+  --oq-border: #2E2C35;
+  --oq-border-strong: #585463;
+  --oq-header-border: #35323E;
+  --oq-kpi-strip-bg: #1A191F;
+  --oq-scroll-thumb: #3A3742;
+  --oq-scroll-thumb-hover: #5E5A69;
 
-  --oq-text-primary: #F2F2F3;
-  --oq-text-secondary: #A3A6AD;
+  --oq-text-primary: #F2F1F3;
+  --oq-text-secondary: #A8A6B0;
 
   /* Ícone de status do card — cinzas claros o bastante pra não sumir sobre --oq-surface escura */
-  --oq-status-idle: #83868F;
-  --oq-status-active: #C7C9CF;
+  --oq-status-idle: #8A8792;
+  --oq-status-active: #C8C6CD;
+
+  /* Marca no escuro: o roxo #3D2C6B quase não se separava do fundo (1,5:1) e o acento #5B47A0 (ícone ativo, foco)
+     ficava em 2,5:1. Mesma família, um degrau mais clara; texto sobre a marca continua --oq-brand-ink. */
+  --oq-brand: #4F3C8F;
+  --oq-brand-hover: #5B47A0;
+  --oq-brand-accent: #A18ED7;
 
   /* Fundos tonalizados de alerta: versão escura/saturada da mesma cor (não a
      tinta pastel do tema claro), com foreground claro pra manter contraste. */
@@ -154,6 +168,41 @@ body {
   background: var(--oq-bg-page);
   color: var(--oq-text-primary);
   font-family: var(--oq-font-body);
+}
+
+/* Barra de rolagem do sistema (17/11/2026): fina, reta (raio quase zero, como o resto) e nas cores do tema — antes
+   era a barra padrão do Windows (grossa, com setas, clara até no tema escuro). Quem rola sem barra (menu lateral,
+   pílulas) continua com `scrollbar-width: none` no próprio componente, que tem precedência sobre esta regra. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--oq-scroll-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--oq-scroll-thumb);
+  border-radius: 0;
+  // Borda transparente "afina" o polegar dentro dos 8px sem encostar no conteúdo.
+  border: 2px solid transparent;
+  background-clip: padding-box;
+
+  &:hover {
+    background: var(--oq-scroll-thumb-hover);
+    background-clip: padding-box;
+  }
+}
+
+::-webkit-scrollbar-button {
+  display: none; // sem setas nas pontas
 }
 
 @keyframes oq-alert-pulse {
@@ -215,6 +264,25 @@ body {
   &--carregar { --pin-cor: var(--oq-carregar); --pin-texto: var(--oq-carregar-foreground); }
   &--carregado { --pin-cor: var(--oq-carregado); --pin-texto: var(--oq-carregado-foreground); }
   &--nf-pendente { --pin-cor: var(--oq-nf-pendente); --pin-texto: var(--oq-nf-pendente-foreground); }
+
+  /* Fila de Tarefas: rótulo escrito normal ("Aguardando conferência"), sem caixa alta nem espaçamento largo. */
+  // Fila (17/11/2026): status em ícone + texto, sem pílula com fundo e borda ("cara de IA"); a forma do ícone e a
+  // cor continuam dizendo o estado.
+  &.oq-status-pin--frase {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: color-mix(in srgb, var(--pin-cor) 70%, var(--oq-text-primary));
+    font-family: var(--oq-font-body);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+
+    oq-icon {
+      color: var(--pin-cor);
+    }
+  }
 }
 
 @keyframes oq-spin {
@@ -292,7 +360,9 @@ body {
 .oq-admin-toolbar {
   flex: none;
   display: flex;
+  flex-wrap: wrap; /* celular: filtros e botões descem de linha em vez de vazar pra fora da tela à esquerda */
   justify-content: flex-end;
+  gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--oq-border);
   background: var(--oq-surface);
@@ -433,6 +503,18 @@ body {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* Celular: avatar + nome na primeira linha, selos e botões descem pra linha de baixo (antes vazavam à direita). */
+@media (max-width: 639px) {
+  .oq-admin-row {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .oq-admin-row__main {
+    flex: 1 1 calc(100% - 56px);
+  }
 }
 
 .oq-admin-row--edicao {
@@ -603,6 +685,32 @@ body {
     flex: none;
     width: 36px;
     height: 36px;
+  }
+}
+
+/* Tela de toque (tablet/celular): alvos com altura de dedo. No mouse fica a densidade de sempre. */
+@media (pointer: coarse) {
+  .oq-toolbar__pill {
+    min-height: 36px;
+    padding-inline: 12px;
+  }
+
+  .oq-pagination__pages button {
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .oq-pagination__per-page select {
+    min-height: 36px;
+  }
+
+  .oq-lista__sort {
+    padding-block: 8px;
+  }
+
+  input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
   }
 }
 

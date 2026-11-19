@@ -62,7 +62,7 @@
   border-radius: var(--oq-radius-input);
   background: var(--oq-surface);
   color: var(--oq-text-primary);
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -110,8 +110,8 @@
   font-family: var(--oq-font-display);
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
 }
 
@@ -128,7 +128,7 @@
 
 .oq-peso-modal__esperado-val {
   justify-self: end;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 18px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -144,7 +144,7 @@
 .oq-peso-modal__esperado-comercial {
   grid-column: 1 / -1;
   justify-self: end;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   color: var(--oq-text-secondary);
 }
@@ -168,8 +168,8 @@
   font-family: var(--oq-font-display);
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 
@@ -215,7 +215,7 @@
   border-radius: var(--oq-radius-input);
   background: var(--oq-surface);
   color: var(--oq-text-primary);
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 26px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -236,7 +236,7 @@
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 13px;
   font-weight: 600;
   color: var(--oq-text-secondary);
@@ -319,8 +319,8 @@
   font-family: var(--oq-font-display);
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
 
   &--ok {
@@ -379,7 +379,7 @@
 }
 
 .oq-peso-modal__live-val {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 36px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -388,7 +388,7 @@
 }
 
 .oq-peso-modal__live-un {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 13px;
   font-weight: 600;
   color: var(--oq-text-secondary);
@@ -404,8 +404,8 @@
   font-family: var(--oq-font-display);
   font-size: 9px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-success);
 }
 
@@ -440,8 +440,8 @@
   font-family: var(--oq-font-display);
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-brand-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -554,7 +554,7 @@
   border-radius: var(--oq-radius-input);
   background: var(--oq-surface);
   color: var(--oq-text-primary);
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 13px;
   font-weight: 600;
   text-align: right;
@@ -570,7 +570,7 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 4px 12px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   color: var(--oq-text-secondary);
 
@@ -638,7 +638,7 @@
   border: 1px solid var(--oq-border);
   background: var(--oq-surface);
   padding: 0 8px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
   color: var(--oq-text-primary);
   outline: none;
@@ -658,7 +658,7 @@
   padding: 0 12px;
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
 
   &::placeholder {
     font-family: var(--oq-font-body);
@@ -723,8 +723,8 @@
   font-family: var(--oq-font-display);
   font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-brand-ink);
   cursor: pointer;
   transition: background-color .15s ease;
@@ -740,9 +740,126 @@
 }
 
 .oq-scan-bar__buscando {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
+}
+
+// 17/11/2026 — sem cara de IA: rótulo global .oq-label-caps em texto normal nesta tela.
+.oq-label-caps {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+// ─── Coletor (17/11/2026) ──────────────────────────────────────────────────────────────────────────────────
+.oq-scan-bar__field--barcode {
+  position: relative;
+}
+
+.oq-scan-bar__teclado {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  // Uma linha: [código ⌨] [qtd] [Conferir]; Controle só aparece (linha inteira) quando o produto pede.
+  .oq-scan-bar {
+    padding: 8px 10px !important;
+  }
+
+  .oq-scan-bar__form {
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 6px !important;
+  }
+
+  .oq-scan-bar__field--barcode {
+    flex: 1 1 0 !important;
+    min-width: 0;
+
+    > label {
+      display: none;
+    }
+  }
+
+  .oq-scan-bar__input--barcode {
+    height: 46px;
+    padding-right: 46px;
+    font-size: 16px;
+  }
+
+  .oq-scan-bar__teclado {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: var(--oq-radius-input);
+    background: none;
+    color: var(--oq-text-secondary);
+    cursor: pointer;
+  }
+
+  .oq-scan-bar__teclado--on {
+    background: var(--oq-surface-2);
+    color: var(--oq-text-primary);
+  }
+
+  .oq-scan-bar__field--qtd {
+    order: 2;
+    width: 70px !important;
+
+    > label {
+      font-size: 11px;
+    }
+
+    .oq-scan-bar__input {
+      height: 46px;
+      font-size: 18px;
+    }
+  }
+
+  .oq-scan-bar__field--peso {
+    order: 2;
+    flex: none !important;
+    min-width: 0 !important;
+    width: 116px !important;
+  }
+
+  .oq-scan-bar__btn {
+    order: 3;
+    flex: none !important;
+    width: 74px;
+    height: 46px !important;
+    margin-top: 0 !important;
+    font-size: 15px;
+  }
+
+  .oq-scan-bar__field--controle {
+    order: 4;
+    flex: 1 1 100% !important;
+  }
+
+  .oq-scan-bar__field--sem-controle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .oq-scan-bar__field--qtd {
+    width: 62px !important;
+  }
+
+  .oq-scan-bar__btn {
+    width: 88px;
+    padding: 0 6px !important;
+    font-size: 14px;
+    white-space: nowrap;
+  }
 }

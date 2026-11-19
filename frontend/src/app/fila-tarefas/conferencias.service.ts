@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
-import { Tarefa, TarefaEtapa } from './tarefa.model';
+import { Tarefa, TarefaEtapa, dataSankhya } from './tarefa.model';
 
 /** Resposta de POST /api/separacao/etapas-fila — `{ [nunota]: { tipos, concluidos } }`. `{}` = tenant não segmentado. */
 interface FilaEtapasResposta {
@@ -20,8 +20,9 @@ interface ItensFilaResposta {
   [nunota: string]: number;
 }
 
-/** TGFCAB.AD_TURNOENTREGA — período pra entrega. */
-const ROTULO_TURNO_ENTREGA: Record<string, string> = { '1': 'Diurno', '2': 'Noturno', '9': 'Qualquer' };
+/** TGFCAB.AD_TURNOENTREGA — período pra entrega. Na Negri as opções (TDDOPC) são D/N (conferido em 17/11/2026 —
+ *  só com 1/2/9 o card mostrava "—" sempre); 1/2/9 ficam para outra base que use esses códigos. */
+const ROTULO_TURNO_ENTREGA: Record<string, string> = { D: 'Diurno', N: 'Noturno', '1': 'Diurno', '2': 'Noturno', '9': 'Qualquer' };
 
 /**
  * DTO cru devolvido por GET /api/tarefas (TarefasRoutes.kt) — lido
@@ -60,8 +61,19 @@ export interface TarefaApiDto {
   motorista?: string | null;
   placa?: string | null;
   veiculo?: string | null;
-  /** TGFCAB.AD_TURNOENTREGA — "1" Diurno | "2" Noturno | "9" Qualquer. */
+  /** TGFORD.PESOMAX (kg) e DTPREVSAIDA ("dd/MM/yyyy") da OC do pedido. */
+  ocPesoMax?: number | null;
+  ocSaidaPrevista?: string | null;
+  /** TGFCAB.AD_TURNOENTREGA — Negri "D" Diurno | "N" Noturno (outras bases: "1" | "2" | "9"). */
   turnoEntrega: string | null;
+  /** Card da fila (17/11/2026): TGFCAB.PESOBRUTO (kg), QTDVOL (volumes previstos), AD_DHNEG, DTPREVENT, AD_OBSSEP. */
+  pesoBruto?: number | null;
+  volumesPrevistos?: number | null;
+  pedidoEm?: string | null;
+  previsaoEntrega?: string | null;
+  obsSeparacao?: string | null;
+  /** Conferência em curso na Torre (sessão ativa): itens conferidos/total, conferente e início (ISO UTC). */
+  andamento?: { conferidos: number; total: number; conferente?: string | null; desde: string } | null;
   /** TGFCAB.AD_EXPRESS / AD_RETIRA / AD_ENTREGA = 'S'. */
   express?: boolean;
   retira?: boolean;
@@ -83,6 +95,9 @@ export interface TarefaApiDto {
   } | null;
   ajustesPeso?: { sentido: 'E' | 'S'; status: string; nunotaAjuste?: number | null; erro?: string | null }[] | null;
   tipMov?: string | null;
+  /** TGFCAB.CODEMP / Empresa.NOMEFANTASIA — mais de uma empresa no mesmo Sankhya (coletor). */
+  codigoEmpresa?: string | null;
+  nomeEmpresa?: string | null;
   pendenteWriteBack: boolean;
 }
 
@@ -188,6 +203,16 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
     itens: 0, // preenchido depois por mergeItens (POST /api/separacao/itens-fila)
     valor: 0, // não faz parte do fieldset base da fila
     periodoEntrega: (p.turnoEntrega && ROTULO_TURNO_ENTREGA[p.turnoEntrega]) || '—',
+    pesoKg: p.pesoBruto ?? null,
+    volumesPrevistos: p.volumesPrevistos ?? null,
+    pedidoEm: dataSankhya(p.pedidoEm),
+    previsaoEntrega: dataSankhya(p.previsaoEntrega),
+    obsSeparacao: p.obsSeparacao?.trim() || null,
+    ocPesoMax: p.ocPesoMax ?? null,
+    ocSaidaPrevista: dataSankhya(p.ocSaidaPrevista),
+    andamento: p.andamento && p.andamento.total > 0
+      ? { conferidos: p.andamento.conferidos, total: p.andamento.total, conferente: p.andamento.conferente ?? null, desde: new Date(p.andamento.desde) }
+      : null,
     express: !!p.express,
     retira: !!p.retira,
     entrega: !!p.entrega,
@@ -199,6 +224,8 @@ function mapearParaTarefa(p: TarefaApiDto): Tarefa {
       ? p.ajustesPeso.map((a) => ({ sentido: a.sentido, status: a.status, nunotaAjuste: a.nunotaAjuste ?? null, erro: a.erro ?? null }))
       : undefined,
     tipMov: p.tipMov ?? null,
+    codigoEmpresa: p.codigoEmpresa ?? null,
+    nomeEmpresa: p.nomeEmpresa ?? null,
   };
 }
 

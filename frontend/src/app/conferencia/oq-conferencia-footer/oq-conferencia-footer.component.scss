@@ -14,10 +14,10 @@
 }
 
 .oq-cf-footer__banner-note {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-critical-foreground);
 }
 
@@ -37,8 +37,8 @@
   font-family: var(--oq-font-display);
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  text-transform: none;
+  letter-spacing: 0;
   cursor: pointer;
   transition: background-color .15s ease, opacity .15s ease;
 }
@@ -111,7 +111,7 @@
   font-family: var(--oq-font-display);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   text-transform: none;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
   animation: oq-cf-volume-tooltip-pop 0.25s ease-out;
@@ -164,7 +164,7 @@
   border-radius: 4px;
   background: var(--oq-surface);
   text-align: center;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -184,7 +184,7 @@
 }
 
 .oq-cf-footer__progress {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   color: var(--oq-text-secondary);
 }
@@ -232,7 +232,26 @@
   }
 
   .oq-cf-footer__btn {
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
+  }
+}
+
+/* Tablet/celular (dedo): +/− de volume e botões do rodapé com alvo de toque de verdade (eram 24–26px). */
+@media (pointer: coarse) {
+  .oq-cf-footer__volume-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .oq-cf-footer__volume-input {
+    width: 58px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .oq-cf-footer__btn {
+    min-height: 40px;
   }
 }
 
@@ -271,5 +290,262 @@
     flex: 1 1 100%;
     padding: 10px;
     justify-content: center;
+  }
+}
+
+// 17/11/2026 — sem cara de IA: rótulo global .oq-label-caps em texto normal nesta tela.
+.oq-label-caps {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+// Botões em texto normal; "Cancelar pedido" como ação destrutiva discreta.
+.oq-cf-footer__btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+}
+
+.oq-cf-footer__progress {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+
+  b {
+    color: var(--oq-text-primary);
+  }
+}
+
+// ─── Menu ⚙ (17/11/2026) ────────────────────────────────────────────────────────────────────────────────
+.oq-cf-footer__mais {
+  position: relative;
+}
+
+.oq-cf-footer__btn--icone {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+.oq-cf-footer__menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 240px;
+  padding: 6px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+}
+
+.oq-cf-footer__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--oq-radius-input);
+  background: none;
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--oq-surface-2);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+// Cancelar pedido: separado das outras ações e em vermelho (destrutiva).
+.oq-cf-footer__menu-item--critico {
+  margin-top: 4px;
+  border-top: 1px solid var(--oq-border);
+  border-radius: 0;
+  color: var(--oq-critical-foreground);
+
+  &:hover {
+    background: var(--oq-critical-bg) !important;
+  }
+}
+
+// ⚙ com a mesma altura dos outros botões do rodapé.
+.oq-cf-footer__mais {
+  display: flex;
+  align-self: stretch;
+}
+
+.oq-cf-footer__btn--icone {
+  height: auto;
+  min-height: 36px;
+  align-self: stretch;
+}
+
+// ─── Coletor (17/11/2026): rodapé em uma linha — [⚙] [4/11] [Confirmar] ─────────────────────────────────
+.oq-cf-footer__progress-curto,
+.oq-cf-footer__menu-item--coletor,
+.oq-cf-footer__passo,
+.oq-cf-footer__passo-fundo {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .oq-cf-footer__actions {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+  }
+
+  .oq-cf-footer__actions-esquerda {
+    display: flex !important;
+    flex: none;
+  }
+
+  .oq-cf-footer__actions-esquerda > .oq-cf-footer__btn {
+    display: none !important;
+  }
+
+  .oq-cf-footer__btn--icone {
+    width: 48px !important;
+    height: 48px;
+  }
+
+  .oq-cf-footer__menu-item--coletor {
+    display: flex;
+  }
+
+  .oq-cf-footer__menu {
+    min-width: 260px;
+  }
+
+  .oq-cf-footer__menu-item {
+    min-height: 48px;
+    font-size: 15px;
+  }
+
+  .oq-cf-footer__progress-group {
+    flex: 1 1 auto !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    min-width: 0;
+  }
+
+  .oq-cf-footer__volume,
+  .oq-cf-footer__progress {
+    display: none !important;
+  }
+
+  .oq-cf-footer__progress-curto {
+    display: inline;
+    font-size: 15px;
+    color: var(--oq-text-secondary);
+    font-variant-numeric: tabular-nums;
+
+    b {
+      color: var(--oq-text-primary);
+    }
+  }
+
+  .oq-cf-footer__btn--primary {
+    flex: 1 1 auto !important;
+    min-height: 48px;
+    font-size: 15px;
+  }
+
+  // Passo "Quantos volumes?" — folha por cima do rodapé.
+  .oq-cf-footer__passo-fundo {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgb(0 0 0 / 0.45);
+  }
+
+  .oq-cf-footer__passo {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 61;
+    padding: 16px 12px 14px;
+    background: var(--oq-surface);
+    border-top: 1px solid var(--oq-border);
+  }
+
+  .oq-cf-footer__passo-titulo {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--oq-text-primary);
+  }
+
+  .oq-cf-footer__passo-volumes {
+    display: flex;
+    gap: 8px;
+  }
+
+  .oq-cf-footer__passo-btn {
+    width: 64px;
+    height: 56px;
+    border: 1px solid var(--oq-border-strong);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface-2);
+    color: var(--oq-text-primary);
+    font-size: 26px;
+    font-weight: 700;
+
+    &:disabled {
+      opacity: 0.45;
+    }
+  }
+
+  .oq-cf-footer__passo-input {
+    flex: 1;
+    height: 56px;
+    border: 2px solid var(--oq-border-strong);
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    font-size: 26px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .oq-cf-footer__passo-acoes {
+    display: flex;
+    gap: 8px;
+
+    .oq-cf-footer__btn {
+      display: inline-flex !important;
+      justify-content: center;
+      min-height: 50px;
+      font-size: 15px;
+    }
+
+    .oq-cf-footer__btn--outline {
+      flex: 0 0 34%;
+    }
+
+    .oq-cf-footer__btn--primary {
+      flex: 1 1 auto;
+    }
   }
 }

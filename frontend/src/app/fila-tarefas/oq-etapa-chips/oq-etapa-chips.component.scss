@@ -1,43 +1,67 @@
-/* Chip de etapa (V29) — movido do card sem mudar o visual; card e lista usam o mesmo. */
+/* Botões de etapa (V29) — card e lista usam o mesmo componente.
+   Redesenho 17/11/2026 (validação dos botões): eram pílulas de 28px em 4 cores e o card com etapas ficava sem nenhum
+   botão de ação à vista. Mesma hierarquia do card: EM ANDAMENTO = roxo cheio; A FAZER = contornado (como o
+   "Conferir"); concluída e divergente ficam quietas (borda + ícone + cor do texto — não só cor). */
 .oq-etapa-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  flex: 0 0 auto; // nunca encolhe/quebra, tamanho pelo próprio conteúdo
-  padding: 6px 10px;
-  border: 1px solid var(--oq-border-strong, var(--oq-border));
-  border-radius: 999px;
-  background: var(--oq-surface);
-  color: var(--oq-text-primary);
-  font-family: var(--oq-font-display);
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  // A fazer (não iniciada): contornado, como o "Conferir" — enche no hover.
+  border: 1px solid var(--oq-brand-accent);
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  color: var(--oq-brand-text);
+  font-family: var(--oq-font-body);
+  font-size: 13px;
   font-weight: 600;
-  font-size: 11px;
+  white-space: nowrap;
   cursor: pointer;
-  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 
   &:hover:not(:disabled) {
+    background: var(--oq-brand);
     border-color: var(--oq-brand);
-    color: var(--oq-brand-text, var(--oq-text-primary));
+    color: var(--oq-brand-ink);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: 2px;
+  }
+
+  // Em andamento: a etapa que já começou é a prioridade — roxo cheio (é o "Continuar" dela).
   &--andamento {
-    border-color: var(--oq-attention);
-    color: var(--oq-warning-foreground, var(--oq-text-primary));
-    background: var(--oq-warning-soft, var(--oq-surface));
+    background: var(--oq-brand);
+    border-color: var(--oq-brand);
+    color: var(--oq-brand-ink);
+
+    .oq-etapa-chip__prog {
+      font-weight: 700;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--oq-brand-hover);
+      border-color: var(--oq-brand-hover);
+    }
   }
 
+  // Concluída: sai do caminho — borda neutra, ✓ e texto verde.
   &--ok {
-    border-color: transparent;
-    background: var(--oq-success-soft, var(--oq-surface-2));
-    color: var(--oq-success-foreground, var(--oq-text-secondary));
+    border-color: var(--oq-border);
+    background: transparent;
+    color: var(--oq-success-foreground);
     cursor: default;
   }
 
-  // Etapa concluída COM divergência (V48) — vermelho, mesma família do alerta crítico.
+  // Concluída COM divergência (V48): mesmo formato quieto, em vermelho, com ícone de alerta.
   &--divergente {
     border-color: var(--oq-critical);
-    background: var(--oq-critical-soft, var(--oq-critical-bg, var(--oq-surface-2)));
-    color: var(--oq-critical-foreground, var(--oq-critical));
+    background: transparent;
+    color: var(--oq-critical-foreground);
     cursor: default;
   }
 }
@@ -47,20 +71,18 @@
 }
 
 .oq-etapa-chip__prog {
-  font-family: var(--oq-font-mono);
-  font-size: 10px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.85;
+  font-weight: 500;
+  opacity: 0.9;
 }
 
-/* No card, as etapas dividem a largura: com "1/1" (progresso) o 3º chip era cortado pelo scroll
-   escondido. Agora o chip encolhe (o nome abrevia com "…") e o progresso nunca some. */
+/* No card, as etapas dividem a largura em partes iguais e têm a altura do botão "Conferir". */
 :host(.oq-card__etapas) .oq-etapa-chip {
   flex: 1 1 0;
   min-width: 0;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px 8px;
+  min-height: 38px;
+  gap: 5px;
+  padding: 0 8px;
 }
 
 :host(.oq-card__etapas) .oq-etapa-chip__label {
@@ -72,4 +94,18 @@
 :host(.oq-card__etapas) .oq-etapa-chip__prog,
 :host(.oq-card__etapas) oq-icon {
   flex: none;
+}
+
+/* Tela de toque: alvo de dedo também na lista. */
+@media (pointer: coarse) {
+  .oq-etapa-chip {
+    min-height: 40px;
+  }
+}
+
+/* Card estreito: "Não pesáveis 9/20" cabe sem cortar — menos respiro lateral, mesma altura. */
+:host(.oq-card__etapas) .oq-etapa-chip {
+  padding: 0 6px;
+  gap: 4px;
+  font-size: 12.5px;
 }

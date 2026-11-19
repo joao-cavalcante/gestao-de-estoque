@@ -5,7 +5,7 @@
       @if (arrastavel) {
         <th scope="col" class="oq-lista__alca"><span class="oq-lista__caption">Ordem</span></th>
       }
-      @for (col of colunas; track col.titulo) {
+      @for (col of colunasVisiveis; track col.titulo) {
         <th scope="col" [class]="col.classe" [attr.aria-sort]="ariaSort(col.campo)">
           @if (col.campo) {
             <button
@@ -42,10 +42,13 @@
           <td class="oq-lista__alca" title="Arraste para mudar a ordem"><oq-icon name="grip" [size]="16" /></td>
         }
         <td class="oq-lista__topo" data-label="Status">
-          <span class="oq-status-pin" [class]="'oq-status-pin--' + linha.st.tom">
-            <oq-icon [name]="linha.st.icone" [size]="12" [class.oq-gear-spin]="linha.st.gira" />
+          <span class="oq-status-pin oq-status-pin--frase" [class]="'oq-status-pin--' + linha.st.tom">
+            <oq-icon [name]="linha.st.icone" [size]="12" />
             {{ linha.st.label }}
           </span>
+          @if (linha.t.andamento; as a) {
+            <span class="oq-lista__sub" [title]="a.conferente ?? ''">{{ a.conferidos }}/{{ a.total }} itens{{ a.conferente ? ' · ' + a.conferente : '' }}</span>
+          }
           @if (linha.t.alerta) {
             <span
               class="oq-lista__alerta"
@@ -57,12 +60,32 @@
             </span>
           }
         </td>
+        <td class="oq-lista__pedido" data-label="Nº único">
+          <span class="oq-lista__pedido-num">{{ linha.t.numeroUnico }}</span>
+          @if (mostraNumeroNota(linha.t)) { <span class="oq-lista__pedido-unico" title="Número da nota">NF {{ linha.t.nf }}</span> }
+        </td>
         <td class="oq-lista__principal" data-label="Cliente">
           <span class="oq-lista__destaque" [title]="linha.t.cliente">{{ linha.t.cliente }}</span>
           <oq-modalidade-pins [modalidade]="linha.t" [compacto]="true" />
+          @if (linha.t.obsSeparacao) {
+            <span class="oq-lista__obs" [title]="linha.t.obsSeparacao"><oq-icon name="receipt" [size]="11" /> {{ linha.t.obsSeparacao }}</span>
+          }
         </td>
-        <td data-label="Nº Único">{{ linha.t.numeroUnico }}</td>
-        <td data-label="Pedido">{{ linha.t.nf }}</td>
+        <td class="oq-lista__direita oq-lista__num" data-label="Itens">{{ linha.t.itens }}</td>
+        <td class="oq-lista__direita oq-lista__num oq-lista__num--forte" data-label="Peso">{{ linha.t.pesoKg ? pesoTexto(linha.t.pesoKg) : '—' }}</td>
+        <td class="oq-lista__direita oq-lista__num" data-label="Volumes" title="Volumes previstos (soma das unidades de venda)">{{ linha.t.volumesPrevistos ?? '—' }}</td>
+        <td data-label="Entrega">
+          @if (linha.ent; as e) {
+            <span [class.oq-lista__entrega--atrasada]="e.situacao === 'atrasada'" [class.oq-lista__entrega--hoje]="e.situacao === 'hoje'">{{ e.texto.replace('Entrega ', '') }}</span>
+          } @else {
+            —
+          }
+          @if (linha.t.periodoEntrega !== '—') { <span class="oq-lista__sub">{{ linha.t.periodoEntrega }}</span> }
+        </td>
+        <td class="oq-lista__direita oq-lista__num" data-label="Idade" [title]="linha.t.pedidoEm ? 'Pedido em ' + linha.t.pedidoEm.toLocaleString('pt-BR') : ''">{{ linha.idade ?? linha.t.data }}</td>
+        @if (!dentroDaOc) {
+          <td data-label="Ordem de Carga">{{ linha.t.ordemCarga ?? '—' }}</td>
+        }
         <td data-label="Nota fiscal">
           @if (linha.t.notaFiscal; as n) {
             <span class="oq-nota" [class]="'oq-nota oq-nota--' + tomNota(n)" [title]="n.motivoRejeicao ?? n.situacao">{{ n.numero ?? n.nunota }} · {{ n.situacao }}</span>
@@ -73,10 +96,6 @@
             —
           }
         </td>
-        <td data-label="Ordem de Carga">{{ linha.t.ordemCarga ?? '—' }}</td>
-        <td data-label="Data">{{ linha.t.data }}</td>
-        <td class="oq-lista__direita" data-label="Itens">{{ linha.t.itens }}</td>
-        <td data-label="Período p/ entrega">{{ linha.t.periodoEntrega }}</td>
         <td class="oq-lista__acoes" data-label="Ação">
           @switch (linha.fase) {
             @case ('carregar') {
@@ -106,6 +125,7 @@
                   type="button"
                   class="oq-lista__btn"
                   [class.oq-lista__btn--continuar]="linha.t.status === 'andamento'"
+                  [class.oq-lista__btn--iniciar]="linha.t.status !== 'andamento'"
                   (click)="abrir(linha.t)"
                 >
                   {{ linha.t.status === 'andamento' ? 'Continuar' : 'Conferir' }}

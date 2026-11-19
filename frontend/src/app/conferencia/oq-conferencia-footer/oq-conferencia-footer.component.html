@@ -12,31 +12,55 @@
         <oq-icon name="arrow-left" [size]="14" />
         {{ voltarLabel }}
       </button>
+      <!-- Sem a lista de conferidos na tela (CCO EXIBIRPRODCONF = 'N'), "Ver conferidos" continua aqui. -->
       @if (mostrarVerConferidos) {
         <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--outline" title="Tudo o que já foi conferido na nota, com check de reconferência" (click)="verConferidos.emit()">
-          <oq-icon name="entrega" [size]="14" />
+          <oq-icon name="list" [size]="14" />
           Ver conferidos
         </button>
       }
-      @if (mostrarVerConferidos) {
+      <!-- Ações raras (17/11/2026): Atualizar com Sankhya e Cancelar pedido no menu da engrenagem. -->
+      <div class="oq-cf-footer__mais">
         <button
           type="button"
-          class="oq-cf-footer__btn oq-cf-footer__btn--outline"
-          title="Relê o pedido no Sankhya e corrige quantidade, unidade e pesável dos itens desta conferência"
-          [disabled]="sincronizando"
-          (click)="soPonteiro($event) && sincronizar.emit()"
+          class="oq-cf-footer__btn oq-cf-footer__btn--outline oq-cf-footer__btn--icone"
+          [attr.aria-expanded]="maisAberto"
+          aria-haspopup="menu"
+          aria-label="Mais ações"
+          title="Mais ações"
+          (click)="$event.stopPropagation(); maisAberto = !maisAberto"
         >
-          @if (sincronizando) {
-            <oq-spinner [size]="13" />
-            Atualizando…
-          } @else {
-            Atualizar com Sankhya
-          }
+          <oq-icon name="gear" [size]="15" />
         </button>
-      }
-      <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--critico" (click)="cancelar.emit()">
-        Cancelar Pedido
-      </button>
+        @if (maisAberto) {
+          <div class="oq-cf-footer__menu" role="menu" (click)="$event.stopPropagation()">
+            <!-- No coletor o rodapé só tem ⚙ e Confirmar: sair e ver conferidos moram aqui. -->
+            <button type="button" role="menuitem" class="oq-cf-footer__menu-item oq-cf-footer__menu-item--coletor" (click)="maisAberto = false; voltar.emit()">
+              <oq-icon name="arrow-left" [size]="14" /> {{ voltarLabel }}
+            </button>
+            @if (podeVerConferidosNoMenu) {
+              <button type="button" role="menuitem" class="oq-cf-footer__menu-item oq-cf-footer__menu-item--coletor" (click)="maisAberto = false; verConferidos.emit()">
+                <oq-icon name="list" [size]="14" /> Ver conferidos
+              </button>
+            }
+            @if (mostrarSincronizar) {
+              <button
+                type="button"
+                role="menuitem"
+                class="oq-cf-footer__menu-item"
+                title="Relê o pedido no Sankhya e corrige quantidade, unidade e pesável dos itens desta conferência"
+                [disabled]="sincronizando"
+                (click)="sincronizarDoMenu($event)"
+              >
+                @if (sincronizando) { <oq-spinner [size]="13" /> Atualizando… } @else { <oq-icon name="sync" [size]="14" /> Atualizar com Sankhya }
+              </button>
+            }
+            <button type="button" role="menuitem" class="oq-cf-footer__menu-item oq-cf-footer__menu-item--critico" (click)="maisAberto = false; cancelar.emit()">
+              <oq-icon name="x" [size]="14" /> Cancelar pedido
+            </button>
+          </div>
+        }
+      </div>
     </div>
 
     <div class="oq-cf-footer__progress-group">
@@ -47,7 +71,7 @@
             Informe os volumes pra confirmar
           </span>
         }
-        <span class="oq-label-caps">VOLUMES{{ faltaVolume ? ' *' : '' }}</span>
+        <span class="oq-label-caps">Volumes{{ faltaVolume ? ' *' : '' }}</span>
         <button type="button" class="oq-cf-footer__volume-btn" (click)="soPonteiro($event) && onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
         <!-- Digitável além do +/−: grava no Enter ou ao sair do campo. -->
         <input
@@ -66,15 +90,22 @@
         <button type="button" class="oq-cf-footer__volume-btn" (click)="soPonteiro($event) && onVolumeMais()" aria-label="Aumentar volumes">+</button>
       </div>
 
-      <span class="oq-cf-footer__progress">
-        PROGRESSO {{ progressoFeito }}/{{ progressoTotal }}
-      </span>
+      @if (cega) {
+        <!-- Às cegas: "x de y" entregaria quantos itens já bateram — só o que foi lido. -->
+        <span class="oq-cf-footer__progress"><b>{{ conferredCount }}</b> lidos</span>
+        <span class="oq-cf-footer__progress-curto" title="Produtos lidos"><b>{{ conferredCount }}</b> lidos</span>
+      } @else {
+        <span class="oq-cf-footer__progress">
+          <b>{{ progressoFeito }}</b> de {{ progressoTotal }} conferidos
+        </span>
+        <span class="oq-cf-footer__progress-curto" title="Itens conferidos"><b>{{ progressoFeito }}</b>/{{ progressoTotal }}</span>
+      }
       <button
         type="button"
         class="oq-cf-footer__btn oq-cf-footer__btn--primary"
-        [disabled]="!canConfirm || confirmando"
+        [disabled]="!podeTocarConfirmar || confirmando"
         [title]="confirmando ? 'Enviando para o Sankhya — pode levar alguns segundos' : tituloBotaoPrimario"
-        (click)="soPonteiro($event) && confirmar.emit()"
+        (click)="onConfirmarClick($event)"
       >
         @if (confirmando) {
           <oq-spinner [size]="13" />
@@ -85,4 +116,40 @@
       </button>
     </div>
   </div>
+
+  <!-- Coletor + formação de volumes (opção A, 17/11/2026): Confirmar abre este passo; confirma depois dos volumes. -->
+  @if (passoVolume) {
+    <div class="oq-cf-footer__passo-fundo" (click)="passoVolume = false"></div>
+    <div class="oq-cf-footer__passo" role="dialog" aria-label="Quantos volumes?" (click)="$event.stopPropagation()">
+      <span class="oq-cf-footer__passo-titulo">Quantos volumes?</span>
+      <div class="oq-cf-footer__passo-volumes">
+        <button type="button" class="oq-cf-footer__passo-btn" (click)="soPonteiro($event) && onVolumeMenos()" [disabled]="volume === 0" aria-label="Diminuir volumes">−</button>
+        <input
+          class="oq-cf-footer__passo-input"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          max="999"
+          step="1"
+          [value]="volume"
+          aria-label="Quantidade de volumes"
+          (focus)="selecionarTudo($event)"
+          (keydown.enter)="confirmarVolumeDigitado($event, true)"
+          (blur)="confirmarVolumeDigitado($event, false)"
+        />
+        <button type="button" class="oq-cf-footer__passo-btn" (click)="soPonteiro($event) && onVolumeMais()" aria-label="Aumentar volumes">+</button>
+      </div>
+      <div class="oq-cf-footer__passo-acoes">
+        <button type="button" class="oq-cf-footer__btn oq-cf-footer__btn--outline" (click)="passoVolume = false">Voltar</button>
+        <button
+          type="button"
+          class="oq-cf-footer__btn oq-cf-footer__btn--primary"
+          [disabled]="volume === 0 || confirmando"
+          (click)="soPonteiro($event) && confirmarDoPasso()"
+        >
+          {{ confirmarLabel }}
+        </button>
+      </div>
+    </div>
+  }
 </footer>

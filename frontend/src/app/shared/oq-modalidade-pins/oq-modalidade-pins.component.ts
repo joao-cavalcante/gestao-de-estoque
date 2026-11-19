@@ -39,40 +39,48 @@ interface Pin {
         display: inline-flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 4px;
+        gap: 4px 10px;
       }
       :host:empty {
         display: none;
       }
+      /* 17/11/2026: sem caixinha em caixa alta ("cara de IA") — ícone + nome em texto normal. Express é urgência
+         (vermelho, negrito); Retira em roxo; Entrega é o caso comum (cinza). */
       .mp-pin {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 1px 6px;
-        border: 1px solid currentColor;
-        border-radius: var(--oq-radius-input);
-        background: var(--oq-surface);
-        font-family: var(--oq-font-display);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        line-height: 16px;
+        font-family: var(--oq-font-body);
+        font-size: 12.5px;
+        font-weight: 500;
+        line-height: 18px;
         white-space: nowrap;
       }
       .mp-pin--compacto {
         padding: 0;
-        border: none;
-        background: none;
+      }
+      /* Cor no próprio pino (usuário, 17/11/2026: "por que não colocar a cor no pin?"): etiqueta de fundo leve,
+         texto normal. Express = vermelho (urgência), Retira = âmbar (atenção); Entrega fica só texto. */
+      .mp-pin--express,
+      .mp-pin--retira {
+        padding: 1px 7px 1px 6px;
+        border-radius: var(--oq-radius-input);
+        font-weight: 700;
       }
       .mp-pin--express {
         color: var(--oq-critical-foreground);
+        background: color-mix(in srgb, var(--oq-critical) 14%, transparent);
       }
       .mp-pin--retira {
-        color: var(--oq-brand-accent);
+        color: var(--oq-warning-foreground);
+        background: color-mix(in srgb, var(--oq-attention) 18%, transparent);
+      }
+      .mp-pin--compacto.mp-pin--express,
+      .mp-pin--compacto.mp-pin--retira {
+        padding: 2px 3px;
       }
       .mp-pin--entrega {
-        color: var(--oq-success-foreground);
+        color: var(--oq-text-secondary);
       }
       .mp-pin__qtd {
         margin-left: 2px;

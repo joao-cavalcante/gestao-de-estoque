@@ -1,79 +1,47 @@
+<!-- Cabeçalho da conferência (17/11/2026, sem cara de IA): nº único grande + cliente; apoio numa linha; contagem
+     escrita. Mesmos dados de antes (NF só em documento que já é nota — V/C —, como na Fila). -->
 <header class="oq-cf-header">
-  <div class="oq-cf-header__brand">
-    <button
-      type="button"
-      class="oq-cf-header__nav-toggle"
-      (click)="alternarMenu()"
-      [attr.aria-expanded]="menuAberto()"
-      aria-label="Abrir menu de navegação"
-    >
-      <oq-icon name="menu" [size]="16" />
-    </button>
-    <div class="oq-cf-header__logo">{{ iniciais }}</div>
-    <span class="oq-cf-header__title">CONFERÊNCIA</span>
+  <button
+    type="button"
+    class="oq-cf-header__nav-toggle"
+    (click)="alternarMenu()"
+    [attr.aria-expanded]="menuAberto()"
+    aria-label="Abrir menu de navegação"
+  >
+    <oq-icon name="menu" [size]="16" />
+  </button>
+
+  <div class="oq-cf-header__id">
+    <span class="oq-cf-header__num" title="Nº único">{{ numeroUnico }}</span>
+    <span class="oq-cf-header__cliente" [title]="parceiro">{{ parceiro }}</span>
   </div>
 
-  <div class="oq-cf-header__divider"></div>
-
-  <div class="oq-cf-header__info">
-    <div class="oq-cf-info-item">
-      <oq-icon name="receipt" [size]="15" class="oq-cf-info-item__icon" />
-      <div class="oq-cf-info-item__text">
-        <span class="oq-cf-info-item__label">Nro. Nota</span>
-        <span class="oq-cf-info-item__value">{{ nf }}</span>
-      </div>
-    </div>
-    <div class="oq-cf-header__sep"></div>
-    <div class="oq-cf-info-item">
-      <oq-icon name="hash" [size]="15" class="oq-cf-info-item__icon" />
-      <div class="oq-cf-info-item__text">
-        <span class="oq-cf-info-item__label">Nro. Único</span>
-        <span class="oq-cf-info-item__value">{{ numeroUnico }}</span>
-      </div>
-    </div>
-    <div class="oq-cf-header__sep"></div>
-    <div class="oq-cf-info-item oq-cf-info-item--truncate">
-      <oq-icon name="handshake" [size]="15" class="oq-cf-info-item__icon" />
-      <div class="oq-cf-info-item__text oq-cf-info-item__text--truncate">
-        <span class="oq-cf-info-item__label">Parceiro</span>
-        <span class="oq-cf-info-item__value">{{ parceiro }}</span>
-      </div>
-    </div>
-    <div class="oq-cf-header__sep oq-cf-header__sep--vendedor"></div>
-    <div class="oq-cf-info-item oq-cf-info-item--vendedor">
-      <oq-icon name="badge" [size]="15" class="oq-cf-info-item__icon" />
-      <div class="oq-cf-info-item__text">
-        <span class="oq-cf-info-item__label">Vendedor</span>
-        <span class="oq-cf-info-item__value">{{ vendedor }}</span>
-      </div>
-    </div>
+  <p class="oq-cf-header__meta">
+    @if (mostraNota && nf && nf !== '—') { <span>NF {{ nf }}</span> }
+    @if (vendedor && vendedor !== '—') { <span>Vendedor {{ vendedor }}</span> }
     @if (motorista || veiculo) {
-      <div class="oq-cf-header__sep oq-cf-header__sep--vendedor"></div>
-      <div class="oq-cf-info-item oq-cf-info-item--vendedor oq-cf-info-item--truncate">
-        <oq-icon name="entrega" [size]="15" class="oq-cf-info-item__icon" />
-        <div class="oq-cf-info-item__text oq-cf-info-item__text--truncate">
-          <span class="oq-cf-info-item__label">Motorista · Veículo</span>
-          <span class="oq-cf-info-item__value" [title]="(motorista ?? '—') + ' · ' + (veiculo ?? '—')">{{ motorista ?? '—' }} · {{ veiculo ?? '—' }}</span>
-        </div>
-      </div>
+      <span class="oq-cf-header__transp" [title]="(motorista ?? '—') + ' · ' + (veiculo ?? '—')">{{ motorista ?? '—' }} · {{ veiculo ?? '—' }}</span>
     }
-  </div>
+  </p>
 
-  <div class="oq-cf-header__kpis">
-    <div class="oq-cf-kpi">
-      <span class="oq-label-caps">PEND</span>
-      <span class="oq-cf-kpi__value">{{ formatarKpi(pendingCount) }}</span>
-    </div>
-    <div class="oq-cf-kpi">
-      <span class="oq-label-caps">CONF</span>
-      <span class="oq-cf-kpi__value">{{ formatarKpi(conferredCount) }}</span>
-    </div>
-    <div class="oq-cf-kpi" [class.oq-cf-kpi--critical]="divergenceCount > 0">
-      <span class="oq-label-caps" [class.oq-cf-kpi__label--critical]="divergenceCount > 0">DIV</span>
-      <span class="oq-cf-kpi__value" [class.oq-cf-kpi__value--critical]="divergenceCount > 0">{{ formatarKpi(divergenceCount) }}</span>
-    </div>
-    <button type="button" class="oq-cf-header__nav-toggle" (click)="atalhos.emit()" title="Atalhos de teclado" aria-label="Atalhos de teclado">
-      ?
-    </button>
-  </div>
+  <p class="oq-cf-header__contagem" aria-label="Andamento da conferência">
+    @if (!ocultarPendentes) { <span><b>{{ pendingCount }}</b> {{ pendingCount === 1 ? 'pendente' : 'pendentes' }}</span> }
+    <span><b>{{ conferredCount }}</b> {{ cega ? 'lidos' : conferredCount === 1 ? 'conferido' : 'conferidos' }}</span>
+    @if (!cega) {
+      <span [class.oq-cf-header__div]="divergenceCount > 0">
+        <b>{{ divergenceCount }}</b> {{ divergenceCount === 1 ? 'divergência' : 'divergências' }}
+      </span>
+    }
+  </p>
+
+  <!-- Coletor: contagem curta (pendentes · conferidos · divergências) na mesma linha do pedido. -->
+  <p class="oq-cf-header__contagem-curta" [title]="pendingCount + ' pendentes · ' + conferredCount + ' conferidos · ' + divergenceCount + ' divergências'">
+    @if (!ocultarPendentes) { <span>{{ pendingCount }}</span> }
+    <span [class.oq-cf-header__curta-ok]="!cega">{{ conferredCount }}{{ cega ? ' lidos' : '' }}</span>
+    @if (!cega) {
+      <span class="oq-cf-header__curta-div" [class.oq-cf-header__curta-div--on]="divergenceCount > 0">{{ divergenceCount }}</span>
+    }
+  </p>
+
+  <button type="button" class="oq-cf-header__nav-toggle oq-cf-header__atalhos" (click)="atalhos.emit()" title="Atalhos de teclado" aria-label="Atalhos de teclado">?</button>
 </header>

@@ -1,22 +1,24 @@
-<article class="oq-card" [ngClass]="classeCard">
-  @if (tarefa.alerta) {
-    <span
-      class="oq-card__dot oq-alert-pulse"
-      [class.oq-card__dot--critical]="tarefa.alerta === 'critico'"
-      [class.oq-card__dot--attention]="tarefa.alerta === 'atencao'"
-      aria-hidden="true"
-    ></span>
+<article class="oq-card oq-card--fila" [ngClass]="classeCard">
+  @if (!compacto) {
+    <!-- Topo (17/11/2026, "cara de WMS"): o nº único é o número da operação (o NUMNOTA do pedido não aparece —
+         usuário: "o número principal é o número único"; a busca ainda acha pelos dois); a idade, o que cobra. -->
+    <div class="oq-card__topo">
+      <span class="oq-card__pedido" title="Nº único">{{ tarefa.numeroUnico }}</span>
+      @if (mostraNumeroNota(tarefa)) { <span class="oq-card__unico" title="Número da nota">NF {{ tarefa.nf }}</span> }
+      @if (idade; as i) {
+        <span class="oq-card__idade" [title]="'Pedido em ' + pedidoEmTexto">{{ i }}</span>
+      }
+    </div>
   }
-
   <header class="oq-card__header">
     <span class="oq-card__client">{{ tarefa.cliente }}</span>
     <div class="oq-card__status-line">
-      <span class="oq-status-pin" [class]="'oq-status-pin--' + statusVisual.tom">
-        <oq-icon [name]="statusVisual.icone" [size]="12" [class.oq-gear-spin]="statusVisual.gira" />
-        {{ statusVisual.label }}
+      <span class="oq-status-pin oq-status-pin--frase" [class]="'oq-status-pin--' + statusVisual.tom">
+        <oq-icon [name]="statusVisual.icone" [size]="12" />
+        {{ statusVisual.label }}{{ fase === 'fechamento' ? ' · nota no fechamento da OC' : '' }}
       </span>
-      <!-- Modalidade do pedido (AD_EXPRESS / AD_RETIRA / AD_ENTREGA) -->
-      <oq-modalidade-pins [modalidade]="tarefa" />
+      <!-- Modalidade do pedido (AD_EXPRESS / AD_RETIRA / AD_ENTREGA); com OC, "Entrega" não aparece (a OC já diz). -->
+      <oq-modalidade-pins [modalidade]="modalidadeExibida" />
 
       @if (tarefa.alerta) {
         <span class="oq-card__status-sep">·</span>
@@ -32,27 +34,28 @@
     </div>
   </header>
 
+  @if (!compacto) {
   <div class="oq-card__divider"></div>
+  }
 
-  <div class="oq-card__grid">
-    <div class="oq-card__field">
-      <span class="oq-card__field-label">Nº Único</span>
-      <span class="oq-card__field-value">{{ tarefa.numeroUnico }}</span>
-    </div>
-    <div class="oq-card__field">
-      <span class="oq-card__field-label">Pedido</span>
-      <span class="oq-card__field-value">{{ tarefa.nf }}</span>
-    </div>
-    <div class="oq-card__field oq-card__field--full">
-      <span class="oq-card__field-label">Nota fiscal</span>
-      @if (tarefa.notaFiscal; as n) {
+  @if (compacto) {
+    <!-- Card compacto: números da busca numa linha, em tamanho normal. -->
+    <p class="oq-card__meta oq-card__meta--numeros">
+      <span>Nº único <b>{{ tarefa.numeroUnico }}</b></span>
+      @if (mostraNumeroNota(tarefa)) { <span>NF <b>{{ tarefa.nf }}</b></span> }
+      @if (!dentroDaOc && tarefa.ordemCarga != null) { <span>OC <b>{{ tarefa.ordemCarga }}</b></span> }
+    </p>
+  }
+
+  <div class="oq-card__grid" [class.oq-card__grid--vazio]="compacto && !tarefa.notaFiscal && !tarefa.ajustesPeso?.length">
+    @if (tarefa.notaFiscal; as n) {
+      <div class="oq-card__field oq-card__field--full">
+        <span class="oq-card__field-label">Nota fiscal</span>
         <span class="oq-card__field-value oq-nota" [class]="'oq-card__field-value oq-nota oq-nota--' + tomNota(n)" [title]="n.situacao">
           {{ n.numero ?? n.nunota }} · {{ n.nfce ? 'NFC-e' : 'NF-e' }} · {{ n.situacao }}
         </span>
-      } @else {
-        <span class="oq-card__field-value">—</span>
-      }
-    </div>
+      </div>
+    }
     @if (tarefa.ajustesPeso?.length) {
       <div class="oq-card__field oq-card__field--full">
         <span class="oq-card__field-label">Ajuste de peso</span>
@@ -64,31 +67,78 @@
         }
       </div>
     }
-    <div class="oq-card__field">
-      <span class="oq-card__field-label">Ordem de Carga</span>
-      <span class="oq-card__field-value">{{ tarefa.ordemCarga ?? '—' }}</span>
-    </div>
-    <div class="oq-card__field">
-      <span class="oq-card__field-label">Data</span>
-      <span class="oq-card__field-value">{{ tarefa.data }}</span>
-    </div>
-    <div class="oq-card__field">
-      <span class="oq-card__field-label">Itens</span>
-      <span class="oq-card__field-value">{{ tarefa.itens }}</span>
-    </div>
-    <div class="oq-card__field">
-      <span class="oq-card__field-label">Período p/ entrega</span>
-      <span class="oq-card__field-value">{{ tarefa.periodoEntrega }}</span>
-    </div>
-    @if (tarefa.motorista || tarefa.transporte !== '—') {
-      <div class="oq-card__field oq-card__field--full">
-        <span class="oq-card__field-label">Motorista · Veículo</span>
-        <span class="oq-card__field-value" [title]="(tarefa.motorista ?? '—') + ' · ' + tarefa.transporte">
-          {{ tarefa.motorista ?? '—' }} · {{ tarefa.transporte }}
-        </span>
-      </div>
-    }
   </div>
+
+  <!-- Carga (17/11/2026): itens, peso bruto e volumes previstos — leitura de painel, um número por coluna. -->
+  @if (!compacto) {
+    <dl class="oq-card__carga">
+      <div class="oq-card__carga-item">
+        <dt>Itens</dt>
+        <dd>{{ tarefa.itens }}</dd>
+      </div>
+      <div class="oq-card__carga-item" title="Peso bruto do pedido">
+        <dt>Peso</dt>
+        <dd>{{ tarefa.pesoKg ? pesoTexto(tarefa.pesoKg) : '—' }}</dd>
+      </div>
+      <div class="oq-card__carga-item" title="Volumes previstos: soma das quantidades na unidade de venda (caixa, fardo, pacote)">
+        <dt>Volumes</dt>
+        <dd>{{ tarefa.volumesPrevistos ?? '—' }}</dd>
+      </div>
+    </dl>
+  }
+
+  @if (!compacto && tarefa.andamento; as a) {
+    <!-- Andamento da conferência (sessão ativa na Torre): número escrito + barra fina (não depende só da barra). -->
+    <div class="oq-card__andamento" [title]="'Conferência iniciada às ' + horaTexto(a.desde)">
+      <div class="oq-card__andamento-texto">
+        <span><b>{{ a.conferidos }}</b> de {{ a.total }} itens conferidos</span>
+        @if (a.conferente) { <span class="oq-card__andamento-quem">{{ a.conferente }} · {{ horaTexto(a.desde) }}</span> }
+      </div>
+      <div class="oq-card__andamento-barra" role="progressbar" [attr.aria-valuenow]="a.conferidos" aria-valuemin="0" [attr.aria-valuemax]="a.total">
+        <span [style.width.%]="(a.conferidos / a.total) * 100"></span>
+      </div>
+    </div>
+  }
+
+  <!-- Prazo: entrega + período (a idade fica no topo). Dentro da OC, OC e motorista já estão no cabeçalho. -->
+  <p class="oq-card__meta">
+    @if (entrega; as e) {
+      <span
+        class="oq-card__entrega"
+        [class.oq-card__entrega--atrasada]="e.situacao === 'atrasada'"
+        [class.oq-card__entrega--hoje]="e.situacao === 'hoje'"
+        title="Previsão de entrega"
+      >{{ e.texto }}</span>
+    }
+    @if (tarefa.periodoEntrega && tarefa.periodoEntrega !== '—') {
+      <span title="Período p/ entrega">{{ tarefa.periodoEntrega }}</span>
+    }
+    @if (compacto || !idade) {
+      <span title="Data">{{ tarefa.data }}</span>
+    }
+  </p>
+
+  @if (tarefa.obsSeparacao) {
+    <!-- Obs. do pedido (AD_OBSSEP — preenchida no pedido: horário de recebimento, dias, avisos). -->
+    <button
+      type="button"
+      class="oq-card__obs"
+      [class.oq-card__obs--aberta]="obsAberta"
+      [attr.aria-expanded]="obsAberta"
+      [title]="obsAberta ? '' : tarefa.obsSeparacao"
+      (click)="$event.stopPropagation(); obsAberta = !obsAberta"
+    >
+      <oq-icon name="receipt" [size]="12" />
+      <span class="oq-card__obs-texto">{{ tarefa.obsSeparacao }}</span>
+    </button>
+  }
+  @if (!compacto && !dentroDaOc && (tarefa.ordemCarga != null || tarefa.motorista || tarefa.transporte !== '—')) {
+    <p class="oq-card__meta" [title]="'Ordem de Carga · Motorista · Veículo'">
+      <span>{{ tarefa.ordemCarga != null ? 'OC ' + tarefa.ordemCarga : 'Sem OC' }}</span>
+      @if (tarefa.motorista) { <span>{{ tarefa.motorista }}</span> }
+      @if (tarefa.transporte !== '—') { <span class="oq-card__meta-mono">{{ tarefa.transporte }}</span> }
+    </p>
+  }
 
   <!-- Área de ação — sempre encostada na base do card (margin-top:auto) pra
        alinhar entre cards da mesma linha, independente do conteúdo acima. -->
@@ -111,10 +161,10 @@
     </div>
   }
 
+  @if (!compacto) {
   <div class="oq-card__actions">
     @if (etapasVisiveis.length > 0) {
       <!-- Conferência por etapa (V29) — chips clicáveis, um por tipo de separação com item. -->
-      <span class="oq-card__etapas-titulo">Conferir por etapa</span>
       <oq-etapa-chips class="oq-card__etapas" [etapas]="etapasVisiveis" (conferirEtapa)="conferirEtapa($event)" />
     }
 
@@ -138,17 +188,28 @@
         }
         @default {
           @if (etapasVisiveis.length === 0) {
+            <!-- Hierarquia (17/11/2026): Continuar = roxo cheio (trabalho já começado é a prioridade); Conferir =
+                 contornado (enche no hover). Corte, carregamento e nota seguem cheios — travam o fluxo. -->
             <button
               type="button"
               class="oq-card__btn oq-card__btn--primary"
               [class.oq-card__btn--continuar]="tarefa.status === 'andamento'"
+              [class.oq-card__btn--iniciar]="tarefa.status !== 'andamento'"
               (click)="conferir.emit(tarefa)"
             >
-              {{ tarefa.status === 'andamento' ? 'Continuar' : 'Conferir' }}
+              @if (tarefa.status === 'andamento') {
+                Continuar
+                @if (tarefa.andamento; as a) {
+                  <span class="oq-card__btn-prog">· {{ a.conferidos }}/{{ a.total }}</span>
+                }
+              } @else {
+                Conferir
+              }
             </button>
           }
         }
       }
     </footer>
   </div>
+  }
 </article>

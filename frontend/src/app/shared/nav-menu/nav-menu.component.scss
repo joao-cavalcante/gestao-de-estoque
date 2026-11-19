@@ -4,7 +4,11 @@
    por causa do menu. O botão que abre/fecha não vive mais neste
    componente (fica dentro do header de cada tela, ex.: oq-header) — aqui
    só o backdrop + drawer, sempre no DOM (mesmo fechados) pra permitir
-   transição de slide em vez de aparecer/sumir abrupto. */
+   transição de slide em vez de aparecer/sumir abrupto.
+
+   Revisão "sem cara de IA" (17/11/2026): identidade em texto, seções com título fixo, ícones cinza (roxo só no item
+   ativo), item ativo marcado por barra lateral, itens em Inter (display só no nome do produto), sem sombra, Sair
+   discreto no rodapé com o operador. */
 
 .oq-nav-backdrop {
   position: fixed;
@@ -26,178 +30,231 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: 240px;
+  width: 256px;
   z-index: 1002;
   background: var(--oq-surface);
   border-right: 1px solid var(--oq-border);
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
   transform: translateX(-100%);
-  transition: transform .22s ease;
+  // Fechado: fora da tela e fora do Tab (visibility muda só depois do slide).
+  visibility: hidden;
+  transition: transform .2s ease, visibility 0s linear .2s;
 }
 
 .oq-nav-drawer--aberto {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform .2s ease, visibility 0s;
 }
 
+// ---------- Identidade ----------
 .oq-nav-drawer__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px;
-  border-bottom: 1px solid var(--oq-border);
-}
-
-.oq-nav-drawer__logo {
-  display: grid;
-  place-items: center;
-  height: 30px;
-  width: 30px;
-  border-radius: var(--oq-radius-input);
-  background: var(--oq-brand);
-  color: var(--oq-brand-ink);
-  font-family: var(--oq-font-display);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.oq-nav-drawer__title {
-  font-family: var(--oq-font-display);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--oq-text-primary);
-}
-
-.oq-nav-drawer__lista {
-  list-style: none;
-  margin: 0;
-  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.oq-nav-drawer__produto {
+  font-family: var(--oq-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.oq-nav-drawer__unidade {
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+// ---------- Seções ----------
+.oq-nav-drawer__corpo {
   flex: 1;
   // Rolagem própria: o drawer tem a altura da tela; em tela baixa (notebook, tablet deitado) ou com grupo aberto
   // os itens de baixo ficavam fora da tela sem como descer. min-height 0 deixa o item flex encolher e rolar.
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: 6px 0 12px;
   scrollbar-width: none; // padrão do projeto: rola sem barra visível (Firefox)
 
   &::-webkit-scrollbar {
     display: none; // Chrome/Safari
   }
-
-  a {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: var(--oq-radius-input);
-    text-decoration: none;
-    font-family: var(--oq-font-display);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--oq-text-primary);
-
-    oq-icon {
-      color: var(--oq-brand-accent);
-      flex: none;
-    }
-
-    &:hover {
-      background: var(--oq-surface-2);
-    }
-  }
 }
 
-.oq-nav-drawer__grupo {
+.oq-nav-secao {
+  padding-top: 12px;
+}
+
+.oq-nav-secao__titulo {
+  margin: 0 0 4px;
+  padding: 0 20px;
+  font-family: var(--oq-font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+}
+
+.oq-nav-secao__lista,
+.oq-nav-sublista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// ---------- Item ----------
+.oq-nav-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 10px 12px;
+  min-height: 36px;
+  padding: 0 20px;
   border: none;
-  border-radius: var(--oq-radius-input);
   background: none;
-  font-family: var(--oq-font-display);
-  font-size: 13px;
-  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  font-family: var(--oq-font-body);
+  font-size: 13.5px;
+  font-weight: 400;
   color: var(--oq-text-primary);
   cursor: pointer;
-
-  oq-icon:first-child {
-    color: var(--oq-brand-accent);
-    flex: none;
-  }
 
   &:hover {
     background: var(--oq-surface-2);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: -2px;
+  }
 }
 
-.oq-nav-drawer__seta {
-  margin-left: auto;
+.oq-nav-item__icone {
+  flex: none;
   color: var(--oq-text-secondary);
-  transform: rotate(-90deg);
-  transition: transform 0.15s ease;
 }
 
-.oq-nav-drawer__grupo--aberto .oq-nav-drawer__seta {
+.oq-nav-item__rotulo {
+  flex: 1;
+  min-width: 0;
+}
+
+// Onde estou: barra da marca à esquerda + peso; o ícone ganha a cor da marca. Hover continua só fundo.
+.oq-nav-item--ativo {
+  font-weight: 600;
+  background: var(--oq-surface-2);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    background: var(--oq-brand-accent);
+  }
+
+  .oq-nav-item__icone {
+    color: var(--oq-brand-accent);
+  }
+}
+
+.oq-nav-item__seta {
+  flex: none;
+  color: var(--oq-text-secondary);
+}
+
+.oq-nav-item--grupo-aberto .oq-nav-item__seta {
   transform: rotate(90deg);
 }
 
-.oq-nav-drawer__sublista {
-  list-style: none;
-  margin: 2px 0 2px 14px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border-left: 1px solid var(--oq-border);
+// Subitens: sem ícone, recuados até o texto do item pai (20 + 16 de ícone + 12 de gap).
+.oq-nav-item--sub {
+  min-height: 32px;
+  padding-left: 48px;
+  font-size: 13px;
+  color: var(--oq-text-secondary);
 
-  a {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    border-radius: var(--oq-radius-input);
-    text-decoration: none;
-    font-family: var(--oq-font-display);
-    font-size: 12.5px;
-    font-weight: 500;
-    color: var(--oq-text-secondary);
+  &:hover {
+    color: var(--oq-text-primary);
+  }
 
-    oq-icon {
-      color: var(--oq-brand-accent);
-      flex: none;
-    }
-
-    &:hover {
-      background: var(--oq-surface-2);
-      color: var(--oq-text-primary);
-    }
+  &.oq-nav-item--ativo {
+    color: var(--oq-text-primary);
   }
 }
 
-.oq-nav-link--ativo {
-  background: var(--oq-surface-2);
-  font-weight: 700 !important;
+// ---------- Rodapé ----------
+.oq-nav-drawer__rodape {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 12px 20px;
+  border-top: 1px solid var(--oq-border);
+}
+
+.oq-nav-drawer__operador {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--oq-font-body);
+}
+
+.oq-nav-drawer__operador-nome {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--oq-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oq-nav-drawer__operador-cargo {
+  font-size: 11.5px;
+  color: var(--oq-text-secondary);
 }
 
 .oq-nav-drawer__sair {
-  margin: 8px;
-  padding: 10px;
-  border: 1px solid var(--oq-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 32px;
+  padding: 0 10px;
+  border: none;
   border-radius: var(--oq-radius-input);
-  background: var(--oq-surface);
-  font-family: var(--oq-font-display);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--oq-critical-foreground);
+  background: none;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  color: var(--oq-text-secondary);
   cursor: pointer;
 
   &:hover {
-    background: var(--oq-critical-soft);
+    background: var(--oq-surface-2);
+    color: var(--oq-critical-foreground);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: 1px;
+  }
+}
+
+// Tela de toque (tablet/celular): alvos com altura de dedo, como no resto do sistema.
+@media (pointer: coarse) {
+  .oq-nav-item { min-height: 44px; }
+  .oq-nav-item--sub { min-height: 40px; }
+  .oq-nav-drawer__sair { min-height: 40px; }
+}
+
+// 17/11/2026: sem a barra lateral no item ativo ("faixa na lateral tem cara de IA") — fundo + negrito + ícone roxo.
+.oq-nav-item--ativo::before {
+  display: none;
 }

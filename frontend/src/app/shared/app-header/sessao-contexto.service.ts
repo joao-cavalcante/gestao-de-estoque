@@ -15,7 +15,8 @@ export interface UnidadeInfo {
   versao: string;
   /** Tooltip: commit e data do build. */
   versaoDetalhe: string;
-  unidadeTurno: string;
+  /** "Manhã", "Noite" ou "Sem turno". */
+  turno: string;
 }
 
 const ROTULO_TURNO: Record<string, string> = { MANHA: 'Manhã', NOITE: 'Noite' };
@@ -73,7 +74,7 @@ export class SessaoContextoService {
       nome: nomeUnidade,
       versao: `HMI-OPS · v${VERSAO.numero}`,
       versaoDetalhe: detalheVersao(),
-      unidadeTurno: `${nomeUnidade} / ${rotuloTurno}`,
+      turno: rotuloTurno,
     };
   });
 }

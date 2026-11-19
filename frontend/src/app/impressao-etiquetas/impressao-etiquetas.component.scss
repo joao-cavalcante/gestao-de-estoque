@@ -1,17 +1,581 @@
-// Layout da Fila de Tarefas (página, barra, card, lista, paginação) — estilos
-// globais em src/styles/_lista-layout.scss; aqui só o encaixe da tela no shell.
+// Balcão de reimpressão de etiquetas (17/11/2026) — tela própria (não a grade da Fila). Tokens --oq-*.
 :host {
   display: block;
   height: 100%;
 }
 
-// Botão desabilitado não dispara hover em alguns navegadores — o span segura o tooltip
-// e ocupa a metade do rodapé do card como o botão ocupava.
-.ie-btn-wrap {
+.ie {
   display: flex;
-  flex: 1;
+  flex-direction: column;
+  height: 100%;
+  background: var(--oq-bg-page);
+}
 
-  .oq-card__btn {
+// ─── Topo: busca grande + resumo ──────────────────────────────────────────────────
+.ie-topo {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 24px;
+  background: var(--oq-surface);
+  border-bottom: 1px solid var(--oq-header-border);
+}
+
+.ie-busca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 380px;
+  min-width: 220px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+
+  &:focus-within {
+    border-color: var(--oq-brand);
+    outline: 1px solid var(--oq-brand);
+  }
+
+  input {
     flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--oq-text-primary);
+    font-family: var(--oq-font-mono);
+    font-size: 16px;
+
+    &::placeholder {
+      font-family: var(--oq-font-body);
+      font-size: 14px;
+      color: var(--oq-text-secondary);
+    }
+  }
+}
+
+.ie-busca__limpar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: none;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+}
+
+.ie-topo__dica {
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+}
+
+.ie-topo__direita {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ie-resumo {
+  margin-right: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+.ie-resumo__nota {
+  color: var(--oq-brand-text);
+  font-weight: 600;
+}
+
+.ie-icone-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-text-primary);
+  }
+}
+
+// ─── Corpo: grupos por dia ───────────────────────────────────────────────────────
+.ie-corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 24px 16px;
+}
+
+.ie-dia__titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 18px 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+
+  &::first-letter {
+    text-transform: uppercase;
+  }
+}
+
+.ie-dia__qtd {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--oq-text-secondary);
+}
+
+// Lista: uma linha por conferência (id | info | ações).
+.ie-linhas {
+  display: flex;
+  flex-direction: column;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+}
+
+.ie-conf {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--oq-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &:hover {
+    background: var(--oq-surface-2);
+  }
+}
+
+.ie-conf__id {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ie-conf__num {
+  flex: none;
+  font-family: var(--oq-font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+}
+
+.ie-conf__cliente {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.ie-conf__info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+
+  > span + span::before {
+    content: '·';
+    padding: 0 6px;
+  }
+}
+
+.ie-conf__parcial {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--oq-warning-foreground);
+}
+
+.ie-conf__acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ie-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--oq-brand-accent);
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  color: var(--oq-brand-text);
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: 2px;
+  }
+}
+
+.ie-btn--cheio {
+  border-color: var(--oq-brand);
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+
+  &:hover {
+    background: var(--oq-brand-hover);
+  }
+}
+
+.ie-btn--contorno:hover {
+  background: var(--oq-brand);
+  border-color: var(--oq-brand);
+  color: var(--oq-brand-ink);
+}
+
+.ie-sem-peso {
+  min-width: 70px;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--oq-text-secondary);
+}
+
+// Cards: mesmo conteúdo em grade (preferência cards/lista continua valendo).
+.ie-linhas--cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  background: none;
+  border: 0;
+
+  .ie-conf {
+    grid-template-columns: 1fr;
+    align-content: start;
+    padding: 16px;
+    background: var(--oq-surface);
+    border: 1px solid var(--oq-border);
+
+    &:last-child {
+      border-bottom: 1px solid var(--oq-border);
+    }
+  }
+
+  .ie-conf__id {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ie-conf__num {
+    font-size: 20px;
+  }
+
+  .ie-conf__acoes {
+    justify-content: stretch;
+    padding-top: 10px;
+    border-top: 1px solid var(--oq-border);
+
+    .ie-btn {
+      flex: 1;
+    }
+  }
+}
+
+.ie-vazio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  font-size: 13.5px;
+  color: var(--oq-text-secondary);
+}
+
+.ie-erro {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-left: 3px solid var(--oq-critical);
+  background: var(--oq-critical-bg);
+  color: var(--oq-critical-foreground);
+  font-size: 13px;
+}
+
+// ─── Tablet/celular: a linha quebra em duas, botões embaixo ──────────────────────
+@media (max-width: 900px) {
+  .ie-topo {
+    padding: 12px 16px;
+  }
+
+  .ie-busca {
+    flex: 1 1 100%;
+  }
+
+  .ie-topo__dica {
+    display: none;
+  }
+
+  .ie-topo__direita {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .ie-resumo {
+    margin-right: auto;
+  }
+
+  .ie-corpo {
+    padding: 4px 16px 16px;
+  }
+
+  .ie-conf {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .ie-conf__id {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ie-conf__acoes {
+    justify-content: stretch;
+
+    .ie-btn {
+      flex: 1;
+      min-height: 42px;
+    }
+  }
+}
+
+// ─── Lista = tabela única (17/11/2026: "ficou desalinhado"; lista mais densa e mais informativa) ───────────
+.ie-tabela {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  font-size: 13px;
+  color: var(--oq-text-primary);
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px 12px;
+    background: var(--oq-surface-2);
+    border-bottom: 1px solid var(--oq-border);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--oq-text-secondary);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--oq-border);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  tbody tr:not(.ie-tabela__dia):hover td {
+    background: var(--oq-surface-2);
+  }
+
+  .ie-btn {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 12.5px;
+  }
+}
+
+// Dia como linha de separação dentro da mesma tabela (as colunas seguem alinhadas).
+.ie-tabela__dia th {
+  padding: 14px 12px 6px;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-bg-page);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  color: var(--oq-text-primary);
+
+  span {
+    margin-left: 6px;
+    font-weight: 500;
+    color: var(--oq-text-secondary);
+  }
+
+  &::first-letter {
+    text-transform: uppercase;
+  }
+}
+
+.ie-tabela__num {
+  font-family: var(--oq-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ie-tabela__nf,
+.ie-tabela__oc,
+.ie-tabela__quando {
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+}
+
+// A coluna do cliente estica e corta com reticências em vez de empurrar as outras.
+.ie-tabela__cliente {
+  width: 40%;
+  max-width: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ie-tabela__cliente-nome {
+  font-weight: 600;
+}
+
+.ie-tabela__sub {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.ie-tabela__conferente {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--oq-text-secondary);
+}
+
+.ie-tabela__parcial {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--oq-warning-foreground);
+}
+
+.ie-tabela__acao {
+  width: 1%;
+  text-align: left;
+}
+
+// Celular/tablet em pé: cada linha vira um bloco (nº único, NF, hora | cliente | OC, conferente | botões).
+@media (max-width: 900px) {
+  .ie-tabela {
+    thead {
+      display: none;
+    }
+
+    tbody {
+      display: block;
+    }
+
+    tr:not(.ie-tabela__dia) {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 2px 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--oq-border);
+    }
+
+    td {
+      padding: 0;
+      border: 0;
+    }
+
+    .ie-tabela__dia {
+      display: block;
+
+      th {
+        display: block;
+      }
+    }
+
+    .ie-tabela__num { grid-column: 1; grid-row: 1; }
+    .ie-tabela__nf { grid-column: 2; grid-row: 1; }
+    .ie-tabela__quando { grid-column: 3; grid-row: 1; text-align: right; }
+
+    .ie-tabela__cliente {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      width: auto;
+      max-width: none;
+    }
+
+    .ie-tabela__oc { grid-column: 1; grid-row: 3; }
+    .ie-tabela__oc:not(.ie-tabela__oc--sem)::before { content: 'OC '; }
+    .ie-tabela__conferente { grid-column: 2 / -1; grid-row: 3; max-width: none; }
+
+    td.ie-tabela__acao {
+      grid-row: 4;
+      width: auto;
+      padding-top: 6px;
+
+      .ie-btn {
+        width: 100%;
+        min-height: 40px;
+      }
+    }
+
+    td.ie-tabela__acao:nth-last-child(2) { grid-column: 1 / 3; }
+    td.ie-tabela__acao:last-child { grid-column: 3; align-self: center; }
+  }
+}
+
+// ─── Rodapé alinhado com as outras telas (17/11/2026) ─────────────────────────────────────────────────────
+// Mesmas medidas do .oq-page__content da Fila: até 1600px, centralizado, 24px dos lados e 32px embaixo; o
+// conteúdo rola por dentro e a paginação fica presa no fim.
+.ie-corpo {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 8px 24px 0;
+  box-sizing: border-box;
+}
+
+.ie-rodape {
+  flex: none;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 24px 32px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .ie-corpo {
+    padding: 4px 16px 0;
+  }
+
+  .ie-rodape {
+    padding: 0 16px 16px;
   }
 }

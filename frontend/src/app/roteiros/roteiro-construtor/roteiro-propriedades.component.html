@@ -1,0 +1,250 @@
+@if (etapa(); as e) {
+  <div class="pp">
+    <header class="pp__cabeca">
+      <span class="pp__icone"><oq-icon [name]="definicao()!.icone" [size]="16" /></span>
+      <div class="pp__titulos">
+        <span class="pp__tipo">{{ definicao()!.rotulo }}</span>
+        <span class="pp__situacao" [class.pp__situacao--conceitual]="definicao()!.situacao === 'CONCEITUAL'">
+          {{ definicao()!.situacao === 'EXISTENTE' ? 'Existe na aplicação' : 'Conceitual' }}
+        </span>
+      </div>
+    </header>
+    <p class="pp__hoje">
+      @if (definicao()!.hoje) {
+        <strong>Hoje:</strong> {{ definicao()!.hoje }}
+      } @else {
+        Ainda não existe na aplicação; aparece aqui só para validar a ideia.
+      }
+    </p>
+
+    <label class="oq-form-field">
+      <span class="oq-form-field__label">Nome da etapa</span>
+      <input [value]="e.nome" [disabled]="leitura()" maxlength="48" (input)="nome(e, $any($event.target).value)" />
+    </label>
+    <label class="oq-form-field">
+      <span class="oq-form-field__label">Descrição</span>
+      <textarea
+        rows="2"
+        [value]="e.config.descricao"
+        [disabled]="leitura()"
+        placeholder="O que o operador precisa saber"
+        (input)="config(e, { descricao: $any($event.target).value })"
+      ></textarea>
+    </label>
+
+    @if (e.tipo === 'CONDICAO') {
+      <label class="oq-form-field">
+        <span class="oq-form-field__label">Pergunta</span>
+        <select [disabled]="leitura()" (change)="config(e, { pergunta: condicaoOuNulo($any($event.target).value) })">
+          <option value="" [selected]="!e.config.pergunta">Escolha…</option>
+          @for (c of condicoesDisponiveis(); track c) {
+            <option [value]="c" [selected]="e.config.pergunta === c">{{ condicoes[c].pergunta }}</option>
+          }
+        </select>
+      </label>
+      <div class="pp__caminhos">
+        @for (d of vizinhas().depois; track $index) {
+          <span><strong>{{ d.ramo }}</strong> → {{ d.nome }}</span>
+        } @empty {
+          <span class="pp__vazio">Arraste as bolinhas Sim e Não até as próximas etapas.</span>
+        }
+      </div>
+    }
+
+    @if (!ehEstrutural(e)) {
+      <fieldset class="pp__grupo" [disabled]="leitura()">
+        <legend class="oq-form-field__label">Execução</legend>
+        <div class="pp__segmento" role="radiogroup">
+          @for (x of execucoes; track x.valor) {
+            <button
+              type="button"
+              role="radio"
+              class="pp__seg"
+              [class.pp__seg--ativo]="e.config.execucao === x.valor"
+              [attr.aria-checked]="e.config.execucao === x.valor"
+              (click)="execucao(e, x.valor)"
+            >
+              {{ x.rotulo }}
+            </button>
+          }
+        </div>
+        @for (x of execucoes; track x.valor) {
+          @if (e.config.execucao === x.valor) {
+            <span class="oq-form-hint">{{ x.ajuda }}</span>
+          }
+        }
+        @if (e.config.execucao === 'CONDICIONAL') {
+          <label class="oq-form-field pp__condicao">
+            <span class="oq-form-field__label">Executar esta etapa</span>
+            <select (change)="config(e, { condicao: condicaoOuNulo($any($event.target).value) })">
+              <option value="" [selected]="!e.config.condicao">Escolha quando…</option>
+              @for (c of condicoesDisponiveis(); track c) {
+                <option [value]="c" [selected]="e.config.condicao === c">{{ condicoes[c].quando }}</option>
+              }
+            </select>
+          </label>
+        }
+      </fieldset>
+
+      <fieldset class="pp__grupo" [disabled]="leitura()">
+        <legend class="oq-form-field__label">Ao concluir</legend>
+        <label class="pp__opcao">
+          <input type="radio" [name]="'conc-' + e.id" [checked]="e.config.aoConcluir === 'AVANCAR'" (change)="aoConcluir(e, 'AVANCAR')" />
+          Avançar automaticamente
+        </label>
+        <label class="pp__opcao">
+          <input type="radio" [name]="'conc-' + e.id" [checked]="e.config.aoConcluir === 'AGUARDAR'" (change)="aoConcluir(e, 'AGUARDAR')" />
+          Aguardar confirmação do operador
+        </label>
+      </fieldset>
+    }
+
+    @if (e.tipo === 'CONFERENCIA') {
+      <fieldset class="pp__grupo" [disabled]="leitura()">
+        <legend class="oq-form-field__label">Em caso de divergência</legend>
+        @for (d of divergencias; track d.valor) {
+          <label class="pp__opcao">
+            <input type="radio" [name]="'div-' + e.id" [checked]="e.config.divergencia === d.valor" (change)="config(e, { divergencia: d.valor })" />
+            {{ d.rotulo }}
+          </label>
+        }
+        <label class="pp__opcao pp__opcao--check">
+          <input type="checkbox" [checked]="!!e.config.porEtapas" (change)="config(e, { porEtapas: $any($event.target).checked })" />
+          Dividir em etapas Não pesáveis e Pesáveis
+        </label>
+      </fieldset>
+    }
+
+    @if (e.tipo === 'IMPRESSAO') {
+      <fieldset class="pp__grupo" [disabled]="leitura()">
+        <legend class="oq-form-field__label">Documentos</legend>
+        <label class="pp__opcao pp__opcao--check">
+          <input type="checkbox" [checked]="!!e.config.documentos?.nota" (change)="documento(e, 'nota', $any($event.target).checked)" />
+          Nota fiscal (DANFE)
+        </label>
+        <label class="pp__opcao pp__opcao--check">
+          <input type="checkbox" [checked]="!!e.config.documentos?.romaneio" (change)="documento(e, 'romaneio', $any($event.target).checked)" />
+          Romaneio
+        </label>
+        <label class="pp__opcao pp__opcao--check">
+          <input type="checkbox" [checked]="!!e.config.documentos?.etiquetas" (change)="documento(e, 'etiquetas', $any($event.target).checked)" />
+          Etiquetas de volume
+        </label>
+      </fieldset>
+    }
+
+    @if (e.tipo === 'APROVACAO' || e.tipo === 'LIBERACAO_CORTE') {
+      <label class="oq-form-field">
+        <span class="oq-form-field__label">Quem aprova</span>
+        <select [disabled]="leitura()" (change)="config(e, { responsavel: $any($event.target).value })">
+          <option value="" [selected]="!e.config.responsavel">Escolha…</option>
+          @for (r of responsaveis; track r[0]) {
+            <option [value]="r[0]" [selected]="e.config.responsavel === r[0]">{{ r[1] }}</option>
+          }
+        </select>
+      </label>
+    }
+
+    @if (problemas().length) {
+      <ul class="pp__problemas">
+        @for (p of problemas(); track $index) {
+          <li [class.pp__problema--erro]="p.nivel === 'ERRO'">
+            <oq-icon [name]="p.nivel === 'ERRO' ? 'circle-filled' : 'triangle'" [size]="11" />
+            {{ p.mensagem }}
+          </li>
+        }
+      </ul>
+    }
+
+    <details class="pp__avancado">
+      <summary>Avançado</summary>
+      <div class="pp__avancado-corpo">
+        <div class="pp__linha"><span>Depende de</span><span>{{ requisitos() }}</span></div>
+        <div class="pp__linha"><span>Vem depois de</span><span>{{ vizinhas().antes.join(', ') || '—' }}</span></div>
+        <div class="pp__linha">
+          <span>Segue para</span>
+          <span>
+            @for (d of vizinhas().depois; track $index) {
+              {{ d.ramo ? d.ramo + ': ' : '' }}{{ d.nome }}{{ $last ? '' : ', ' }}
+            } @empty {
+              —
+            }
+          </span>
+        </div>
+        @if (!ehEstrutural(e)) {
+          <label class="oq-form-field">
+            <span class="oq-form-field__label">Permissão necessária</span>
+            <select [disabled]="leitura()" (change)="config(e, { perfil: $any($event.target).value })">
+              <option value="" [selected]="!e.config.perfil">Qualquer operador da TOP</option>
+              @for (r of responsaveis; track r[0]) {
+                <option [value]="r[0]" [selected]="e.config.perfil === r[0]">{{ r[1] }}</option>
+              }
+            </select>
+          </label>
+        }
+        <div class="pp__linha pp__linha--mono"><span>Bloco</span><span>{{ e.tipo }}</span></div>
+        <div class="pp__linha pp__linha--mono"><span>Identificador</span><span>{{ e.id }}</span></div>
+      </div>
+    </details>
+
+    @if (!leitura()) {
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline pp__excluir" (click)="store.excluirSelecao()">
+        <oq-icon name="x" [size]="12" />
+        Excluir etapa
+      </button>
+    }
+  </div>
+} @else {
+@if (descricaoConexao(); as c) {
+  <div class="pp">
+    <header class="pp__cabeca">
+      <span class="pp__icone"><oq-icon name="arrow-left" [size]="16" /></span>
+      <div class="pp__titulos">
+        <span class="pp__tipo">Ligação</span>
+        @if (c.ramo) {
+          <span class="pp__situacao">Caminho {{ c.ramo }}</span>
+        }
+      </div>
+    </header>
+    <div class="pp__linha"><span>De</span><span>{{ c.de }}</span></div>
+    <div class="pp__linha"><span>Para</span><span>{{ c.para }}</span></div>
+    @if (!leitura()) {
+      <p class="oq-form-hint">Clique em um bloco da biblioteca para inserir uma etapa no meio desta ligação.</p>
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline pp__excluir" (click)="store.excluirSelecao()">
+        <oq-icon name="x" [size]="12" />
+        Excluir ligação
+      </button>
+    }
+  </div>
+} @else {
+@if (store.roteiro(); as r) {
+  <div class="pp">
+    <header class="pp__cabeca">
+      <span class="pp__icone"><oq-icon name="list-check" [size]="16" /></span>
+      <div class="pp__titulos">
+        <span class="pp__tipo">Roteiro</span>
+        <span class="pp__situacao">{{ rotuloTipo[r.tipo] }} · v{{ r.versao }}</span>
+      </div>
+    </header>
+    <label class="oq-form-field">
+      <span class="oq-form-field__label">Nome do roteiro</span>
+      <input [value]="r.nome" [disabled]="leitura()" maxlength="60" (input)="store.atualizarRoteiro({ nome: $any($event.target).value })" />
+    </label>
+    <label class="oq-form-field">
+      <span class="oq-form-field__label">Descrição</span>
+      <textarea rows="3" [value]="r.descricao" [disabled]="leitura()" (input)="store.atualizarRoteiro({ descricao: $any($event.target).value })"></textarea>
+    </label>
+    <div class="pp__dicas">
+      <span class="oq-form-field__label">Como montar</span>
+      <ol>
+        <li>Arraste blocos da biblioteca para o canvas, ou clique em um bloco para inseri-lo depois da etapa selecionada.</li>
+        <li>Ligue as etapas arrastando a bolinha de baixo de uma até a outra.</li>
+        <li>Use a Condição para dividir o caminho em Sim e Não.</li>
+        <li>Clique em uma etapa para configurar; clique em uma ligação para inserir uma etapa no meio.</li>
+        <li>Use Simular roteiro para ver o caminho de um pedido.</li>
+      </ol>
+    </div>
+  </div>
+}
+}
+}

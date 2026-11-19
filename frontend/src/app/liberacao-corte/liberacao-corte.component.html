@@ -1,158 +1,192 @@
-<!-- Mesmo layout da Fila de Tarefas (estilos globais em styles/_lista-layout.scss). -->
-<div class="oq-page">
-  <header class="oq-page__header">
-    <div class="oq-toolbar">
-      <div class="oq-toolbar__title-block">
-        <h1 class="oq-toolbar__title">Liberação de Corte</h1>
-        <span class="oq-toolbar__counter">[ {{ listaFiltrada.length }} / {{ lista().length }} ]</span>
-      </div>
+<!-- Mesa de liberação de corte (17/11/2026): login do liberador a cada entrada → fila à esquerda, corte aberto à
+     direita. O pop-up oq-liberacao-corte-modal (Conferência) não é usado aqui e não mudou. -->
+@if (!liberado()) {
+  <!-- 1) Login do liberador — sempre que a tela abre (o operador entrega o tablet ao supervisor). -->
+  <div class="lc-portao">
+    <form class="lc-login" (ngSubmit)="entrar()" autocomplete="off">
+      <h1 class="lc-login__titulo">Liberação de corte</h1>
+      <p class="lc-login__texto">Entre com o usuário e a senha do <b>liberador no Sankhya</b> para ver e liberar os cortes.</p>
 
-      <div class="oq-toolbar__actions">
-        <label class="oq-toolbar__search">
-          <oq-icon name="search" [size]="12" />
-          <input
-            type="text"
-            placeholder="BUSCAR NF / Nº ÚNICO / CLIENTE"
-            [(ngModel)]="busca"
-            (ngModelChange)="onFiltroChange()"
-          />
-        </label>
+      <label class="lc-campo">
+        <span>Usuário</span>
+        <input type="text" name="usuario" [(ngModel)]="usuario" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </label>
+      <label class="lc-campo">
+        <span>Senha</span>
+        <span class="lc-senha">
+          <input [type]="mostrarSenha ? 'text' : 'password'" name="senha" [(ngModel)]="senha" autocomplete="new-password" />
+          <button type="button" (click)="mostrarSenha = !mostrarSenha" [attr.aria-label]="mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'">
+            {{ mostrarSenha ? 'Ocultar' : 'Mostrar' }}
+          </button>
+        </span>
+      </label>
 
-        <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
-
-        <button type="button" class="oq-toolbar__filters-btn" (click)="carregar()">
-          <oq-icon name="sync" [size]="12" />
-          Atualizar
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="oq-page__content">
-    @if (erro()) {
-      <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
-    }
-
-    @if (carregando()) {
-      @if (viewMode() === 'cards') {
-        <div class="oq-page__grid" aria-busy="true">
-          <oq-skeleton variant="task-card" [count]="4" />
-        </div>
-      } @else {
-        <div class="oq-page__lista" aria-busy="true">
-          <table class="oq-page__lista-skel">
-            <tbody><oq-skeleton variant="table-row" [count]="8" /></tbody>
-          </table>
-        </div>
+      @if (erroAutenticacao()) {
+        <p class="lc-erro" role="alert">{{ erroAutenticacao() }}</p>
       }
-    } @else if (lista().length === 0) {
-      <div class="oq-page__status">Nenhuma conferência aguardando liberação.</div>
-    } @else if (listaFiltrada.length === 0) {
-      <div class="oq-page__status">Nenhum resultado para essa busca.</div>
-    } @else {
-      @if (viewMode() === 'cards') {
-        <div class="oq-page__grid">
-          @for (item of paginaAtual; track item.nunota) {
-            <article class="oq-card">
-              <span class="oq-card__dot oq-card__dot--attention" aria-hidden="true"></span>
 
-              <header class="oq-card__header">
-                <span class="oq-card__client" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
-                <div class="oq-card__status-line">
-                  <span class="oq-status-pin oq-status-pin--corte">
-                    <oq-icon name="ajuste" [size]="12" />
-                    Aguardando liberação de corte
-                  </span>
-                </div>
-              </header>
-
-              <div class="oq-card__divider"></div>
-
-              <div class="oq-card__grid">
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Nota</span>
-                  <span class="oq-card__field-value">{{ item.numeroNota ?? item.nunota }}</span>
-                </div>
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Nº Único</span>
-                  <span class="oq-card__field-value">{{ item.nunota }}</span>
-                </div>
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Tipo de Operação</span>
-                  <span class="oq-card__field-value" [title]="item.descricaoTipoOperacao ?? ''">{{ item.descricaoTipoOperacao ?? '—' }}</span>
-                </div>
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Data</span>
-                  <span class="oq-card__field-value">{{ item.dataMovimento ?? '—' }}</span>
-                </div>
-              </div>
-
-              <div class="oq-card__actions">
-                <footer class="oq-card__footer">
-                  <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="abrir(item)">Liberar Corte</button>
-                </footer>
-              </div>
-            </article>
-          }
+      <button type="submit" class="lc-btn lc-btn--cheio lc-login__entrar" [disabled]="!podeEntrar">
+        @if (autenticando()) { <oq-spinner [size]="14" /> Validando no Sankhya… } @else { Entrar }
+      </button>
+    </form>
+  </div>
+} @else {
+  <div class="lc-mesa" [class.lc-mesa--aberta]="!!selecionada()">
+    <!-- 2) Fila de corte -->
+    <aside class="lc-fila" aria-label="Pedidos aguardando liberação de corte">
+      <header class="lc-fila__topo">
+        <div class="lc-fila__titulo">
+          Aguardando liberação <span class="lc-fila__qtd">{{ lista().length }}</span>
         </div>
-      } @else {
-        <div class="oq-page__lista">
-          <table class="oq-lista">
-            <caption class="oq-lista__caption">Conferências aguardando liberação de corte</caption>
+        <button type="button" class="lc-icone-btn" (click)="carregar()" [disabled]="carregando()" title="Atualizar a fila" aria-label="Atualizar a fila">
+          <oq-icon name="sync" [size]="15" />
+        </button>
+      </header>
+      <label class="lc-busca">
+        <oq-icon name="search" [size]="14" />
+        <input type="text" placeholder="Nº único, cliente ou NF" aria-label="Buscar nº único, cliente ou NF" [ngModel]="buscaTermo()" (ngModelChange)="buscaTermo.set($event)" />
+      </label>
+
+      <div class="lc-fila__lista">
+        @if (erro()) {
+          <p class="lc-erro">{{ erro() }}</p>
+        }
+        @if (carregando() && lista().length === 0) {
+          <p class="lc-vazio"><oq-spinner [size]="14" /> Consultando o Sankhya…</p>
+        } @else if (lista().length === 0) {
+          <p class="lc-vazio">Nenhum pedido aguardando liberação de corte.</p>
+        } @else if (listaFiltrada().length === 0) {
+          <p class="lc-vazio">Nenhum pedido com essa busca.</p>
+        }
+        @for (item of listaFiltrada(); track item.nunota) {
+          <button
+            type="button"
+            class="lc-pedido"
+            [class.lc-pedido--sel]="selecionada()?.nunota === item.nunota"
+            [attr.aria-current]="selecionada()?.nunota === item.nunota ? 'true' : null"
+            (click)="abrir(item)"
+          >
+            <span class="lc-pedido__linha">
+              <span class="lc-pedido__num">{{ item.nunota }}</span>
+              <span class="lc-pedido__data">{{ item.dataMovimento ?? '' }}</span>
+            </span>
+            <span class="lc-pedido__cliente">{{ item.nomeParceiro ?? '—' }}</span>
+            <span class="lc-pedido__tipo">{{ item.descricaoTipoOperacao ?? '' }}</span>
+          </button>
+        }
+      </div>
+
+      <footer class="lc-fila__rodape">
+        <span class="lc-fila__liberador" title="Liberador conectado nesta tela">
+          <oq-icon name="user" [size]="13" /> {{ liberadorNome() }}
+        </span>
+        <button type="button" class="lc-link" (click)="trocarLiberador()">Trocar liberador</button>
+      </footer>
+    </aside>
+
+    <!-- 3) Corte aberto -->
+    <section class="lc-corte" aria-live="polite">
+      @if (selecionada(); as sel) {
+        <header class="lc-corte__topo">
+          <button type="button" class="lc-voltar" (click)="fecharCorte()" aria-label="Voltar para a fila"><oq-icon name="arrow-left" [size]="16" /></button>
+          <div class="lc-corte__id">
+            <span class="lc-corte__num">{{ sel.nunota }}</span>
+            <span class="lc-corte__cliente">{{ sel.nomeParceiro ?? '—' }}</span>
+          </div>
+          <p class="lc-corte__meta">
+            @if (sel.descricaoTipoOperacao) { <span>{{ sel.descricaoTipoOperacao }}</span> }
+            @if (sel.dataMovimento) { <span>{{ sel.dataMovimento }}</span> }
+            @if (sel.numeroNota) { <span title="Número do pedido (TGFCAB.NUMNOTA)">Pedido {{ sel.numeroNota }}</span> }
+          </p>
+        </header>
+
+        @if (carregandoPendentes()) {
+          <p class="lc-vazio"><oq-spinner [size]="14" /> Carregando os itens do corte…</p>
+        } @else if (pendentes().length > 0) {
+          <table class="lc-itens">
             <thead>
               <tr>
-                <th scope="col" class="oq-lista__topo">Status</th>
-                <th scope="col" class="oq-lista__principal">Cliente</th>
-                <th scope="col">Nota</th>
-                <th scope="col">Nº Único</th>
-                <th scope="col">Tipo de Operação</th>
-                <th scope="col">Data</th>
-                <th scope="col" class="oq-lista__acoes">Ação</th>
+                <th scope="col" class="lc-itens__check">
+                  <input type="checkbox" [checked]="todosMarcados" (change)="alternarTodos()" aria-label="Marcar todos os itens" />
+                </th>
+                <th scope="col">Produto</th>
+                <th scope="col" class="lc-num">Pedido</th>
+                <th scope="col" class="lc-num">Conferido</th>
+                <th scope="col" class="lc-num">Corte</th>
               </tr>
             </thead>
             <tbody>
-              @for (item of paginaAtual; track item.nunota) {
-                <tr class="oq-lista__linha oq-lista__linha--attention">
-                  <td class="oq-lista__topo" data-label="Status">
-                    <span class="oq-status-pin oq-status-pin--corte">
-                      <oq-icon name="ajuste" [size]="12" />
-                      Aguardando corte
-                    </span>
+              @for (p of pendentes(); track p.sequencia) {
+                <tr [class.lc-itens__sel]="itemSelecionado(p.sequencia)" (click)="alternarItem(p.sequencia)">
+                  <td class="lc-itens__check">
+                    <input type="checkbox" [checked]="itemSelecionado(p.sequencia)" (click)="$event.stopPropagation(); alternarItem(p.sequencia)" [attr.aria-label]="'Marcar ' + (p.produto ?? 'item')" />
                   </td>
-                  <td class="oq-lista__principal" data-label="Cliente">
-                    <span class="oq-lista__destaque" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
+                  <td class="lc-itens__produto">
+                    {{ p.produto ?? '—' }}
+                    @if (p.pesavel) { <span class="lc-selo" title="Peso real bipado na conferência"><oq-icon name="balanca" [size]="11" /> peso</span> }
+                    @if (itemInteiro(p)) { <span class="lc-itens__inteiro">falta o item inteiro</span> }
                   </td>
-                  <td data-label="Nota">{{ item.numeroNota ?? item.nunota }}</td>
-                  <td data-label="Nº Único">{{ item.nunota }}</td>
-                  <td data-label="Tipo de Operação">{{ item.descricaoTipoOperacao ?? '—' }}</td>
-                  <td data-label="Data">{{ item.dataMovimento ?? '—' }}</td>
-                  <td class="oq-lista__acoes" data-label="Ação">
-                    <button type="button" class="oq-lista__btn" (click)="abrir(item)">Liberar Corte</button>
+                  <td class="lc-num">{{ num(p.qtdPedido) }} <span class="lc-un">{{ p.unidadePedido ?? '' }}</span></td>
+                  <td class="lc-num">{{ (p.qtdConferida ?? 0) === 0 ? '—' : num(p.qtdConferida) }} @if ((p.qtdConferida ?? 0) !== 0) { <span class="lc-un">{{ p.unidadeConferida ?? '' }}</span> }</td>
+                  <td class="lc-num lc-corte__dif" [class.lc-corte__dif--mais]="(p.diferenca ?? 0) > 0">
+                    {{ dif(p.diferenca) }} <span class="lc-un">{{ p.unidadeConferida ?? p.unidadePedido ?? '' }}</span>
                   </td>
                 </tr>
               }
             </tbody>
           </table>
-        </div>
+
+          <label class="lc-campo lc-campo--obs">
+            <span>Observação <i>(opcional)</i></span>
+            <input type="text" [(ngModel)]="obs" />
+          </label>
+        }
+
+        @if (mensagem()) { <p class="lc-ok" role="status"><oq-icon name="check" [size]="14" /> {{ mensagem() }}</p> }
+        @if (faturarOferta() === sel.nunota) {
+          <div class="lc-faturar" role="status">
+            <span>Esta operação fatura ao concluir a conferência.</span>
+            <button type="button" class="lc-btn lc-btn--cheio" (click)="gerarNotaAgora()">Gerar nota agora</button>
+            <button type="button" class="lc-btn" (click)="encerrarFaturamento()">Agora não</button>
+          </div>
+        }
+        @if (erroAcao()) { <p class="lc-erro" role="alert"><oq-icon name="circle-alert" [size]="14" /> {{ erroAcao() }}</p> }
+
+        @if (pendentes().length > 0) {
+          <footer class="lc-corte__acoes">
+            <span class="lc-corte__regra">
+              @if (selecionadas().size > 0 && !podeNegar) {
+                "Negar" só com <b>todos</b> os itens marcados — depois de negar, o Sankhya não aceita mais liberação.
+              } @else {
+                {{ selecionadas().size }} de {{ pendentes().length }} {{ pendentes().length === 1 ? 'item marcado' : 'itens marcados' }}
+              }
+            </span>
+            <button
+              type="button"
+              class="lc-btn lc-btn--negar"
+              [disabled]="processando() || !podeNegar"
+              [title]="!podeNegar && selecionadas().size > 0 ? 'Disponível só com todos os itens pendentes marcados' : ''"
+              (click)="liberarOuNegar('N')"
+            >
+              Negar
+            </button>
+            <button type="button" class="lc-btn lc-btn--cheio" [disabled]="processando() || selecionadas().size === 0" (click)="liberarOuNegar('S')">
+              @if (processando()) {
+                <oq-spinner [size]="14" /> Enviando…
+              } @else {
+                Liberar {{ selecionadas().size || '' }} {{ selecionadas().size === 1 ? 'item' : 'itens' }}
+              }
+            </button>
+          </footer>
+        }
+      } @else {
+        <p class="lc-corte__vazio">Escolha um pedido na fila para ver o que vai ser cortado.</p>
       }
+    </section>
+  </div>
 
-      <oq-paginacao
-        [total]="listaFiltrada.length"
-        [pagina]="paginaIdx + 1"
-        [itensPorPagina]="itensPorPagina()"
-        [opcoes]="opcoesItensPorPagina()"
-        (paginaChange)="page.set($event - 1)"
-        (itensPorPaginaChange)="onItensPorPaginaChange($event)"
-      />
-    }
-  </main>
-
-  @if (selecionada(); as sel) {
-    <oq-liberacao-corte-modal
-      [nuconf]="sel.nuconf!"
-      [rotulo]="rotulo(sel)"
-      (fechado)="aoFechar($event)"
-    />
+  @if (faturando(); as nunota) {
+    <!-- Mesmo modal de faturamento da Fila ("Gerar nota"). -->
+    <oq-fechamento-oc-modal [nunota]="nunota" (fechado)="encerrarFaturamento()" />
   }
-
-</div>
+}

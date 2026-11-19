@@ -32,8 +32,8 @@
   font-family: var(--oq-font-display);
   font-weight: 600;
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-primary);
 }
 
@@ -41,7 +41,7 @@
   min-width: 22px;
   border-radius: 999px;
   padding: 2px 8px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -67,4 +67,33 @@
   .oq-panel-section__header {
     display: none;
   }
+}
+
+// 17/11/2026: título em texto normal e contagem como número simples (sem pílula de 3 dígitos).
+.oq-panel-section__title {
+  font-family: var(--oq-font-body);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.oq-panel-section__count {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--oq-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+// Ação no cabeçalho da seção (ex.: "Ver conferidos") vai para a direita.
+.oq-panel-section__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oq-panel-section__title-row {
+  width: 100%;
 }

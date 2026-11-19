@@ -1,4 +1,4 @@
-<oq-panel-section icon="clock" title="PENDENTES" [count]="items.length" [countTone]="items.length > 0 ? 'default' : 'muted'">
+<oq-panel-section icon="clock" title="Pendentes" [count]="items.length" [countTone]="items.length > 0 ? 'default' : 'muted'">
   @if (items.length === 0) {
     <div class="oq-empty-row">Nenhum item pendente</div>
   } @else {
@@ -6,23 +6,20 @@
       @for (item of items; track item.code; let idx = $index) {
         <li
           class="item-row item-row--clicavel"
-          [class.item-row--parcial]="ehParcial(item)"
+          [class.item-row--parcial]="!cega && ehParcial(item)"
           [class.item-row--pesavel]="item.usaConfPeso"
           (click)="selecionar.emit(item)"
           title="Clique para identificar este item sem bipar o código de barras"
         >
           <span class="item-seq">{{ idx + 1 }}</span>
-          @if (item.usaConfPeso) {
-            <span class="item-peso-tag" title="Item pesável — capture o peso na balança">
-              <oq-icon name="scale" [size]="15" />
-              <span class="item-peso-tag__txt">PESO</span>
-            </span>
-          }
           <div class="item-dados">
             <div class="item-linha">
               <span class="item-descricao">
                 <span class="item-descricao__code">{{ item.code }}</span>
                 <span class="item-descricao__name"> — {{ item.name }}</span>
+                @if (item.usaConfPeso) {
+                  <span class="item-peso" title="Item pesável — quantidade vem da balança"><oq-icon name="scale" [size]="12" /> peso</span>
+                }
               </span>
               @if (exibirQtd) {
                 <span class="item-qtd-principal" [class.item-qtd-principal--balanca]="item.usaConfPeso">
@@ -43,25 +40,21 @@
                 </span>
               </div>
             }
-            @if (exibirQtd && temComercial(item)) {
-              <div class="item-linha">
-                @if (mostraComercial(item)) {
-                  <!-- Base = o que falta na unidade base (KG no pesável) — bate com o número principal. -->
-                  <span class="item-base">
-                    <span class="item-base__rot">Base</span>
-                    {{ formatarQtd(restanteBase(item)) }} {{ item.unidadePadrao }}
-                  </span>
-                } @else {
-                  <span class="item-base">
-                    <span class="item-base__rot">Pedido</span>
-                    {{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}
-                  </span>
+            <!-- Base + conversão da unidade alternativa na mesma linha (17/11/2026: "a informação de quantas unidades
+                 vão em uma unidade alternativa é importante"). -->
+            @if (exibirQtd && (temComercial(item) || item.conversao)) {
+              <div class="item-linha item-linha--apoio">
+                @if (temComercial(item)) {
+                  @if (mostraComercial(item)) {
+                    <!-- Base = o que falta na unidade base (KG no pesável) — bate com o número principal. -->
+                    <span class="item-base">Base <b>{{ formatarQtd(restanteBase(item)) }} {{ item.unidadePadrao }}</b></span>
+                  } @else {
+                    <span class="item-base">Pedido <b>{{ formatarQtd(item.quantidadeComercial ?? item.expected) }} {{ item.unidadeComercial }}</b></span>
+                  }
                 }
-              </div>
-            }
-            @if (exibirQtd && item.conversao) {
-              <div class="item-linha">
-                <span class="item-info-sec">{{ item.conversao }}</span>
+                @if (item.conversao) {
+                  <span class="item-conversao" title="Quantas unidades vão em uma unidade alternativa"><oq-icon name="box" [size]="12" /> {{ item.conversao }}</span>
+                }
               </div>
             }
             @if (item.control && item.control !== '—') {

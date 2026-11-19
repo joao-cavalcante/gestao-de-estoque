@@ -6,7 +6,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { SyncTickService } from '../shared/app-header/sync-tick.service';
 import { AuthService } from '../auth/auth.service';
-import { OqKpiBarComponent } from './oq-kpi-bar/oq-kpi-bar.component';
 import { OqToolbarComponent } from './oq-toolbar/oq-toolbar.component';
 import { OqTaskCardComponent } from './oq-task-card/oq-task-card.component';
 import { OqTaskListComponent } from './oq-task-list/oq-task-list.component';
@@ -14,6 +13,7 @@ import { OqEmptyStateComponent } from './oq-empty-state/oq-empty-state.component
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { ConferenciasService } from './conferencias.service';
 import {
+  pesoTexto,
   aCarregar,
   semNota,
   CampoOrdenacao,
@@ -56,6 +56,16 @@ const CHAVE_ORDEM_OC = 'fila-oc-ordem:';
 type FiltroOc = 'tudo' | 'conferir' | 'carregar' | 'concluido';
 
 /** Seções da OC, na ordem da tela: primeiro o que vai ser conferido, no meio o que aguarda carregamento, embaixo os carregados. */
+/** Rótulos das pílulas de fase (oq-toolbar) — usados na mensagem da lista vazia. */
+const ROTULO_FASE: Record<FiltroStatus, string> = {
+  todos: 'Todos',
+  conferir: 'Conferência',
+  corte: 'Corte',
+  carregar: 'Carregamento',
+  nota: 'Nota pendente',
+};
+const ROTULO_MODALIDADE: Record<string, string> = { express: 'Express', retira: 'Cliente retira', entrega: 'Entrega' };
+
 const GRUPOS_OC: { chave: Exclude<FiltroOc, 'tudo'>; titulo: string }[] = [
   { chave: 'conferir', titulo: 'A conferir' },
   { chave: 'carregar', titulo: 'Aguardando carregamento' },
@@ -82,7 +92,6 @@ function chaveData(data: string): number {
   imports: [
     OqConferidosChecklistComponent,
     FormsModule,
-    OqKpiBarComponent,
     OqToolbarComponent,
     OqTaskCardComponent,
     OqTaskListComponent,
@@ -140,7 +149,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     codigoVendedor: null,
     codigoTipoOperacao: null,
     ordemCarga: null,
-    vinculoOrdemCarga: 'todos',
+    vinculoOrdemCarga: 'sem',
   });
 
   private readonly filtrosSalvos = inject(FiltrosSalvosService);
@@ -174,7 +183,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       const vinculo = (['todos', 'com', 'sem'] as const).includes(resto.vinculoOrdemCarga)
         ? resto.vinculoOrdemCarga
         : somenteComOrdemCarga ? 'com' : 'todos';
-      this.filtrosAvancados.set({ ...this.filtrosAvancados(), ...resto, vinculoOrdemCarga: vinculo });
+      // Tela sempre abre nos pedidos sem OC (usuário, 17/11/2026): o vínculo salvo não é restaurado.
+      void vinculo;
+      this.filtrosAvancados.set({ ...this.filtrosAvancados(), ...resto, vinculoOrdemCarga: 'sem' });
     }
     if (f.itensPorPagina && TODOS_ITENS_POR_PAGINA.includes(f.itensPorPagina)) {
       this.itensPorPagina.set(itensValidosPara(this.viewMode(), f.itensPorPagina));
@@ -197,17 +208,28 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     this.syncSub?.unsubscribe();
   }
 
+  /** Já houve uma carga com sucesso: as atualizações seguintes não apagam a lista (sem blocos cinza a cada minuto). */
+  private filaCarregada = false;
+
   carregarFila(): void {
-    this.carregando.set(true);
-    this.erro.set(null);
+    if (!this.filaCarregada) {
+      this.carregando.set(true);
+      this.erro.set(null);
+    }
     this.conferenciasService.listarFila(this.tenantAtual).subscribe({
       next: (tarefas) => {
         this.tarefas.set(tarefas);
+        this.filaCarregada = true;
+        this.erro.set(null);
         this.carregando.set(false);
+        this.syncTick.registrarSucesso();
       },
       error: (err) => {
-        this.erro.set(err?.error?.erro ?? 'Falha ao buscar a fila no Sankhya.');
+        const msg = err?.error?.erro ?? 'Falha ao buscar a fila no Sankhya.';
+        // Com a lista já na tela, a falha de uma atualização só aparece no header (a lista fica).
+        if (!this.filaCarregada) this.erro.set(msg);
         this.carregando.set(false);
+        this.syncTick.registrarFalha(msg);
       },
     });
   }
@@ -228,6 +250,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   readonly escopo = computed<EscopoOc>(() => {
     const oc = this.ocFiltrada();
     if (oc) return { tipo: 'oc', oc };
+    // Tela inicial = pedidos sem OC (usuário, 17/11/2026: a operação entra pela OC). Buscando, procura em
+    // todos (inclusive pedido de OC); "Todos/Com OC" do painel Filtros também abre a visão geral.
+    if (this.termoBusca().trim()) return { tipo: 'todas' };
     return this.filtrosAvancados().vinculoOrdemCarga === 'sem' ? { tipo: 'sem' } : { tipo: 'todas' };
   });
 
@@ -282,32 +307,54 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
         motorista: lista.find((t) => t.motorista)?.motorista ?? null,
         ...this.progresso(lista),
         recente: lista.some((t) => chaveData(t.data) >= limite),
+        // Linha de carga no seletor (17/11/2026, padrão "Outbound Loads"/Shipping Cockpit): saída e peso × capacidade.
+        saida: lista.find((t) => t.ocSaidaPrevista)?.ocSaidaPrevista ?? null,
+        peso: lista.reduce((s, t) => s + (t.pesoKg ?? 0), 0),
+        pesoMax: lista.find((t) => t.ocPesoMax)?.ocPesoMax ?? null,
       }))
       .filter((o) => o.notas < o.pedidos || o.recente)
-      // Em andamento (já tem pedido conferido e ainda falta algo) primeiro; depois a mais nova.
-      .sort((a, b) => Number(b.conferidos > 0 && b.notas < b.pedidos) - Number(a.conferidos > 0 && a.notas < a.pedidos) || b.oc - a.oc);
+      // Pronta p/ fechar primeiro (é a exceção que pede ação); depois em andamento; depois a saída mais próxima.
+      .sort(
+        (a, b) =>
+          Number(b.carregados === b.pedidos) - Number(a.carregados === a.pedidos) ||
+          Number(b.conferidos > 0 && b.notas < b.pedidos) - Number(a.conferidos > 0 && a.notas < a.pedidos) ||
+          (a.saida?.getTime() ?? Infinity) - (b.saida?.getTime() ?? Infinity) ||
+          b.oc - a.oc,
+      );
   });
 
+  /** OCs com tudo conferido e carregado — o "1 pronta" do seletor. */
+  readonly ocsProntas = computed(() => this.ocsAbertas().filter((o) => o.carregados === o.pedidos).length);
+
   // ─── Seletor de OC com busca (dezenas de OCs abertas não cabem em botões) ───
-  /** Texto do campo "OC": número da OC ou nome do motorista. */
-  readonly buscaOc = signal('');
+  /** Campo de busca com foco: só então mostra as OCs sugeridas (sem cobrir a lista depois). */
+  readonly buscaFocada = signal(false);
   /** "Ver todas": lista vertical com todas as OCs abertas. */
   readonly listaOcsAberta = signal(false);
 
   /** Resultado da busca (máx. 8) — ou todas, com "Ver todas". */
   readonly ocsSugeridas = computed(() => {
-    const termo = this.buscaOc().trim().toLowerCase();
+    const termo = this.termoBusca().trim().toLowerCase();
     const todas = this.ocsAbertas();
     if (!termo) return this.listaOcsAberta() ? todas : [];
+    if (!this.buscaFocada()) return [];
+    // Busca única (OC, pedido, nº único, cliente): número sugere OC que começa com ele; texto, pelo motorista.
+    const numerico = /^\d+$/.test(termo);
     return todas
-      .filter((o) => String(o.oc).includes(termo) || !!o.motorista?.toLowerCase().includes(termo))
+      .filter((o) => (numerico ? String(o.oc).startsWith(termo) : !!o.motorista?.toLowerCase().includes(termo)))
       .sort((a, b) => Number(String(b.oc).startsWith(termo)) - Number(String(a.oc).startsWith(termo)))
       .slice(0, 8);
   });
 
+  /** Busca numérica com o campo em foco e nenhuma OC aberta começando com o número — avisa no menu (17/11/2026). */
+  readonly semOcParaBusca = computed(() => {
+    const termo = this.termoBusca().trim();
+    return this.buscaFocada() && /^\d+$/.test(termo) && !this.ocsAbertas().some((o) => String(o.oc).startsWith(termo));
+  });
+
   /** Enter no campo: abre a OC digitada (número exato) ou a única sugestão. */
   abrirOcDigitada(): void {
-    const termo = this.buscaOc().trim();
+    const termo = this.termoBusca().trim();
     const exata = this.ocsAbertas().find((o) => String(o.oc) === termo);
     const unica = this.ocsSugeridas().length === 1 ? this.ocsSugeridas()[0] : null;
     const alvo = exata ?? unica;
@@ -320,6 +367,18 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   );
 
   /** Cabeçalho da OC aberta: transporte + régua conferidos → carregados → notas → Fechar OC. */
+  readonly pesoTexto = pesoTexto;
+
+  /** "18/11" — saída prevista da OC. */
+  ddmm(d: Date): string {
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  }
+
+  /** Ocupação da OC em % inteiro (peso dos pedidos ÷ TGFORD.PESOMAX). */
+  ocupacao(peso: number, max: number): number {
+    return Math.round((peso / max) * 100);
+  }
+
   readonly resumoOc = computed(() => {
     const oc = this.ocFiltrada();
     if (!oc) return null;
@@ -332,6 +391,10 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       fechada: daOc.some((t) => t.ordemCargaFechada) || this.ocsFechadasAgora().has(oc),
       motorista: daOc.find((t) => t.motorista)?.motorista ?? null,
       transporte: daOc.find((t) => t.transporte !== '—')?.transporte ?? null,
+      // Carga da OC (17/11/2026): peso somado dos pedidos × capacidade (TGFORD.PESOMAX) e saída prevista.
+      pesoTotal: daOc.reduce((s, t) => s + (t.pesoKg ?? 0), 0),
+      pesoMax: daOc.find((t) => t.ocPesoMax)?.ocPesoMax ?? null,
+      saidaPrevista: daOc.find((t) => t.ocSaidaPrevista)?.ocSaidaPrevista ?? null,
       ...p,
       // Pronta pra fechar = tudo conferido e carregado (a nota sai no próprio Fechar OC).
       completa: p.carregados === p.pedidos,
@@ -340,6 +403,47 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     };
   });
 
+  /**
+   * Lista vazia: diz o que está filtrando e oferece limpar (escopo Todas/Sem OC/OC não é filtro — fica).
+   * Busca, pílula de fase, modalidade, tipo de separação e filtros avançados contam como filtro.
+   */
+  readonly vazio = computed(() => {
+    const ativos: string[] = [];
+    const fase = this.filtroAtivo();
+    if (fase !== 'todos') ativos.push(ROTULO_FASE[fase]);
+    const termo = this.termoBusca().trim();
+    if (termo) ativos.push(`busca “${termo}”`);
+    for (const m of this.filtroModalidade()) ativos.push(ROTULO_MODALIDADE[m] ?? m);
+    for (const t of this.filtroTipoSeparacao()) ativos.push(TIPOS_SEPARACAO_ATIVOS.find((x) => x.id === t)?.label ?? `Tipo ${t}`);
+    const a = this.filtrosAvancados();
+    const avancados = [a.codigoParceiro, a.codigoVendedor, a.codigoTipoOperacao].filter((v) => v !== null).length + (a.vinculoOrdemCarga !== 'sem' ? 1 : 0);
+    if (avancados) ativos.push(avancados === 1 ? '1 filtro avançado' : `${avancados} filtros avançados`);
+
+    const onde = this.escopo().tipo === 'sem' ? ' sem OC' : '';
+    const titulo = fase !== 'todos' ? `Nenhum pedido${onde} em ${ROTULO_FASE[fase]}` : `Nenhum pedido${onde} na fila`;
+    const mensagem = ativos.length
+      ? `Filtrando por: ${ativos.join(', ')}.`
+      : 'Os pedidos aparecem aqui quando entram no Sankhya; a lista atualiza a cada sincronização.';
+    return { titulo, mensagem, filtros: ativos.length };
+  });
+
+  /** "Limpar filtros" da lista vazia — volta tudo ao padrão, sem sair do escopo (Todas / Sem OC). */
+  limparFiltros(): void {
+    this.filtroAtivo.set('todos');
+    this.termoBusca.set('');
+    this.filtroModalidade.set(new Set());
+    this.filtroTipoSeparacao.set(new Set());
+    const a = this.filtrosAvancados();
+    this.filtrosAvancados.set({
+      ...a,
+      codigoParceiro: null,
+      codigoVendedor: null,
+      codigoTipoOperacao: null,
+      vinculoOrdemCarga: 'sem',
+    });
+    this.paginaAtual.set(1);
+  }
+
   /** Contagem por fase nas pílulas (substitui a faixa de KPIs). */
   readonly contagensFase = computed(() => {
     const k = this.kpis();
@@ -347,6 +451,14 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   });
 
   /** KPIs = fases do escopo atual (dentro da OC, os números são daquela OC). */
+  /** "12 pedidos sem OC" / "5 de 12 pedidos" — contador da barra da fila (fora da OC). */
+  readonly resumoContador = computed(() => {
+    const total = this.kpis().total;
+    const visiveis = this.tarefasFiltradas().length;
+    const base = visiveis === total ? `${total} ${total === 1 ? 'pedido' : 'pedidos'}` : `${visiveis} de ${total} pedidos`;
+    return this.escopo().tipo === 'sem' ? `${base} sem OC` : base;
+  });
+
   readonly kpis = computed(() => {
     const fases = this.tarefasDoEscopo().map(faseTarefa);
     const conta = (f: FasePedido) => fases.filter((x) => x === f).length;
@@ -354,9 +466,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
   });
 
   selecionarOc(oc: number | null): void {
-    this.buscaOc.set('');
     this.listaOcsAberta.set(false);
-    this.filtrosAvancados.set({ ...this.filtrosAvancados(), ordemCarga: oc == null ? null : String(oc), vinculoOrdemCarga: 'todos' });
+    this.filtrosAvancados.set({ ...this.filtrosAvancados(), ordemCarga: oc == null ? null : String(oc), vinculoOrdemCarga: oc == null ? 'sem' : 'todos' });
+    this.termoBusca.set('');
     this.filtroAtivo.set('todos');
     this.filtroOc.set('tudo');
     this.paginaAtual.set(1);
@@ -425,7 +537,9 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
       }
     }
     this.ordemOc.set(ordem);
-  });
+    // Grava signal dentro do effect: sem allowSignalWrites o Angular 17 lançava NG0600 a cada troca de OC e a ordem
+    // arrastada da OC não era lida (achado em 17/11/2026 testando os filtros).
+  }, { allowSignalWrites: true });
 
   /** Coloca o card [id] na posição do card [alvo] (arrastar) — a ordem vale pra OC inteira. */
   moverCardOc(id: string, alvo: string): void {
@@ -483,7 +597,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     const f = this.filtrosAvancados();
     return (
       [f.codigoParceiro, f.codigoVendedor, f.codigoTipoOperacao, f.ordemCarga].filter((v) => v !== null).length +
-      (f.vinculoOrdemCarga !== 'todos' ? 1 : 0)
+      (f.vinculoOrdemCarga !== 'sem' ? 1 : 0)
     );
   });
 
@@ -544,6 +658,12 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
         case 'nf': return t.nf;
         case 'data': return chaveData(t.data);
         case 'itens': return t.itens;
+        // Sem o dado no Sankhya: vai para o fim nas duas direções seria o ideal, mas o sort é simples — fica como 0.
+        case 'peso': return t.pesoKg ?? 0;
+        case 'volumes': return t.volumesPrevistos ?? 0;
+        case 'entrega': return t.previsaoEntrega?.getTime() ?? 0;
+        // Idade crescente = mais novos primeiro; decrescente = os que esperam há mais tempo.
+        case 'idade': return t.pedidoEm ? -t.pedidoEm.getTime() : 0;
       }
     };
     // sort estável: empate mantém a ordem do backend

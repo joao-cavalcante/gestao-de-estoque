@@ -1,23 +1,41 @@
+// Lista vazia: frase direta + o que está filtrando + ação. Sem caixa tracejada nem título em caixa alta.
 .oq-empty-state {
-  border: 1px dashed var(--oq-border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 20px 24px;
+  border: 1px solid var(--oq-border);
   background: var(--oq-surface);
-  padding: 48px 32px;
-  text-align: center;
 }
 
 .oq-empty-state__titulo {
   margin: 0;
-  font-family: var(--oq-font-display);
-  font-weight: 700;
+  font-family: var(--oq-font-body);
+  font-weight: 600;
   font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
   color: var(--oq-text-primary);
 }
 
 .oq-empty-state__mensagem {
-  margin: 4px 0 0;
-  font-family: var(--oq-font-mono);
-  font-size: 11px;
+  margin: 0;
+  font-size: 13px;
   color: var(--oq-text-secondary);
+}
+
+.oq-empty-state__limpar {
+  margin-top: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: var(--oq-surface-2); }
+  &:focus-visible { outline: 2px solid var(--oq-brand); outline-offset: 2px; }
 }

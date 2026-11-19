@@ -8,6 +8,8 @@
     </button>
   </div>
 
+  <ng-content />
+
   <div class="oq-filtros-avancados__campo">
     <span class="oq-filtros-avancados__label">Cliente</span>
     <oq-searchable-select placeholder="Todos os clientes" [opcoes]="opcoesParceiros" [valor]="rascunho.codigoParceiro" (valorChange)="rascunho.codigoParceiro = $event" />

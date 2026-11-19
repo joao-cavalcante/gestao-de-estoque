@@ -60,6 +60,7 @@ const EM_ANDAMENTO = new Set<ImpressaoOc['status']>(['aguardando_sefaz', 'pronto
     .imp--erro .imp__status { color: var(--oq-danger, #d64545); }
     .imp__erro { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .imp__link { border: 0; background: none; padding: 0; color: var(--oq-brand-accent); text-decoration: underline; cursor: pointer; font-size: 12px; }
+    @media (pointer: coarse) { .imp__link { padding-block: 8px; } }
     .imp__link:disabled { opacity: .5; cursor: default; }
   `],
 })

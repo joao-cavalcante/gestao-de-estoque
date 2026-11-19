@@ -1,5 +1,5 @@
 @if (compacto) {
-  <div class="oq-last-scan-strip" [class.oq-last-scan-strip--critical]="isCritico">
+  <div class="oq-last-scan-strip" [class.oq-last-scan-strip--critical]="isCritico" [class.oq-last-scan-strip--ok]="item && !isCritico && item.scanned > 0">
     <div class="oq-last-scan-strip__thumb">
       @if (item?.imagemUrl) {
         <img [src]="item!.imagemUrl" alt="" />
@@ -8,17 +8,18 @@
       }
     </div>
     <span class="oq-last-scan-strip__name">
-      {{ item ? item.name : 'Aguardando bipe…' }}
+      @if (item && item.code && item.code !== '—') { <b class="oq-last-scan-strip__cod">{{ item.code }}</b> }
+      {{ item ? item.name : 'Aguardando leitura' }}
     </span>
     @if (item && exibirQtd) {
-      <span class="oq-last-scan-strip__qty">{{ item.scanned }}/{{ item.expected }}</span>
+      <span class="oq-last-scan-strip__qty">{{ item.scanned }}@if (!cega) {/{{ item.expected }}}</span>
     }
   </div>
 } @else {
   <section class="oq-last-scan oq-panel" [class.oq-last-scan--critical]="isCritico">
     <div class="oq-last-scan__header">
       <oq-icon name="barcode" [size]="15" class="oq-last-scan__label-icon" />
-      <span class="oq-last-scan__title">ÚLTIMA LEITURA</span>
+      <span class="oq-last-scan__title">Última leitura</span>
       @if (item) {
         @if (isCritico) {
           <oq-icon name="circle-alert" [size]="16" class="oq-icon-critical" />

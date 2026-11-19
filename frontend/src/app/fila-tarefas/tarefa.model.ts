@@ -35,6 +35,22 @@ export interface Tarefa {
   valor: number;
   /** TGFCAB.AD_TURNOENTREGA já traduzido — "Diurno" | "Noturno" | "Qualquer" | "—". */
   periodoEntrega: string;
+  /** Card da fila (17/11/2026) — ver docs do Hub "Dados de expedição do pedido". null = Sankhya não informou. */
+  /** TGFCAB.PESOBRUTO (kg). */
+  pesoKg?: number | null;
+  /** TGFCAB.QTDVOL — volumes previstos (soma das quantidades na unidade de venda: caixa, fardo, pacote). */
+  volumesPrevistos?: number | null;
+  /** TGFCAB.AD_DHNEG — quando o pedido entrou (base da idade no card). */
+  pedidoEm?: Date | null;
+  /** TGFCAB.DTPREVENT — previsão de entrega (na Negri só a data). */
+  previsaoEntrega?: Date | null;
+  /** TGFCAB.AD_OBSSEP — observação do pedido (horário de recebimento, dias, avisos). */
+  obsSeparacao?: string | null;
+  /** Da OC do pedido: TGFORD.PESOMAX (kg) e DTPREVSAIDA — ocupação e saída no cabeçalho da OC. */
+  ocPesoMax?: number | null;
+  ocSaidaPrevista?: Date | null;
+  /** Conferência em curso na Torre — itens conferidos/total, quem confere e desde quando (null = ninguém abriu). */
+  andamento?: { conferidos: number; total: number; conferente: string | null; desde: Date } | null;
   /** Modalidade do pedido — TGFCAB.AD_EXPRESS / AD_RETIRA / AD_ENTREGA = 'S'. */
   express: boolean;
   retira: boolean;
@@ -56,6 +72,9 @@ export interface Tarefa {
   ajustesPeso?: AjustePeso[];
   /** TGFCAB.TIPMOV — 'C' compra e 'V' venda já são notas (sem "Gerar nota"). */
   tipMov?: string | null;
+  /** Empresa do documento (TGFCAB.CODEMP / Empresa.NOMEFANTASIA) — usado pelo coletor. */
+  codigoEmpresa?: string | null;
+  nomeEmpresa?: string | null;
 }
 
 /** sentido 'E' entrada | 'S' saída; status pendente/criando/cabecalho/confirmado/erro. */
@@ -259,9 +278,53 @@ export type EscopoOc = { tipo: 'todas' } | { tipo: 'oc'; oc: string } | { tipo: 
 export type { ViewMode } from '../shared/lista-layout/view-mode';
 
 /** Colunas ordenáveis (cabeçalho da lista) — a ordenação vale pros dois modos. */
-export type CampoOrdenacao = 'cliente' | 'numeroUnico' | 'nf' | 'data' | 'itens';
+export type CampoOrdenacao = 'cliente' | 'numeroUnico' | 'nf' | 'data' | 'itens' | 'peso' | 'volumes' | 'entrega' | 'idade';
 
 export interface Ordenacao {
   campo: CampoOrdenacao;
   direcao: 'asc' | 'desc';
+}
+
+
+/** "17/11/2026" ou "17/11/2026 15:54:56" (loadRecords do Sankhya, hora de Brasília) → Date local; inválido = null. */
+export function dataSankhya(valor: string | null | undefined): Date | null {
+  const m = valor?.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!m) return null;
+  const [, d, mes, a, h, min, seg] = m;
+  const data = new Date(+a, +mes - 1, +d, +(h ?? 0), +(min ?? 0), +(seg ?? 0));
+  return isNaN(data.getTime()) ? null : data;
+}
+
+/** Idade do pedido: "agora", "há 25 min", "há 1h05", "há 2 dias". */
+export function idadePedido(desde: Date, agora = new Date()): string {
+  const min = Math.max(0, Math.floor((agora.getTime() - desde.getTime()) / 60000));
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h${String(min % 60).padStart(2, '0')}`;
+  const dias = Math.floor(h / 24);
+  return `há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+}
+
+export type SituacaoEntrega = 'atrasada' | 'hoje' | 'futura';
+
+/** Previsão de entrega × hoje (por data, sem hora): "Entrega hoje", "Entrega 18/11", atrasada se já passou. */
+export function entregaPedido(previsao: Date, agora = new Date()): { texto: string; situacao: SituacaoEntrega } {
+  const dia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const ddmm = previsao.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  if (dia(previsao) < dia(agora)) return { texto: `Entrega ${ddmm} · atrasada`, situacao: 'atrasada' };
+  if (dia(previsao) === dia(agora)) return { texto: 'Entrega hoje', situacao: 'hoje' };
+  return { texto: `Entrega ${ddmm}`, situacao: 'futura' };
+}
+
+/** Peso no card: "68 kg", "1.240 kg", "12,5 kg" (uma casa só abaixo de 100 kg). */
+export function pesoTexto(kg: number): string {
+  const casas = kg < 100 && kg % 1 !== 0 ? 1 : 0;
+  return `${kg.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })} kg`;
+}
+
+/** Documento que já é nota (TIPMOV V ou C — ver jaENota): o número da nota identifica o documento — card e lista
+ *  mostram "NF …" ao lado do nº único (usuário, 17/11/2026). No pedido (P) o NUMNOTA não aparece. */
+export function mostraNumeroNota(t: Tarefa): boolean {
+  return jaENota(t.tipMov) && !!t.nf && t.nf !== '—';
 }

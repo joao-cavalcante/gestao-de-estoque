@@ -378,6 +378,7 @@ object TarefasRepository {
     }
 
     fun listar(tenantId: UUID): List<TarefaApiDto> = TenantTx.run(tenantId) {
+        val andamentos = SeparacaoRepository.andamentoAtivoPorNunotaTx(tenantId)
         TarefasTable.selectAll()
             .where { TarefasTable.tenantId eq tenantId }
             .orderBy(TarefasTable.sankhyaAtualizadoEm to SortOrder.DESC)
@@ -404,17 +405,32 @@ object TarefasRepository {
                     ordemCarga = normalizarOrdemCarga(dados?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull),
                     turnoEntrega = dados?.get("AD_TURNOENTREGA")?.jsonPrimitive?.contentOrNull
                         ?.trim()?.takeIf { it.isNotEmpty() }
-                        // normaliza "1"/"1.0" -> "1" (mesma razão do ordemCarga acima)
-                        ?.let { (it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong())?.toString() },
+                        // normaliza "1"/"1.0" -> "1" (mesma razão do ordemCarga acima); código em letra (Negri: D/N)
+                        // passa como veio — antes virava null e o card mostrava "—" (17/11/2026).
+                        ?.let { (it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong())?.toString() ?: it.uppercase() },
+                    pesoBruto = texto(dados, "PESOBRUTO")?.toDoubleOrNull()?.takeIf { it > 0 },
+                    volumesPrevistos = texto(dados, "QTDVOL")?.toDoubleOrNull()?.toInt()?.takeIf { it > 0 },
+                    pedidoEm = texto(dados, "AD_DHNEG"),
+                    previsaoEntrega = texto(dados, "DTPREVENT"),
+                    obsSeparacao = texto(dados, "AD_OBSSEP"),
+                    andamento = andamentos[row[TarefasTable.nunota].toLong()]?.let {
+                        AndamentoDto(it.conferidos, it.total, it.operador, it.desde.toString())
+                    },
                     express = modalidadeDe(dados).express,
                     retira = modalidadeDe(dados).retira,
                     entrega = modalidadeDe(dados).entrega,
                     segundosDesdeSync = Instant.now().epochSecond - sankhyaAtualizadoEm.epochSecond,
                     pendenteWriteBack = row[TarefasTable.pendenteWriteBack],
                     tipMov = dados?.get("TIPMOV")?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() },
+                    codigoEmpresa = dados?.get("CODEMP")?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() },
+                    nomeEmpresa = dados?.get("Empresa.NOMEFANTASIA")?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() },
                 )
             }
     }
+
+    /** Campo do JSON do loadRecords como texto aparado; null se ausente ou vazio. */
+    private fun texto(dados: JsonObject?, campo: String): String? =
+        dados?.get(campo)?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
 
     /** Conclusão local imediata — a escrita real no Sankhya é assíncrona (ver WriteBackQueue). */
     fun concluirLocal(tenantId: UUID, nunota: Long, operador: String): Boolean = TenantTx.run(tenantId) {

@@ -113,6 +113,13 @@ export interface OrdemCargaResumoDto {
   pesoPendenteKg?: number;
   /** Pedidos que entraram na OC DEPOIS do último mapa impresso — caso de extrema atenção. */
   pedidosNovos?: PedidoNovoOcDto[];
+  /** TGFORD.CODREG → TSIREG.NOMEREG ("ZONA NORTE 3"). */
+  regiao?: string | null;
+  /** Pedidos da OC e clientes distintos. */
+  qtdPedidos?: number;
+  qtdClientes?: number;
+  /** Peso a separar por área: "1" Secos, "2" Resfriados, "3" Congelados, "0" sem área (vazio = base sem o campo). */
+  pesoPendentePorArea?: Record<string, number>;
 }
 
 export interface CategoriaSeparacaoDto {

@@ -5,6 +5,7 @@ import { AuthService } from '../../auth/auth.service';
 import { OqIconComponent, OqIconName } from '../icons/oq-icon.component';
 import { NavMenuService } from './nav-menu.service';
 import { GalpaoService } from '../../galpao/galpao.service';
+import { SessaoContextoService } from '../app-header/sessao-contexto.service';
 
 interface ItemMenu {
   rota?: string;
@@ -16,6 +17,11 @@ interface ItemMenu {
   somenteGalpao?: boolean;
 }
 
+interface SecaoMenu {
+  titulo: string;
+  itens: ItemMenu[];
+}
+
 /**
  * Conferência não entra aqui de propósito — só faz sentido acessada a
  * partir de um pedido específico (a partir do "Conferir" na Fila de
@@ -23,56 +29,70 @@ interface ItemMenu {
  * fica de fora — é painel master, separado, ninguém além do master deve
  * ter acesso a essa tela por este menu.
  *
- * As 4 telas de operação (Fila de Conferência, Mapa de Separação,
- * Impressão de Etiquetas, Liberação de Corte) ficam soltas no topo — o
- * grupo "Operações" saiu a pedido do usuário. Só Administração segue em
- * submenu.
+ * Seções (17/11/2026, revisão "sem cara de IA"): só títulos fixos, não grupos que abrem e fecham — as telas do dia a
+ * dia continuam soltas e à vista (o grupo recolhível "Operações" saiu a pedido do usuário). Só TV e Administração
+ * seguem em submenu. Subitens sem ícone.
  */
-const ITENS: ItemMenu[] = [
-  // Telas do dia a dia soltas no topo, na ordem do fluxo (pedido do usuário: sem o grupo "Operações").
-  { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
-  { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
-  { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
-  // Fica aberta no computador da expedição: romaneio + DANFEs saem sozinhos (agente) ao fechar a OC.
-  { rota: '/impressao-oc', label: 'Impressão de OCs', icone: 'impressora' },
-  { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
-  { rota: '/pendencias-integracao', label: 'Pendências de Integração', icone: 'circle-alert' },
-  { rota: '/consulta-produtos', label: 'Consulta de Produtos', icone: 'search' },
-  { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },
-  { rota: '/galpao', label: 'Planta do Galpão', icone: 'grid', somenteGalpao: true },
-  // TV de acompanhamento (painel de parede) — permissão TV: admin (a conta de TV já cai direto nela).
+const SECOES: SecaoMenu[] = [
   {
-    label: 'TV de Conferência',
-    icone: 'tv',
-    somenteAdmin: true,
-    subItens: [
-      { rota: '/tv', label: 'Entradas e saídas', icone: 'tv' },
-      { rota: '/tv/carga', label: 'Ordens de carga', icone: 'tv' },
+    titulo: 'Operação',
+    itens: [
+      { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
+      { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
+      { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
+    ],
+  },
+  {
+    titulo: 'Impressão',
+    itens: [
+      { rota: '/impressao-etiquetas', label: 'Etiquetas', icone: 'barcode' },
+      // Fica aberta no computador da expedição: romaneio + DANFEs saem sozinhos (agente) ao fechar a OC.
+      { rota: '/impressao-oc', label: 'Ordens de Carga', icone: 'impressora' },
+    ],
+  },
+  {
+    titulo: 'Consulta',
+    itens: [
+      { rota: '/consulta-produtos', label: 'Produtos', icone: 'search' },
+      { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },
+      { rota: '/pendencias-integracao', label: 'Pendências de Integração', icone: 'circle-alert' },
+      { rota: '/galpao', label: 'Planta do Galpão', icone: 'grid', somenteGalpao: true },
     ],
   },
   // Desabilitados por enquanto (pedido do usuário) — reativar removendo o comentário:
   // { rota: '/transferencias', label: 'Transferências', icone: 'sync' },
   // { rota: '/inventarios', label: 'Auditoria de Estoque', icone: 'box' },
   // Grupo "Coletor" desabilitado por enquanto (Transferência Rápida + Contagem de Inventário):
-  // {
-  //   label: 'Coletor',
-  //   icone: 'barcode',
-  //   subItens: [
-  //     { rota: '/transferencia', label: 'Transferência Rápida', icone: 'sync' },
-  //     { rota: '/inventario', label: 'Contagem de Inventário', icone: 'box' },
-  //   ],
-  // },
+  // { label: 'Coletor', icone: 'barcode', subItens: [
+  //   { rota: '/transferencia', label: 'Transferência Rápida', icone: 'sync' },
+  //   { rota: '/inventario', label: 'Contagem de Inventário', icone: 'box' } ] },
   {
-    label: 'Administração',
-    icone: 'building',
-    // Só ADMINISTRADOR vê (as rotas também têm adminGuard e o backend exigirAdmin).
-    somenteAdmin: true,
-    subItens: [
-      { rota: '/usuarios', label: 'Usuários', icone: 'user' },
-      { rota: '/balancas', label: 'Balanças', icone: 'scale' },
-      { rota: '/downloads', label: 'Downloads', icone: 'download' },
-      { rota: '/config-conferencia', label: 'Configuração de Conferência', icone: 'badge' },
-      { rota: '/tipos-operacao', label: 'Tipos de Operação', icone: 'badge' },
+    titulo: 'Gestão',
+    itens: [
+      // TV de acompanhamento (painel de parede) — permissão TV: admin (a conta de TV já cai direto nela).
+      {
+        label: 'TV de Conferência',
+        icone: 'tv',
+        somenteAdmin: true,
+        subItens: [
+          { rota: '/tv', label: 'Entradas e saídas', icone: 'tv' },
+          { rota: '/tv/carga', label: 'Ordens de carga', icone: 'tv' },
+        ],
+      },
+      {
+        label: 'Administração',
+        icone: 'building',
+        // Só ADMINISTRADOR vê (as rotas também têm adminGuard e o backend exigirAdmin).
+        somenteAdmin: true,
+        subItens: [
+          { rota: '/usuarios', label: 'Usuários', icone: 'user' },
+          { rota: '/balancas', label: 'Balanças', icone: 'scale' },
+          { rota: '/downloads', label: 'Downloads', icone: 'download' },
+          { rota: '/config-conferencia', label: 'Configuração de Conferência', icone: 'badge' },
+          { rota: '/tipos-operacao', label: 'Tipos de Operação', icone: 'badge' },
+          // Protótipo "Roteiros Operacionais" (/roteiros) fora do menu desde 17/11/2026 — a rota segue no ar.
+        ],
+      },
     ],
   },
 ];
@@ -99,11 +119,16 @@ export class NavMenuComponent {
   /** null = ainda não perguntado ao backend nesta sessão. */
   private readonly galpaoDisponivel = signal<boolean | null>(null);
 
-  /** Menu do usuário logado — grupo Administração só pra ADMINISTRADOR. */
-  get itens(): ItemMenu[] {
+  readonly contexto = inject(SessaoContextoService);
+
+  /** Menu do usuário logado — TV e Administração só pra ADMINISTRADOR; seção sem item visível some. */
+  get secoes(): SecaoMenu[] {
     const admin = this.auth.usuario()?.perfil === 'ADMINISTRADOR';
     const galpao = this.galpaoDisponivel() === true;
-    return ITENS.filter((i) => (admin || !i.somenteAdmin) && (galpao || !i.somenteGalpao));
+    return SECOES.map((s) => ({
+      titulo: s.titulo,
+      itens: s.itens.filter((i) => (admin || !i.somenteAdmin) && (galpao || !i.somenteGalpao)),
+    })).filter((s) => s.itens.length > 0);
   }
   readonly aberto = this.nav.aberto;
   escondido = false;

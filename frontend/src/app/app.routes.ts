@@ -32,11 +32,15 @@ import { ImpressaoOcComponent } from './impressao-oc/impressao-oc.component';
 import { MapaSeparacaoComponent } from './mapa-separacao/mapa-separacao.component';
 import { ConsultaProdutosComponent } from './consulta-produtos/consulta-produtos.component';
 import { AuditoriaPedidoComponent } from './auditoria-pedido/auditoria-pedido.component';
+import { ColetorFilaComponent } from './coletor/coletor-fila.component';
+import { coletorRedirectGuard } from './coletor/coletor-modo';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: '', redirectTo: 'fila-tarefas', pathMatch: 'full' },
-  { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard] },
+  // Coletor (18/11/2026): aparelho de toque até 639px vai para a fila própria; computador/tablet seguem na Torre.
+  { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard, coletorRedirectGuard] },
+  { path: 'coletor', component: ColetorFilaComponent, canActivate: [authGuard] },
   // TV de acompanhamento da conferência (painel de parede) — perfil TV ou admin.
   { path: 'tv', component: TvComponent, canActivate: [tvGuard] },
   // TV exclusiva de Ordens de Carga (conferência + carregamento por OC). Antes de 'tv/:movimento'.
@@ -104,6 +108,17 @@ export const routes: Routes = [
     path: 'galpao/:id/controle',
     canActivate: [adminGuard],
     loadComponent: () => import('./galpao/planta-controle/planta-controle.component').then((m) => m.PlantaControleComponent),
+  },
+  // PROTÓTIPO Roteiros Operacionais — só interface, dados demonstrativos no navegador (ver roteiros/roteiros.model.ts).
+  {
+    path: 'roteiros',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./roteiros/roteiros-lista/roteiros-lista.component').then((m) => m.RoteirosListaComponent),
+  },
+  {
+    path: 'roteiros/:id',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./roteiros/roteiro-construtor/roteiro-construtor.component').then((m) => m.RoteiroConstrutorComponent),
   },
   // Painel Master (administração da PLATAFORMA): login e sessão próprios, nunca o ADMINISTRADOR de um cliente.
   { path: 'master/login', component: MasterLoginComponent },

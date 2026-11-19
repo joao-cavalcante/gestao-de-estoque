@@ -1,51 +1,77 @@
 @if (!escondido) {
   <div class="oq-nav-backdrop" [class.oq-nav-backdrop--aberto]="aberto()" (click)="fechar()"></div>
 
-  <nav class="oq-nav-drawer" [class.oq-nav-drawer--aberto]="aberto()">
-    <div class="oq-nav-drawer__header">
-      <span class="oq-nav-drawer__logo">LG</span>
-      <span class="oq-nav-drawer__title">LOGÍSTICA ÁGIL</span>
+  <nav class="oq-nav-drawer" [class.oq-nav-drawer--aberto]="aberto()" aria-label="Menu principal">
+    <!-- Identidade em texto (17/11/2026): sem selo de iniciais nem caixa alta. Versão fica na dica. -->
+    <div class="oq-nav-drawer__header" [title]="contexto.unidade().versao + ' · ' + contexto.unidade().versaoDetalhe">
+      <span class="oq-nav-drawer__produto">Torre de Operação</span>
+      <span class="oq-nav-drawer__unidade">{{ contexto.unidade().nome }}</span>
     </div>
 
-    <ul class="oq-nav-drawer__lista">
-      @for (item of itens; track item.label) {
-        <li>
-          @if (item.subItens) {
-            <button
-              type="button"
-              class="oq-nav-drawer__grupo"
-              [class.oq-nav-drawer__grupo--aberto]="grupoAberto(item.label)"
-              (click)="alternarGrupo(item.label)"
-            >
-              <oq-icon [name]="item.icone" [size]="16" />
-              {{ item.label }}
-              <oq-icon name="arrow-left" [size]="11" class="oq-nav-drawer__seta" />
-            </button>
-            @if (grupoAberto(item.label)) {
-              <ul class="oq-nav-drawer__sublista">
-                @for (sub of item.subItens; track sub.rota) {
-                  <li>
-                    <a [routerLink]="sub.rota" routerLinkActive="oq-nav-link--ativo" (click)="fechar()">
-                      <oq-icon [name]="sub.icone" [size]="14" />
-                      {{ sub.label }}
-                    </a>
-                  </li>
+    <div class="oq-nav-drawer__corpo">
+      @for (secao of secoes; track secao.titulo) {
+        <section class="oq-nav-secao" [attr.aria-label]="secao.titulo">
+          <h2 class="oq-nav-secao__titulo">{{ secao.titulo }}</h2>
+          <ul class="oq-nav-secao__lista">
+            @for (item of secao.itens; track item.label) {
+              <li>
+                @if (item.subItens) {
+                  <button
+                    type="button"
+                    class="oq-nav-item"
+                    [class.oq-nav-item--grupo-aberto]="grupoAberto(item.label)"
+                    [attr.aria-expanded]="grupoAberto(item.label)"
+                    (click)="alternarGrupo(item.label)"
+                  >
+                    <oq-icon [name]="item.icone" [size]="16" class="oq-nav-item__icone" />
+                    <span class="oq-nav-item__rotulo">{{ item.label }}</span>
+                    <oq-icon name="chevron-right" [size]="12" class="oq-nav-item__seta" />
+                  </button>
+                  @if (grupoAberto(item.label)) {
+                    <ul class="oq-nav-sublista">
+                      @for (sub of item.subItens; track sub.rota) {
+                        <li>
+                          <a
+                            class="oq-nav-item oq-nav-item--sub"
+                            [routerLink]="sub.rota"
+                            routerLinkActive="oq-nav-item--ativo"
+                            [routerLinkActiveOptions]="{ exact: true }"
+                            ariaCurrentWhenActive="page"
+                            (click)="fechar()"
+                          >{{ sub.label }}</a>
+                        </li>
+                      }
+                    </ul>
+                  }
+                } @else {
+                  <a
+                    class="oq-nav-item"
+                    [routerLink]="item.rota"
+                    routerLinkActive="oq-nav-item--ativo"
+                    ariaCurrentWhenActive="page"
+                    (click)="fechar()"
+                  >
+                    <oq-icon [name]="item.icone" [size]="16" class="oq-nav-item__icone" />
+                    <span class="oq-nav-item__rotulo">{{ item.label }}</span>
+                  </a>
                 }
-              </ul>
+              </li>
             }
-          } @else {
-            <a [routerLink]="item.rota" routerLinkActive="oq-nav-link--ativo" (click)="fechar()">
-              <oq-icon [name]="item.icone" [size]="16" />
-              {{ item.label }}
-            </a>
-          }
-        </li>
+          </ul>
+        </section>
       }
-    </ul>
+    </div>
 
-    <button type="button" class="oq-nav-drawer__sair" (click)="sair()">
-      <oq-icon name="logout" [size]="14" />
-      Sair
-    </button>
+    <!-- Rodapé: quem está logado + Sair discreto (sem botão vermelho). -->
+    <div class="oq-nav-drawer__rodape">
+      <span class="oq-nav-drawer__operador">
+        <span class="oq-nav-drawer__operador-nome">{{ contexto.operador().nome }}</span>
+        <span class="oq-nav-drawer__operador-cargo">{{ contexto.operador().cargo }}</span>
+      </span>
+      <button type="button" class="oq-nav-drawer__sair" (click)="sair()">
+        <oq-icon name="logout" [size]="14" />
+        Sair
+      </button>
+    </div>
   </nav>
 }

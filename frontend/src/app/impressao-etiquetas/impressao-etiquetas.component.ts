@@ -2,25 +2,32 @@ import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } fr
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../auth/auth.service';
 import { SeparacaoService } from '../separacao/separacao.service';
-import { ConferenciaFinalizada } from '../separacao/separacao.model';
-import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
+import { ConferenciaFinalizada, ConferenciasFinalizadasResposta } from '../separacao/separacao.model';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
+import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { OqViewToggleComponent } from '../shared/lista-layout/oq-view-toggle.component';
 import { OqPaginacaoComponent } from '../shared/lista-layout/oq-paginacao.component';
 import { ITENS_POR_PAGINA, ViewMode, itensValidosPara, lerViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
+import { Observable } from 'rxjs';
 
 const CHAVE_VIEW_MODE = 'impressao-etiquetas-view-mode';
 
+interface GrupoDia {
+  rotulo: string;
+  itens: ConferenciaFinalizada[];
+}
+
 /**
- * Lista as conferências finalizadas pelo WMS pra reimpressão de etiquetas —
- * espelha a tela /impressao-etiquetas do fila-de-conferencia. Mesmo layout da
- * Fila de Tarefas (estilos globais em styles/_lista-layout.scss); aqui filtro e
- * paginação são NO SERVIDOR (itens/página vai direto como perPage).
+ * Balcão de reimpressão de etiquetas (17/11/2026 — antes era a grade de cards da Fila, "usando o layout padrão como
+ * muleta"). Uma linha por conferência, agrupada por dia em que terminou; os botões dizem o que sai da impressora
+ * ("6 etiquetas de volume", "3 de peso"). Busca única (nº único, depois NF — o filtro é no servidor), Enter com um
+ * resultado só já abre a etiqueta. Cards/lista e paginação no servidor continuam. As páginas /etiquetas e
+ * /etiquetas-peso (também usadas ao vivo na separação) não mudam.
  */
 @Component({
   selector: 'app-impressao-etiquetas',
   standalone: true,
-  imports: [FormsModule, OqSkeletonComponent, OqIconComponent, OqViewToggleComponent, OqPaginacaoComponent],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqViewToggleComponent, OqPaginacaoComponent],
   templateUrl: './impressao-etiquetas.component.html',
   styleUrl: './impressao-etiquetas.component.scss',
 })
@@ -28,7 +35,7 @@ export class ImpressaoEtiquetasComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly separacao = inject(SeparacaoService);
 
-  /** Cards (grid) ou lista (tabela) — preferência do navegador, só troca a renderização. */
+  /** Lista (linhas do balcão) ou cards (mesmo conteúdo em grade) — preferência do navegador. */
   readonly viewMode = signal<ViewMode>(lerViewMode(CHAVE_VIEW_MODE));
   readonly opcoesItensPorPagina = computed(() => ITENS_POR_PAGINA[this.viewMode()]);
   readonly itensPorPagina = signal(itensValidosPara(this.viewMode(), 20));
@@ -41,9 +48,11 @@ export class ImpressaoEtiquetasComponent implements OnInit {
   readonly page = signal(0);
   readonly carregando = signal(true);
   readonly erro = signal<string | null>(null);
+  /** A busca achou pela NF (não pelo nº único) — avisado na tela. */
+  readonly achouPorNota = signal(false);
 
-  filtroNota: number | null = null;
-  filtroUnico: number | null = null;
+  /** Busca única: nº único ou NF (só número). */
+  termo = '';
   private debounce?: ReturnType<typeof setTimeout>;
 
   get tenant(): string {
@@ -54,33 +63,62 @@ export class ImpressaoEtiquetasComponent implements OnInit {
     this.buscar();
   }
 
-  buscar(resetPage = true): void {
+  private consultar(filtro: { nunota?: number; numnota?: number }): Observable<ConferenciasFinalizadasResposta> {
+    return this.separacao.listarConferenciasFinalizadas(this.tenant, { ...filtro, page: this.page(), perPage: this.itensPorPagina() });
+  }
+
+  /** Número digitado → tenta como nº único; sem resultado, tenta como NF (o servidor filtra por um OU outro). */
+  buscar(resetPage = true, aoTerminar?: () => void): void {
     if (resetPage) this.page.set(0);
     this.carregando.set(true);
     this.erro.set(null);
-    this.separacao
-      .listarConferenciasFinalizadas(this.tenant, {
-        numnota: this.filtroNota ?? undefined,
-        nunota: this.filtroUnico ?? undefined,
-        page: this.page(),
-        perPage: this.itensPorPagina(),
-      })
-      .subscribe({
-        next: (r) => {
-          this.itens.set(r.itens);
-          this.total.set(r.total);
-          this.carregando.set(false);
-        },
-        error: (err) => {
-          this.erro.set(err?.error?.erro ?? 'Falha ao carregar as conferências.');
-          this.carregando.set(false);
-        },
-      });
+    this.achouPorNota.set(false);
+    const numero = /^\d+$/.test(this.termo.trim()) ? Number(this.termo.trim()) : null;
+    const aplicar = (r: ConferenciasFinalizadasResposta) => {
+      this.itens.set(r.itens);
+      this.total.set(r.total);
+      this.carregando.set(false);
+      aoTerminar?.();
+    };
+    const falhar = (err: { error?: { erro?: string } }) => {
+      this.erro.set(err?.error?.erro ?? 'Falha ao carregar as conferências.');
+      this.carregando.set(false);
+    };
+    this.consultar(numero != null ? { nunota: numero } : {}).subscribe({
+      next: (r) => {
+        if (numero != null && r.total === 0) {
+          this.consultar({ numnota: numero }).subscribe({
+            next: (r2) => {
+              this.achouPorNota.set(r2.total > 0);
+              aplicar(r2);
+            },
+            error: falhar,
+          });
+        } else {
+          aplicar(r);
+        }
+      },
+      error: falhar,
+    });
   }
 
-  onFiltroChange(): void {
+  onBuscaChange(): void {
     clearTimeout(this.debounce);
     this.debounce = setTimeout(() => this.buscar(), 400);
+  }
+
+  /** Enter: busca na hora e, se sobrou um resultado só, já abre as etiquetas de volume dele. */
+  onEnter(): void {
+    clearTimeout(this.debounce);
+    this.buscar(true, () => {
+      const itens = this.itens();
+      if (itens.length === 1 && this.termo.trim()) this.imprimir(itens[0]);
+    });
+  }
+
+  limparBusca(): void {
+    this.termo = '';
+    this.buscar();
   }
 
   irParaPagina(p: number): void {
@@ -94,10 +132,7 @@ export class ImpressaoEtiquetasComponent implements OnInit {
     this.buscar();
   }
 
-  /**
-   * Troca cards ↔ lista. Com os mesmos itens/página só muda a renderização (sem ir ao servidor);
-   * se o modo novo não tem essa opção, busca de novo mantendo o 1º item visível.
-   */
+  /** Troca cards ↔ lista; se o modo novo não tem esses itens/página, busca de novo mantendo o 1º item visível. */
   onViewModeChange(modo: ViewMode): void {
     if (modo === this.viewMode()) return;
     const primeiro = this.page() * this.itensPorPagina();
@@ -109,6 +144,53 @@ export class ImpressaoEtiquetasComponent implements OnInit {
       this.page.set(Math.floor(primeiro / n));
       this.buscar(false);
     }
+  }
+
+  /** Agrupa a página por dia em que a conferência terminou (Hoje / Ontem / dia da semana dd/mm). */
+  readonly grupos = computed<GrupoDia[]>(() => {
+    const grupos: GrupoDia[] = [];
+    for (const item of this.itens()) {
+      const rotulo = this.rotuloDia(item);
+      const ultimo = grupos[grupos.length - 1];
+      if (ultimo && ultimo.rotulo === rotulo) ultimo.itens.push(item);
+      else grupos.push({ rotulo, itens: [item] });
+    }
+    return grupos;
+  });
+
+  private dataFim(item: ConferenciaFinalizada): Date | null {
+    const iso = item.finalizadaEm ?? item.dataMovimento;
+    if (!iso) return null;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  private rotuloDia(item: ConferenciaFinalizada): string {
+    const d = this.dataFim(item);
+    if (!d) return 'Sem data';
+    const dia = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((dia(new Date()) - dia(d)) / 86_400_000);
+    if (diff === 0) return 'Hoje';
+    if (diff === 1) return 'Ontem';
+    return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+  }
+
+  /** "14:05" — hora em que terminou (a data está no título do grupo). */
+  hora(item: ConferenciaFinalizada): string {
+    const d = item.finalizadaEm ? new Date(item.finalizadaEm) : null;
+    return d && !isNaN(d.getTime()) ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  }
+
+  /** Dica da linha: o que saiu da linha principal (NF, tipo de operação, vendedor, data do pedido). */
+  dica(item: ConferenciaFinalizada): string {
+    return [
+      item.numeroNota ? `NF ${item.numeroNota}` : null,
+      item.descricaoTipoOperacao,
+      item.apelidoVendedor ? `Vendedor: ${item.apelidoVendedor}` : null,
+      item.dataMovimento ? `Pedido de ${this.data(item.dataMovimento)}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
   }
 
   tituloPeso(item: ConferenciaFinalizada): string {

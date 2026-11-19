@@ -1,4 +1,9 @@
-<div class="oq-empty-state">
+<div class="oq-empty-state" role="status">
   <p class="oq-empty-state__titulo">{{ titulo }}</p>
-  <p class="oq-empty-state__mensagem">{{ mensagem }}</p>
+  @if (mensagem) {
+    <p class="oq-empty-state__mensagem">{{ mensagem }}</p>
+  }
+  @if (podeLimpar) {
+    <button type="button" class="oq-empty-state__limpar" (click)="limpar.emit()">Limpar filtros</button>
+  }
 </div>

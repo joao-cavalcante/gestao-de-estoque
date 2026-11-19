@@ -19,9 +19,14 @@ export class OqLastScanPanelComponent {
   @Input() compacto = false;
   /** CCO.EXIBIRQTDCONF — false esconde a quantidade na tarja compacta. */
   @Input() exibirQtd = true;
+  /** Conferência às cegas (CCO EXIBIRQTD = 'N'): sem esperado nem divergência durante a contagem. */
+  @Input() cega = false;
   @Output() resolver = new EventEmitter<ConferenciaItem>();
 
   get isCritico(): boolean {
+    // Às cegas só é erro o que é erro de LEITURA (não encontrado, não permitido, fora do pedido) — divergência de
+    // quantidade não aparece durante a contagem.
+    if (this.cega) return !!this.item && (this.item.seq === 0 || !!this.item.foraPedido);
     return this.item?.status === 'critical';
   }
 }

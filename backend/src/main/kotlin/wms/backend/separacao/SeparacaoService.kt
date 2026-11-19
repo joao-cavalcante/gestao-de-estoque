@@ -332,6 +332,8 @@ object SeparacaoService {
             val exibirProdConf = campoExibicao("EXIBIRPRODCONF")
             val exibirQtdConf = campoExibicao("EXIBIRQTDCONF")
             val exibirImgProd = campoExibicao("EXIBIRIMGPROD")
+            // Alerta sonoro (V76): só 'N' explícito silencia os alertas de divergência (fail-safe = com som, como hoje).
+            val exibirAlertaSonoro = campoExibicao("EXIBIRALERTASONORO")
 
             // Conferência segmentada NÃO vem do Sankhya — é um módulo por-tenant
             // (tenancy.erp_connections.modulos), ligado só pela plataforma pro
@@ -420,7 +422,7 @@ object SeparacaoService {
                 if (conferenciaSegmentada) {
                     SeparacaoRepository.semearEtapas(tenantId, sessaoId, itensComPeso.map { it.tipoSeparacao }.toSet())
                 }
-                SeparacaoRepository.marcarPronta(tenantId, sessaoId, fingerprint, buscarCodigoBarraPor, qtdAmaior, obterQtdBalanca, produtosForaPed, conferenciaSegmentada, fatAoConcluir, exibirProd, exibirQtd, exibirProdConf, exibirQtdConf, exibirImgProd, formacaoVolumes)
+                SeparacaoRepository.marcarPronta(tenantId, sessaoId, fingerprint, buscarCodigoBarraPor, qtdAmaior, obterQtdBalanca, produtosForaPed, conferenciaSegmentada, fatAoConcluir, exibirProd, exibirQtd, exibirProdConf, exibirQtdConf, exibirImgProd, formacaoVolumes, exibirAlertaSonoro)
 
                 // Auto-conferência silenciosa de item já LIBERADO numa rodada de
                 // corte anterior (ver LiberacaoCorteService.liberarOuNegar) — o

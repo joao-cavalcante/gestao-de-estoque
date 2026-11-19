@@ -1,59 +1,59 @@
-<oq-panel-section icon="list-check" title="CONFERIDOS" [count]="items.length" countTone="default">
+<oq-panel-section icon="list-check" title="Conferidos" [count]="items.length" countTone="default">
+  @if (podeVerTodos) {
+    <!-- "Ver conferidos" (detalhe com check de reconferência) mora aqui, junto da lista (17/11/2026). -->
+    <button acao type="button" class="conf-ver-todos" (click)="verTodos.emit()" title="Tudo o que já foi conferido na nota, com check de reconferência">
+      <oq-icon name="list" [size]="13" /> Ver conferidos
+    </button>
+  }
   @if (items.length === 0) {
     <div class="oq-empty-row">Nenhum item conferido</div>
   } @else {
-    <ul class="item-lista">
+    <ul class="item-lista" [class.item-lista--cega]="cega">
       @for (item of items; track item.code + item.seq) {
         <li
           class="item-row"
-          [class.item-row--excedente]="isDivergenciaQtd(item)"
-          [class.item-row--peso-divergente]="isDivergenciaPeso(item)"
-          [class.item-row--pesavel]="item.usaConfPeso && !isCritico(item)"
-          [class.item-row--parcial]="isParcial(item)"
+          [class.item-row--excedente]="!cega && isDivergenciaQtd(item)"
+          [class.item-row--peso-divergente]="!cega && isDivergenciaPeso(item)"
+          [class.item-row--pesavel]="item.usaConfPeso && (cega || !isCritico(item))"
+          [class.item-row--parcial]="!cega && isParcial(item)"
         >
           <span
             class="item-glyph"
-            [class.item-glyph--alerta]="isDivergenciaQtd(item)"
-            [class.item-glyph--peso]="isDivergenciaPeso(item)"
-            [class.item-glyph--parcial]="isParcial(item)"
+            [class.item-glyph--alerta]="!cega && isDivergenciaQtd(item)"
+            [class.item-glyph--peso]="!cega && isDivergenciaPeso(item)"
+            [class.item-glyph--parcial]="!cega && isParcial(item)"
           >
             <oq-icon
-              [name]="isDivergenciaPeso(item) ? 'scale' : isCritico(item) ? 'circle-alert' : isParcial(item) ? 'clock' : 'check'"
+              [name]="cega ? 'check' : isDivergenciaPeso(item) ? 'scale' : isCritico(item) ? 'circle-alert' : isParcial(item) ? 'clock' : 'check'"
               [size]="14"
             />
           </span>
-
-          @if (item.usaConfPeso) {
-            <span
-              class="item-peso-tag"
-              [class.item-peso-tag--erro]="isDivergenciaPeso(item)"
-              title="Item pesável — quantidade veio do peso"
-            >
-              <oq-icon name="scale" [size]="15" />
-              <span class="item-peso-tag__txt">PESO</span>
-            </span>
-          }
 
           <div class="item-dados">
             <div class="item-linha">
               <span class="item-descricao">
                 <span class="item-descricao__code">{{ item.code }}</span>
                 <span class="item-descricao__name"> — {{ item.name }}</span>
+                @if (item.usaConfPeso) {
+                  <span class="item-peso" title="Item pesável — quantidade vem da balança"><oq-icon name="scale" [size]="12" /> peso</span>
+                }
               </span>
               @if (exibirQtd) {
                 <span
                   class="item-qtd-principal"
-                  [class.item-qtd-principal--excedente]="isDivergenciaQtd(item)"
-                  [class.item-qtd-principal--peso]="isDivergenciaPeso(item)"
-                  [class.item-qtd-principal--parcial]="isParcial(item)"
+                  [class.item-qtd-principal--excedente]="!cega && isDivergenciaQtd(item)"
+                  [class.item-qtd-principal--peso]="!cega && isDivergenciaPeso(item)"
+                  [class.item-qtd-principal--parcial]="!cega && isParcial(item)"
                 >
                   {{ formatarQtd(qtdPrincipal(item)) }}
-                  @if (isParcial(item)) { <span class="item-qtd-principal__de">de {{ formatarQtd(totalPrincipal(item)) }}</span> }
+                  @if (!cega && isParcial(item)) { <span class="item-qtd-principal__de">de {{ formatarQtd(totalPrincipal(item)) }}</span> }
                   @if (unidadePrincipal(item)) { <span class="item-qtd-principal__un">{{ unidadePrincipal(item) }}</span> }
                 </span>
               }
             </div>
-            @if (isDivergenciaPeso(item)) {
+            @if (cega) {
+              <!-- Às cegas: nada de esperado/divergência na contagem — aparece só ao Confirmar. -->
+            } @else if (isDivergenciaPeso(item)) {
               <div class="item-linha">
                 <span class="item-divergencia item-divergencia--peso">
                   <oq-icon name="scale" [size]="12" />
@@ -95,7 +95,7 @@
                     <span class="item-base__rot">Base</span>
                     {{ formatarQtd(item.scanned) }} {{ item.unidadePadrao }}
                   </span>
-                } @else {
+                } @else if (!cega) {
                   <!-- Pesável (principal = peso em KG) ou sem conversão: pedido na unidade comercial, só referência. -->
                   <span class="item-base">
                     <span class="item-base__rot">Pedido</span>

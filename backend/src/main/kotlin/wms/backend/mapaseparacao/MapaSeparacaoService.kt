@@ -46,7 +46,7 @@ object MapaSeparacaoService {
     /** + NUMNOTA pro cabeçalho do mapa S/ Ordem de Carga (identificação do pedido impresso). */
     private val FIELDS_NOTA_SEM_OC = FIELDS_NOTA + "NUMNOTA"
     private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODEMP", "PESOMAX", "CODVEICULO", "CODPARCMOTORISTA", "DTALTER")
-    private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO", "DTALTER")
+    private val FIELDS_ORDEM_LISTA = listOf("ORDEMCARGA", "CODEMP", "DTPREVSAIDA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO", "DTALTER", "CODREG")
 
     /**
      * TGFORD.DTALTER como vem do Sankhya ("05102026 15:20:42" ou "05/10/2026 15:20:42") → "05/10/2026 15:20:42".
@@ -523,11 +523,15 @@ object MapaSeparacaoService {
         val codVeiculos = raw.mapNotNull { it["CODVEICULO"]?.toIntOrNull() }.distinct()
         val codMotoristas = raw.mapNotNull { it["CODPARCMOTORISTA"]?.toIntOrNull() }.distinct()
 
+        val codRegioes = raw.mapNotNull { it["CODREG"]?.toIntOrNull()?.takeIf { c -> c > 0 } }.distinct()
+
         val placasDeferred = async { buscarPlacas(tenantSlug, codVeiculos) }
         val nomesDeferred = async { buscarNomesParceiro(tenantSlug, codMotoristas) }
+        val regioesDeferred = async { runCatching { buscarRegioes(tenantSlug, codRegioes) }.getOrDefault(emptyMap()) }
 
         val placasPorCodVeiculo = placasDeferred.await()
         val nomesPorCodParc = nomesDeferred.await()
+        val regioesPorCod = regioesDeferred.await()
         val statusPorOc = withContext(Dispatchers.IO) {
             TarefasRepository.statusPorOrdemCarga(tenantId, ordensCarga.toSet())
         }.groupBy({ it.first }, { it.second })
@@ -544,6 +548,11 @@ object MapaSeparacaoService {
         val carregamento = withContext(Dispatchers.IO) {
             wms.backend.reconferencia.ReconferenciaService.resumoCarregamento(tenantId, conferidasNunotas, 7)
         }
+        // Peso a separar por área, só dos pedidos ainda não conferidos (o que vai para o separador).
+        val pendentesNunotas = pedidosPorOc.values.flatten().filter { it.statusOperacional !in STATUS_CONFERIDA }.map { it.nunota }
+        val areaPorNunota = runCatching { pesoPorArea(tenantSlug, pendentesNunotas) }
+            .onFailure { println("AVISO: peso por área do mapa (tenant $tenantSlug) falhou: ${it.message}") }
+            .getOrDefault(emptyMap())
 
         raw.mapNotNull { r ->
             val ordemCarga = r["ORDEMCARGA"]?.toLongOrNull() ?: return@mapNotNull null
@@ -570,8 +579,58 @@ object MapaSeparacaoService {
                 pesoTotalKg = arredondarKg(pedidosPorOc[ordemCarga].orEmpty().sumOf { it.pesoKg }),
                 pesoPendenteKg = arredondarKg(pedidosPorOc[ordemCarga].orEmpty().filter { it.statusOperacional !in STATUS_CONFERIDA }.sumOf { it.pesoKg }),
                 pedidosNovos = novosPorOc[ordemCarga].orEmpty(),
+                regiao = r["CODREG"]?.toIntOrNull()?.let { regioesPorCod[it] },
+                qtdPedidos = pedidosPorOc[ordemCarga].orEmpty().size,
+                qtdClientes = pedidosPorOc[ordemCarga].orEmpty().mapNotNull { it.nomeParceiro?.trim()?.uppercase() }.distinct().size,
+                pesoPendentePorArea = pedidosPorOc[ordemCarga].orEmpty()
+                    .filter { it.statusOperacional !in STATUS_CONFERIDA }
+                    .flatMap { p -> areaPorNunota[p.nunota].orEmpty().entries }
+                    .groupBy({ it.key }, { it.value })
+                    .mapValues { (_, kgs) -> arredondarKg(kgs.sum()) }
+                    .filterValues { it > 0 },
             )
         }
+    }
+
+    /** TSIREG.NOMEREG por CODREG (região da OC). */
+    private suspend fun buscarRegioes(tenantSlug: String, codigos: List<Int>): Map<Int, String> {
+        if (codigos.isEmpty()) return emptyMap()
+        return codigos.chunked(500).flatMap { lote ->
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT CODREG, NOMEREG FROM TSIREG WHERE CODREG IN (${lote.joinToString(",")})",
+            ).mapNotNull { r ->
+                val cod = r["CODREG"]?.toBigDecimalOrNull()?.toInt() ?: return@mapNotNull null
+                val nome = r["NOMEREG"]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                cod to nome
+            }
+        }.toMap()
+    }
+
+    /**
+     * nunota → (área → kg): Σ QTDNEG × TGFPRO.PESOBRUTO por NVL(TGFPRO.AD_TIPOSEPARACAO, TGFGRU.AD_TIPOSEPARACAO).
+     * Campo personalizado (Negri): base sem ele faz a consulta falhar — quem chama trata como "sem área".
+     */
+    private suspend fun pesoPorArea(tenantSlug: String, nunotas: List<Long>): Map<Long, Map<String, Double>> {
+        if (nunotas.isEmpty()) return emptyMap()
+        val acc = HashMap<Long, HashMap<String, Double>>()
+        nunotas.distinct().chunked(500).forEach { lote ->
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT I.NUNOTA, NVL(NVL(P.AD_TIPOSEPARACAO, G.AD_TIPOSEPARACAO), '0') AS AREA, " +
+                    "SUM(I.QTDNEG * NVL(P.PESOBRUTO, 0)) AS KG " +
+                    "FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
+                    "LEFT JOIN TGFGRU G ON G.CODGRUPOPROD = P.CODGRUPOPROD " +
+                    "WHERE I.NUNOTA IN (${lote.joinToString(",")}) " +
+                    "GROUP BY I.NUNOTA, NVL(NVL(P.AD_TIPOSEPARACAO, G.AD_TIPOSEPARACAO), '0')",
+            ).forEach { r ->
+                val nunota = r["NUNOTA"]?.toBigDecimalOrNull()?.toLong() ?: return@forEach
+                val area = r["AREA"]?.trim()?.takeIf { it.isNotEmpty() } ?: "0"
+                val kg = r["KG"]?.toDoubleOrNull() ?: r["KG"]?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
+                acc.getOrPut(nunota) { HashMap() }.merge(area, kg, Double::plus)
+            }
+        }
+        return acc
     }
 
     /**

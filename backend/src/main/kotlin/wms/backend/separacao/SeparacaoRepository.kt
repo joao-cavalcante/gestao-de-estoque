@@ -163,6 +163,7 @@ object SeparacaoRepository {
         exibirQtdConf: String?,
         exibirImgProd: String?,
         formacaoVolumes: String?,
+        exibirAlertaSonoro: String? = null,
     ): Unit = TenantTx.run(tenantId) {
         SeparacaoSessoesTable.update({ (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }) {
             it[status] = SeparacaoStatus.PRONTA
@@ -178,6 +179,7 @@ object SeparacaoRepository {
             it[SeparacaoSessoesTable.exibirProdConf] = exibirProdConf
             it[SeparacaoSessoesTable.exibirQtdConf] = exibirQtdConf
             it[SeparacaoSessoesTable.exibirImgProd] = exibirImgProd
+            it[SeparacaoSessoesTable.exibirAlertaSonoro] = exibirAlertaSonoro
             it[SeparacaoSessoesTable.formacaoVolumes] = formacaoVolumes
             it[atualizadoEm] = Instant.now()
         }
@@ -1385,6 +1387,7 @@ object SeparacaoRepository {
                     exibirProdConf = it[SeparacaoSessoesTable.exibirProdConf],
                     exibirQtdConf = it[SeparacaoSessoesTable.exibirQtdConf],
                     exibirImgProd = it[SeparacaoSessoesTable.exibirImgProd],
+                    exibirAlertaSonoro = it[SeparacaoSessoesTable.exibirAlertaSonoro],
                     operadorId = it[SeparacaoSessoesTable.operadorId]?.toString(),
                     estacaoId = it[SeparacaoSessoesTable.estacaoId]?.toString(),
                     recontagem = it[SeparacaoSessoesTable.recontagem],
@@ -1520,16 +1523,22 @@ object SeparacaoRepository {
                 nuconf = row[SeparacaoSessoesTable.nuconf],
                 parcial = row[SeparacaoSessoesTable.status] == SeparacaoStatus.PRONTA,
                 etapasConcluidas = etapasConcluidasPorSessao[row[SeparacaoSessoesTable.id]].orEmpty().distinct().sorted(),
+                ordemCarga = d?.get("ORDEMCARGA")?.jsonPrimitive?.contentOrNull?.trim()
+                    ?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }?.takeIf { it > 0 },
+                finalizadaEm = row[SeparacaoSessoesTable.atualizadoEm]
+                    .let { at -> ultimaEtapaPorSessao[row[SeparacaoSessoesTable.id]]?.takeIf { it > at } ?: at }
+                    .toString(),
             )
         }
 
         val total = todos.size
         val pagina = todos.drop(page * perPage).take(perPage)
 
-        // Só pras sessões da página: quais têm item pesável conferido (etiqueta de peso possível).
+        // Só pras sessões da página: itens pesáveis conferidos (uma etiqueta de peso por item — mesmo filtro de
+        // SeparacaoService.etiquetasPeso) e volumes (mesmo total de totalQtdVol; parcial = só etapas concluídas).
         val idsPagina = pagina.map { UUID.fromString(it.sessaoId) }
-        val comPesavel = if (idsPagina.isEmpty()) {
-            emptySet()
+        val pesoPorSessao: Map<String, Int> = if (idsPagina.isEmpty()) {
+            emptyMap()
         } else {
             SeparacaoItensTable.selectAll()
                 .where {
@@ -1538,11 +1547,34 @@ object SeparacaoRepository {
                         (SeparacaoItensTable.usaConfPeso eq true) and
                         (SeparacaoItensTable.qtdConferidaLocal greater java.math.BigDecimal.ZERO)
                 }
-                .map { it[SeparacaoItensTable.sessaoId].toString() }
-                .toSet()
+                .groupingBy { it[SeparacaoItensTable.sessaoId].toString() }
+                .eachCount()
+        }
+        val etapasPagina = if (idsPagina.isEmpty()) emptyList() else SeparacaoEtapasTable.selectAll()
+            .where { (SeparacaoEtapasTable.tenantId eq tenantId) and (SeparacaoEtapasTable.sessaoId inList idsPagina) }
+            .toList()
+        val sessoesPagina = if (idsPagina.isEmpty()) emptyList() else SeparacaoSessoesTable.selectAll()
+            .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id inList idsPagina) }
+            .toList()
+        val volSessao = sessoesPagina.associate { it[SeparacaoSessoesTable.id].toString() to it[SeparacaoSessoesTable.qtdVol] }
+        val operadorPorSessao = sessoesPagina.mapNotNull { r -> r[SeparacaoSessoesTable.operadorId]?.let { r[SeparacaoSessoesTable.id].toString() to it } }.toMap()
+        val nomeOperador = if (operadorPorSessao.isEmpty()) emptyMap() else wms.backend.usuarios.UsersTable.selectAll()
+            .where { wms.backend.usuarios.UsersTable.id inList operadorPorSessao.values.distinct() }
+            .associate { it[wms.backend.usuarios.UsersTable.id] to it[wms.backend.usuarios.UsersTable.nome] }
+        fun volumes(dto: ConferenciaFinalizadaDto): Int {
+            val etapas = etapasPagina.filter { it[SeparacaoEtapasTable.sessaoId].toString() == dto.sessaoId }
+            val etapasConsideradas = if (dto.parcial) etapas.filter { it[SeparacaoEtapasTable.status] == "C" } else etapas
+            val soma = etapasConsideradas.sumOf { it[SeparacaoEtapasTable.qtdVol] }
+            return if (soma > 0 || dto.parcial) soma else volSessao[dto.sessaoId] ?: 0
         }
         ConferenciasFinalizadasResponse(
-            itens = pagina.map { it.copy(temPesavel = it.sessaoId in comPesavel) },
+            itens = pagina.map {
+                val pesos = pesoPorSessao[it.sessaoId] ?: 0
+                it.copy(
+                    temPesavel = pesos > 0, qtdEtiquetasPeso = pesos, qtdVolumes = volumes(it),
+                    conferente = operadorPorSessao[it.sessaoId]?.let { op -> nomeOperador[op] },
+                )
+            },
             total = total,
             page = page,
             perPage = perPage,
@@ -2209,6 +2241,7 @@ object SeparacaoRepository {
         exibirProdConf = row[SeparacaoSessoesTable.exibirProdConf],
         exibirQtdConf = row[SeparacaoSessoesTable.exibirQtdConf],
         exibirImgProd = row[SeparacaoSessoesTable.exibirImgProd],
+        exibirAlertaSonoro = row[SeparacaoSessoesTable.exibirAlertaSonoro],
         operadorId = row[SeparacaoSessoesTable.operadorId]?.toString(),
         estacaoId = row[SeparacaoSessoesTable.estacaoId]?.toString(),
         formacaoVolumes = row[SeparacaoSessoesTable.formacaoVolumes],
@@ -2396,6 +2429,48 @@ object SeparacaoRepository {
     }
 
     data class ProgressoEtapa(val total: Int, val conferidos: Int)
+
+    /** Andamento da conferência ativa de um pedido — card/lista da fila ("18/32 itens · Fulano · desde 14:05"). */
+    data class AndamentoSessao(val total: Int, val conferidos: Int, val operador: String?, val desde: Instant)
+
+    /**
+     * Sessões ATIVAS (carregando/pronta) do tenant → itens conferidos/total (sem itens fora do pedido) + nome de quem
+     * bipou o crachá. Roda dentro da transação de quem chama (TarefasRepository.listar), três leituras em lote.
+     */
+    fun andamentoAtivoPorNunotaTx(tenantId: UUID): Map<Long, AndamentoSessao> {
+        val sessoes = SeparacaoSessoesTable.selectAll()
+            .where {
+                (SeparacaoSessoesTable.tenantId eq tenantId) and
+                    (SeparacaoSessoesTable.status inList listOf(SeparacaoStatus.CARREGANDO, SeparacaoStatus.PRONTA))
+            }
+            .map { Triple(it[SeparacaoSessoesTable.id], it[SeparacaoSessoesTable.nunota].toLong(), it[SeparacaoSessoesTable.operadorId] to it[SeparacaoSessoesTable.criadoEm]) }
+        if (sessoes.isEmpty()) return emptyMap()
+
+        val contagem = HashMap<UUID, IntArray>() // sessão -> [total, conferidos]
+        SeparacaoItensTable.selectAll()
+            .where {
+                (SeparacaoItensTable.tenantId eq tenantId) and
+                    (SeparacaoItensTable.sessaoId inList sessoes.map { it.first }) and
+                    (SeparacaoItensTable.foraPedido eq false)
+            }
+            .forEach { row ->
+                val par = contagem.getOrPut(row[SeparacaoItensTable.sessaoId]) { intArrayOf(0, 0) }
+                par[0]++
+                if (row[SeparacaoItensTable.qtdConferidaLocal] >= row[SeparacaoItensTable.qtdNeg]) par[1]++
+            }
+
+        val operadores = sessoes.mapNotNull { it.third.first }.distinct()
+        val nomes = if (operadores.isEmpty()) emptyMap() else wms.backend.usuarios.UsersTable.selectAll()
+            .where { wms.backend.usuarios.UsersTable.id inList operadores }
+            .associate { it[wms.backend.usuarios.UsersTable.id] to it[wms.backend.usuarios.UsersTable.nome] }
+
+        // Mais de uma sessão ativa por nota (não deveria): fica a mais recente.
+        return sessoes.sortedBy { it.third.second }.associate { (id, nunota, opEDesde) ->
+            val (op, desde) = opEDesde
+            val c = contagem[id] ?: intArrayOf(0, 0)
+            nunota to AndamentoSessao(c[0], c[1], op?.let { nomes[it] }, desde)
+        }
+    }
 
     /**
      * Progresso (itens / conferidos) por nunota e tipo de separação, lendo os

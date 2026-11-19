@@ -31,6 +31,18 @@ export class OqConferenciaHeaderComponent {
   @Input() conferredCount = 0;
   @Input() divergenceCount = 0;
 
+  /** TIPMOV da sessão — NF no cabeçalho só em documento que já é nota (V/C), mesma regra da Fila (17/11/2026). */
+  /** Conferência às cegas (CCO EXIBIRQTD = 'N'): sem esperado nem divergência durante a contagem. */
+  @Input() cega = false;
+  /** CCO EXIBIRPROD = 'N': o operador não vê o que falta — contador de pendentes some. */
+  @Input() ocultarPendentes = false;
+  @Input() tipMov: string | null = null;
+
+  get mostraNota(): boolean {
+    const t = (this.tipMov ?? '').trim().toUpperCase();
+    return t === 'V' || t === 'C';
+  }
+
   @Output() atalhos = new EventEmitter<void>();
 
   formatarKpi(v: number): string {

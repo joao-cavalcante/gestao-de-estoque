@@ -1,6 +1,6 @@
 /* Estilos-base em src/styles/_lista-layout.scss (globais) — o mesmo layout vale pra
    Fila de Tarefas, Impressão de Etiquetas, Liberação de Corte e Mapa de Separação.
-   Abaixo, só o refinamento da FILA (nível 4 do topo: filtros = interação, distintos dos KPIs). */
+   Abaixo, só o refinamento da FILA: filtros com a contagem de cada fase, texto escrito normal. */
 
 .oq-toolbar {
   justify-content: flex-start;
@@ -9,14 +9,30 @@
   border-top: 1px solid var(--oq-border);
 }
 
+// Na Fila fora da OC a barra divide a linha com a busca (fila-tarefas, .oq-fila-topo--barra-unica): sem a linha
+// de cima e sem o recuo da esquerda (a busca já está lá).
+:host-context(.oq-fila-topo--barra-unica) .oq-toolbar {
+  padding: 8px 24px 8px 8px;
+  border-top: 0;
+
+  @media (max-width: 1499px) {
+    padding: 8px 24px 10px;
+  }
+
+  @media (max-width: 900px) {
+    padding: 8px 16px 10px;
+  }
+}
+
 .oq-toolbar__actions {
   width: 100%;
   gap: 8px 10px;
 }
 
 // Pílulas = controle segmentado clicável; selecionada em roxo (identidade), não em preto.
+// Tudo na barra com 34px (busca, OCs abertas, pílulas, cards/lista, Filtros).
 .oq-toolbar__pills {
-  height: 32px;
+  height: 34px;
   border-color: var(--oq-border-strong);
   border-color: color-mix(in srgb, var(--oq-border-strong) 45%, transparent);
 }
@@ -26,7 +42,10 @@
   align-items: center;
   gap: 5px;
   padding: 0 11px;
-  font-size: 11px;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
 
   &:hover:not(.oq-toolbar__pill--active) {
     background: var(--oq-surface-2);
@@ -38,7 +57,7 @@
   color: var(--oq-brand-ink);
 }
 
-// Contagem dentro da pílula: menor que o rótulo (o número de destaque fica nos KPIs).
+// Contagem dentro da pílula — é o único lugar com os números da fila (sem faixa de KPIs).
 .oq-toolbar__pill-qtd {
   margin-left: 0;
   min-width: 18px;
@@ -51,6 +70,16 @@
   text-align: center;
 }
 
+// Corte esperando liberação: a própria pílula avisa (a faixa de KPIs saiu — os números ficam só aqui).
+.oq-toolbar__pill--alerta:not(.oq-toolbar__pill--active) {
+  color: var(--oq-critical-foreground);
+
+  .oq-toolbar__pill-qtd {
+    background: color-mix(in srgb, var(--oq-critical) 16%, transparent);
+    color: var(--oq-critical-foreground);
+  }
+}
+
 .oq-toolbar__pill--active .oq-toolbar__pill-qtd {
   background: color-mix(in srgb, var(--oq-brand-ink) 22%, transparent);
   color: var(--oq-brand-ink);
@@ -58,6 +87,21 @@
 
 .oq-toolbar__pills--tipo-sep {
   margin-left: 0;
+}
+
+// Dentro do painel "Filtros": rótulo de cada grupo de pílulas (Modalidade, Tipo de separação).
+.oq-toolbar__grupo-rotulo {
+  display: block;
+  margin: 4px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+}
+
+.oq-filtros-avancados__panel .oq-toolbar__pills {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 10px;
 }
 
 // Busca + alternador + Filtros: um grupo à direita.
@@ -80,12 +124,48 @@
     background: var(--oq-surface);
   }
   input {
-    width: 200px;
+    width: 220px;
+    font-family: var(--oq-font-body);
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0;
   }
 }
 
 .oq-toolbar__filters-btn {
-  height: 32px;
+  height: 34px;
+  padding: 0 12px;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+// Contador da fila ("12 pedidos sem OC") — texto de apoio, antes de cards/lista e Filtros.
+.oq-toolbar__resumo {
+  margin-right: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+// Cards/lista (oq-view-toggle, outro componente): mesma altura e o mesmo "ativo" roxo das pílulas — antes era preto.
+.oq-toolbar__direita ::ng-deep .oq-toolbar__pills {
+  height: 34px;
+  border-color: color-mix(in srgb, var(--oq-border-strong) 45%, transparent);
+}
+
+.oq-toolbar__direita ::ng-deep .oq-toolbar__pill--view {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+
+  &.oq-toolbar__pill--active {
+    background: var(--oq-brand);
+    color: var(--oq-brand-ink);
+  }
 }
 
 @media (max-width: 900px) {

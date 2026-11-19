@@ -31,6 +31,8 @@ export interface SessaoSeparacao {
   exibirQtdConf: string | null;
   /** CCO.EXIBIRIMGPROD — painel de imagem / última leitura. */
   exibirImgProd: string | null;
+  /** CCO.EXIBIRALERTASONORO (V76) — 'N' = sem som nos alertas de divergência; null/'S' = com som. */
+  exibirAlertaSonoro?: string | null;
   /** Quem bipou o crachá pra assumir esta conferência (V33) — null = ninguém ainda, tela bloqueia. */
   operadorId: string | null;
   /** CCO.FORMACAOVOLUMES cru — 'N'/ausente = não exige volume; 'S'/'T'/'D' = exige quantidade > 0 pra finalizar. */
@@ -178,6 +180,13 @@ export interface ConferenciaFinalizada {
   parcial?: boolean;
   /** Etapas concluídas (1 Secos | 2 Refrigerado | 3 Congelado). */
   etapasConcluidas?: number[];
+  /** Balcão de reimpressão (17/11/2026): etiquetas de volume e de peso que saem, OC e quando terminou (ISO). */
+  qtdVolumes?: number;
+  qtdEtiquetasPeso?: number;
+  ordemCarga?: number | null;
+  finalizadaEm?: string | null;
+  /** Quem conferiu (crachá bipado na sessão). */
+  conferente?: string | null;
 }
 
 export interface ConferenciasFinalizadasResposta {

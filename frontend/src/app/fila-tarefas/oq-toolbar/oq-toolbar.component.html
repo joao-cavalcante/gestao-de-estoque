@@ -6,6 +6,7 @@
           type="button"
           class="oq-toolbar__pill"
           [class.oq-toolbar__pill--active]="filtroAtivo === pill.valor"
+          [class.oq-toolbar__pill--alerta]="pill.valor === 'corte' && !!contagens?.corte"
           (click)="filtroChange.emit(pill.valor)"
         >
           {{ pill.label }}
@@ -16,62 +17,24 @@
       }
     </div>
 
-    @if (temSegmentacao) {
-      <div class="oq-toolbar__pills oq-toolbar__pills--tipo-sep" role="group" aria-label="Filtro por tipo de separação">
-        @for (tipo of tiposSeparacao; track tipo.id) {
-          <button
-            type="button"
-            class="oq-toolbar__pill oq-toolbar__pill--icon"
-            [class.oq-toolbar__pill--active]="tiposSeparacaoSelecionados.has(tipo.id)"
-            (click)="tipoSeparacaoToggle.emit(tipo.id)"
-          >
-            <oq-icon [name]="tipo.icone" [size]="12" />
-            {{ tipo.label }}
-          </button>
-        }
-      </div>
-    }
-
-    <div class="oq-toolbar__pills oq-toolbar__pills--modalidade" role="group" aria-label="Filtro por modalidade do pedido">
-      @for (m of modalidades; track m.id) {
-        <button
-          type="button"
-          class="oq-toolbar__pill oq-toolbar__pill--icon"
-          [class]="'oq-toolbar__pill oq-toolbar__pill--icon oq-toolbar__pill--' + m.id"
-          [class.oq-toolbar__pill--active]="modalidadesSelecionadas.has(m.id)"
-          (click)="modalidadeToggle.emit(m.id)"
-        >
-          <oq-icon [name]="m.icone" [size]="12" />
-          {{ m.label }}
-        </button>
-      }
-    </div>
-
-    <!-- Busca + visualização + filtros avançados andam juntos (quebram de linha como um grupo). -->
+    <!-- Visualização + filtros avançados (a busca é a única, no topo da fila). -->
     <div class="oq-toolbar__direita">
-      <label class="oq-toolbar__search">
-        <oq-icon name="search" [size]="12" />
-        <input
-          type="text"
-          placeholder="BUSCAR PEDIDO / NF / CLIENTE / Nº ÚNICO"
-          [ngModel]="termoBusca"
-          (ngModelChange)="onBuscaInput($event)"
-        />
-      </label>
-
+      @if (resumo) {
+        <span class="oq-toolbar__resumo">{{ resumo }}</span>
+      }
       <oq-view-toggle [modo]="viewMode" (modoChange)="viewModeChange.emit($event)" />
 
       <div class="oq-toolbar__filters-wrapper">
         <button
           type="button"
           class="oq-toolbar__filters-btn"
-          [class.oq-toolbar__filters-btn--ativo]="filtrosAvancadosAtivos > 0"
+          [class.oq-toolbar__filters-btn--ativo]="filtrosNoPainel > 0"
           (click)="abrirFiltros.emit()"
         >
           <oq-icon name="filter" [size]="12" />
           Filtros
-          @if (filtrosAvancadosAtivos > 0) {
-            <span class="oq-toolbar__filters-badge">{{ filtrosAvancadosAtivos }}</span>
+          @if (filtrosNoPainel > 0) {
+            <span class="oq-toolbar__filters-badge">{{ filtrosNoPainel }}</span>
           }
         </button>
 
@@ -83,7 +46,44 @@
             [valores]="filtrosAvancados"
             (aplicar)="aplicarFiltrosAvancados.emit($event)"
             (fechar)="fecharFiltrosAvancados.emit()"
-          />
+          >
+            <!-- Usados pouco (a operação se guia pelo nº único e pela OC): ficam no painel, não na barra.
+                 Valem na hora, sem "Aplicar". -->
+            @if (temSegmentacao) {
+              <span class="oq-toolbar__grupo-rotulo">Tipo de separação</span>
+              <div class="oq-toolbar__pills oq-toolbar__pills--tipo-sep" role="group" aria-label="Filtro por tipo de separação">
+                @for (tipo of tiposSeparacao; track tipo.id) {
+                  <button
+                    type="button"
+                    class="oq-toolbar__pill oq-toolbar__pill--icon"
+                    [class.oq-toolbar__pill--active]="tiposSeparacaoSelecionados.has(tipo.id)"
+                    [attr.aria-pressed]="tiposSeparacaoSelecionados.has(tipo.id)"
+                    (click)="tipoSeparacaoToggle.emit(tipo.id)"
+                  >
+                    <oq-icon [name]="tipo.icone" [size]="12" />
+                    {{ tipo.label }}
+                  </button>
+                }
+              </div>
+            }
+
+            <span class="oq-toolbar__grupo-rotulo">Modalidade</span>
+            <div class="oq-toolbar__pills oq-toolbar__pills--modalidade" role="group" aria-label="Filtro por modalidade do pedido">
+              @for (m of modalidades; track m.id) {
+                <button
+                  type="button"
+                  class="oq-toolbar__pill oq-toolbar__pill--icon"
+                  [class]="'oq-toolbar__pill oq-toolbar__pill--icon oq-toolbar__pill--' + m.id"
+                  [class.oq-toolbar__pill--active]="modalidadesSelecionadas.has(m.id)"
+                  [attr.aria-pressed]="modalidadesSelecionadas.has(m.id)"
+                  (click)="modalidadeToggle.emit(m.id)"
+                >
+                  <oq-icon [name]="m.icone" [size]="12" />
+                  {{ m.label }}
+                </button>
+              }
+            </div>
+          </oq-filtros-avancados>
         }
       </div>
     </div>

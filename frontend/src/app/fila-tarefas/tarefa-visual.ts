@@ -15,10 +15,10 @@ export interface StatusVisual {
 }
 
 const STATUS_VISUAL: Record<StatusTarefa, StatusVisual> = {
-  aguardando: { icone: 'circle', label: 'AGUARDANDO CONFERÊNCIA', gira: false, tom: 'aguardando' },
-  andamento: { icone: 'gear', label: 'EM CONFERÊNCIA', gira: true, tom: 'andamento' },
-  aguardando_corte: { icone: 'circle-alert', label: 'AGUARDANDO CORTE', gira: false, tom: 'corte' },
-  concluido: { icone: 'check', label: 'CONCLUÍDO', gira: false, tom: 'concluido' },
+  aguardando: { icone: 'circle', label: 'Aguardando conferência', gira: false, tom: 'aguardando' },
+  andamento: { icone: 'gear', label: 'Em conferência', gira: true, tom: 'andamento' },
+  aguardando_corte: { icone: 'circle-alert', label: 'Aguardando corte', gira: false, tom: 'corte' },
+  concluido: { icone: 'check', label: 'Concluído', gira: false, tom: 'concluido' },
 };
 
 export function statusVisual(tarefa: Tarefa): StatusVisual {
@@ -31,27 +31,27 @@ export function statusVisual(tarefa: Tarefa): StatusVisual {
     const tom = tomNota(nota);
     return {
       icone: tom === 'ok' ? 'check' : tom === 'erro' ? 'circle-alert' : 'receipt',
-      label: `NF ${nota.numero ?? nota.nunota} · ${nota.situacao.toUpperCase()}`,
+      label: `NF ${nota.numero ?? nota.nunota} · ${nota.situacao}`,
       gira: false,
       tom: tom === 'ok' ? 'concluido' : tom === 'erro' ? 'corte' : 'nf-pendente',
     };
   }
   // Depois de conferida, sem nota: a etapa do fluxo (mesmos nomes de pílulas, KPIs e régua).
   // Cada etiqueta com cor própria (usuário, 23/10/2026): carregamento e carregado não repetem a do andamento/nota.
-  if (fase === 'carregar') return { icone: 'entrega', label: 'AGUARDANDO CARREGAMENTO', gira: false, tom: 'carregar' };
-  if (fase === 'fechamento') return { icone: 'entrega', label: 'CARREGADO', gira: false, tom: 'carregado' };
-  if (fase === 'nota') return { icone: 'receipt', label: 'AGUARDANDO NOTA', gira: false, tom: 'nota' };
-  if (fase === 'pronto') return { icone: 'check', label: 'CONCLUÍDO', gira: false, tom: 'concluido' };
+  if (fase === 'carregar') return { icone: 'entrega', label: 'Aguardando carregamento', gira: false, tom: 'carregar' };
+  if (fase === 'fechamento') return { icone: 'entrega', label: 'Carregado', gira: false, tom: 'carregado' };
+  if (fase === 'nota') return { icone: 'receipt', label: 'Aguardando nota', gira: false, tom: 'nota' };
+  if (fase === 'pronto') return { icone: 'check', label: 'Concluído', gira: false, tom: 'concluido' };
   // "aguardando_recontagem" cai no mesmo bucket 'aguardando' de uma nota
   // nunca conferida (ver STATUS_MAP em conferencias.service.ts), mas pro
   // operador são situações bem diferentes — uma já foi conferida antes e
   // voltou por divergência/item negado, a outra nunca foi aberta.
   // Recontagem tem cor própria (roxo) — antes repetia o azul do aguardando e o âmbar do andamento.
   if (tarefa.statusOperacional === 'aguardando_recontagem') {
-    return { ...visual, label: 'AGUARDANDO RECONTAGEM', tom: 'recontagem' };
+    return { ...visual, label: 'Aguardando recontagem', tom: 'recontagem' };
   }
   if (tarefa.statusOperacional === 'recontagem_andamento') {
-    return { ...visual, label: 'RECONTAGEM EM ANDAMENTO', tom: 'recontagem' };
+    return { ...visual, label: 'Recontagem em andamento', tom: 'recontagem' };
   }
   return visual;
 }

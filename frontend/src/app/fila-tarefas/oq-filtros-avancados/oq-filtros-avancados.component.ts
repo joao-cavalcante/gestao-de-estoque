@@ -9,7 +9,7 @@ const VAZIO: FiltrosAvancados = {
   codigoVendedor: null,
   codigoTipoOperacao: null,
   ordemCarga: null,
-  vinculoOrdemCarga: 'todos',
+  vinculoOrdemCarga: 'sem',
 };
 
 /**
@@ -34,9 +34,9 @@ export class OqFiltrosAvancadosComponent implements AfterViewInit {
   rascunho: FiltrosAvancados = { ...VAZIO };
 
   readonly opcoesVinculo: { valor: VinculoOrdemCarga; label: string }[] = [
-    { valor: 'todos', label: 'Todos' },
-    { valor: 'com', label: 'Com OC' },
     { valor: 'sem', label: 'Sem OC' },
+    { valor: 'com', label: 'Com OC' },
+    { valor: 'todos', label: 'Todos' },
   ];
 
   @Input({ required: true }) set valores(v: FiltrosAvancados) {

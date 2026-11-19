@@ -10,7 +10,7 @@ export interface TipoOperacao {
   nucco: number | null;
   /** TGFCAB.TIPMOV — 'C'/'O' compra, 'V'/'P' venda (null = ainda não sincronizado). */
   tipmov: string | null;
-  /** Conferência por etapa (Secos/Refrigerado/Congelado) pras notas deste TOP — V49. */
+  /** Conferência por etapa (Não pesáveis/Pesáveis) pras notas deste TOP — V49. */
   conferenciaPorEtapa: boolean;
   localAtualizadoEm: string;
   /** Qtd. de usuários autorizados (V51) — 0 = sem restrição, todos conferem. */

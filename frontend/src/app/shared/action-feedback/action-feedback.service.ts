@@ -33,6 +33,20 @@ export class ActionFeedbackService {
 
   readonly ultimo = signal<UltimoFeedback | null>(null);
   readonly toasts = signal<ToastAtivo[]>([]);
+  /**
+   * CCO.EXIBIRALERTASONORO = 'N' na conferência aberta (V76, 17/11/2026): silencia só os sons de DIVERGÊNCIA — no
+   * Sankhya a flag é "alerta sonoro em mensagens de divergência". Leitura, item conferido e erro de sistema seguem
+   * com som; visual e vibração não mudam. A tela de conferência liga ao abrir e desliga ao sair.
+   */
+  readonly silenciarDivergencia = signal(false);
+  private static readonly EVENTOS_DIVERGENCIA = new Set<FeedbackEvento>([
+    'QUANTIDADE_DIVERGENTE',
+    'PESO_DIVERGENTE',
+    'DIVERGENCIA',
+    'FINALIZACAO_DIVERGENTE',
+    'PRODUTO_INCORRETO',
+    'PRODUTO_NAO_ENCONTRADO',
+  ]);
 
   private seq = 0;
   private proximoToastId = 1;
@@ -55,9 +69,14 @@ export class ActionFeedbackService {
     this.ultimoEventoEm = agora;
     if (repetido && !opcoes.mensagem) return;
 
-    if (def.som && opcoes.som !== false) {
+    const mudoPorCco = this.silenciarDivergencia() && ActionFeedbackService.EVENTOS_DIVERGENCIA.has(evento);
+    if (def.som && opcoes.som !== false && !mudoPorCco) {
       this.audio.tocar(def.som, def.volume ?? 1, def.prioridade);
     }
+
+    // Vibração (17/11/2026, coletor): curta no ok, dupla longa no erro. Mesmo evento/tom do som — onde não há
+    // motor de vibração (computador) o navegador ignora.
+    this.vibrar(def.tom);
 
     this.ultimo.set({ evento, tom: def.tom, seq: ++this.seq });
 
@@ -71,6 +90,16 @@ export class ActionFeedbackService {
         bloqueante: def.bloqueante,
         duracaoMs: def.toast?.duracaoMs ?? 4500,
       });
+    }
+  }
+
+  private vibrar(tom: string | null | undefined): void {
+    const padrao = tom === 'critical' ? [120, 60, 120] : tom === 'warning' ? [70] : tom === 'success' ? [35] : null;
+    if (!padrao) return;
+    try {
+      navigator.vibrate?.(padrao);
+    } catch {
+      /* sem suporte */
     }
   }
 

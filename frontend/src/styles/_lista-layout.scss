@@ -74,6 +74,9 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  // Com poucos cards as linhas não esticam até o fim da tela (17/11/2026: dentro da OC sobrava um vão enorme entre o
+  // título da seção e os cards, e cada card ficava com metade da tela de altura).
+  align-content: start;
   // O grid rola por dentro; header/toolbar (flex: none) e a paginação
   // (flex: none, fora deste bloco) ficam sempre visíveis no viewport,
   // em vez de a página inteira crescer e empurrar a paginação pra fora.
@@ -172,6 +175,12 @@
   }
 }
 
+.oq-pagination__reticencias {
+  min-width: 16px;
+  text-align: center;
+  color: var(--oq-text-secondary);
+}
+
 .oq-pagination__page--active {
   background: var(--oq-text-primary);
   border-color: var(--oq-text-primary);
@@ -191,8 +200,10 @@
 
 .oq-toolbar__title-block {
   display: flex;
+  flex-wrap: wrap; /* celular: o contador [ ... ] desce embaixo do título em vez de espremer o título */
   align-items: center;
-  gap: 12px;
+  gap: 4px 12px;
+  min-width: 0;
 }
 
 .oq-toolbar__title {
@@ -1007,3 +1018,48 @@ a.oq-lista__btn {
 .oq-lista__linha--arrastavel { cursor: grab; }
 .oq-lista__alca { width: 24px; padding-left: 4px !important; padding-right: 0 !important; color: var(--oq-text-secondary); }
 .oq-lista__linha--arrastando { opacity: 0.4; }
+
+/* Cards/lista (oq-view-toggle): selecionado na cor da marca, igual às pílulas da Fila (17/11/2026 — era preto). */
+.oq-toolbar__pill--view.oq-toolbar__pill--active {
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+}
+
+/* Paginação em texto normal (17/11/2026, revisão "sem cara de IA"): sem mono/caixa alta; página atual na cor da marca
+   (era preta); botões de 32px. Vale para todas as telas de fila. */
+.oq-pagination {
+  font-family: var(--oq-font-body);
+  font-size: 12.5px;
+}
+
+.oq-pagination__per-page {
+  font-size: 12.5px;
+  text-transform: none;
+  letter-spacing: 0;
+
+  select {
+    min-height: 32px;
+    font-family: var(--oq-font-body);
+    font-size: 12.5px;
+  }
+}
+
+.oq-pagination__range {
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.oq-pagination__pages button {
+  min-width: 32px;
+  height: 32px;
+  font-family: var(--oq-font-body);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.oq-pagination__page--active {
+  background: var(--oq-brand);
+  border-color: var(--oq-brand);
+  color: var(--oq-brand-ink);
+}

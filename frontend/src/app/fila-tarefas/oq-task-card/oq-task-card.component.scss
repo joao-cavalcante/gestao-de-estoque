@@ -1,2 +1,364 @@
-/* Estilos movidos pra src/styles/_lista-layout.scss (globais) — o mesmo layout vale pra
-   Fila de Tarefas, Impressão de Etiquetas, Liberação de Corte e Mapa de Separação. */
+/* Estilos-base em src/styles/_lista-layout.scss (globais) — o mesmo layout vale pra
+   Fila de Tarefas, Impressão de Etiquetas, Liberação de Corte e Mapa de Separação.
+   Abaixo, só o refinamento do card da FILA (.oq-card--fila): texto escrito normal, sem brilho e
+   com hierarquia — cliente e números do pedido primeiro, dados de apoio numa linha. */
+
+// Alerta: a borda colorida basta (o motivo já vem escrito na linha de status) — sem halo/sombra.
+.oq-card--fila.oq-card--critical,
+.oq-card--fila.oq-card--attention {
+  box-shadow: none;
+}
+
+.oq-card--fila {
+  .oq-card__client {
+    font-size: 15px;
+  }
+
+  .oq-card__alert-text {
+    font-family: var(--oq-font-body);
+    font-size: 11px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .oq-card__divider {
+    border-top-style: solid;
+  }
+
+  .oq-card__field-label {
+    font-family: var(--oq-font-body);
+    font-size: 11px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .oq-card__field-value--forte {
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+// Linha de apoio: "12/11/2026 · 14 itens · Manhã" — texto secundário, separado por ponto.
+.oq-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--oq-text-secondary);
+  min-width: 0;
+
+  > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  > span + span::before {
+    content: '·';
+    padding: 0 6px;
+  }
+
+  + .oq-card__meta {
+    margin-top: 2px;
+  }
+}
+
+.oq-card__meta-mono {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+}
+
+// Card compacto (pedido sem ação: carregado esperando o Fechar OC, ou concluído) — mais baixo e apagado,
+// para os cards com ação se destacarem. Sem rodapé; números numa linha.
+.oq-card--fila.oq-card--compacto {
+  opacity: 0.72;
+
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+
+  .oq-card__client {
+    font-size: 14px;
+  }
+}
+
+.oq-card__meta--numeros {
+  color: var(--oq-text-primary);
+
+  b {
+    font-family: var(--oq-font-mono);
+    font-weight: 600;
+  }
+}
+
+.oq-card__grid--vazio {
+  display: none;
+}
+
+// ─── Card da fila, 2ª versão (17/11/2026: "as infos estão muito espremidas") ─────────────────────
+// Ordem de leitura: pedido + idade → cliente + status → carga (3 números) → prazo → obs → ação.
+.oq-card--fila {
+  padding: 16px;
+
+  // A faixa da carga já separa as partes — sem o tracejado.
+  .oq-card__divider {
+    display: none;
+  }
+
+  .oq-card__client {
+    margin-top: 2px;
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--oq-text-primary);
+  }
+
+  .oq-card__status-line {
+    margin-top: 8px;
+  }
+
+  .oq-card__meta {
+    margin-top: 10px;
+    font-size: 12.5px;
+  }
+
+  // Botão em texto normal, altura de dedo (era caixa alta 11px espaçada).
+  .oq-card__btn {
+    min-height: 38px;
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .oq-card__actions {
+    padding-top: 16px;
+  }
+}
+
+.oq-card__topo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 6px;
+}
+
+.oq-card__pedido {
+  font-family: var(--oq-font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+}
+
+.oq-card__unico {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+.oq-card__idade {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+}
+
+// Carga: três colunas iguais, rótulo pequeno em cima e número grande embaixo, entre duas linhas finas.
+.oq-card__carga {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 14px 0 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--oq-border);
+  border-bottom: 1px solid var(--oq-border);
+
+  dt {
+    font-size: 11.5px;
+    color: var(--oq-text-secondary);
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--oq-text-primary);
+    white-space: nowrap;
+  }
+}
+
+.oq-card__carga-item {
+  min-width: 0;
+
+  & + & {
+    padding-left: 12px;
+    border-left: 1px solid var(--oq-border);
+  }
+}
+
+// Entrega: hoje em texto forte; atrasada em vermelho com a palavra escrita (não depende só de cor).
+.oq-card__entrega--hoje {
+  color: var(--oq-text-primary);
+  font-weight: 600;
+}
+
+.oq-card__entrega--atrasada {
+  color: var(--oq-critical-foreground);
+  font-weight: 600;
+}
+
+// Obs. do pedido: uma linha cortada; toque expande o texto todo.
+.oq-card__obs {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  margin: 10px 0 0;
+  padding: 7px 10px;
+  border: 0;
+  border-left: 2px solid var(--oq-attention);
+  background: var(--oq-surface-2);
+  color: var(--oq-text-primary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+
+  oq-icon {
+    flex: none;
+    margin-top: 2px;
+    color: var(--oq-warning-foreground);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: 1px;
+  }
+}
+
+.oq-card__obs-texto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oq-card__obs--aberta .oq-card__obs-texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// Andamento da conferência: "18 de 32 itens conferidos" + quem/desde, barra fina na marca.
+.oq-card__andamento {
+  margin-top: 10px;
+}
+
+.oq-card__andamento-texto {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 8px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+
+  b {
+    font-weight: 700;
+  }
+}
+
+.oq-card__andamento-quem {
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oq-card__andamento-barra {
+  height: 4px;
+  margin-top: 5px;
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+
+  > span {
+    display: block;
+    height: 100%;
+    background: var(--oq-brand-accent);
+  }
+}
+
+// Conferência por etapa no card: título em texto normal (era mono 9px caixa alta) e sem o rodapé vazio embaixo.
+.oq-card--fila {
+  .oq-card__etapas-titulo {
+    margin-bottom: 8px;
+    font-family: var(--oq-font-body);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .oq-card__etapas {
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  .oq-card__footer:empty {
+    display: none;
+  }
+}
+
+// ─── Hierarquia dos botões (17/11/2026: "roxo em tudo ficou genérico") ──────────────
+// Conferir (pedido parado): contornado — a grade cheia de pedidos não vira um mar roxo; enche no hover/foco.
+.oq-card--fila .oq-card__btn--iniciar {
+  background: transparent;
+  border-color: var(--oq-brand-accent);
+  color: var(--oq-brand-text);
+
+  &:hover {
+    background: var(--oq-brand);
+    border-color: var(--oq-brand);
+    color: var(--oq-brand-ink);
+  }
+}
+
+.oq-card__btn-prog {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+// Status + modalidade numa linha que quebra inteira (não empilha os pinos ao lado do status).
+.oq-card--fila .oq-card__status-line {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+
+  oq-modalidade-pins {
+    flex: 0 0 auto;
+  }
+}
+
+// Etapas no lugar do botão (17/11/2026): mesma linha divisória e mesma altura do "Conferir" — os cards de uma fileira
+// terminam iguais (antes o título + botões ocupavam duas linhas e abriam um buraco nos vizinhos).
+.oq-card--fila .oq-card__etapas {
+  padding-top: 12px;
+  border-top: 1px solid var(--oq-border);
+}
+
+// 17/11/2026: obs do pedido sem a borda lateral âmbar — o ícone âmbar já sinaliza.
+.oq-card__obs {
+  border-left: 0;
+}

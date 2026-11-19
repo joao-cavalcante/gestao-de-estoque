@@ -3,7 +3,7 @@
     <div class="oq-scan-bar__field oq-scan-bar__field--barcode">
       <label class="oq-label-caps oq-scan-bar__label">
         <oq-icon name="barcode" [size]="12" />
-        CÓDIGO DE BARRAS / ID DO PRODUTO
+        Código de barras ou código do produto
         @if (carregando) {
           <oq-spinner [size]="11" />
           <span class="oq-scan-bar__buscando">buscando…</span>
@@ -16,7 +16,7 @@
         name="codigo"
         placeholder="Aguardando leitura…"
         class="oq-scan-bar__input oq-scan-bar__input--barcode"
-        inputmode="text"
+        [attr.inputmode]="tecladoAberto ? 'text' : 'none'"
         enterkeyhint="go"
         autocomplete="off"
         autocapitalize="off"
@@ -25,10 +25,26 @@
         (keydown.enter)="$event.preventDefault(); onIdentificadorTab()"
         (keydown.tab)="$event.preventDefault(); onIdentificadorTab()"
       />
+      <!-- Coletor (17/11/2026): teclado virtual fica fechado (o leitor digita sozinho); este botão abre quando precisa digitar. -->
+      <button
+        type="button"
+        class="oq-scan-bar__teclado"
+        [class.oq-scan-bar__teclado--on]="tecladoAberto"
+        [attr.aria-pressed]="tecladoAberto"
+        [title]="tecladoAberto ? 'Fechar teclado da tela' : 'Abrir teclado da tela para digitar'"
+        aria-label="Teclado da tela"
+        (click)="alternarTeclado()"
+      >
+        <oq-icon name="teclado" [size]="18" />
+      </button>
     </div>
 
-    <div class="oq-scan-bar__field oq-scan-bar__field--controle" [class.oq-scan-bar__field--identificado]="produtoIdentificado">
-      <label class="oq-label-caps">{{ controleModoLote ? 'Nº DO LOTE' : 'CONTROLE' }}</label>
+    <div
+      class="oq-scan-bar__field oq-scan-bar__field--controle"
+      [class.oq-scan-bar__field--identificado]="produtoIdentificado"
+      [class.oq-scan-bar__field--sem-controle]="!produtoIdentificado || controleTravado"
+    >
+      <label class="oq-label-caps">{{ controleModoLote ? 'Nº DO LOTE' : 'Controle' }}</label>
 
       @if (controleModoLote) {
         <input
@@ -64,7 +80,7 @@
       <!-- Item pesável: a quantidade vem do peso (peso ÷ UMA). O operador não digita
            qtd — captura o peso no modal e o item é conferido automático. -->
       <div class="oq-scan-bar__field oq-scan-bar__field--peso">
-        <label class="oq-label-caps">PESO</label>
+        <label class="oq-label-caps">Peso</label>
         <button type="button" class="oq-scan-bar__peso-chip" (click)="abrirModalPeso()" title="Capturar / editar peso">
           <oq-icon name="scale" [size]="12" />
           {{ peso ? (temTara ? (pesoLiquidoN | number: '1.3-3') + ' kg líq.' : (pesoLidoN | number: '1.3-3') + ' kg') : 'Capturar peso' }}
@@ -72,13 +88,13 @@
       </div>
     } @else {
       <div class="oq-scan-bar__field oq-scan-bar__field--qtd">
-        <label class="oq-label-caps">{{ unidadeConferencia || 'QTD.' }}</label>
+        <label class="oq-label-caps">{{ unidadeConferencia || 'Quantidade' }}</label>
         <input
           #inputQtd
           [ngModel]="qtd"
           (ngModelChange)="onQtdInput($event)"
           name="qtd"
-          inputmode="numeric"
+          [attr.inputmode]="tecladoAberto ? 'numeric' : 'none'"
           enterkeyhint="done"
           class="oq-scan-bar__input oq-scan-bar__input--right"
           (keydown.enter)="$event.preventDefault(); onQtdTab()"

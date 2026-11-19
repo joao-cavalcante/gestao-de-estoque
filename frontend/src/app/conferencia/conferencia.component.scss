@@ -59,10 +59,10 @@
   justify-content: center;
   gap: 8px;
   padding: 6px 0 2px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
 }
 
@@ -111,7 +111,7 @@
   font-size: 12px;
   color: var(--oq-text-primary);
 
-  strong { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  strong { font-weight: 700; text-transform: none; letter-spacing: 0; }
 }
 
 /* Seletor de etapa — quando a nota segmentada é aberta sem ?etapa= e há mais de uma pendente. */
@@ -153,8 +153,8 @@
   font-family: var(--oq-font-display);
   font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0;
   cursor: pointer;
 
   &:hover:not(:disabled) { border-color: var(--oq-brand); color: var(--oq-brand-text); }
@@ -162,7 +162,7 @@
 }
 
 .oq-cf-etapa-escolha__ok {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 10px;
   color: var(--oq-success-foreground, var(--oq-text-secondary));
 }
@@ -189,7 +189,7 @@
 }
 
 .oq-cf-page__status-sub {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
   color: var(--oq-text-secondary);
 }
@@ -207,8 +207,8 @@
   font-family: var(--oq-font-display);
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0;
   cursor: pointer;
 }
 
@@ -222,7 +222,7 @@
     border-radius: var(--oq-radius-input);
     background: var(--oq-surface);
     padding: 10px 12px;
-    font-family: var(--oq-font-mono);
+    font-family: var(--oq-font-body);
     font-size: 14px;
     text-align: center;
     color: var(--oq-text-primary);
@@ -278,7 +278,7 @@
   border: 1px solid var(--oq-border);
   border-radius: var(--oq-radius-input);
   background: var(--oq-surface-2);
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   font-weight: 700;
   color: var(--oq-text-secondary);
@@ -319,8 +319,8 @@
   font-family: var(--oq-font-display);
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   cursor: pointer;
 }
 
@@ -336,7 +336,7 @@
   border-radius: 999px;
   background: var(--oq-surface-2);
   color: var(--oq-text-secondary);
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -413,8 +413,8 @@
   border-bottom: 1px solid var(--oq-border);
   font-family: var(--oq-font-display);
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .oq-cn__selo {
@@ -430,7 +430,7 @@
 
 .oq-cn__qtd {
   margin-left: auto;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   color: var(--oq-text-secondary);
   text-transform: none;
@@ -454,7 +454,7 @@
 .oq-cn__cod {
   flex: none;
   width: 56px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   color: var(--oq-text-secondary);
 }
 
@@ -468,7 +468,7 @@
 
 .oq-cn__qtdi {
   flex: none;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-weight: 600;
 }
 
@@ -481,7 +481,7 @@
   padding: 2px 8px;
   border: 1px dashed var(--oq-text-primary);
   border-radius: var(--oq-radius-input);
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
 
   oq-icon { align-self: center; }
@@ -505,7 +505,7 @@
   font-family: var(--oq-font-display);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .oq-cn__alerta-etapa {
@@ -539,7 +539,31 @@
 }
 
 .oq-sinc__mudanca {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   color: var(--oq-text-secondary);
+}
+
+// ─── Coletor (17/11/2026): abas baixas — sobra espaço para a lista ────────────────────────────────────────
+@media (max-width: 639px) {
+  .oq-cf-tabs {
+    gap: 0 !important;
+    padding: 0 !important;
+    border-bottom: 1px solid var(--oq-border);
+  }
+
+  .oq-cf-tabs__btn {
+    flex: 1;
+    height: 40px !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    font-size: 14px !important;
+  }
+
+  .oq-cf-peso-bar,
+  .oq-cf-etapa-bar {
+    padding: 6px 10px !important;
+    font-size: 13px;
+  }
 }

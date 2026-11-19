@@ -18,7 +18,12 @@ export class OqConferredListComponent {
   @Input() exibirQtd = true;
 
   /** Desfaz TUDO que foi conferido pra esse item (produto+controle) — corrige bipe errado. */
+  /** Conferência às cegas (CCO EXIBIRQTD = 'N'): sem esperado nem divergência durante a contagem. */
+  @Input() cega = false;
   @Output() devolver = new EventEmitter<ConferenciaItem>();
+  /** Mostra "Ver conferidos" no cabeçalho da seção (precisa de sessão aberta). */
+  @Input() podeVerTodos = false;
+  @Output() verTodos = new EventEmitter<void>();
 
   isCritico(item: ConferenciaItem): boolean {
     return item.status === 'critical';
@@ -83,7 +88,8 @@ export class OqConferredListComponent {
   }
 
   formatarQtd(n: number): string {
-    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    // 17/11/2026: "6,000 FD" lia como seis mil — inteiro sem casas, fração até 3 (só exibição).
+    return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
   }
 
   /** % de desvio do peso, em pt-BR (vírgula) — ex.: "7,1" ou "-7,1". */

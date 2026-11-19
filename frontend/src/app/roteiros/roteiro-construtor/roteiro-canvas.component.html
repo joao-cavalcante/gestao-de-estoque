@@ -1,0 +1,148 @@
+<div
+  #viewport
+  class="cv"
+  tabindex="0"
+  role="application"
+  aria-label="Canvas do roteiro"
+  [class.cv--editavel]="editavel()"
+  [class.cv--simulando]="simulando()"
+  [class.cv--recebendo]="arrastandoBloco()"
+  (pointerdown)="fundoDown($event)"
+  (wheel)="roda($event)"
+  (keydown)="tecla($event)"
+  (dragover)="arrastoSobre($event)"
+  (dragleave)="arrastandoBloco.set(false)"
+  (drop)="soltarBloco($event)"
+>
+  <div class="cv__mundo" [style.transform]="transformacao()">
+    <svg
+      class="cv__ligacoes"
+      [attr.width]="deslocamento * 3"
+      [attr.height]="deslocamento * 3"
+      [style.left.px]="-deslocamento"
+      [style.top.px]="-deslocamento"
+      aria-hidden="true"
+    >
+      <defs>
+        <marker id="rt-seta" class="cv__seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" />
+        </marker>
+        <marker id="rt-seta-sel" class="cv__seta cv__seta--sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" />
+        </marker>
+        <marker id="rt-seta-sim" class="cv__seta cv__seta--sim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" />
+        </marker>
+      </defs>
+      <g [attr.transform]="'translate(' + deslocamento + ' ' + deslocamento + ')'">
+        @for (l of ligacoes(); track l.id) {
+          <g class="cv__lig" [class.cv__lig--sel]="store.selecao()?.id === l.id" [class.cv__lig--percorrida]="percorrida(l.id)">
+            <path class="cv__lig-toque" [attr.d]="l.d" (pointerdown)="ligacaoDown($event, l.id)" />
+            <path
+              class="cv__lig-linha"
+              [attr.d]="l.d"
+              [attr.marker-end]="marcador(l.id)"
+            />
+            @if (l.rotulo) {
+              <text class="cv__lig-rotulo" [attr.x]="l.rx" [attr.y]="l.ry" [attr.text-anchor]="l.rotulo === 'Não' ? 'start' : 'end'">{{ l.rotulo }}</text>
+            }
+          </g>
+        }
+        @if (linhaTemporaria(); as d) {
+          <path class="cv__lig-temp" [attr.d]="d" />
+        }
+      </g>
+    </svg>
+
+    @for (e of etapas(); track e.id) {
+      <div
+        class="cv__etapa"
+        [attr.data-etapa-id]="e.id"
+        [class]="'cv__etapa cv__etapa--' + categoria(e) + ' cv__etapa--tipo-' + e.tipo.toLowerCase()"
+        [class.cv__etapa--sel]="store.selecao()?.id === e.id"
+        [class.cv__etapa--erro]="nivel(e.id) === 'ERRO' && !simulando()"
+        [class.cv__etapa--aviso]="nivel(e.id) === 'AVISO' && !simulando()"
+        [class.cv__etapa--conceitual]="conceitual(e.tipo)"
+        [class.cv__etapa--visitada]="!!sim(e.id)"
+        [class.cv__etapa--ignorada]="sim(e.id) === 'IGNORADA'"
+        [class.cv__etapa--atual]="store.caminho().atual === e.id"
+        [style.left.px]="e.x"
+        [style.top.px]="e.y"
+        [style.width.px]="tamanho(e).w"
+        [style.height.px]="tamanho(e).h"
+        (pointerdown)="etapaDown($event, e)"
+      >
+        @if (e.tipo === 'INICIO' || e.tipo === 'FINALIZACAO') {
+          <div class="cv__pilula">
+            <oq-icon [name]="icone(e.tipo)" [size]="14" />
+            <span>{{ e.nome }}</span>
+          </div>
+        } @else {
+          <div class="cv__cabeca">
+            <span class="cv__icone"><oq-icon [name]="icone(e.tipo)" [size]="15" /></span>
+            <span class="cv__nome" [title]="e.nome">{{ e.nome }}</span>
+            @if (conceitual(e.tipo)) {
+              <span class="cv__tag" title="Bloco conceitual: ainda não existe na aplicação">Conceitual</span>
+            }
+          </div>
+          <div class="cv__sub" [title]="subtitulo(e)">{{ subtitulo(e) }}</div>
+        }
+
+        @if (nivel(e.id) && !simulando()) {
+          <span class="cv__marca" [class.cv__marca--erro]="nivel(e.id) === 'ERRO'" [attr.aria-label]="nivel(e.id) === 'ERRO' ? 'Com erro' : 'Com aviso'">
+            <oq-icon [name]="nivel(e.id) === 'ERRO' ? 'circle-filled' : 'triangle'" [size]="11" />
+          </span>
+        }
+        @if (sim(e.id) === 'IGNORADA') {
+          <span class="cv__sim-tag">Ignorada</span>
+        }
+
+        @if (editavel()) {
+          @if (e.tipo !== 'INICIO') {
+            <span class="cv__porta cv__porta--entrada" aria-hidden="true"></span>
+          }
+          @if (e.tipo === 'CONDICAO') {
+            <button type="button" class="cv__porta cv__porta--saida cv__porta--sim" title="Arraste para ligar o caminho Sim" (pointerdown)="portaDown($event, e, 'SIM')">
+              @if (ramoLivre(e, 'SIM')) {
+                <span>Sim</span>
+              }
+            </button>
+            <button type="button" class="cv__porta cv__porta--saida cv__porta--nao" title="Arraste para ligar o caminho Não" (pointerdown)="portaDown($event, e, 'NAO')">
+              @if (ramoLivre(e, 'NAO')) {
+                <span>Não</span>
+              }
+            </button>
+          } @else if (e.tipo !== 'FINALIZACAO') {
+            <button type="button" class="cv__porta cv__porta--saida" title="Arraste até a próxima etapa" (pointerdown)="portaDown($event, e, null)"></button>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  @if (!etapas().length) {
+    <div class="cv__vazio">Arraste um bloco da biblioteca para cá, começando pelo Início.</div>
+  }
+
+  <div class="cv__controles" (pointerdown)="$event.stopPropagation()">
+    <button type="button" class="cv__btn" title="Diminuir zoom" aria-label="Diminuir zoom" (click)="aproximar(1 / 1.2)">−</button>
+    <span class="cv__zoom">{{ zoomPercentual() }}%</span>
+    <button type="button" class="cv__btn" title="Aumentar zoom" aria-label="Aumentar zoom" (click)="aproximar(1.2)">+</button>
+    <span class="cv__sep"></span>
+    <button type="button" class="cv__btn cv__btn--texto" (click)="centralizar()">Centralizar</button>
+    @if (editavel()) {
+      <button type="button" class="cv__btn cv__btn--texto" title="Reposiciona as etapas pela ordem do roteiro" (click)="organizar()">Organizar</button>
+      @if (store.selecao()) {
+        <button type="button" class="cv__btn cv__btn--texto cv__btn--perigo" (click)="store.excluirSelecao()">Excluir</button>
+      }
+    }
+  </div>
+
+  @if (editavel()) {
+    <div class="cv__dica">Arraste a bolinha de baixo de uma etapa até outra para ligar · Delete exclui a seleção</div>
+  }
+
+  @if (store.mensagem(); as m) {
+    <div class="cv__mensagem" [class.cv__mensagem--erro]="m.tom === 'erro'" role="status">{{ m.texto }}</div>
+  }
+</div>

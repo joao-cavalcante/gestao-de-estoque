@@ -1,0 +1,107 @@
+<div class="sm">
+  <header class="sm__cabeca">
+    <div>
+      <span class="sm__titulo">Simulação</span>
+      <span class="sm__pedido">Pedido fictício {{ pedido }}</span>
+    </div>
+    <button type="button" class="oq-modal__fechar" aria-label="Encerrar simulação" title="Encerrar simulação" (click)="encerrar()">
+      <oq-icon name="x" [size]="12" />
+    </button>
+  </header>
+  <p class="sm__aviso">Demonstração: nada é gravado, faturado ou enviado ao Sankhya.</p>
+
+  <section class="sm__cenario">
+    <span class="oq-form-field__label">Cenário do pedido</span>
+    @for (c of perguntas(); track c) {
+      <div class="sm__pergunta">
+        <span class="sm__pergunta-texto">{{ condicoes[c].pergunta }}</span>
+        <div class="sm__escolha" role="radiogroup" [attr.aria-label]="condicoes[c].pergunta">
+          <button type="button" role="radio" [class.sm__escolha--ativa]="resposta(c)" [attr.aria-checked]="resposta(c)" (click)="definirResposta(c, true)">
+            {{ condicoes[c].sim }}
+          </button>
+          <button type="button" role="radio" [class.sm__escolha--ativa]="!resposta(c)" [attr.aria-checked]="!resposta(c)" (click)="definirResposta(c, false)">
+            {{ condicoes[c].nao }}
+          </button>
+        </div>
+      </div>
+    } @empty {
+      <span class="oq-form-hint">Este roteiro não tem condições: todo pedido segue o mesmo caminho.</span>
+    }
+  </section>
+
+  @if (!estado()) {
+    <button type="button" class="oq-admin-btn oq-admin-btn--primary sm__iniciar" (click)="iniciar()">Iniciar simulação</button>
+  } @else {
+    <section class="sm__operador" aria-live="polite">
+      <div class="sm__operador-topo">
+        <span class="oq-form-field__label">Visão do operador</span>
+        <span class="sm__progresso">Etapa {{ executadas() }} de {{ totalExecutaveis() }}</span>
+      </div>
+      <div class="sm__barra"><span [style.width.%]="totalExecutaveis() ? (executadas() / totalExecutaveis()) * 100 : 0"></span></div>
+
+      @if (etapaAtual(); as e) {
+        @if (atual()!.resultado === 'FIM') {
+          <div class="sm__tela sm__tela--fim">
+            <oq-icon name="check" [size]="22" />
+            <strong>Pedido {{ pedido }} concluído</strong>
+            <span>O roteiro chegou à {{ e.nome }}.</span>
+          </div>
+        } @else if (atual()!.resultado === 'DECISAO') {
+          <div class="sm__tela sm__tela--auto">
+            <oq-icon name="filter" [size]="18" />
+            <strong>{{ e.nome }}</strong>
+            <span>{{ atual()!.detalhe }}</span>
+          </div>
+        } @else if (atual()!.resultado === 'IGNORADA') {
+          <div class="sm__tela sm__tela--auto">
+            <oq-icon name="arrow-left" [size]="18" />
+            <strong>{{ e.nome }}</strong>
+            <span>{{ atual()!.detalhe }}</span>
+          </div>
+        } @else {
+          <div class="sm__tela">
+            <oq-icon [name]="iconeDe(atual()!)" [size]="20" />
+            <strong>{{ e.nome }}</strong>
+            <span>{{ instrucao(e) }}</span>
+            @if (aguardaOperador()) {
+              <div class="sm__tela-acoes">
+                @if (e.config.execucao === 'OPCIONAL') {
+                  <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="concluirEtapa()">Pular etapa</button>
+                }
+                <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="concluirEtapa()">Concluir etapa</button>
+              </div>
+            } @else {
+              <span class="sm__auto">Avançando automaticamente…</span>
+            }
+          </div>
+        }
+      }
+
+      @if (terminou() && estado()!.resultado.interrupcao) {
+        <p class="sm__interrupcao">
+          <oq-icon name="circle-filled" [size]="11" />
+          A simulação parou: {{ estado()!.resultado.interrupcao }}
+        </p>
+      }
+    </section>
+
+    <ol class="sm__trilha">
+      @for (p of passos(); track $index) {
+        <li class="sm__passo" [class]="'sm__passo sm__passo--' + p.resultado.toLowerCase()" [class.sm__passo--atual]="$last && !terminou()">
+          <oq-icon [name]="p.resultado === 'IGNORADA' ? 'arrow-left' : p.resultado === 'DECISAO' ? 'filter' : iconeDe(p)" [size]="13" />
+          <div>
+            <span class="sm__passo-nome">{{ nomeDe(p) }}</span>
+            @if (p.resultado === 'DECISAO' || p.resultado === 'IGNORADA') {
+              <span class="sm__passo-det">{{ p.detalhe }}</span>
+            }
+          </div>
+        </li>
+      }
+    </ol>
+
+    <div class="sm__controles">
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="terminou()" (click)="executarTudo()">Executar até o fim</button>
+      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="iniciar()">Reiniciar</button>
+    </div>
+  }
+</div>

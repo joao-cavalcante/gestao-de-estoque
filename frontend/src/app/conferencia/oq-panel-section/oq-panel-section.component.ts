@@ -19,6 +19,6 @@ export class OqPanelSectionComponent {
   @Input() countTone: 'default' | 'muted' = 'default';
 
   get contagemFormatada(): string {
-    return String(this.count).padStart(3, '0');
+    return String(this.count);
   }
 }

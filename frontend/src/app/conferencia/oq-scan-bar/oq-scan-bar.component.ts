@@ -738,6 +738,36 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
 
   // ─── Atalhos de teclado + sniffer do leitor físico (portados do projeto base) ──
 
+  /**
+   * Teclado da tela (17/11/2026, coletor). No coletor (tela ≤639px com toque) começa FECHADO — o leitor digita
+   * sozinho e o teclado do Android cobria metade da tela; o operador abre no botão quando precisa digitar.
+   * Computador e tablet: sempre aberto (sem efeito com teclado físico). Lembrado por aparelho.
+   */
+  tecladoAberto = OqScanBarComponent.tecladoInicial();
+
+  private static tecladoInicial(): boolean {
+    try {
+      const salvo = localStorage.getItem('wms_coletor_teclado');
+      if (salvo === 'S' || salvo === 'N') return salvo === 'S';
+    } catch {
+      /* sem armazenamento: usa o padrão */
+    }
+    return !(typeof window !== 'undefined' && window.matchMedia?.('(max-width: 639px) and (pointer: coarse)').matches);
+  }
+
+  alternarTeclado(): void {
+    this.tecladoAberto = !this.tecladoAberto;
+    try {
+      localStorage.setItem('wms_coletor_teclado', this.tecladoAberto ? 'S' : 'N');
+    } catch {
+      /* ignora */
+    }
+    // Re-foca para o Android aplicar o novo inputmode (abre/fecha o teclado na hora).
+    const campo = this.inputIdentificador?.nativeElement;
+    campo?.blur();
+    setTimeout(() => campo?.focus({ preventScroll: true }), 30);
+  }
+
   private bufferSniffer = '';
   private ultimoKeydownSniffer = 0;
   private static readonly JANELA_SNIFFER_MS = 100;

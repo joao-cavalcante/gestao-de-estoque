@@ -23,8 +23,23 @@ data class TarefaApiDto(
     val motorista: String? = null,
     val placa: String? = null,
     val veiculo: String? = null,
-    /** TGFCAB.AD_TURNOENTREGA — período pra entrega: "1" Diurno | "2" Noturno | "9" Qualquer. */
+    /** TGFORD.PESOMAX (kg) e DTPREVSAIDA da OC do pedido — ocupação e saída no cabeçalho da OC. */
+    val ocPesoMax: Double? = null,
+    val ocSaidaPrevista: String? = null,
+    /** TGFCAB.AD_TURNOENTREGA — período pra entrega: Negri "D" Diurno | "N" Noturno (TDDOPC, 17/11/2026). */
     val turnoEntrega: String? = null,
+    /** TGFCAB.PESOBRUTO (KG) — soma QTDNEG × TGFPRO.PESOBRUTO dos itens. */
+    val pesoBruto: Double? = null,
+    /** TGFCAB.QTDVOL — volumes previstos (soma das quantidades na unidade de venda; não é caixa física). */
+    val volumesPrevistos: Int? = null,
+    /** TGFCAB.AD_DHNEG — data/hora do pedido como veio do Sankhya ("dd/MM/yyyy HH:mm:ss"). */
+    val pedidoEm: String? = null,
+    /** TGFCAB.DTPREVENT — previsão de entrega ("dd/MM/yyyy[ HH:mm:ss]"; na Negri só a data). */
+    val previsaoEntrega: String? = null,
+    /** TGFCAB.AD_OBSSEP — observação do pedido para a separação/entrega (texto livre). */
+    val obsSeparacao: String? = null,
+    /** Conferência em curso na Torre (sessão ativa) — null se ninguém abriu o pedido. */
+    val andamento: AndamentoDto? = null,
     /** TGFCAB.AD_EXPRESS = 'S'. */
     val express: Boolean = false,
     /** TGFCAB.AD_RETIRA = 'S' (cliente retira). */
@@ -49,7 +64,14 @@ data class TarefaApiDto(
      * tem "Gerar nota" nem fechamento por nota (usuário, 10/11/2026).
      */
     val tipMov: String? = null,
+    /** TGFCAB.CODEMP / Empresa.NOMEFANTASIA (já no sync) — a Negri opera mais de uma empresa no mesmo Sankhya (coletor, 18/11/2026). */
+    val codigoEmpresa: String? = null,
+    val nomeEmpresa: String? = null,
 )
+
+/** Andamento da conferência: itens conferidos/total, quem está conferindo e desde quando (ISO-8601 UTC). */
+@Serializable
+data class AndamentoDto(val conferidos: Int, val total: Int, val conferente: String? = null, val desde: String)
 
 /** Pendência de ajuste de peso (tela "Pendências de integração") — ver AjustePesoCompra.pendencias. */
 @Serializable

@@ -4,3 +4,109 @@
 :host {
   display: block;
 }
+
+// ─── Colunas de carga e prazo (17/11/2026) ─────────────────────────────────────
+.oq-lista__pedido {
+  white-space: nowrap;
+}
+
+.oq-lista__pedido-num {
+  display: block;
+  font-family: var(--oq-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.oq-lista__pedido-unico,
+.oq-lista__sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--oq-text-secondary);
+}
+
+.oq-lista__num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.oq-lista__num--forte {
+  font-weight: 600;
+}
+
+.oq-lista__entrega--hoje {
+  font-weight: 600;
+}
+
+.oq-lista__entrega--atrasada {
+  font-weight: 600;
+  color: var(--oq-critical-foreground);
+}
+
+// Obs. do pedido: uma linha cortada embaixo do cliente; texto inteiro na dica.
+.oq-lista__obs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 280px;
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--oq-warning-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ─── Tabela da Fila em texto normal (17/11/2026, mesma linguagem do card) ─────────
+// A base global (_lista-layout.scss) é mono 12px com cabeçalho em caixa alta — vale para as outras telas; aqui só
+// os números ficam alinhados (tabular), o resto em Inter.
+.oq-lista {
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+}
+
+.oq-lista thead th {
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--oq-text-secondary);
+}
+
+.oq-lista tbody td {
+  vertical-align: middle;
+}
+
+.oq-lista__destaque {
+  font-family: var(--oq-font-body);
+  font-weight: 600;
+}
+
+.oq-lista__btn {
+  min-height: 34px;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+// Etapas na coluna Ação: lado a lado, mesma altura do botão "Conferir" das outras linhas.
+.oq-lista__chips {
+  display: flex;
+  gap: 6px;
+}
+
+// Hierarquia (17/11/2026): Conferir contornado, Continuar cheio — igual ao card.
+.oq-lista__btn--iniciar {
+  background: transparent;
+  border-color: var(--oq-brand-accent);
+  color: var(--oq-brand-text);
+
+  &:hover {
+    background: var(--oq-brand);
+    border-color: var(--oq-brand);
+    color: var(--oq-brand-ink);
+  }
+}

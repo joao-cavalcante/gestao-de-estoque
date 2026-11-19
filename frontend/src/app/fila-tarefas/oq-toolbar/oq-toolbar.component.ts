@@ -19,6 +19,8 @@ interface PillFiltro {
 })
 export class OqToolbarComponent {
   @Input() total = 0;
+  /** Contador da fila ("12 pedidos sem OC"), à direita da barra, antes de cards/lista e Filtros. */
+  @Input() resumo = '';
   @Input() visiveis = 0;
   @Input() filtroAtivo: FiltroStatus = 'todos';
   /** Quantos pedidos em cada fase (no escopo atual) — substitui a faixa de KPIs. */
@@ -68,6 +70,11 @@ export class OqToolbarComponent {
   ];
 
   readonly tiposSeparacao = TIPOS_SEPARACAO_ATIVOS;
+
+  /** Badge do botão "Filtros": avançados + modalidade + tipo de separação (os dois agora ficam no painel). */
+  get filtrosNoPainel(): number {
+    return this.filtrosAvancadosAtivos + this.modalidadesSelecionadas.size + this.tiposSeparacaoSelecionados.size;
+  }
 
   onBuscaInput(valor: string): void {
     this.termoBuscaChange.emit(valor);

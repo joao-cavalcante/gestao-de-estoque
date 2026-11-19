@@ -21,7 +21,16 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object TransporteOrdemCarga {
     /** [situacao] = TGFORD.SITUACAO ('A' aberta, 'F' fechada) — a fila esconde a OC fechada. */
-    data class Transporte(val motorista: String?, val placa: String?, val veiculo: String?, val situacao: String? = null)
+    data class Transporte(
+        val motorista: String?,
+        val placa: String?,
+        val veiculo: String?,
+        val situacao: String? = null,
+        /** TGFORD.PESOMAX (kg) — capacidade da carga; 100% preenchido na Negri (17/11/2026). */
+        val pesoMax: Double? = null,
+        /** TGFORD.DTPREVSAIDA — data prevista para saída ("dd/MM/yyyy"). */
+        val saidaPrevista: String? = null,
+    )
 
     private val TTL: Duration = Duration.ofMinutes(10)
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -49,7 +58,7 @@ object TransporteOrdemCarga {
         }
     }
 
-    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO")
+    private val FIELDS_ORDEM = listOf("ORDEMCARGA", "CODVEICULO", "CODPARCMOTORISTA", "SITUACAO", "PESOMAX", "DTPREVSAIDA")
     private val FIELDS_VEICULO = listOf("CODVEICULO", "MARCAMODELO", "PLACA")
     private val FIELDS_PARCEIRO = listOf("CODPARC", "NOMEPARC")
 
@@ -150,6 +159,8 @@ object TransporteOrdemCarga {
                 placa = veiculo?.get("PLACA")?.trim()?.takeIf { it.isNotEmpty() },
                 veiculo = veiculo?.get("MARCAMODELO")?.trim()?.takeIf { it.isNotEmpty() },
                 situacao = ordem?.get("SITUACAO")?.trim()?.takeIf { it.isNotEmpty() },
+                pesoMax = ordem?.get("PESOMAX")?.toDoubleOrNull()?.takeIf { it > 0 },
+                saidaPrevista = ordem?.get("DTPREVSAIDA")?.trim()?.takeIf { it.isNotEmpty() },
             )
         }
         resultado.forEach { (oc, t) -> cache[tenantId to oc] = agora to t }

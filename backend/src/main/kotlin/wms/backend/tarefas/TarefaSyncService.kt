@@ -45,7 +45,7 @@ object TarefaSyncService {
         // TGFCAB.ORDEMCARGA — número da ordem/onda de carga; base do filtro
         // "Ordem de Carga" da fila (igual ao fila-de-conferencia legado).
         "ORDEMCARGA",
-        // TGFCAB.AD_TURNOENTREGA — período pro card da fila: 1 Diurno | 2 Noturno | 9 Qualquer.
+        // TGFCAB.AD_TURNOENTREGA — período pro card da fila: Negri D Diurno | N Noturno (TDDOPC, 17/11/2026).
         "AD_TURNOENTREGA",
         // TGFCAB.AD_EXPRESS / AD_RETIRA / AD_ENTREGA ('S'/'N') — modalidade do pedido: pin no card da
         // fila, filtro rápido e ícones no Mapa de Separação.
@@ -53,6 +53,11 @@ object TarefaSyncService {
         // TGFCAB.PESOBRUTO (KG) — "peso a separar" da TV. Conferido com a soma QTDNEG x TGFPRO.PESOBRUTO
         // dos itens em 15 pedidos com ordem de carga: bate em todos.
         "PESOBRUTO",
+        // Card da fila (17/11/2026, mapeado na Negri — docs/sankhya-banco.md "Dados de expedição do pedido"):
+        // QTDVOL = volumes previstos (soma das quantidades na unidade de venda, já antes da conferência);
+        // AD_DHNEG = data/hora do pedido (idade); DTPREVENT = previsão de entrega; AD_OBSSEP = obs. do vendedor
+        // (preenchida no pedido — horário de recebimento, dias, avisos).
+        "QTDVOL", "AD_DHNEG", "DTPREVENT", "AD_OBSSEP",
         // Ponteiro pra conferência atual (NULL = nunca teve ou foi excluída —
         // fica preenchido permanentemente uma vez setado, mesmo após
         // finalização) + liberação do vendedor. Já eram usados dentro do

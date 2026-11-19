@@ -15,7 +15,7 @@ import { Usuario } from '../usuarios/usuario.model';
  * Config Conferência — decisão revertida a pedido do usuário.
  *
  * V49: por TOP, "Usar conferência por etapa" — conferência de ENTRADA (compra) não
- * usa etapas Secos/Refrigerado/Congelado. Desligado = a nota desse TOP abre em
+ * usa etapas (Não pesáveis/Pesáveis). Desligado = a nota desse TOP abre em
  * conferência única. O tipo de movimento aparece em cada TOP só como informação.
  */
 @Component({

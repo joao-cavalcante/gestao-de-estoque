@@ -41,70 +41,38 @@
   }
 }
 
-.oq-header__logo {
-  width: 34px;
-  height: 34px;
-  flex: none;
+.oq-header__unit {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--oq-brand);
-  color: #fff;
-  border-radius: var(--oq-radius-block);
-  font-family: var(--oq-font-display);
-  font-weight: 700;
-  font-size: 13px;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
-.oq-header__unit-name {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
+.oq-header__produto {
+  font-family: var(--oq-font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--oq-text-primary);
+}
+
+.oq-header__unit-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--oq-border);
 }
 
 .oq-header__unit-title {
-  font-family: var(--oq-font-display);
-  font-weight: 700;
+  font-family: var(--oq-font-body);
+  font-weight: 600;
   font-size: 13px;
   color: var(--oq-text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
-.oq-header__version {
-  font-family: var(--oq-font-mono);
-  font-size: 10px;
+.oq-header__unit-turno {
+  font-size: 13px;
   color: var(--oq-text-secondary);
-}
-
-.oq-header__divider {
-  width: 1px;
-  height: 28px;
-  background: var(--oq-border);
-  flex: none;
-}
-
-.oq-header__center {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.oq-header__center-label {
-  font-family: var(--oq-font-display);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--oq-text-secondary);
-}
-
-.oq-header__center-value {
-  font-family: var(--oq-font-display);
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: -0.01em;
-  color: var(--oq-text-primary);
 }
 
 .oq-header__right {
@@ -114,8 +82,7 @@
   margin-left: auto;
 }
 
-/* Sync discreto: "↻ Sincronizado há 43s" + "próximo em 17s · toque p/ agora" + barra fina até o próximo
-   ciclo. Sem caixa em repouso; continua sendo o botão de sincronizar agora (hover mostra que é clicável). */
+/* Sync discreto numa linha: "↻ Atualizado às 14:56" (sem contagem por segundo nem barra). Sem caixa em repouso; continua sendo o botão de sincronizar agora (hover mostra que é clicável). */
 .oq-header__sync {
   display: flex;
   align-items: center;
@@ -155,61 +122,43 @@
 }
 
 .oq-header__sync-texto {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  min-width: 128px;
-}
-
-.oq-header__sync-titulo {
   font-family: var(--oq-font-body);
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--oq-text-primary);
-}
-
-.oq-header__sync-sub {
-  font-family: var(--oq-font-body);
-  font-size: 10px;
-  line-height: 1.3;
+  font-weight: 500;
   color: var(--oq-text-secondary);
 }
 
-.oq-header__sync-barra {
-  display: block;
-  width: 100%;
-  height: 2px;
-  margin-top: 2px;
-  border-radius: 2px;
-  background: var(--oq-border);
-  overflow: hidden;
+/* Falha ao buscar no Sankhya: o único estado do sync que chama atenção. */
+.oq-header__sync--falha,
+.oq-header__sync--falha .oq-header__sync-icone,
+.oq-header__sync--falha .oq-header__sync-texto {
+  color: var(--oq-critical);
+  font-weight: 600;
 }
 
-.oq-header__sync-barra-fill {
-  display: block;
-  height: 100%;
-  background: var(--oq-brand-accent);
-  transition: width 1s linear;
-}
-
-.oq-header__sync--ativo .oq-header__sync-barra-fill {
-  animation: oq-sync-pulso 1s ease-in-out infinite alternate;
-}
-
-@keyframes oq-sync-pulso {
-  from { opacity: 1; }
-  to { opacity: 0.35; }
+.oq-header__operator-wrap {
+  position: relative;
+  margin-left: 4px;
+  padding-left: 14px;
+  border-left: 1px solid var(--oq-border);
 }
 
 .oq-header__operator {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: 4px;
-  padding-left: 14px;
-  border-left: 1px solid var(--oq-border);
+  padding: 2px 8px 2px 2px;
+  border: 1px solid transparent;
+  border-radius: var(--oq-radius-block);
+  background: transparent;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    border-color: var(--oq-border);
+    background: var(--oq-surface-2);
+  }
 }
 
 .oq-header__avatar {
@@ -227,29 +176,64 @@
   font-size: 11px;
 }
 
-.oq-header__operator-info {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-
 .oq-header__operator-name {
   font-size: 12px;
   font-weight: 600;
   color: var(--oq-text-primary);
 }
 
-.oq-header__operator-role {
-  font-family: var(--oq-font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+.oq-header__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+}
+
+.oq-header__menu-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.oq-header__menu-nome {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.oq-header__menu-sub {
+  font-size: 12px;
   color: var(--oq-text-secondary);
 }
 
-@media (max-width: 900px) {
-  .oq-header__center,
-  .oq-header__divider { display: none; }
+.oq-header__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--oq-radius-block);
+  background: transparent;
+  color: var(--oq-text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--oq-surface-2);
+  }
 }
 
 /* Celular: só o ícone (spinner quando sincroniza) — o texto não cabe no header. */
@@ -260,7 +244,11 @@
   .oq-header__sync {
     padding: 0 3px;
   }
-  .oq-header__sync-texto {
+  .oq-header__sync-texto,
+  .oq-header__operator-name,
+  .oq-header__unit-turno,
+  .oq-header__produto,
+  .oq-header__unit-sep {
     display: none;
   }
 }

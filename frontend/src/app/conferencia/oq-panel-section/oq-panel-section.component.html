@@ -8,6 +8,7 @@
       <span class="oq-panel-section__count" [class.oq-panel-section__count--muted]="countTone === 'muted'">
         {{ contagemFormatada }}
       </span>
+      <ng-content select="[acao]" />
     </div>
   </header>
   <div class="oq-panel-section__body">

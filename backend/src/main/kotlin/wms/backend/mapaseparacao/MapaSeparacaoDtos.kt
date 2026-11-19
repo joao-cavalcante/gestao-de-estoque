@@ -135,6 +135,17 @@ data class OrdemCargaResumoDto(
     val pesoPendenteKg: Double = 0.0,
     /** OC já impressa que ganhou pedido DEPOIS da impressão — caso de extrema atenção no painel. */
     val pedidosNovos: List<PedidoNovoOcDto> = emptyList(),
+    /** TGFORD.CODREG → TSIREG.NOMEREG (ex.: "ZONA NORTE 3") — 99% preenchido na Negri (17/11/2026). */
+    val regiao: String? = null,
+    /** Pedidos de saída da OC e clientes distintos (pelo nome do parceiro no mirror). */
+    val qtdPedidos: Int = 0,
+    val qtdClientes: Int = 0,
+    /**
+     * Peso a separar (pedidos ainda não conferidos) por área — NVL(TGFPRO.AD_TIPOSEPARACAO, TGFGRU.AD_TIPOSEPARACAO):
+     * "1" Secos, "2" Resfriados, "3" Congelados, "0" sem área. Vazio = base sem o campo ou consulta falhou (o card
+     * mostra só o peso total). O mapa sai uma folha por área — é por aí que o trabalho se divide entre separadores.
+     */
+    val pesoPendentePorArea: Map<String, Double> = emptyMap(),
 )
 
 /** Pedido que entrou na OC depois do último mapa impresso dela (não saiu em nenhum mapa). */

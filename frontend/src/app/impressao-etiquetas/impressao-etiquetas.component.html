@@ -1,166 +1,159 @@
-<!-- Mesmo layout da Fila de Tarefas (estilos globais em styles/_lista-layout.scss). -->
-<div class="oq-page">
-  <header class="oq-page__header">
-    <div class="oq-toolbar">
-      <div class="oq-toolbar__title-block">
-        <h1 class="oq-toolbar__title">Impressão de Etiquetas</h1>
-        <span class="oq-toolbar__counter">[ {{ total() }} finalizada(s) ]</span>
-      </div>
+<!-- Balcão de reimpressão (17/11/2026): busca única + uma linha por conferência, agrupada por dia, com o que sai da
+     impressora escrito no botão. Cards/lista e paginação continuam. -->
+<div class="ie">
+  <header class="ie-topo">
+    <label class="ie-busca">
+      <oq-icon name="search" [size]="16" />
+      <input
+        type="text"
+        inputmode="numeric"
+        autocomplete="off"
+        placeholder="Nº único ou NF"
+        aria-label="Buscar por nº único ou NF"
+        [(ngModel)]="termo"
+        (ngModelChange)="onBuscaChange()"
+        (keydown.enter)="onEnter()"
+      />
+      @if (termo) {
+        <button type="button" class="ie-busca__limpar" (click)="limparBusca()" aria-label="Limpar busca"><oq-icon name="x" [size]="14" /></button>
+      }
+    </label>
+    <span class="ie-topo__dica">Enter com um resultado só já abre as etiquetas.</span>
 
-      <div class="oq-toolbar__actions">
-        <!-- Dois campos (e não uma busca só): o filtro é no servidor, por NF OU por Nº Único. -->
-        <label class="oq-toolbar__search oq-toolbar__search--curto">
-          <oq-icon name="search" [size]="12" />
-          <input type="number" inputmode="numeric" placeholder="Nº DA NOTA (NF)" [(ngModel)]="filtroNota" (ngModelChange)="onFiltroChange()" />
-        </label>
-        <label class="oq-toolbar__search oq-toolbar__search--curto">
-          <oq-icon name="search" [size]="12" />
-          <input type="number" inputmode="numeric" placeholder="Nº ÚNICO" [(ngModel)]="filtroUnico" (ngModelChange)="onFiltroChange()" />
-        </label>
-
-        <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
-
-        <button type="button" class="oq-toolbar__filters-btn" (click)="buscar(false)">
-          <oq-icon name="sync" [size]="12" />
-          Atualizar
-        </button>
-      </div>
+    <div class="ie-topo__direita">
+      <span class="ie-resumo">
+        {{ total() }} {{ total() === 1 ? 'conferência' : 'conferências' }}
+        @if (achouPorNota()) { <span class="ie-resumo__nota">· achado pela NF</span> }
+      </span>
+      <oq-view-toggle [modo]="viewMode()" (modoChange)="onViewModeChange($event)" />
+      <button type="button" class="ie-icone-btn" (click)="buscar(false)" title="Atualizar" aria-label="Atualizar">
+        <oq-icon name="sync" [size]="15" />
+      </button>
     </div>
   </header>
 
-  <main class="oq-page__content">
+  <main class="ie-corpo" #rolagem>
     @if (erro()) {
-      <div class="oq-page__status oq-page__status--erro">{{ erro() }}</div>
+      <p class="ie-erro" role="alert">{{ erro() }}</p>
     }
 
-    @if (carregando()) {
-      @if (viewMode() === 'cards') {
-        <div class="oq-page__grid" aria-busy="true">
-          <oq-skeleton variant="task-card" [count]="6" />
-        </div>
-      } @else {
-        <div class="oq-page__lista" aria-busy="true">
-          <table class="oq-page__lista-skel">
-            <tbody><oq-skeleton variant="table-row" [count]="10" /></tbody>
-          </table>
-        </div>
-      }
+    @if (carregando() && itens().length === 0) {
+      <p class="ie-vazio"><oq-spinner [size]="14" /> Carregando…</p>
     } @else if (itens().length === 0) {
-      <div class="oq-page__status">Nenhuma conferência finalizada.</div>
+      <p class="ie-vazio">{{ termo ? 'Nenhuma conferência com esse nº único ou NF.' : 'Nenhuma conferência finalizada.' }}</p>
     } @else {
-      @if (viewMode() === 'cards') {
-        <div class="oq-page__grid" #rolagem>
-          @for (item of itens(); track item.sessaoId) {
-            <article class="oq-card">
-              <header class="oq-card__header">
-                <span class="oq-card__client" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
-                <div class="oq-card__status-line">
-                  @if (item.parcial) {
-                    <span class="oq-status-pin oq-status-pin--andamento" title="Conferência em andamento — etiquetas liberadas das etapas já concluídas">
-                      <oq-icon name="clock" [size]="12" />
-                      Parcial · {{ rotuloEtapas(item.etapasConcluidas) }}
-                    </span>
-                  } @else {
-                    <span class="oq-status-pin oq-status-pin--concluido">
-                      <oq-icon name="check" [size]="12" />
-                      Conferência finalizada
-                    </span>
-                  }
-                </div>
-              </header>
-
-              <div class="oq-card__divider"></div>
-
-              <div class="oq-card__grid">
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">NF</span>
-                  <span class="oq-card__field-value">{{ item.numeroNota ?? '—' }}</span>
-                </div>
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Nº Único</span>
-                  <span class="oq-card__field-value">{{ item.nunota }}</span>
-                </div>
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Vendedor</span>
-                  <span class="oq-card__field-value">{{ item.apelidoVendedor ?? '—' }}</span>
-                </div>
-                <div class="oq-card__field">
-                  <span class="oq-card__field-label">Data</span>
-                  <span class="oq-card__field-value">{{ data(item.dataMovimento) }}</span>
-                </div>
-                <div class="oq-card__field oq-card__field--full">
-                  <span class="oq-card__field-label">Tipo de Operação</span>
-                  <span class="oq-card__field-value" [title]="item.descricaoTipoOperacao ?? ''">{{ item.descricaoTipoOperacao ?? '—' }}</span>
-                </div>
-              </div>
-
-              <div class="oq-card__actions">
-                <footer class="oq-card__footer">
-                  <button type="button" class="oq-card__btn oq-card__btn--primary" (click)="imprimir(item)">Imprimir Etiquetas</button>
-                  <!-- span segura o tooltip: botão desabilitado não dispara hover em alguns navegadores -->
-                  <span class="ie-btn-wrap" [title]="tituloPeso(item)">
-                    <button type="button" class="oq-card__btn oq-card__btn--outline" [disabled]="!item.temPesavel" (click)="imprimirPeso(item)">
-                      Etiqueta de Peso
-                    </button>
-                  </span>
-                </footer>
-              </div>
-            </article>
-          }
-        </div>
-      } @else {
-        <div class="oq-page__lista" #rolagem>
-          <table class="oq-lista">
-            <caption class="oq-lista__caption">Conferências finalizadas para impressão de etiquetas</caption>
-            <thead>
-              <tr>
-                <th scope="col" class="oq-lista__topo">Status</th>
-                <th scope="col" class="oq-lista__principal">Cliente</th>
-                <th scope="col">NF</th>
-                <th scope="col">Nº Único</th>
-                <th scope="col">Tipo de Operação</th>
-                <th scope="col">Vendedor</th>
-                <th scope="col">Data</th>
-                <th scope="col" class="oq-lista__acoes">Imprimir</th>
-              </tr>
-            </thead>
+      @if (viewMode() === 'list') {
+        <!-- Lista (17/11/2026, "ficou desalinhado"): UMA tabela — colunas alinhadas entre todos os dias; o dia é uma
+             linha de separação. Linha única por conferência (mais densa). -->
+        <table class="ie-tabela">
+          <thead>
+            <tr>
+              <th scope="col">Nº único</th>
+              <th scope="col">NF</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">OC</th>
+              <th scope="col">Conferente</th>
+              <th scope="col">Terminou</th>
+              <th scope="col" class="ie-tabela__acao">Volume</th>
+              <th scope="col" class="ie-tabela__acao">Peso</th>
+            </tr>
+          </thead>
+          @for (g of grupos(); track g.rotulo) {
             <tbody>
-              @for (item of itens(); track item.sessaoId) {
-                <tr class="oq-lista__linha">
-                  <td class="oq-lista__topo" data-label="Status">
-                    <span class="oq-status-pin oq-status-pin--concluido">
-                      <oq-icon name="check" [size]="12" />
-                      Finalizada
-                    </span>
+              <tr class="ie-tabela__dia">
+                <th colspan="8" scope="colgroup">{{ g.rotulo }} <span>{{ g.itens.length }}</span></th>
+              </tr>
+              @for (item of g.itens; track item.sessaoId) {
+                <tr [title]="dica(item)">
+                  <td class="ie-tabela__num">{{ item.nunota }}</td>
+                  <td class="ie-tabela__nf">{{ item.numeroNota ?? '—' }}</td>
+                  <td class="ie-tabela__cliente">
+                    <span class="ie-tabela__cliente-nome">{{ item.nomeParceiro ?? '—' }}</span>
+                    @if (item.descricaoTipoOperacao) { <span class="ie-tabela__sub">{{ item.descricaoTipoOperacao }}</span> }
                   </td>
-                  <td class="oq-lista__principal" data-label="Cliente">
-                    <span class="oq-lista__destaque" [title]="item.nomeParceiro ?? ''">{{ item.nomeParceiro ?? '—' }}</span>
+                  <td class="ie-tabela__oc" [class.ie-tabela__oc--sem]="!item.ordemCarga">{{ item.ordemCarga ?? 'Sem OC' }}</td>
+                  <td class="ie-tabela__conferente">{{ item.conferente ?? '—' }}</td>
+                  <td class="ie-tabela__quando">
                     @if (item.parcial) {
-                      <span class="oq-status-pin oq-status-pin--andamento" title="Conferência em andamento — etiquetas liberadas das etapas já concluídas">Parcial · {{ rotuloEtapas(item.etapasConcluidas) }}</span>
+                      <span class="ie-tabela__parcial" title="Conferência em andamento — etiquetas das etapas já concluídas">
+                        <oq-icon name="clock" [size]="12" /> {{ rotuloEtapas(item.etapasConcluidas) }} pronta
+                      </span>
+                    } @else {
+                      {{ hora(item) || '—' }}
                     }
                   </td>
-                  <td data-label="NF">{{ item.numeroNota ?? '—' }}</td>
-                  <td data-label="Nº Único">{{ item.nunota }}</td>
-                  <td data-label="Tipo de Operação">{{ item.descricaoTipoOperacao ?? '—' }}</td>
-                  <td data-label="Vendedor">{{ item.apelidoVendedor ?? '—' }}</td>
-                  <td data-label="Data">{{ data(item.dataMovimento) }}</td>
-                  <td class="oq-lista__acoes" data-label="Imprimir">
-                    <div class="oq-lista__btns">
-                      <button type="button" class="oq-lista__btn" (click)="imprimir(item)">Etiquetas</button>
-                      <span [title]="tituloPeso(item)">
-                        <button type="button" class="oq-lista__btn oq-lista__btn--outline" [disabled]="!item.temPesavel" (click)="imprimirPeso(item)">
-                          Peso
-                        </button>
-                      </span>
-                    </div>
+                  <td class="ie-tabela__acao">
+                    <button type="button" class="ie-btn ie-btn--cheio" (click)="imprimir(item)" title="Abrir as etiquetas de volume para imprimir">
+                      <oq-icon name="impressora" [size]="13" />
+                      @if ((item.qtdVolumes ?? 0) > 0) { {{ item.qtdVolumes }} } {{ item.qtdVolumes === 1 ? 'etiqueta' : 'etiquetas' }}
+                    </button>
+                  </td>
+                  <td class="ie-tabela__acao">
+                    @if (item.temPesavel) {
+                      <button type="button" class="ie-btn ie-btn--contorno" (click)="imprimirPeso(item)" [title]="tituloPeso(item)">
+                        @if ((item.qtdEtiquetasPeso ?? 0) > 0) { {{ item.qtdEtiquetasPeso }} } de peso
+                      </button>
+                    } @else {
+                      <span class="ie-sem-peso" [title]="tituloPeso(item)">sem peso</span>
+                    }
                   </td>
                 </tr>
               }
             </tbody>
-          </table>
-        </div>
+          }
+        </table>
+      } @else {
+        @for (g of grupos(); track g.rotulo) {
+          <section class="ie-dia" [attr.aria-label]="g.rotulo">
+            <h2 class="ie-dia__titulo">{{ g.rotulo }} <span class="ie-dia__qtd">{{ g.itens.length }}</span></h2>
+            <div class="ie-linhas ie-linhas--cards">
+              @for (item of g.itens; track item.sessaoId) {
+                <article class="ie-conf" [title]="dica(item)">
+                  <div class="ie-conf__id">
+                    <span class="ie-conf__num">{{ item.nunota }}</span>
+                    <span class="ie-conf__cliente">{{ item.nomeParceiro ?? '—' }}</span>
+                  </div>
+                  <div class="ie-conf__info">
+                    <span>{{ item.ordemCarga ? 'OC ' + item.ordemCarga : 'Sem OC' }}</span>
+                    @if (item.conferente) { <span>{{ item.conferente }}</span> }
+                    @if (item.parcial) {
+                      <span class="ie-conf__parcial" title="Conferência em andamento — etiquetas das etapas já concluídas">
+                        <oq-icon name="clock" [size]="12" /> etapa {{ rotuloEtapas(item.etapasConcluidas) }} pronta
+                      </span>
+                    } @else if (hora(item)) {
+                      <span>terminou {{ hora(item) }}</span>
+                    }
+                  </div>
+                  <div class="ie-conf__acoes">
+                    <button type="button" class="ie-btn ie-btn--cheio" (click)="imprimir(item)" title="Abrir as etiquetas de volume para imprimir">
+                      <oq-icon name="impressora" [size]="14" />
+                      @if ((item.qtdVolumes ?? 0) > 0) {
+                        {{ item.qtdVolumes }} {{ item.qtdVolumes === 1 ? 'etiqueta' : 'etiquetas' }} de volume
+                      } @else {
+                        Etiquetas de volume
+                      }
+                    </button>
+                    @if (item.temPesavel) {
+                      <button type="button" class="ie-btn ie-btn--contorno" (click)="imprimirPeso(item)" [title]="tituloPeso(item)">
+                        @if ((item.qtdEtiquetasPeso ?? 0) > 0) { {{ item.qtdEtiquetasPeso }} de peso } @else { Etiqueta de peso }
+                      </button>
+                    } @else {
+                      <span class="ie-sem-peso" [title]="tituloPeso(item)">sem peso</span>
+                    }
+                  </div>
+                </article>
+              }
+            </div>
+          </section>
+        }
       }
 
+    }
+  </main>
+
+  @if (itens().length > 0) {
+    <!-- Rodapé preso no fim da tela, mesma largura e margens da Fila (17/11/2026). -->
+    <footer class="ie-rodape">
       <oq-paginacao
         [total]="total()"
         [pagina]="page() + 1"
@@ -169,6 +162,6 @@
         (paginaChange)="irParaPagina($event - 1)"
         (itensPorPaginaChange)="onItensPorPaginaChange($event)"
       />
-    }
-  </main>
+    </footer>
+  }
 </div>

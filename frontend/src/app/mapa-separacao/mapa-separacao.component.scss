@@ -752,6 +752,13 @@
   align-items: center;
   gap: 8px 18px;
   margin-top: 10px;
+  /* Mesma margem lateral da barra acima (.oq-toolbar) — sem ela, "Situação" colava na borda da tela. */
+  padding-inline: 24px;
+  min-width: 0;
+
+  @media (max-width: 639px) {
+    padding-inline: 16px;
+  }
 
   &__grupo {
     display: flex;
@@ -810,4 +817,668 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--oq-text-secondary);
+}
+
+// ═══ Painel revisado (17/11/2026) — mesma linguagem da Fila: barra única, texto normal, sinais escritos ═══════
+// Bordas coloridas de Express/Retira/complementar saíram dos cards (viraram pino em texto e aviso escrito); só a
+// seleção do lote mantém contorno (.ms-card--selecionado). Classes .ms-card--express/--retira/--novo acima ficaram
+// sem uso no template.
+.ms-painel {
+  // Topo: uma barra que quebra em linhas inteiras (modo + busca | filtros | resumo e ações).
+  .ms-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    padding: 10px 24px;
+  }
+
+  .ms-modo {
+    display: inline-flex;
+    flex: none;
+    border: 1px solid color-mix(in srgb, var(--oq-border-strong) 45%, transparent);
+    border-radius: var(--oq-radius-block);
+    overflow: hidden;
+  }
+
+  .ms-modo__opcao {
+    height: 34px;
+    padding: 0 14px;
+    border: 0;
+    background: var(--oq-surface);
+    color: var(--oq-text-secondary);
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+
+    & + & {
+      border-left: 1px solid var(--oq-border);
+    }
+
+    &:hover:not(.ms-modo__opcao--sel) {
+      background: var(--oq-surface-2);
+      color: var(--oq-text-primary);
+    }
+
+    &--sel {
+      background: var(--oq-brand);
+      color: var(--oq-brand-ink);
+    }
+  }
+
+  .ms-busca {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 300px;
+    min-width: 200px;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--oq-border-strong);
+    border-radius: var(--oq-radius-block);
+    background: var(--oq-surface);
+    color: var(--oq-text-secondary);
+
+    &:focus-within {
+      border-color: var(--oq-brand);
+      outline: 1px solid var(--oq-brand);
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--oq-text-primary);
+      font-family: var(--oq-font-body);
+      font-size: 13px;
+    }
+  }
+
+  .ms-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .oq-toolbar__pills {
+    height: 34px;
+    border-color: color-mix(in srgb, var(--oq-border-strong) 45%, transparent);
+  }
+
+  .oq-toolbar__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 11px;
+    font-family: var(--oq-font-body);
+    font-size: 12.5px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .oq-toolbar__pill--active {
+    background: var(--oq-brand);
+    color: var(--oq-brand-ink);
+  }
+
+  .ms-filtros__qtd {
+    font-family: var(--oq-font-body);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+  }
+
+  .ms-limpar {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    background: none;
+    color: var(--oq-text-secondary);
+    font-size: 12.5px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--oq-text-primary);
+      text-decoration: underline;
+    }
+  }
+
+  .ms-barra__direita {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .ms-resumo {
+    margin-right: 4px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--oq-text-secondary);
+    white-space: nowrap;
+
+    b {
+      color: var(--oq-text-primary);
+    }
+  }
+
+  .ms-icone-btn {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-block);
+    background: var(--oq-surface);
+    color: var(--oq-text-secondary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      color: var(--oq-text-primary);
+      border-color: var(--oq-border-strong);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  // Seções: texto normal, informação secundária ao lado.
+  .ms-secao {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin: 22px 0 10px;
+    padding: 0 0 6px;
+    border-bottom: 1px solid var(--oq-border);
+    font-family: var(--oq-font-body);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--oq-text-primary);
+
+    &:first-child {
+      margin-top: 4px;
+    }
+  }
+
+  .ms-secao__info {
+    font-size: 12.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--oq-text-secondary);
+  }
+
+  .ms-secao--alerta {
+    align-items: center;
+    color: var(--oq-critical-foreground);
+    border-bottom-color: color-mix(in srgb, var(--oq-critical) 45%, transparent);
+  }
+
+  .ms-secao__acao {
+    margin-left: auto;
+    border: 0;
+    background: none;
+    color: var(--oq-brand-text);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  // Seleção do lote (visão "Pedidos sem OC").
+  .ms-selecao {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+
+  .ms-selecao__info {
+    color: var(--oq-text-secondary);
+  }
+
+  .ms-selecao .ms-btn {
+    margin-left: auto;
+  }
+}
+
+// ─── Card (OC e pedido) ─────────────────────────────────────────────────────────
+.ms-card {
+  padding: 16px;
+  box-shadow: none;
+}
+
+.ms-card__topo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ms-card__check {
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  margin: 0 2px 0 0;
+  accent-color: var(--oq-brand);
+}
+
+.ms-card__num {
+  flex: none;
+  font-family: var(--oq-font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-primary);
+}
+
+.ms-card__regiao {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.ms-card__saida {
+  flex: none;
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+}
+
+.ms-card__linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+
+  > span + span::before {
+    content: '·';
+    padding: 0 6px;
+  }
+}
+
+.ms-card__placa {
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+}
+
+.ms-card__cliente {
+  margin: 4px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.ms-card__status {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+}
+
+.ms-fechada {
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+}
+
+// Peso a separar por área — faixa de 3 colunas como a "carga" do card da Fila.
+.ms-areas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 12px 0 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--oq-border);
+  border-bottom: 1px solid var(--oq-border);
+
+  dt {
+    font-size: 11.5px;
+    color: var(--oq-text-secondary);
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--oq-text-primary);
+    white-space: nowrap;
+  }
+}
+
+.ms-areas--um {
+  grid-template-columns: 1fr;
+}
+
+.ms-areas__item {
+  min-width: 0;
+
+  & + & {
+    padding-left: 12px;
+    border-left: 1px solid var(--oq-border);
+  }
+}
+
+.ms-areas__item--vazio dd {
+  color: var(--oq-text-secondary);
+  font-weight: 400;
+}
+
+// Andamento: conferidas e carregadas escritas + uma barra (conferidas).
+.ms-andamento {
+  margin-top: 10px;
+}
+
+.ms-andamento__texto {
+  display: flex;
+  gap: 16px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+
+  b {
+    color: var(--oq-text-primary);
+  }
+}
+
+.ms-andamento__barra {
+  height: 4px;
+  margin-top: 5px;
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+
+  > span {
+    display: block;
+    height: 100%;
+    background: var(--oq-brand-accent);
+  }
+}
+
+// Pedidos que entraram depois da impressão: aviso escrito (era borda vermelha grossa + pílula piscando).
+.ms-novos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-left: 2px solid var(--oq-critical);
+  background: var(--oq-critical-bg);
+  font-size: 12.5px;
+  color: var(--oq-critical-foreground);
+}
+
+.ms-novos__titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.ms-novos__item {
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-card__acoes {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--oq-border);
+}
+
+// Botões na hierarquia da Fila: cheio = próxima ação (imprimir); contornado = reimprimir/ver.
+.ms-btn {
+  flex: 1;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--oq-brand-accent);
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  color: var(--oq-brand-text);
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: 2px;
+  }
+}
+
+.ms-btn--cheio {
+  background: var(--oq-brand);
+  border-color: var(--oq-brand);
+  color: var(--oq-brand-ink);
+
+  &:hover:not(:disabled) {
+    background: var(--oq-brand-hover);
+    border-color: var(--oq-brand-hover);
+  }
+}
+
+.ms-btn--contorno:hover:not(:disabled) {
+  background: var(--oq-brand);
+  border-color: var(--oq-brand);
+  color: var(--oq-brand-ink);
+}
+
+.ms-lista .ms-btn,
+.oq-page__status .ms-btn,
+.ms-selecao .ms-btn {
+  flex: none;
+  min-height: 32px;
+}
+
+// ─── Lista ─────────────────────────────────────────────────────────────────────
+.ms-painel .oq-lista {
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+
+  thead th {
+    font-family: var(--oq-font-body);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--oq-text-secondary);
+  }
+
+  td {
+    vertical-align: middle;
+  }
+
+  .oq-lista__acoes {
+    white-space: nowrap;
+
+    .ms-btn + .ms-btn {
+      margin-left: 6px;
+    }
+  }
+}
+
+.ms-lista__num {
+  font-family: var(--oq-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.ms-lista__sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.ms-lista__peso {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ms-lista__peso--forte {
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .ms-painel .ms-barra {
+    padding: 10px 16px;
+  }
+
+  .ms-painel .ms-busca {
+    flex: 1 1 100%;
+  }
+
+  .ms-painel .ms-barra__direita {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .ms-painel .ms-resumo {
+    margin-right: auto;
+  }
+
+  .ms-painel .ms-filtros .oq-toolbar__pills {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ms-painel .ms-filtros .oq-toolbar__pill {
+    flex: none;
+    white-space: nowrap;
+  }
+}
+
+.ms-card__linha--2 {
+  margin-top: 2px;
+}
+
+// ─── Faixa lateral só na OC impressa com pedido novo (atenção máxima) — Express/Retira levam a cor no pino ───
+.ms-card.ms-sinal--novo {
+  position: relative;
+  padding-left: 20px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 5px;
+    background: var(--oq-critical);
+  }
+}
+
+// ─── Restaurados (17/11/2026: "não é interessante perder nenhuma feature") ─────────────────────────────
+// Total a separar numa linha própria, logo acima das áreas (4 colunas ficavam apertadas).
+.ms-areas__total {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+
+  b {
+    margin-left: 4px;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--oq-text-primary);
+  }
+
+  + .ms-areas {
+    margin-top: 6px;
+  }
+}
+
+// Código do cliente antes do nome (como no painel antigo: "1201 - ITAMONTE").
+.ms-card__codparc {
+  margin-right: 6px;
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--oq-text-secondary);
+}
+
+// Segunda barra: carregadas (verde), embaixo da de conferidas.
+.ms-andamento__barra--carga {
+  margin-top: 3px;
+
+  > span {
+    background: var(--oq-concluido);
+  }
+}
+
+
+// "Selecionar todos" em texto normal (a base .ms-check era caixa alta).
+.ms-painel .ms-check {
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--oq-brand);
+  }
+}
+
+// Rodapé alinhado com as outras telas (17/11/2026): no modo "Pedidos sem OC" (main sem .ms-blocos) a grade/lista
+// ocupa o espaço e rola por dentro, e a paginação fica presa no fim — igual à Fila. No modo OC (blocos) não há
+// paginação e a página rola inteira, como antes.
+.oq-page__content:not(.ms-blocos) > .ms-grid,
+.oq-page__content:not(.ms-blocos) > .ms-lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+// 17/11/2026: sem faixa lateral — OC com pedido novo se destaca pelo status vermelho e pelo aviso escrito.
+.ms-card.ms-sinal--novo {
+  padding-left: 16px;
+
+  &::before {
+    display: none;
+  }
+}
+
+.ms-novos {
+  border-left: 0;
+}
+
+.ms-painel .oq-lista .ms-linha--novo > td:first-child {
+  box-shadow: none;
 }

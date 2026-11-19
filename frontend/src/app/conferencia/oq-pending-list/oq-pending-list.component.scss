@@ -7,10 +7,10 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
 }
 
@@ -49,7 +49,7 @@
   flex-shrink: 0;
   width: 22px;
   text-align: right;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -82,7 +82,7 @@
   color: var(--oq-text-primary);
 
   .item-descricao__code {
-    font-family: var(--oq-font-mono);
+    font-family: var(--oq-font-body);
     font-weight: 600;
   }
   .item-descricao__name {
@@ -96,7 +96,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -105,8 +105,8 @@
   .item-qtd-principal__un {
     font-weight: 500;
     font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    text-transform: none;
+    letter-spacing: 0;
     color: var(--oq-text-secondary);
   }
 
@@ -134,7 +134,7 @@
     font-family: var(--oq-font-display);
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
   }
 }
 
@@ -144,10 +144,10 @@
 }
 
 .item-info-sec {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -164,7 +164,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -178,8 +178,105 @@
     background: var(--oq-surface-2);
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--oq-text-secondary);
   }
+}
+
+// 17/11/2026: parcial com a faixa âmbar (sem fundo amarelo inteiro); selo de peso discreto; números alinhados.
+.item-row--parcial {
+  background: color-mix(in srgb, var(--oq-attention) 6%, var(--oq-surface));
+}
+
+.item-lista {
+  font-variant-numeric: tabular-nums;
+}
+
+.item-peso-tag {
+  border-color: transparent;
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  font-weight: 600;
+}
+
+// ─── 17/11/2026 (1b): sem faixa lateral nem tom nas linhas ("essa faixa na lateral tem muita cara de IA") ───
+// O estado fica no ícone da linha e na cor do número/texto; todas as linhas começam na mesma coluna.
+.item-row,
+.item-row--parcial,
+.item-row--pesavel,
+.item-row--excedente,
+.item-row--peso-divergente {
+  border-left: 0 !important;
+  padding-left: 12px !important;
+  background: var(--oq-surface) !important;
+}
+
+.item-peso {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.item-linha--apoio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
+.item-base,
+.item-conversao {
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+
+  b {
+    font-weight: 600;
+    color: var(--oq-text-primary);
+  }
+}
+
+.item-conversao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+// Base e conversão juntas à esquerda (a .item-linha da lista separa os extremos).
+.item-linha--apoio {
+  justify-content: flex-start;
+}
+
+.item-base__rot {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--oq-text-secondary);
+}
+
+// 17/11/2026 (1c): pendente parcial com fundo âmbar suave (sem faixa lateral); pendente normal sem cor.
+.item-row.item-row--parcial {
+  background: color-mix(in srgb, var(--oq-attention) 13%, var(--oq-surface)) !important;
+}
+
+// 17/11/2026 (1c): pendente parcial em âmbar operacional (sem faixa); pendente normal sem cor.
+.item-row.item-row--parcial {
+  background: color-mix(in srgb, var(--oq-attention) 24%, var(--oq-surface)) !important;
+}
+
+// 17/11/2026 (1e): pendente parcial no amarelo andon (mesmo sinaleiro dos conferidos).
+.item-row.item-row--parcial {
+  background: color-mix(in srgb, #F2B705 40%, var(--oq-surface)) !important;
 }

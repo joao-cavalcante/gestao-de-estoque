@@ -1,6 +1,728 @@
-// Layout da Fila de Tarefas (página, barra, card, lista, paginação) — estilos
-// globais em src/styles/_lista-layout.scss; aqui só o encaixe da tela no shell.
+// Mesa de liberação de corte (17/11/2026) — tela própria, não a grade da Fila. Tokens --oq-*; texto normal, sem
+// caixa alta; números em formato brasileiro e tabulares.
 :host {
   display: block;
   height: 100%;
+  background: var(--oq-bg-page);
+}
+
+// ─── 1) Login do liberador ───────────────────────────────────────────────────────
+.lc-portao {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px 16px;
+}
+
+.lc-login {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 380px;
+  padding: 28px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+}
+
+.lc-login__icone {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--oq-critical) 12%, transparent);
+  color: var(--oq-critical-foreground);
+}
+
+.lc-login__titulo {
+  margin: 0;
+  font-family: var(--oq-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.lc-login__texto,
+.lc-login__nota {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--oq-text-secondary);
+
+  b {
+    color: var(--oq-text-primary);
+  }
+}
+
+.lc-login__nota {
+  font-size: 12px;
+}
+
+.lc-login__entrar {
+  min-height: 44px;
+}
+
+.lc-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+
+  i {
+    font-style: normal;
+    font-weight: 400;
+  }
+
+  input {
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--oq-border-strong);
+    border-radius: var(--oq-radius-block);
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    font-family: var(--oq-font-body);
+    font-size: 15px;
+    font-weight: 400;
+
+    &:focus {
+      outline: 2px solid var(--oq-brand-accent);
+      outline-offset: -1px;
+    }
+  }
+}
+
+.lc-senha {
+  display: flex;
+  gap: 6px;
+
+  input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  button {
+    flex: none;
+    min-width: 76px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-block);
+    background: var(--oq-surface-2);
+    color: var(--oq-text-primary);
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    cursor: pointer;
+  }
+}
+
+// ─── Mesa: fila à esquerda, corte à direita ──────────────────────────────────────
+.lc-mesa {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  height: 100%;
+  min-height: 0;
+}
+
+.lc-fila {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--oq-surface);
+  border-right: 1px solid var(--oq-border);
+}
+
+.lc-fila__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px 10px;
+}
+
+.lc-fila__titulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.lc-fila__qtd {
+  margin-left: 4px;
+  padding: 0 7px;
+  border-radius: var(--oq-radius-input);
+  background: color-mix(in srgb, var(--oq-critical) 14%, transparent);
+  color: var(--oq-critical-foreground);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lc-icone-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--oq-text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+.lc-busca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px 10px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-block);
+  color: var(--oq-text-secondary);
+
+  &:focus-within {
+    border-color: var(--oq-brand);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--oq-text-primary);
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+  }
+}
+
+.lc-fila__lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--oq-border);
+}
+
+.lc-pedido {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 12px 16px 12px 19px;
+  border: 0;
+  border-bottom: 1px solid var(--oq-border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--oq-surface-2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: -2px;
+  }
+
+  &--sel {
+    background: var(--oq-surface-2);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 3px;
+      background: var(--oq-brand-accent);
+    }
+  }
+}
+
+.lc-pedido__linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lc-pedido__num {
+  font-family: var(--oq-font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.lc-pedido__data {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--oq-text-secondary);
+}
+
+.lc-pedido__cliente {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.lc-pedido__tipo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.lc-fila__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--oq-border);
+  font-size: 12.5px;
+}
+
+.lc-fila__liberador {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--oq-text-secondary);
+}
+
+.lc-link {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--oq-brand-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ─── Corte aberto ────────────────────────────────────────────────────────────────
+.lc-corte {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 28px;
+}
+
+.lc-corte__topo {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.lc-voltar {
+  display: none;
+}
+
+.lc-corte__id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  grid-column: 1 / -1;
+}
+
+.lc-corte__num {
+  font-family: var(--oq-font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.lc-corte__cliente {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.lc-corte__meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+
+  > span + span::before {
+    content: '·';
+    padding: 0 6px;
+  }
+}
+
+.lc-itens {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  color: var(--oq-text-primary);
+
+  th {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--oq-border);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--oq-text-secondary);
+  }
+
+  td {
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--oq-border);
+    vertical-align: middle;
+  }
+
+  tbody tr {
+    cursor: pointer;
+
+    &:hover {
+      background: var(--oq-surface-2);
+    }
+  }
+
+  input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--oq-brand);
+    cursor: pointer;
+  }
+}
+
+.lc-itens__check {
+  width: 36px;
+}
+
+.lc-itens__sel {
+  background: color-mix(in srgb, var(--oq-brand-accent) 9%, transparent);
+}
+
+.lc-itens__produto {
+  font-weight: 500;
+}
+
+.lc-itens__inteiro {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--oq-critical-foreground);
+}
+
+.lc-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.lc-num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lc-un {
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+// Corte = falta (negativo) em vermelho; sobra (positivo) em âmbar.
+.lc-corte__dif {
+  font-weight: 700;
+  color: var(--oq-critical-foreground);
+}
+
+.lc-corte__dif--mais {
+  color: var(--oq-warning-foreground);
+}
+
+.lc-campo--obs {
+  margin-top: 16px;
+  max-width: 560px;
+}
+
+.lc-corte__acoes {
+  position: sticky;
+  bottom: -20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding: 16px 0 20px;
+  border-top: 1px solid var(--oq-border);
+  background: var(--oq-bg-page);
+}
+
+.lc-corte__regra {
+  flex: 1 1 240px;
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+
+  b {
+    color: var(--oq-text-primary);
+  }
+}
+
+.lc-corte__vazio {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  height: 100%;
+  color: var(--oq-text-secondary);
+  font-size: 13.5px;
+  text-align: center;
+
+  p {
+    margin: 0;
+  }
+}
+
+// ─── Botões e mensagens ─────────────────────────────────────────────────────────
+.lc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--oq-brand-accent);
+    outline-offset: 2px;
+  }
+}
+
+.lc-btn--cheio {
+  border-color: var(--oq-brand);
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+
+  &:hover:not(:disabled) {
+    background: var(--oq-brand-hover);
+    border-color: var(--oq-brand-hover);
+  }
+}
+
+// Negar: contornado em vermelho (ação destrutiva, secundária).
+.lc-btn--negar {
+  border-color: var(--oq-critical);
+  background: transparent;
+  color: var(--oq-critical-foreground);
+
+  &:hover:not(:disabled) {
+    background: var(--oq-critical-bg);
+  }
+}
+
+.lc-vazio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--oq-text-secondary);
+}
+
+.lc-erro,
+.lc-ok {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-left: 3px solid var(--oq-critical);
+  background: var(--oq-critical-bg);
+  color: var(--oq-critical-foreground);
+  font-size: 13px;
+}
+
+.lc-ok {
+  border-left-color: var(--oq-success);
+  background: var(--oq-success-soft);
+  color: var(--oq-success-foreground);
+}
+
+.lc-fila .lc-erro {
+  margin: 12px 16px 0;
+}
+
+// ─── Tablet em pé / celular: fila OU corte (um de cada vez) ──────────────────────
+@media (max-width: 899px) {
+  .lc-mesa {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-corte {
+    display: none;
+    padding: 16px;
+  }
+
+  .lc-mesa--aberta {
+    .lc-fila {
+      display: none;
+    }
+
+    .lc-corte {
+      display: flex;
+    }
+  }
+
+  .lc-voltar {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 6px;
+    border: 1px solid var(--oq-border);
+    border-radius: var(--oq-radius-block);
+    background: var(--oq-surface);
+    color: var(--oq-text-primary);
+    cursor: pointer;
+  }
+
+  .lc-corte__acoes {
+    bottom: -16px;
+  }
+
+  .lc-btn--cheio {
+    flex: 1 1 auto;
+  }
+}
+
+// Faturar depois de liberar (CCO.FATAOCONCLUIR = 'S').
+.lc-faturar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--oq-success);
+  background: var(--oq-success-soft);
+  font-size: 13.5px;
+  color: var(--oq-success-foreground);
+
+  > span {
+    flex: 1 1 260px;
+  }
+}
+
+// ─── Limpeza (17/11/2026: "coisas com cara de IA") — só visual ──────────────────────────────────────────────
+// Login: formulário simples (sem círculo com ícone), título no tamanho do resto do sistema.
+.lc-login {
+  gap: 12px;
+}
+
+.lc-login__titulo {
+  font-family: var(--oq-font-body);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+// Contador da fila: número em texto, não pílula vermelha.
+.lc-fila__qtd {
+  margin-left: 6px;
+  padding: 0;
+  background: none;
+  color: var(--oq-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+// "Escolha um pedido": texto simples no topo do painel, sem ícone grande no meio.
+.lc-corte__vazio {
+  display: block;
+  height: auto;
+  margin: 0;
+  padding: 4px 0;
+  text-align: left;
+}
+
+// Mensagens: linha de texto com ícone, sem caixa colorida.
+.lc-erro,
+.lc-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: 600;
+}
+
+.lc-ok {
+  color: var(--oq-success-foreground);
+}
+
+.lc-erro {
+  color: var(--oq-critical-foreground);
+}
+
+.lc-faturar {
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid var(--oq-border);
+  background: none;
+  color: var(--oq-text-primary);
+}
+
+// 17/11/2026: pedido selecionado sem barra lateral — só o fundo e o nº único na cor da marca.
+.lc-pedido--sel {
+  padding-left: 16px;
+  background: color-mix(in srgb, var(--oq-brand-accent) 10%, var(--oq-surface));
+
+  &::before {
+    display: none;
+  }
+
+  .lc-pedido__num {
+    color: var(--oq-brand-text);
+  }
 }

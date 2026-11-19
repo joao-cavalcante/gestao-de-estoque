@@ -530,6 +530,12 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    */
   readonly exibirProd = signal(true);
   readonly exibirQtd = signal(true);
+  /**
+   * Conferência às cegas = CCO EXIBIRQTD 'N' (17/11/2026, aprovado): durante a contagem a tela não mostra esperado,
+   * "falta", "divergente" nem cores de estado, e o bipe dá sempre o retorno de leitura aceita. A divergência aparece
+   * só ao Confirmar (modal de divergência, que já existia). Nenhuma regra de corte/liberação muda.
+   */
+  readonly cega = computed(() => !this.exibirQtd());
   readonly exibirProdConf = signal(true);
   readonly exibirQtdConf = signal(true);
   readonly exibirImgProd = signal(true);
@@ -760,6 +766,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   );
 
   ngOnInit(): void {
+    void this.pedirTelaAcesa();
+    document.addEventListener('visibilitychange', this.reativarWakeLock);
     // Tablet/celular: abre sempre no topo (o foco no campo de bipagem não rola mais a página — preventScroll).
     window.scrollTo(0, 0);
     // O aviso de lock inválido é global (LockService, root) — um 409 da conferência
@@ -830,7 +838,30 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ─── Tela acesa (17/11/2026, coletor): o aparelho não apaga a tela no meio da conferência. ─────────────
+  private wakeLock: { release(): Promise<void> } | null = null;
+  private readonly reativarWakeLock = () => {
+    if (document.visibilityState === 'visible') void this.pedirTelaAcesa();
+  };
+
+  private async pedirTelaAcesa(): Promise<void> {
+    try {
+      const wl = (navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;
+      if (wl) this.wakeLock = await wl.request('screen');
+    } catch {
+      /* navegador sem suporte ou sem permissão: segue normal */
+    }
+  }
+
+  private soltarTelaAcesa(): void {
+    document.removeEventListener('visibilitychange', this.reativarWakeLock);
+    this.wakeLock?.release().catch(() => undefined);
+    this.wakeLock = null;
+  }
+
   ngOnDestroy(): void {
+    this.soltarTelaAcesa();
+    this.feedback.silenciarDivergencia.set(false);
     this.sessaoSub?.unsubscribe();
     // Saiu da conferência: libera a etapa pra outro operador (senão só expira em 10 min).
     this.liberarLock();
@@ -970,6 +1001,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
           this.exibirProdConf.set(sessao.exibirProdConf !== 'N');
           this.exibirQtdConf.set(sessao.exibirQtdConf !== 'N');
           this.exibirImgProd.set(sessao.exibirImgProd !== 'N');
+          // CCO.EXIBIRALERTASONORO (V76): só 'N' silencia os sons de divergência.
+          this.feedback.silenciarDivergencia.set((sessao.exibirAlertaSonoro ?? '').trim().toUpperCase() === 'N');
           this.exigeVolume.set(!!sessao.formacaoVolumes && ['S', 'T', 'D'].includes(sessao.formacaoVolumes.trim().toUpperCase()));
           if (sessao.conferenciaSegmentada) {
             // Resolve a etapa ativa ANTES de listar os itens (o filtro por etapa depende dela).
@@ -1184,6 +1217,11 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   /** UM feedback por confirmação de item — a divergência vence o "ok". */
   private dispararResultadoItem(d: { status: ItemStatus; divergenciaPeso: true | undefined }, zerouPendentes: boolean): void {
+    // Às cegas: som/vibração não podem entregar se bateu, passou ou zerou — só "leitura aceita".
+    if (this.cega()) {
+      this.feedback.trigger('ITEM_CONFERIDO');
+      return;
+    }
     if (d.divergenciaPeso) this.feedback.trigger('PESO_DIVERGENTE');
     else if (d.status === 'critical') this.feedback.trigger('QUANTIDADE_DIVERGENTE');
     else if (zerouPendentes) this.feedback.trigger('TODOS_CONFERIDOS');

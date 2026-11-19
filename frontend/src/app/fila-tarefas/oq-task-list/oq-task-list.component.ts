@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { OqModalidadePinsComponent } from '../../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
-import { CampoOrdenacao, FasePedido, Ordenacao, Tarefa, faseTarefa, tomNota } from '../tarefa.model';
+import { CampoOrdenacao, FasePedido, Ordenacao, SituacaoEntrega, Tarefa, entregaPedido, faseTarefa, idadePedido, mostraNumeroNota, pesoTexto, tomNota } from '../tarefa.model';
 import { EtapaVisual, StatusVisual, etapasVisiveis, statusVisual } from '../tarefa-visual';
 import { OqEtapaChipsComponent } from '../oq-etapa-chips/oq-etapa-chips.component';
 
@@ -10,6 +10,10 @@ interface Linha {
   st: StatusVisual;
   ets: EtapaVisual[];
   fase: FasePedido;
+  /** Previsão de entrega × hoje (null sem previsão ou pedido já concluído). */
+  ent: { texto: string; situacao: SituacaoEntrega } | null;
+  /** "há 1h05" — recalculada a cada atualização da fila (o pai reenvia a página a cada sync). */
+  idade: string | null;
 }
 
 interface Coluna {
@@ -37,9 +41,21 @@ interface Coluna {
 export class OqTaskListComponent {
   /** Página já filtrada/ordenada pelo pai — status/etapas resolvidos uma vez por mudança, não a cada detecção. */
   @Input({ required: true }) set tarefas(v: Tarefa[]) {
-    this.linhas = v.map((t) => ({ t, st: statusVisual(t), ets: etapasVisiveis(t), fase: faseTarefa(t) }));
+    this.linhas = v.map((t) => {
+      const fase = faseTarefa(t);
+      return {
+        t,
+        st: statusVisual(t),
+        ets: etapasVisiveis(t),
+        fase,
+        ent: t.previsaoEntrega && fase !== 'pronto' ? entregaPedido(t.previsaoEntrega) : null,
+        idade: t.pedidoEm ? idadePedido(t.pedidoEm) : null,
+      };
+    });
   }
   linhas: Linha[] = [];
+  readonly pesoTexto = pesoTexto;
+  readonly mostraNumeroNota = mostraNumeroNota;
   @Input() ordenacao: Ordenacao | null = null;
 
   @Output() conferir = new EventEmitter<Tarefa | { tarefa: Tarefa; etapa: number }>();
@@ -60,17 +76,27 @@ export class OqTaskListComponent {
   readonly tomNota = tomNota;
 
   readonly colunas: Coluna[] = [
+    // 17/11/2026: colunas de carga e prazo (as do card); "Data" virou Idade. Nº único é o número da operação —
+    // o NUMNOTA do pedido não aparece (usuário, 17/11/2026), a busca ainda acha por ele.
     { titulo: 'Status', classe: 'oq-lista__topo' },
+    { titulo: 'Nº único', campo: 'numeroUnico' },
     { titulo: 'Cliente', campo: 'cliente', classe: 'oq-lista__principal' },
-    { titulo: 'Nº Único', campo: 'numeroUnico' },
-    { titulo: 'Pedido', campo: 'nf' },
-    { titulo: 'Nota fiscal' },
-    { titulo: 'Ordem de Carga' },
-    { titulo: 'Data', campo: 'data' },
     { titulo: 'Itens', campo: 'itens', classe: 'oq-lista__direita' },
-    { titulo: 'Período p/ entrega' },
+    { titulo: 'Peso', campo: 'peso', classe: 'oq-lista__direita' },
+    { titulo: 'Volumes', campo: 'volumes', classe: 'oq-lista__direita' },
+    { titulo: 'Entrega', campo: 'entrega' },
+    { titulo: 'Idade', campo: 'idade', classe: 'oq-lista__direita' },
+    { titulo: 'Ordem de Carga' },
+    { titulo: 'Nota fiscal' },
     { titulo: 'Ação', classe: 'oq-lista__acoes' },
   ];
+
+  /** Fila filtrada por OC: a OC já está no cabeçalho da tela — a coluna repetiria o mesmo número em toda linha. */
+  @Input() dentroDaOc = false;
+
+  get colunasVisiveis(): Coluna[] {
+    return this.dentroDaOc ? this.colunas.filter((c) => c.titulo !== 'Ordem de Carga') : this.colunas;
+  }
 
   /** aria-sort do cabeçalho — só a coluna ordenada anuncia a direção. */
   ariaSort(campo?: CampoOrdenacao): 'ascending' | 'descending' | 'none' | null {

@@ -5,10 +5,10 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
 }
 
@@ -75,7 +75,7 @@
     font-family: var(--oq-font-display);
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
   }
 
   &--erro {
@@ -125,7 +125,7 @@
   color: var(--oq-text-primary);
 
   .item-descricao__code {
-    font-family: var(--oq-font-mono);
+    font-family: var(--oq-font-body);
     font-weight: 600;
   }
   .item-descricao__name {
@@ -139,7 +139,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -148,8 +148,8 @@
   .item-qtd-principal__un {
     font-weight: 500;
     font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    text-transform: none;
+    letter-spacing: 0;
     color: var(--oq-text-secondary);
   }
 
@@ -173,11 +173,11 @@
 }
 
 .item-divergencia {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 10px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-warning-foreground);
 
   &--peso {
@@ -185,17 +185,17 @@
     align-items: center;
     gap: 4px;
     text-transform: none;
-    letter-spacing: 0.02em;
+    letter-spacing: 0;
     color: var(--oq-critical-foreground);
   }
 }
 
 /** Observação neutra (sem cor de alerta) — peso dentro da tolerância, só informativo. */
 .item-observacao {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 10px;
   text-transform: none;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
 
   &--peso,
@@ -207,10 +207,10 @@
 }
 
 .item-info-sec {
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--oq-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -222,7 +222,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--oq-font-mono);
+  font-family: var(--oq-font-body);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -236,8 +236,8 @@
     background: var(--oq-surface-2);
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--oq-text-secondary);
   }
 
@@ -263,5 +263,268 @@
   &:hover {
     color: var(--oq-critical-foreground);
     border-color: var(--oq-critical);
+  }
+}
+
+// 17/11/2026: conferido normal sem fundo verde (o ✓ verde já diz); excedente/peso divergente/parcial mantêm a
+// faixa lateral com um tom leve — o estado continua visível sem pintar a lista inteira.
+.item-row {
+  background: var(--oq-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.item-row--excedente,
+.item-row--parcial {
+  background: color-mix(in srgb, var(--oq-attention) 6%, var(--oq-surface));
+}
+
+.item-row--peso-divergente {
+  background: color-mix(in srgb, var(--oq-critical) 6%, var(--oq-surface));
+}
+
+// ─── 17/11/2026 (1b): sem faixa lateral nem tom nas linhas ("essa faixa na lateral tem muita cara de IA") ───
+// O estado fica no ícone da linha e na cor do número/texto; todas as linhas começam na mesma coluna.
+.item-row,
+.item-row--parcial,
+.item-row--pesavel,
+.item-row--excedente,
+.item-row--peso-divergente {
+  border-left: 0 !important;
+  padding-left: 12px !important;
+  background: var(--oq-surface) !important;
+}
+
+.item-peso {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  color: var(--oq-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.item-linha--apoio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
+.item-base,
+.item-conversao {
+  font-size: 12.5px;
+  color: var(--oq-text-secondary);
+
+  b {
+    font-weight: 600;
+    color: var(--oq-text-primary);
+  }
+}
+
+.item-conversao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+.conf-ver-todos {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--oq-border-strong);
+  }
+}
+
+.item-linha--apoio {
+  justify-content: flex-start;
+}
+
+// "Base" em texto, não em quadradinho (estilo antigo).
+.item-base__rot {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--oq-text-secondary);
+}
+
+// 17/11/2026 (1c): indicador de cor por estado de volta — fundo suave, SEM faixa lateral
+// (usuário: "precisa de um indicador básico de cor"). Verde = conferido certo; âmbar = parcial;
+// vermelho = divergente (quantidade a mais ou peso fora da tolerância).
+.item-row.item-row {
+  background: color-mix(in srgb, var(--oq-success) 11%, var(--oq-surface)) !important;
+}
+
+.item-row.item-row--parcial {
+  background: color-mix(in srgb, var(--oq-attention) 13%, var(--oq-surface)) !important;
+}
+
+.item-row.item-row--excedente,
+.item-row.item-row--peso-divergente {
+  background: color-mix(in srgb, var(--oq-critical) 11%, var(--oq-surface)) !important;
+}
+
+// ─── 17/11/2026 (1c): cores OPERACIONAIS por estado (usuário: "cores com tom mais operacional… pastéis não são
+// pertinentes") — sem faixa lateral. Fundo da linha marcado + selo sólido de estado, nas cores fortes de status da
+// Torre: verde #2E7D4F (--oq-concluido) = conferido certo; âmbar #C2760C (--oq-attention) = parcial;
+// vermelho #B42318 (--oq-critical) = divergente (quantidade a mais ou peso fora da tolerância).
+.item-row.item-row {
+  background: color-mix(in srgb, var(--oq-concluido) 20%, var(--oq-surface)) !important;
+}
+
+.item-row.item-row--parcial {
+  background: color-mix(in srgb, var(--oq-attention) 24%, var(--oq-surface)) !important;
+}
+
+.item-row.item-row--excedente,
+.item-row.item-row--peso-divergente {
+  background: color-mix(in srgb, var(--oq-critical) 20%, var(--oq-surface)) !important;
+}
+
+// Selo de estado sólido (ícone branco sobre a cor) — lê de longe no galpão.
+.item-glyph {
+  width: 22px;
+  height: 22px;
+  margin-top: -1px;
+  border-radius: 50%;
+  background: var(--oq-concluido);
+  color: #fff !important;
+}
+
+.item-glyph--parcial {
+  background: var(--oq-attention);
+}
+
+.item-glyph--alerta,
+.item-glyph--peso {
+  background: var(--oq-critical);
+}
+
+// 17/11/2026 (1d): ícones de estado mantidos, mas sem o selo redondo sólido ("minimizar o efeito") —
+// só o ícone, na cor operacional do estado.
+.item-glyph {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 0;
+  background: none !important;
+  color: var(--oq-concluido) !important;
+}
+
+.item-glyph--parcial {
+  color: var(--oq-attention) !important;
+}
+
+.item-glyph--alerta,
+.item-glyph--peso {
+  color: var(--oq-critical) !important;
+}
+
+// ─── 17/11/2026 (1e): cores ANDON (sinaleiro de fábrica) — "a cor ficou apagada, perdemos a vibe operacional".
+// Verde/amarelo/vermelho saturados; fundo da linha forte; quantidade em bloco sólido (amarelo com texto preto,
+// como sinalização industrial). Sem faixa lateral; ícone simples na cor.
+:host {
+  --andon-ok: #12A150;
+  --andon-parcial: #F2B705;
+  --andon-erro: #E0261B;
+}
+
+.item-row.item-row {
+  background: color-mix(in srgb, var(--andon-ok) 26%, var(--oq-surface)) !important;
+}
+
+.item-row.item-row--parcial {
+  background: color-mix(in srgb, var(--andon-parcial) 40%, var(--oq-surface)) !important;
+}
+
+.item-row.item-row--excedente,
+.item-row.item-row--peso-divergente {
+  background: color-mix(in srgb, var(--andon-erro) 28%, var(--oq-surface)) !important;
+}
+
+.item-glyph { color: var(--andon-ok) !important; }
+.item-glyph--parcial { color: #8A6500 !important; }
+.item-glyph--alerta,
+.item-glyph--peso { color: var(--andon-erro) !important; }
+
+// Quantidade = bloco sólido do sinaleiro.
+.item-qtd-principal {
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--andon-ok);
+  color: #fff !important;
+  font-size: 13px;
+  font-weight: 800;
+
+  .item-qtd-principal__un,
+  .item-qtd-principal__de {
+    color: inherit !important;
+    opacity: 0.9;
+  }
+}
+
+.item-qtd-principal--parcial {
+  background: var(--andon-parcial);
+  color: #1A1A1A !important;
+}
+
+.item-qtd-principal--excedente,
+.item-qtd-principal--peso {
+  background: var(--andon-erro);
+}
+
+.item-divergencia,
+.item-observacao--peso {
+  font-weight: 700;
+  color: #B3140B;
+}
+
+.item-observacao--parcial {
+  font-weight: 700;
+  color: #6B4E00;
+}
+
+:host-context([data-theme='dark']) {
+  .item-divergencia,
+  .item-observacao--peso { color: #FF7A70; }
+  .item-observacao--parcial { color: #FFD54A; }
+  .item-glyph--parcial { color: var(--andon-parcial) !important; }
+}
+
+// ─── Às cegas (EXIBIRQTD 'N'): linha neutra, quantidade contada em bloco grafite — sem sinal de certo/errado ───
+.item-lista--cega {
+  .item-row.item-row {
+    background: var(--oq-surface) !important;
+    border-bottom: 1px solid var(--oq-border);
+  }
+
+  .item-glyph {
+    color: var(--oq-text-secondary) !important;
+  }
+
+  .item-qtd-principal {
+    background: #3A3A44;
+    color: #fff !important;
   }
 }

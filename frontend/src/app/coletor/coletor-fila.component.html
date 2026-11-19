@@ -1,0 +1,163 @@
+<div class="cl">
+  <!-- Cabeçalho: título · operador · atualizar (sem ☰: menu fica no rodapé, ao alcance do polegar — 18/11/2026) -->
+  <header class="cl-topo">
+    <div class="cl-topo__titulo">
+      <span class="cl-topo__nome">Conferência</span>
+      @if (operador()) { <span class="cl-topo__operador">{{ operador() }}</span> }
+    </div>
+    <button type="button" class="cl-icone" aria-label="Atualizar fila" title="Atualizar fila" [disabled]="carregando()" (click)="atualizar()">
+      @if (carregando()) { <oq-spinner [size]="18" /> } @else { <oq-icon name="sync" [size]="20" /> }
+    </button>
+  </header>
+
+  <!-- Leitura: um campo só, sempre pronto para o gatilho do leitor -->
+  <form class="cl-leitura" (ngSubmit)="onLer()">
+    <label class="cl-leitura__rotulo" for="cl-campo">Bipe ou digite o nº único, nº da nota ou chave NF-e</label>
+    <div class="cl-leitura__campo">
+      <input
+        #campo
+        id="cl-campo"
+        name="codigo"
+        class="cl-leitura__input"
+        [(ngModel)]="codigo"
+        [attr.inputmode]="tecladoAberto ? 'numeric' : 'none'"
+        enterkeyhint="go"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        placeholder="Aguardando leitura"
+        autofocus
+      />
+      <button
+        type="button"
+        class="cl-leitura__teclado"
+        [class.cl-leitura__teclado--on]="tecladoAberto"
+        [attr.aria-pressed]="tecladoAberto"
+        [title]="tecladoAberto ? 'Fechar teclado da tela' : 'Abrir teclado da tela'"
+        aria-label="Teclado da tela"
+        (click)="alternarTeclado()"
+      >
+        <oq-icon name="teclado" [size]="20" />
+      </button>
+    </div>
+  </form>
+
+  <!-- Estado da leitura: cor + ícone + TEXTO -->
+  @switch (estado().tipo) {
+    @case ('processando') {
+      <div class="cl-estado cl-estado--processando" role="status"><oq-spinner [size]="16" /> <b>Procurando…</b></div>
+    }
+    @case ('aguardando') {
+      @if (erroCarga()) {
+        <div class="cl-estado cl-estado--erro" role="alert">
+          <oq-icon name="circle-alert" [size]="18" />
+          <div><b>Sem comunicação com o servidor</b><span>{{ erroCarga() }} Toque em ⟳ para tentar de novo.</span></div>
+        </div>
+      }
+    }
+    @default {
+      @if (estado(); as e) {
+        @if (e.tipo !== 'aguardando' && e.tipo !== 'processando') {
+          <div class="cl-estado" [class]="'cl-estado cl-estado--' + e.tipo" [attr.role]="e.tipo === 'encontrado' ? 'status' : 'alert'">
+            <oq-icon [name]="e.tipo === 'encontrado' ? 'check' : e.tipo === 'concluido' ? 'list-check' : 'circle-alert'" [size]="18" />
+            <div>
+              <b>{{ e.titulo }}</b>
+              <span>{{ e.mensagem }}</span>
+            </div>
+          </div>
+        }
+      }
+    }
+  }
+
+  <!-- Mais de um documento com o mesmo número (ou chave NF-e): o operador escolhe — nunca abre no escuro -->
+  @if (escolha(); as esc) {
+    <section class="cl-escolha" role="dialog" aria-label="Escolha o documento">
+      <p class="cl-escolha__motivo"><oq-icon name="circle-alert" [size]="16" /> {{ esc.motivo }}</p>
+      <ul class="cl-lista">
+        @for (t of esc.candidatos; track t.numeroUnico) {
+          <li>
+            <button type="button" class="cl-doc" (click)="escolher(t)">
+              <ng-container *ngTemplateOutlet="linhaDoc; context: { $implicit: t }" />
+            </button>
+          </li>
+        }
+      </ul>
+      <button type="button" class="cl-botao cl-botao--contorno" (click)="cancelarEscolha()">Cancelar</button>
+    </section>
+  }
+
+  <!-- Fila: documentos para conferir -->
+  <div class="cl-fila-topo">
+    <span class="cl-fila-topo__total"><b>{{ fila().length }}</b> para conferir</span>
+    <select class="cl-ordem" aria-label="Ordenação da fila" [ngModel]="ordem()" (ngModelChange)="trocarOrdem($event)" name="ordem">
+      @for (o of ordens; track o.id) { <option [value]="o.id">{{ o.rotulo }}</option> }
+    </select>
+  </div>
+
+  <main class="cl-corpo">
+    @if (tarefas() === null && carregando()) {
+      <div class="cl-vazio"><oq-spinner [size]="18" /> Carregando a fila…</div>
+    } @else if (fila().length === 0) {
+      <div class="cl-vazio">{{ tarefas() === null ? 'A fila não foi carregada.' : 'Nenhum documento para conferir agora.' }}</div>
+    } @else {
+      <ul class="cl-lista">
+        @for (t of paginaAtual().itens; track t.numeroUnico) {
+          <li>
+            <button type="button" class="cl-doc" (click)="tocar(t)">
+              <ng-container *ngTemplateOutlet="linhaDoc; context: { $implicit: t }" />
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </main>
+
+  <footer class="cl-rodape">
+    <button type="button" class="cl-icone cl-rodape__mais" aria-label="Mais opções" title="Mais opções" [attr.aria-expanded]="menuAberto()" (click)="menuAberto.set(!menuAberto())">
+      <oq-icon name="gear" [size]="20" />
+    </button>
+    @if (paginaAtual().total > 1) {
+      <button type="button" class="cl-botao cl-botao--contorno" [disabled]="paginaAtual().pagina <= 1" (click)="irPagina(-1)" aria-label="Página anterior">‹ Anterior</button>
+      <span class="cl-rodape__pag">{{ paginaAtual().pagina }} de {{ paginaAtual().total }}</span>
+      <button type="button" class="cl-botao cl-botao--contorno" [disabled]="paginaAtual().pagina >= paginaAtual().total" (click)="irPagina(1)" aria-label="Próxima página">Próxima ›</button>
+    } @else {
+      <span class="cl-rodape__info">
+        @if (atualizadoEm(); as em) { Atualizado às {{ em.getHours().toString().padStart(2, '0') }}:{{ em.getMinutes().toString().padStart(2, '0') }} }
+      </span>
+    }
+  </footer>
+
+  <!-- Menu (folha) -->
+  @if (menuAberto()) {
+    <div class="cl-menu-fundo" (click)="menuAberto.set(false)"></div>
+    <nav class="cl-menu" aria-label="Mais opções do coletor">
+      <button type="button" class="cl-menu__item" (click)="atualizar()"><oq-icon name="sync" [size]="18" /> Atualizar fila</button>
+      <button type="button" class="cl-menu__item" (click)="alternarTema()">
+        <oq-icon [name]="tema.tema() === 'dark' ? 'sun' : 'moon'" [size]="18" /> {{ tema.tema() === 'dark' ? 'Tema claro' : 'Tema escuro' }}
+      </button>
+      <button type="button" class="cl-menu__item" (click)="abrirTorre()"><oq-icon name="grid" [size]="18" /> Abrir Torre completa</button>
+      <button type="button" class="cl-menu__item cl-menu__item--sair" (click)="sair()"><oq-icon name="logout" [size]="18" /> Sair</button>
+    </nav>
+  }
+</div>
+
+<!-- Linha de documento: nº único (grande) + NF (só nota V/C) + modalidade · cliente · empresa/TOP/OC · status em texto -->
+<ng-template #linhaDoc let-t>
+  <span class="cl-doc__l1">
+    <b class="cl-doc__num">{{ t.numeroUnico }}</b>
+    @if (mostraNf(t)) { <span class="cl-doc__nf">NF {{ t.nf }}</span> }
+    <span class="cl-doc__tags">
+      @if (t.express) { <span class="cl-tag cl-tag--express">EXPRESS</span> }
+      @if (t.retira) { <span class="cl-tag cl-tag--retira">RETIRA</span> }
+    </span>
+  </span>
+  <span class="cl-doc__cliente">{{ t.cliente }}</span>
+  <span class="cl-doc__l3">
+    @if (variasEmpresas() && t.nomeEmpresa) { <span>{{ t.nomeEmpresa }}</span> }
+    <span>{{ t.tipoOperacao }}</span>
+    @if (t.ordemCarga != null) { <span class="cl-doc__oc">OC {{ t.ordemCarga }}</span> }
+  </span>
+  <span class="cl-doc__status" [class]="'cl-doc__status cl-doc__status--' + status(t).tom">{{ status(t).texto }}</span>
+</ng-template>

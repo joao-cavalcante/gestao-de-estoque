@@ -1,0 +1,194 @@
+@if (naoEncontrado()) {
+  <div class="oq-page">
+    <div class="oq-page__status">
+      Roteiro não encontrado neste navegador.
+      <button type="button" (click)="voltar()">Voltar para Roteiros Operacionais</button>
+    </div>
+  </div>
+} @else {
+@if (roteiro(); as r) {
+  <div class="rc" [class.rc--leitura]="leitura()" [class.rc--lateral]="painelLateral()">
+    <header class="rc__topo">
+      <div class="rc__identidade">
+        <button type="button" class="rc__voltar" (click)="voltar()" aria-label="Voltar para a lista de roteiros" title="Voltar">
+          <oq-icon name="arrow-left" [size]="14" />
+        </button>
+        <div class="rc__titulos">
+          <div class="rc__linha1">
+            <h1 class="rc__nome">{{ r.nome || 'Sem nome' }}</h1>
+            <span class="rc__selo">Protótipo</span>
+          </div>
+          <div class="rc__linha2">
+            <span>{{ rotuloTipo[r.tipo] }}</span>
+            <span class="rc__sep">·</span>
+            <oq-status-chip [tone]="tomStatus()">{{ rotuloStatus[r.status] }}</oq-status-chip>
+            <span class="rc__mono">v{{ r.versao }}</span>
+            @if (leitura()) {
+              <span class="rc__modo">Somente visualização</span>
+            } @else if (store.alterado()) {
+              <span class="rc__alterado">Alterações não salvas</span>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="rc__acoes">
+        @if (!leitura()) {
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline rc__btn-biblioteca" (click)="bibliotecaAberta.set(!bibliotecaAberta())">
+            <oq-icon name="grid" [size]="12" />
+            Blocos
+          </button>
+        }
+        <button
+          type="button"
+          class="rc__validacao-btn"
+          [class.rc__validacao-btn--erro]="store.erros() > 0"
+          [class.rc__validacao-btn--ok]="store.erros() === 0 && store.avisos() === 0"
+          (click)="painelValidacao.set(!painelValidacao())"
+          [attr.aria-expanded]="painelValidacao()"
+        >
+          @if (store.erros() > 0) {
+            <oq-icon name="circle-filled" [size]="11" />
+            {{ store.erros() }} {{ store.erros() === 1 ? 'erro' : 'erros' }}
+          } @else if (store.avisos() > 0) {
+            <oq-icon name="triangle" [size]="11" />
+            {{ store.avisos() }} {{ store.avisos() === 1 ? 'aviso' : 'avisos' }}
+          } @else {
+            <oq-icon name="check" [size]="11" />
+            Roteiro válido
+          }
+        </button>
+        <button type="button" class="oq-admin-btn oq-admin-btn--outline" [class.rc__ativo]="simulando()" (click)="simular()">
+          <oq-icon name="sync" [size]="12" />
+          {{ simulando() ? 'Encerrar simulação' : 'Simular roteiro' }}
+        </button>
+        @if (leitura()) {
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="editar()">Editar</button>
+        } @else {
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="!store.alterado()" (click)="salvar()">Salvar rascunho</button>
+          <button
+            type="button"
+            class="oq-admin-btn oq-admin-btn--primary"
+            [title]="store.erros() > 0 ? 'Corrija os erros para publicar' : 'Publicar uma nova versão (demonstração)'"
+            (click)="publicar()"
+          >
+            Publicar
+          </button>
+        }
+      </div>
+    </header>
+
+    <div class="rc__corpo">
+      @if (!leitura()) {
+        <aside class="rc__biblioteca" [class.rc__biblioteca--aberta]="bibliotecaAberta()" aria-label="Biblioteca de módulos">
+          <div class="rc__biblioteca-topo">
+            <span class="rc__secao">Biblioteca de módulos</span>
+            <span class="oq-form-hint">Arraste para o canvas ou clique para inserir depois da etapa selecionada.</span>
+          </div>
+          @for (cat of categorias; track cat.categoria) {
+            <div class="rc__categoria">
+              <span class="rc__categoria-nome">{{ cat.rotulo }}</span>
+              @for (b of cat.blocos; track b.tipo) {
+                <button
+                  type="button"
+                  class="rc__bloco"
+                  [class.rc__bloco--conceitual]="b.situacao === 'CONCEITUAL'"
+                  [attr.data-categoria]="b.categoria"
+                  draggable="true"
+                  [disabled]="simulando()"
+                  [title]="b.hoje ? 'Hoje: ' + b.hoje : 'Conceitual: ainda não existe na aplicação'"
+                  (dragstart)="arrastarBloco($event, b.tipo)"
+                  (click)="inserirBloco(b.tipo)"
+                >
+                  <span class="rc__bloco-icone"><oq-icon [name]="b.icone" [size]="14" /></span>
+                  <span class="rc__bloco-texto">
+                    <span class="rc__bloco-nome">
+                      {{ b.rotulo }}
+                      @if (b.situacao === 'CONCEITUAL') {
+                        <span class="rc__bloco-tag">Conceitual</span>
+                      }
+                    </span>
+                    <span class="rc__bloco-resumo">{{ b.resumo }}</span>
+                  </span>
+                </button>
+              }
+            </div>
+          }
+          <p class="rc__legenda">
+            <span class="rc__legenda-item"><span class="rc__amostra"></span> Existe na aplicação</span>
+            <span class="rc__legenda-item"><span class="rc__amostra rc__amostra--conceitual"></span> Conceitual</span>
+          </p>
+        </aside>
+        @if (bibliotecaAberta()) {
+          <div class="rc__fundo" (click)="bibliotecaAberta.set(false)"></div>
+        }
+      }
+
+      <section class="rc__centro">
+        <app-roteiro-canvas class="rc__canvas" />
+
+        @if (painelValidacao()) {
+          <div class="rc__validacoes" role="region" aria-label="Validação do roteiro">
+            <div class="rc__validacoes-topo">
+              <span class="rc__secao">Validação do roteiro</span>
+              <button type="button" class="oq-modal__fechar" aria-label="Fechar validação" (click)="painelValidacao.set(false)">
+                <oq-icon name="x" [size]="12" />
+              </button>
+            </div>
+            @if (store.validacoes().length) {
+              <ul>
+                @for (v of store.validacoes(); track $index) {
+                  <li>
+                    <button type="button" [class.rc__val--erro]="v.nivel === 'ERRO'" (click)="irPara(v)" [disabled]="!v.etapaId && !v.conexaoId">
+                      <oq-icon [name]="v.nivel === 'ERRO' ? 'circle-filled' : 'triangle'" [size]="11" />
+                      <span>{{ v.mensagem }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="rc__val-ok"><oq-icon name="check" [size]="12" /> Nenhum problema encontrado. O roteiro pode ser publicado.</p>
+            }
+            <p class="oq-form-hint">Validações demonstrativas do desenho do roteiro; não substituem as regras do Sankhya.</p>
+          </div>
+        }
+      </section>
+
+      @if (painelLateral()) {
+        <aside class="rc__lateral" [attr.aria-label]="simulando() ? 'Simulação' : 'Configuração da etapa'">
+          @if (simulando()) {
+            <app-roteiro-simulador />
+          } @else {
+            <button type="button" class="rc__fechar-lateral oq-modal__fechar" aria-label="Fechar painel" (click)="store.selecao.set(null)">
+              <oq-icon name="x" [size]="12" />
+            </button>
+            <app-roteiro-propriedades />
+          }
+        </aside>
+      } @else {
+        <aside class="rc__lateral rc__lateral--roteiro" aria-label="Dados do roteiro">
+          <app-roteiro-propriedades />
+        </aside>
+      }
+    </div>
+  </div>
+
+  @if (confirmarSaida()) {
+    <div class="oq-modal-backdrop" (click)="confirmarSaida.set(false)">
+      <div class="oq-modal" role="dialog" aria-modal="true" aria-labelledby="rc-sair-titulo" (click)="$event.stopPropagation()">
+        <div class="oq-modal__header">
+          <span id="rc-sair-titulo" class="oq-modal__titulo">Alterações não salvas</span>
+          <button type="button" class="oq-modal__fechar" aria-label="Fechar" (click)="confirmarSaida.set(false)">
+            <oq-icon name="x" [size]="12" />
+          </button>
+        </div>
+        <div class="oq-modal__body">O roteiro tem alterações que ainda não foram salvas neste navegador.</div>
+        <div class="oq-modal__footer">
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="sairSemSalvar()">Sair sem salvar</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="salvarESair()">Salvar rascunho e sair</button>
+        </div>
+      </div>
+    </div>
+  }
+}
+}

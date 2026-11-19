@@ -53,6 +53,9 @@
     [pendingCount]="pendingCount()"
     [conferredCount]="conferredCount()"
     [divergenceCount]="divergenceCount()"
+    [tipMov]="tipMov()"
+    [cega]="cega()"
+    [ocultarPendentes]="!exibirProd()"
     (atalhos)="mostrarAtalhos.set(!mostrarAtalhos())"
   />
 
@@ -129,7 +132,7 @@
                     <span class="oq-sinc__nome">
                       {{ c.descricao ?? 'Produto ' + c.codprod }}
                       <span class="oq-cn__selo" [class.oq-cn__selo--ok]="c.tipo === 'incluido'">
-                        {{ c.tipo === 'incluido' ? 'INCLUÍDO' : c.tipo === 'removido' ? 'REMOVIDO' : 'CORRIGIDO' }}
+                        {{ c.tipo === 'incluido' ? 'Incluído' : c.tipo === 'removido' ? 'Removido' : 'Corrigido' }}
                       </span>
                     </span>
                     @for (m of c.mudancas; track m) {
@@ -137,7 +140,7 @@
                     }
                   </div>
                   @if (c.conferenciaDesfeita) {
-                    <span class="oq-cn__div">CONFERÊNCIA DESFEITA</span>
+                    <span class="oq-cn__div">Conferência desfeita</span>
                   }
                 </li>
               }
@@ -194,6 +197,7 @@
       class="oq-cf-laststrip"
       [item]="lastScan()"
       [compacto]="true"
+      [cega]="cega()"
       [exibirQtd]="exibirQtdConf()"
       (resolver)="onResolver($event)"
     />
@@ -227,6 +231,7 @@
         <oq-pending-list
           [items]="pendingItems()"
           [exibirQtd]="exibirQtd()"
+          [cega]="cega()"
           (selecionar)="onSelecionarPendente($event)"
         />
       </div>
@@ -239,14 +244,18 @@
         [class.oq-cf-pane--ativa]="abaAtiva() === 'conferidos'"
       >
         @if (exibirProdConf()) {
+          <!-- Às cegas, "Ver conferidos" some: a janela mostra conferido × pedido e divergências. -->
           <oq-conferred-list
             [items]="sortedConferred()"
             [exibirQtd]="exibirQtdConf()"
+            [cega]="cega()"
             (devolver)="onDevolver($event)"
+            [podeVerTodos]="!!sessaoIdAtual && !cega()"
+            (verTodos)="abrirConferidos()"
           />
         }
         @if (exibirImgProd()) {
-          <oq-last-scan-panel oqFeedbackFlash [item]="lastScan()" [exibirQtd]="exibirQtdConf()" (resolver)="onResolver($event)" />
+          <oq-last-scan-panel oqFeedbackFlash [cega]="cega()" [item]="lastScan()" [exibirQtd]="exibirQtdConf()" (resolver)="onResolver($event)" />
         }
       </div>
     }
@@ -275,15 +284,18 @@
     [progressoTotal]="totalItensCount()"
     [canConfirm]="canConfirm()"
     [confirmando]="finalizando()"
-    [confirmarLabel]="modoEtapa() ? 'Concluir Etapa ' + rotuloEtapaAtual() : 'Confirmar Conferência'"
+    [confirmarLabel]="modoEtapa() ? 'Concluir etapa ' + rotuloEtapaAtual() : 'Confirmar conferência'"
     [voltarLabel]="conferredCount() > 0 ? 'Salvar e sair' : 'Voltar'"
     [volume]="volume()"
     [exigeVolume]="exigeVolume()"
+    [cega]="cega()"
     (voltar)="onVoltar()"
     (confirmar)="onConfirmar()"
     (volumeChange)="onVolumeChange($event)"
     (cancelar)="onCancelarPedido()"
-    [mostrarVerConferidos]="!!sessaoIdAtual"
+    [mostrarVerConferidos]="!!sessaoIdAtual && !exibirProdConf() && !cega()"
+    [mostrarSincronizar]="!!sessaoIdAtual"
+    [podeVerConferidosNoMenu]="!!sessaoIdAtual && !cega()"
     (verConferidos)="abrirConferidos()"
     [sincronizando]="sincronizando()"
     (sincronizar)="onSincronizarSankhya()"

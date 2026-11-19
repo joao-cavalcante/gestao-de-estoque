@@ -21,6 +21,10 @@ export class SyncTickService implements OnDestroy {
   readonly segundosDesdeSync = signal(0);
   /** true enquanto um "forçar sync" está em andamento no backend. */
   readonly sincronizando = signal(false);
+  /** Hora da última atualização (tick do ciclo, sync forçado ou tela que buscou com sucesso). */
+  readonly ultimaAtualizacao = signal(new Date());
+  /** Mensagem da última falha ao buscar dados (null = ok). Telas informam via registrarFalha/registrarSucesso. */
+  readonly falha = signal<string | null>(null);
 
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
@@ -33,6 +37,7 @@ export class SyncTickService implements OnDestroy {
       const novo = this.segundosDesdeSync() + 1;
       if (novo >= CICLO_SYNC_SEGUNDOS) {
         this.segundosDesdeSync.set(0);
+        this.ultimaAtualizacao.set(new Date());
         this.tick$.next();
       } else {
         this.segundosDesdeSync.set(novo);
@@ -72,6 +77,18 @@ export class SyncTickService implements OnDestroy {
   private finalizarForcado(): void {
     this.sincronizando.set(false);
     this.segundosDesdeSync.set(0);
+    this.ultimaAtualizacao.set(new Date());
     this.tick$.next();
+  }
+
+  /** Tela buscou os dados com sucesso: limpa a falha e marca a hora. */
+  registrarSucesso(): void {
+    this.falha.set(null);
+    this.ultimaAtualizacao.set(new Date());
+  }
+
+  /** Tela não conseguiu buscar os dados: o header mostra o aviso até o próximo sucesso. */
+  registrarFalha(mensagem: string): void {
+    this.falha.set(mensagem);
   }
 }

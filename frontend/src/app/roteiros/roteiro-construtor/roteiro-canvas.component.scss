@@ -1,0 +1,464 @@
+/* PROTÓTIPO — canvas do Construtor de Roteiros. Só tokens --oq-*. */
+
+:host {
+  display: block;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cv {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  outline: none;
+  touch-action: none;
+  cursor: grab;
+  background-color: var(--oq-bg-page);
+  background-image: radial-gradient(circle, var(--oq-border) 1px, transparent 1.2px);
+  background-size: 16px 16px;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--oq-brand-accent);
+  }
+}
+
+.cv--recebendo {
+  box-shadow: inset 0 0 0 2px var(--oq-brand-accent);
+}
+
+.cv__mundo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+/* ─── Ligações ─────────────────────────────────────────────── */
+
+.cv__ligacoes {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cv__seta path {
+  fill: var(--oq-border-strong);
+}
+
+.cv__seta--sel path {
+  fill: var(--oq-brand-accent);
+}
+
+.cv__seta--sim path {
+  fill: var(--oq-concluido);
+}
+
+.cv__lig-toque {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.cv__lig-linha {
+  fill: none;
+  stroke: var(--oq-border-strong);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.cv__lig--sel .cv__lig-linha {
+  stroke: var(--oq-brand-accent);
+  stroke-width: 2.5;
+}
+
+.cv__lig--percorrida .cv__lig-linha {
+  stroke: var(--oq-concluido);
+  stroke-width: 3;
+}
+
+.cv__lig-rotulo {
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--oq-text-secondary);
+  pointer-events: none;
+}
+
+.cv__lig-temp {
+  fill: none;
+  stroke: var(--oq-brand-accent);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.cv--simulando .cv__lig:not(.cv__lig--percorrida) .cv__lig-linha {
+  opacity: 0.35;
+}
+
+/* ─── Etapas ───────────────────────────────────────────────── */
+
+.cv__etapa {
+  --cv-cor: var(--oq-brand-accent);
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 12px 8px 14px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-left: 4px solid var(--cv-cor);
+  border-radius: var(--oq-radius-block);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08);
+  cursor: pointer;
+  user-select: none;
+  transition: box-shadow 0.15s ease, opacity 0.2s ease;
+}
+
+.cv--editavel .cv__etapa {
+  cursor: move;
+}
+
+.cv__etapa--controle {
+  --cv-cor: var(--oq-aguardando);
+}
+
+.cv__etapa--sistema {
+  --cv-cor: var(--oq-success);
+}
+
+.cv__etapa--tipo-condicao {
+  --cv-cor: var(--oq-attention);
+  border-style: dashed;
+  border-left-style: solid;
+  background: var(--oq-surface-2);
+}
+
+.cv__etapa--tipo-inicio,
+.cv__etapa--tipo-finalizacao {
+  border-left-width: 1px;
+  border-color: var(--cv-cor);
+  border-radius: 999px;
+  padding: 0 16px;
+  align-items: center;
+}
+
+.cv__etapa--tipo-finalizacao {
+  --cv-cor: var(--oq-text-primary);
+}
+
+.cv__etapa--conceitual {
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+.cv__etapa--sel {
+  box-shadow: 0 0 0 2px var(--oq-brand-accent), 0 6px 16px rgba(24, 24, 27, 0.16);
+}
+
+.cv__etapa--erro {
+  border-color: var(--oq-critical);
+}
+
+.cv__etapa--aviso:not(.cv__etapa--sel) {
+  border-color: var(--oq-attention);
+}
+
+.cv__pilula {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-primary);
+
+  oq-icon {
+    color: var(--cv-cor);
+  }
+}
+
+.cv__cabeca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cv__icone {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface-2);
+  color: var(--cv-cor);
+}
+
+.cv__nome {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--oq-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv__tag {
+  flex: none;
+  border: 1px dashed var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  padding: 0 4px;
+  font-family: var(--oq-font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oq-text-secondary);
+}
+
+.cv__sub {
+  font-family: var(--oq-font-mono);
+  font-size: 10.5px;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv__marca {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-attention);
+  color: var(--oq-attention);
+}
+
+.cv__marca--erro {
+  border-color: var(--oq-critical);
+  color: var(--oq-critical);
+}
+
+/* Portas: entrada no topo (só visual), saída embaixo (arrastar para ligar). */
+.cv__porta {
+  position: absolute;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--oq-border-strong);
+  background: var(--oq-surface);
+  transform: translate(-50%, -50%);
+  left: 50%;
+}
+
+.cv__porta--entrada {
+  top: 0;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.cv__porta--saida {
+  top: 100%;
+  cursor: crosshair;
+  border-color: var(--oq-brand-accent);
+  transition: transform 0.1s ease;
+
+  &:hover {
+    transform: translate(-50%, -50%) scale(1.35);
+    background: var(--oq-brand-accent);
+  }
+}
+
+.cv__porta--sim,
+.cv__porta--nao {
+  span {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--oq-font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--oq-text-secondary);
+    pointer-events: none;
+  }
+}
+
+.cv__porta--sim {
+  left: 25%;
+}
+
+.cv__porta--nao {
+  left: 75%;
+}
+
+/* ─── Simulação ────────────────────────────────────────────── */
+
+.cv--simulando .cv__etapa:not(.cv__etapa--visitada) {
+  opacity: 0.4;
+}
+
+.cv__etapa--visitada {
+  border-color: var(--oq-concluido);
+}
+
+.cv__etapa--ignorada {
+  opacity: 0.7;
+  border-style: dashed;
+
+  .cv__nome {
+    text-decoration: line-through;
+  }
+}
+
+.cv__etapa--atual {
+  box-shadow: 0 0 0 3px var(--oq-concluido), 0 8px 20px rgba(46, 125, 79, 0.25);
+}
+
+.cv__sim-tag {
+  position: absolute;
+  top: -9px;
+  right: 8px;
+  padding: 0 5px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  border: 1px solid var(--oq-border);
+  font-family: var(--oq-font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--oq-text-secondary);
+}
+
+/* ─── Sobreposições ────────────────────────────────────────── */
+
+.cv__vazio {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 20px;
+  border: 1px dashed var(--oq-border-strong);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  font-size: 13px;
+  color: var(--oq-text-secondary);
+  pointer-events: none;
+}
+
+.cv__controles {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  box-shadow: 0 2px 8px rgba(24, 24, 27, 0.1);
+  cursor: default;
+}
+
+.cv__btn {
+  min-width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--oq-radius-input);
+  background: transparent;
+  font-family: var(--oq-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--oq-surface-2);
+  }
+}
+
+.cv__btn--texto {
+  padding: 0 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cv__btn--perigo {
+  color: var(--oq-critical);
+}
+
+.cv__zoom {
+  min-width: 44px;
+  text-align: center;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  color: var(--oq-text-secondary);
+}
+
+.cv__sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--oq-border);
+}
+
+.cv__dica {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  font-family: var(--oq-font-mono);
+  font-size: 10.5px;
+  color: var(--oq-text-secondary);
+  pointer-events: none;
+}
+
+.cv__mensagem {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  background: var(--oq-surface);
+  box-shadow: 0 4px 12px rgba(24, 24, 27, 0.15);
+  font-size: 13px;
+  color: var(--oq-text-primary);
+}
+
+.cv__mensagem--erro {
+  border-color: var(--oq-critical);
+  color: var(--oq-critical-foreground);
+  background: var(--oq-critical-bg);
+}
+
+@media (max-width: 1279px) {
+  .cv__dica {
+    display: none;
+  }
+}

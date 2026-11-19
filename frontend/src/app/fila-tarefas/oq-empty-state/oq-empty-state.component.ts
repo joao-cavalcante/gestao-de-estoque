@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 @Component({
   selector: 'oq-empty-state',
@@ -7,6 +7,9 @@ import { Component, Input } from '@angular/core';
   styleUrl: './oq-empty-state.component.scss',
 })
 export class OqEmptyStateComponent {
-  @Input() titulo = 'Nenhuma tarefa neste filtro';
-  @Input() mensagem = 'Ajuste os filtros ou aguarde a próxima sincronização automática.';
+  @Input() titulo = 'Nenhum pedido na fila';
+  @Input() mensagem = '';
+  /** Mostra "Limpar filtros" (o pai diz se há filtro ativo). */
+  @Input() podeLimpar = false;
+  @Output() limpar = new EventEmitter<void>();
 }

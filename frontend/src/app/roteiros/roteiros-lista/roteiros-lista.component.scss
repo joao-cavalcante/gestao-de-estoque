@@ -1,0 +1,265 @@
+/* PROTÓTIPO — Roteiros Operacionais, Tela A. Só tokens --oq-* e classes globais existentes. */
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+.rt-selo {
+  border: 1px dashed var(--oq-brand-accent);
+  border-radius: var(--oq-radius-input);
+  padding: 1px 6px;
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--oq-brand-text);
+}
+
+.rt-conteudo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rt-aviso {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--oq-border);
+  border-left: 3px solid var(--oq-brand-accent);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-brand-text);
+
+  p {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--oq-text-primary);
+  }
+}
+
+.rt-painel {
+  overflow: hidden;
+}
+
+.rt-linha {
+  display: grid;
+  grid-template-columns: minmax(220px, 2.4fr) 1.1fr 0.6fr 0.9fr 0.6fr 1.2fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--oq-border);
+  font-size: 13px;
+  color: var(--oq-text-primary);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.rt-linha--cabecalho {
+  padding: 8px 14px;
+  background: var(--oq-surface-2);
+  font-family: var(--oq-font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--oq-text-secondary);
+}
+
+.rt-num {
+  text-align: right;
+}
+
+.rt-mono {
+  font-family: var(--oq-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rt-data {
+  color: var(--oq-text-secondary);
+}
+
+.rt-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rt-nome__link {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--oq-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--oq-brand-text);
+    text-decoration: underline;
+  }
+}
+
+.rt-nome__desc {
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rt-tipo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rt-tipo__nome {
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rt-conceitual {
+  border: 1px dashed var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  padding: 0 5px;
+  font-family: var(--oq-font-mono);
+  font-size: 10px;
+  color: var(--oq-text-secondary);
+}
+
+.rt-acoes,
+.rt-acoes-col {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.rt-secao-titulo {
+  margin: 8px 0 0;
+  font-family: var(--oq-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--oq-text-secondary);
+}
+
+.rt-modelos__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.rt-modelo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+}
+
+.rt-modelo__topo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--oq-text-secondary);
+}
+
+.rt-modelo__nome {
+  margin: 0;
+  font-family: var(--oq-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.rt-modelo__trilha {
+  margin: 0;
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--oq-brand-text);
+}
+
+.rt-modelo__desc {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--oq-text-secondary);
+}
+
+.rt-modelo__usar {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.rt-modal-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Tablet: a tabela vira cartões empilhados. */
+@media (max-width: 1023px) {
+  .rt-conteudo {
+    padding: 16px;
+  }
+
+  .rt-linha--cabecalho {
+    display: none;
+  }
+
+  .rt-linha {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      'nome nome status'
+      'tipo etapas versao'
+      'data data data'
+      'acoes acoes acoes';
+    row-gap: 8px;
+
+    > :nth-child(1) { grid-area: nome; }
+    > :nth-child(2) { grid-area: tipo; }
+    > :nth-child(3) { grid-area: etapas; }
+    > :nth-child(4) { grid-area: status; justify-self: end; }
+    > :nth-child(5) { grid-area: versao; }
+    > :nth-child(6) { grid-area: data; }
+    > :nth-child(7) { grid-area: acoes; justify-content: flex-start; flex-wrap: wrap; }
+  }
+
+  .rt-linha > :nth-child(3)::after {
+    content: ' etapas';
+    color: var(--oq-text-secondary);
+  }
+
+  .rt-aviso {
+    flex-wrap: wrap;
+  }
+}

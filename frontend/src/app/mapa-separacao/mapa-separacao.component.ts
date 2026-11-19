@@ -1,6 +1,5 @@
 import { Component, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { OqPedidoVendaComponent } from './oq-pedido-venda.component';
-import { OqMapaKpisComponent } from './oq-mapa-kpis.component';
 import { exportarMapaExcel } from './mapa-separacao.excel';
 import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { NgTemplateOutlet } from '@angular/common';
@@ -69,7 +68,7 @@ type SituacaoFiltro = 'todas' | 'nao-impressas' | 'impressas' | 'complementar';
 @Component({
   selector: 'app-mapa-separacao',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent, OqModalidadePinsComponent, OqPedidoVendaComponent, OqMapaKpisComponent],
+  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqSkeletonComponent, NgTemplateOutlet, OqViewToggleComponent, OqPaginacaoComponent, OqModalidadePinsComponent, OqPedidoVendaComponent],
   templateUrl: './mapa-separacao.component.html',
   styleUrl: './mapa-separacao.component.scss',
 })
@@ -189,6 +188,38 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
     const f = this.filtroModalidade;
     const m = p.modalidade;
     return f.size === 0 || (f.has('express') && !!m?.express) || (f.has('retira') && !!m?.retira) || (f.has('entrega') && !!m?.entrega);
+  }
+
+  /** Seletor "Ordens de carga | Pedidos sem OC" do topo (era o checkbox "S/ Ordem de Carga"). */
+  mudarModo(semOc: boolean): void {
+    if (this.semOrdemCarga === semOc) return;
+    this.semOrdemCarga = semOc;
+    this.onSemOrdemCargaChange();
+  }
+
+  /** Áreas do mapa (uma folha por área) — colunas de peso a separar do card/lista da OC. */
+  readonly AREAS = [
+    { codigo: '1', label: 'Secos' },
+    { codigo: '2', label: 'Resfriados' },
+    { codigo: '3', label: 'Congelados' },
+  ] as const;
+
+  /** A base informa área (Negri: AD_TIPOSEPARACAO) e a OC ainda tem peso a separar. */
+  temAreas(oc: OrdemCargaResumoDto): boolean {
+    const a = oc.pesoPendentePorArea;
+    return !!a && ['1', '2', '3'].some((c) => (a[c] ?? 0) > 0);
+  }
+
+  /** "17/11/2026 14:05:10" → "17/11 14:05" (última alteração da OC). */
+  dataHoraCurta(v: string | null | undefined): string {
+    const m = v?.match(/^(\d{2}\/\d{2})\/\d{4}\s+(\d{2}:\d{2})/);
+    return m ? `${m[1]} ${m[2]}` : (v ?? '—');
+  }
+
+  /** "18/11/2026" → "18/11"; "—" fica como está. */
+  ddmm(data: string | null | undefined): string {
+    const m = data?.match(/^(\d{2}\/\d{2})/);
+    return m ? m[1] : (data ?? '—');
   }
 
   onSemOrdemCargaChange(): void {
@@ -337,6 +368,7 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
       (oc) =>
         (!termo ||
           String(oc.ordemCarga).includes(termo) ||
+          !!oc.regiao?.toLowerCase().includes(termo) ||
           !!oc.placa?.toLowerCase().includes(termo) ||
           !!oc.nomeMotorista?.toLowerCase().includes(termo)) &&
         this.passaModalidadeOc(oc) &&
@@ -404,6 +436,11 @@ export class MapaSeparacaoComponent implements OnInit, OnDestroy {
   /** Faixa do topo: tudo que falta conferir — todas as OCs da tela (impressas ou não) + pedidos sem OC. */
   get kgTotalASeparar(): number {
     return this.listaFiltrada.reduce((t, oc) => t + (oc.pesoPendenteKg ?? 0), 0) + this.pedidosSemOcFiltrados.reduce((t, p) => t + (p.pesoKg ?? 0), 0);
+  }
+
+  /** Resumo da barra: no modo "Pedidos sem OC" só os pedidos listados (antes somava as OCs também). */
+  get kgResumo(): number {
+    return this.semOrdemCarga ? this.pedidosSemOcFiltrados.reduce((t, p) => t + (p.pesoKg ?? 0), 0) : this.kgTotalASeparar;
   }
 
   get kgUrgentes(): number {
