@@ -328,3 +328,12 @@ export function pesoTexto(kg: number): string {
 export function mostraNumeroNota(t: Tarefa): boolean {
   return jaENota(t.tipMov) && !!t.nf && t.nf !== '—';
 }
+
+/**
+ * TIPMOV de entrada — compra (C) e pedido de compra (O), mesmo critério da TV de entrada. Desde 19/11/2026 a compra
+ * sai da Fila de Conferência e fica só na tela Entrada (decisão do usuário: "entrada em um único lugar").
+ */
+export function ehEntrada(tipMov: string | null | undefined): boolean {
+  const t = (tipMov ?? '').trim().toUpperCase();
+  return t === 'C' || t === 'O';
+}

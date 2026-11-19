@@ -187,6 +187,15 @@ object TarefaSyncService {
                 }
             }
             launch {
+                // Tela Entrada (19/11/2026): confirmação da compra conferida e notas de devolução/complemento.
+                medirEtapa(tenantSlug, "entrada-situacao") {
+                    runCatching {
+                        val compras = withContext(Dispatchers.IO) { wms.backend.entrada.EntradaService.comprasParaReler(tenantId) }
+                        wms.backend.entrada.EntradaSituacao.atualizar(tenantSlug, tenantId, compras)
+                    }.onFailure { println("AVISO: situação das compras da Entrada (tenant $tenantSlug) falhou: ${it.message}") }
+                }
+            }
+            launch {
                 medirEtapa(tenantSlug, "aguardando-nota") {
                     // "Aguardando nota" (V58): nota faturada/confirmada direto no Sankhya, ou conferência reaberta, sai da fila.
                     runCatching { wms.backend.aguardandonota.AguardandoNotaService.revalidarTodos(tenantSlug, tenantId) }

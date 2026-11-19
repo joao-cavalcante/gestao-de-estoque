@@ -7,7 +7,7 @@ export type OqIconName =
   | 'menu' | 'box' | 'user' | 'scale' | 'balanca' | 'download' | 'impressora' | 'building' | 'logout'
   | 'sun' | 'moon' | 'grid' | 'list'
   | 'seco' | 'refrigerado' | 'congelado' | 'ajuste'
-  | 'express' | 'retira' | 'entrega' | 'tv' | 'grip' | 'teclado';
+  | 'express' | 'retira' | 'entrega' | 'tv' | 'grip' | 'teclado' | 'recebimento';
 
 /**
  * Ícones inline SVG, sem dependência de lib externa (@angular/material etc.)
@@ -163,6 +163,11 @@ export type OqIconName =
           <rect x="3.5" y="8" width="17" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" />
           <path d="M7 13.5h10V20.5H7Z" fill="var(--oq-surface, #fff)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
           <circle cx="17" cy="11" r="0.9" fill="currentColor" />
+        }
+        @case ('recebimento') {
+          <!-- Entrada de mercadoria (19/11/2026): bandeja de recebimento com a seta entrando. -->
+          <path d="M12 3v8M8.5 7.5 12 11l3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M4 13h4l1.5 2.5h5L16 13h4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
         }
         @case ('download') {
           <path d="M12 3v12M7.5 10.5 12 15l4.5-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />

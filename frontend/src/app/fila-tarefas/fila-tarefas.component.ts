@@ -28,6 +28,7 @@ import {
   Tarefa,
   TIPOS_SEPARACAO_ATIVOS,
   ViewMode,
+  ehEntrada,
 } from './tarefa.model';
 import { OqFechamentoOcModalComponent } from './oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
 import { OqImpressaoOcComponent } from './oq-impressao-oc/oq-impressao-oc.component';
@@ -218,7 +219,8 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     }
     this.conferenciasService.listarFila(this.tenantAtual).subscribe({
       next: (tarefas) => {
-        this.tarefas.set(tarefas);
+        // Compra (C/O) fica só na tela Entrada (19/11/2026).
+        this.tarefas.set(tarefas.filter((t) => !ehEntrada(t.tipMov)));
         this.filaCarregada = true;
         this.erro.set(null);
         this.carregando.set(false);

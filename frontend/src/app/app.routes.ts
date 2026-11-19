@@ -41,6 +41,17 @@ export const routes: Routes = [
   // Coletor (18/11/2026): aparelho de toque até 639px vai para a fila própria; computador/tablet seguem na Torre.
   { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard, coletorRedirectGuard] },
   { path: 'coletor', component: ColetorFilaComponent, canActivate: [authGuard] },
+  // Entrada (19/11/2026): recebimentos de compra (saíram da Fila) e mesa de liberação — só leitura.
+  {
+    path: 'entrada',
+    canActivate: [authGuard],
+    loadComponent: () => import('./entrada/entrada-lista.component').then((m) => m.EntradaListaComponent),
+  },
+  {
+    path: 'entrada/:nunota',
+    canActivate: [authGuard],
+    loadComponent: () => import('./entrada/entrada-mesa.component').then((m) => m.EntradaMesaComponent),
+  },
   // TV de acompanhamento da conferência (painel de parede) — perfil TV ou admin.
   { path: 'tv', component: TvComponent, canActivate: [tvGuard] },
   // TV exclusiva de Ordens de Carga (conferência + carregamento por OC). Antes de 'tv/:movimento'.

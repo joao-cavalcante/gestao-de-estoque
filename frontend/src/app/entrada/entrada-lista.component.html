@@ -1,0 +1,124 @@
+<div class="oq-page">
+  <header class="oq-page__header">
+    <div class="en-topo">
+      <label class="en-busca">
+        <oq-icon name="search" [size]="14" />
+        <input
+          type="text"
+          autocomplete="off"
+          placeholder="NF, nº único ou fornecedor"
+          aria-label="Buscar NF, nº único ou fornecedor"
+          [ngModel]="busca()"
+          (ngModelChange)="busca.set($event)"
+        />
+      </label>
+      <div class="en-filtros" role="tablist" aria-label="Situação">
+        @for (f of filtros; track f.id) {
+          <button
+            type="button"
+            role="tab"
+            class="en-filtro"
+            [class.en-filtro--ativo]="filtro() === f.id"
+            [class.en-filtro--alerta]="f.id === 'liberacao' && contagens().liberacao > 0"
+            [attr.aria-selected]="filtro() === f.id"
+            (click)="filtro.set(f.id)"
+          >
+            {{ f.label }} <span class="en-filtro__qtd">{{ contagens()[f.id] }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  </header>
+
+  <div class="oq-page__content">
+    @if (erro()) {
+      <div class="oq-page__status oq-page__status--erro">
+        {{ erro() }}
+        <button type="button" (click)="carregar()">Tentar de novo</button>
+      </div>
+    } @else if (carregando()) {
+      <div class="oq-page__grid" aria-busy="true">
+        <oq-skeleton variant="task-card" [count]="6" />
+      </div>
+    } @else if (visiveis().length === 0) {
+      <div class="oq-page__status">
+        @if (busca() || filtro() !== 'todos') {
+          Nenhum recebimento em "{{ rotuloFiltro() }}"{{ busca() ? ' com "' + busca() + '"' : '' }}.
+          <button type="button" (click)="limparFiltros()">Limpar filtros</button>
+        } @else {
+          Nenhuma compra para receber.
+        }
+      </div>
+    } @else {
+      <div class="oq-page__grid">
+        @for (r of visiveis(); track r.nunota) {
+          <article class="oq-card en-card" [class.en-card--fraco]="r.situacao === 'liberada'">
+            <div class="en-card__topo">
+              <span class="en-card__nunota">{{ r.nunota }}</span>
+              @if (r.numeroNota) {
+                <span class="en-card__nf">NF {{ r.numeroNota }}</span>
+              }
+              <span class="en-card__data" title="Data de negociação">{{ ddmm(r.dataMovimento) }}</span>
+            </div>
+            <span class="en-card__fornecedor" [title]="r.fornecedor ?? ''">{{ r.fornecedor ?? '—' }}</span>
+
+            <span class="en-status" [attr.data-situacao]="r.situacao">
+              <oq-icon [name]="icone[r.situacao]" [size]="14" />
+              {{ rotulo[r.situacao] }}
+              @if (r.statusConferencia === 'concluido_divergente' || r.statusConferencia === 'recontagem_concluida_divergente') {
+                <span class="en-status__extra">· conferida com divergência</span>
+              }
+            </span>
+
+            @if (r.andamento && r.situacao === 'em_conferencia') {
+              <div class="en-andamento">
+                {{ r.andamento.conferidos }} de {{ r.andamento.total }} itens{{ r.andamento.conferente ? ' · ' + r.andamento.conferente : '' }}
+                <span class="en-andamento__barra" aria-hidden="true">
+                  <span [style.width.%]="r.andamento.total ? (r.andamento.conferidos * 100) / r.andamento.total : 0"></span>
+                </span>
+              </div>
+            }
+
+            <div class="en-card__numeros">
+              <span><small>Peso</small>{{ pesoTexto(r.pesoBruto) }}</span>
+              <span><small>Empresa</small>{{ r.nomeEmpresa ?? r.codigoEmpresa ?? '—' }}</span>
+              <span><small>TOP</small>{{ r.codigoTipoOperacao ?? '—' }}</span>
+            </div>
+
+            @if (ocorrencias(r) > 0) {
+              <ul class="en-ocorrencias">
+                @if (r.devolucao; as d) {
+                  <li class="en-ocorrencia en-ocorrencia--falta">
+                    <oq-icon name="triangle" [size]="12" /> Devolução {{ d.numero ? 'NF ' + d.numero : 'nº único ' + d.nunota }}{{ d.confirmada ? '' : ' (não confirmada)' }}
+                  </li>
+                }
+                @if (r.complemento; as c) {
+                  <li class="en-ocorrencia en-ocorrencia--sobra">
+                    <oq-icon name="receipt" [size]="12" /> Complemento {{ c.numero ? 'nº ' + c.numero : 'nº único ' + c.nunota }}{{ c.confirmada ? '' : ' (aguardando)' }}
+                  </li>
+                }
+                @for (a of r.ajustesPeso ?? []; track a.sentido) {
+                  <li class="en-ocorrencia" [class.en-ocorrencia--erro]="a.status === 'erro'">
+                    <oq-icon name="scale" [size]="12" /> {{ rotuloAjuste(a) }}
+                  </li>
+                }
+              </ul>
+            }
+
+            <div class="oq-card__actions">
+              <button
+                type="button"
+                class="en-btn"
+                [class.en-btn--forte]="acao(r).forte"
+                [class.en-btn--alerta]="r.situacao === 'divergencia'"
+                (click)="agir(r)"
+              >
+                {{ acao(r).texto }}
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </div>
+</div>

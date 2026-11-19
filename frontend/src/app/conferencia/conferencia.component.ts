@@ -776,6 +776,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     const nunota = Number(this.route.snapshot.paramMap.get('nunota'));
     const etapaRaw = Number(this.route.snapshot.queryParamMap.get('etapa'));
     this.etapaParam = Number.isFinite(etapaRaw) && etapaRaw >= 1 && etapaRaw <= 5 ? etapaRaw : null; // 1–3 temperatura, 4–5 Não pesáveis/Pesáveis
+    // Aberta pela tela Entrada (compra): os botões de voltar levam para a Entrada, não para a Fila (19/11/2026).
+    if (history.state?.origem === 'entrada') this.rotaVolta = '/entrada';
     const tarefa = history.state?.tarefa as Tarefa | undefined;
     if (tarefa) {
       this.nf = tarefa.nf;
@@ -1348,7 +1350,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
       next: () => {
         this.cancelando = false;
         this.mostrarModalCancelar.set(false);
-        this.router.navigate(['/fila-tarefas']);
+        this.router.navigate([this.rotaVolta]);
       },
       error: (err) => {
         this.cancelando = false;
@@ -1376,7 +1378,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   }
 
   onVoltar(): void {
-    this.router.navigate(['/fila-tarefas']);
+    this.router.navigate([this.rotaVolta]);
   }
 
   onConfirmar(): void {
@@ -1521,7 +1523,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (temEtiqueta) {
       this.mostrarPainelEtapaConcluida.set(true);
     } else {
-      this.router.navigate(['/fila-tarefas']);
+      this.router.navigate([this.rotaVolta]);
     }
   }
 
@@ -1733,7 +1735,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   continuarAposEtapa(): void {
     this.mostrarPainelEtapaConcluida.set(false);
-    this.router.navigate(['/fila-tarefas']);
+    this.router.navigate([this.rotaVolta]);
   }
 
   imprimirEtiquetaPeso(): void {
@@ -1747,7 +1749,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   }
 
   sairParaFila(): void {
-    this.router.navigate(['/fila-tarefas']);
+    this.router.navigate([this.rotaVolta]);
   }
 
   /** OC do pedido (vinda da fila) — pedido com OC passa pelo carregamento. */
@@ -1755,6 +1757,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   /** Pop-up final: "✓ Já carregado" — um toque dá baixa no carregamento do pedido inteiro. */
   private voltarAoPainelFinal = false;
+  /** Para onde os botões de voltar levam: Fila (padrão) ou Entrada (compra aberta pela tela Entrada). */
+  private rotaVolta = '/fila-tarefas';
   readonly carregadoFinal = signal<'nao' | 'salvando' | 'ok'>('nao');
   irParaCarregamento(): void {
     if (this.carregadoFinal() !== 'nao' || !this.numeroUnico || this.numeroUnico === '—') return;

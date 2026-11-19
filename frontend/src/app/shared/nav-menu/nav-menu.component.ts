@@ -38,6 +38,8 @@ const SECOES: SecaoMenu[] = [
     titulo: 'Operação',
     itens: [
       { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
+      // Recebimentos de compra (19/11/2026) — a compra saiu da Fila de Conferência.
+      { rota: '/entrada', label: 'Entrada', icone: 'recebimento' },
       { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
       { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
     ],
