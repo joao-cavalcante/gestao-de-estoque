@@ -114,6 +114,12 @@ export class AuditoriaPedidoComponent implements OnInit {
     return `${d}/${m}/${a} ${iso.substring(11, 16)}`;
   }
 
+  /** "19/11 06:17:33" — hora de cada conferência/pesagem, com segundos. */
+  dataHoraSeg(iso: string): string {
+    const [, m, d] = iso.substring(0, 10).split('-');
+    return `${d}/${m} ${iso.substring(11, 19)}`;
+  }
+
   qtd(v: number | null): string {
     return v == null ? '—' : FORMATO_QTD.format(v);
   }

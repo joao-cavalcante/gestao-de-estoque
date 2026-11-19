@@ -76,6 +76,15 @@ object AuditoriaPedidoService {
         // Liberação só traz a descrição do produto: casa com o item pra converter a unidade (pesável → kg).
         val porNome = itens.associate { normalizarNome(it.produto) to it.codprod }
 
+        // Leituras da Torre por produto (hora de cada conferência/pesagem e se o peso veio da balança) — vão no 1º
+        // item do produto, pra não repetir quando o produto aparece em mais de uma sequência.
+        val leituras = runCatching { withContext(Dispatchers.IO) { leiturasWms(tenantId, nunota, unidades) } }
+            .onFailure { avisos += "Leituras da Torre de Operação: ${it.message}" }.getOrDefault(emptyMap())
+        val primeiraSeq = itens.groupBy { it.codprod }.mapValues { (_, l) -> l.first().sequencia }
+        val itensComLeituras = itens.map { i ->
+            if (primeiraSeq[i.codprod] == i.sequencia) i.copy(leituras = leituras[i.codprod].orEmpty()) else i
+        }
+
         val locais = runCatching { withContext(Dispatchers.IO) { eventosWms(tenantId, nunota, unidades) } }
             .onFailure { avisos += "Histórico da Torre de Operação: ${it.message}" }.getOrDefault(emptyList())
             .map { ev ->
@@ -146,7 +155,7 @@ object AuditoriaPedidoService {
             }
         }.sortedWith(compareBy({ it.quando }, { ORDEM_TIPO.indexOf(it.tipo) }))
 
-        AuditoriaPedidoDto(cab, itens, notas, eventos, avisos)
+        AuditoriaPedidoDto(cab, itensComLeituras, notas, eventos, avisos)
     }
 
     private val PROD = Regex("""\{prod:(\d+)\}""")
@@ -362,6 +371,45 @@ object AuditoriaPedidoService {
 
     private const val BR = "to_char(%s at time zone 'America/Sao_Paulo', 'YYYY-MM-DD\"T\"HH24:MI:SS')"
 
+    /**
+     * Cada leitura da Torre (bipe ou pesagem) por produto, em ordem: hora, quantidade e — pesagem — se o peso veio da
+     * balança ou foi digitado (V77; antes disso a origem fica nula).
+     */
+    private fun leiturasWms(tenantId: UUID, nunota: Long, unidades: Map<Int, Unidades>): Map<Int, List<AuditoriaLeituraDto>> =
+        TenantTx.run(tenantId, statementTimeoutMs = 10_000) {
+            val porProduto = linkedMapOf<Int, MutableList<AuditoriaLeituraDto>>()
+            exec(
+                """
+                SELECT ${BR.format("l.criado_em")} q, l.codprod, l.qtd, l.peso, l.origem_peso, s.recontagem
+                FROM app.separacao_leituras l JOIN app.separacao_sessoes s ON s.id = l.sessao_id
+                WHERE l.tenant_id = '$tenantId' AND s.nunota = $nunota
+                ORDER BY l.criado_em
+                """.trimIndent(),
+            ) { rs ->
+                while (rs.next()) {
+                    val codprod = rs.getInt("codprod")
+                    val peso = rs.getBigDecimal("peso")?.toDouble()?.takeIf { it > 0 }
+                    val un = unidades[codprod] ?: Unidades.NENHUMA
+                    porProduto.getOrPut(codprod) { mutableListOf() } += AuditoriaLeituraDto(
+                        quando = rs.getString("q"),
+                        quantidade = if (peso != null) "${qtd(peso)} kg" else un.texto(rs.getBigDecimal("qtd")?.toDouble() ?: 0.0),
+                        pesagem = peso != null,
+                        origemPeso = rs.getString("origem_peso")?.takeIf { peso != null },
+                        recontagem = rs.getBoolean("recontagem"),
+                    )
+                }
+            }
+            porProduto
+        }
+
+    /** "pela balança" / "digitado" / "2 pela balança, 1 digitado"; nulo quando a origem não foi registrada (antes da V77). */
+    private fun origemPesoTexto(nBalanca: Int, nManual: Int): String? = when {
+        nBalanca > 0 && nManual > 0 -> "$nBalanca pela balança, $nManual digitado${if (nManual > 1) "s" else ""}"
+        nBalanca > 0 -> "pela balança"
+        nManual > 0 -> "peso digitado (manual)"
+        else -> null
+    }
+
     /** Produto aparece como "{prod:123}" e é trocado pelo nome (vindo do Sankhya) depois. */
     private fun eventosWms(tenantId: UUID, nunota: Long, unidades: Map<Int, Unidades>): List<AuditoriaEventoDto> = TenantTx.run(tenantId, statementTimeoutMs = 10_000) {
         val eventos = mutableListOf<AuditoriaEventoDto>()
@@ -430,7 +478,9 @@ object AuditoriaPedidoService {
         consulta(
             """
             SELECT ${BR.format("min(l.criado_em)")} q, ${BR.format("max(l.criado_em)")} ate, l.codprod,
-                   sum(l.qtd) qtd, sum(l.peso) peso, count(*) n, s.recontagem
+                   sum(l.qtd) qtd, sum(l.peso) peso, count(*) n, s.recontagem,
+                   count(*) FILTER (WHERE l.origem_peso = 'BALANCA') n_balanca,
+                   count(*) FILTER (WHERE l.origem_peso = 'MANUAL') n_manual
             FROM app.separacao_leituras l JOIN app.separacao_sessoes s ON s.id = l.sessao_id
             WHERE l.tenant_id = '$tenantId' AND s.nunota = $nunota
             GROUP BY l.sessao_id, s.recontagem, l.codprod
@@ -442,6 +492,7 @@ object AuditoriaPedidoService {
             val un = unidades[rs.getInt("codprod")] ?: Unidades.NENHUMA
             val detalhe = listOfNotNull(
                 if (peso > 0) "pesado ${qtd(peso)} kg" else "conferido ${un.texto(quantidade)}",
+                if (peso > 0) origemPesoTexto(rs.getInt("n_balanca"), rs.getInt("n_manual")) else null,
                 if (n > 1) "$n leituras, a última às ${rs.getString("ate").substring(11, 16)}" else null,
                 if (rs.getBoolean("recontagem")) "na recontagem" else null,
             ).joinToString(" · ")

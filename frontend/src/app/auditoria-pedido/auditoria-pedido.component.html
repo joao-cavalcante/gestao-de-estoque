@@ -121,7 +121,31 @@
             <tbody>
               @for (i of d.itens; track i.sequencia) {
                 <tr [class.ap-itens--div]="divergente(i)">
-                  <td><span class="ap-itens__cod">{{ i.codprod }}</span> {{ i.produto }}</td>
+                  <td>
+                    <span class="ap-itens__cod">{{ i.codprod }}</span> {{ i.produto }}
+                    @if (i.leituras?.length) {
+                      <ul class="ap-leituras" [attr.aria-label]="'Conferências do produto ' + i.codprod">
+                        @for (l of i.leituras; track $index) {
+                          <li class="ap-leituras__linha">
+                            <span class="ap-leituras__hora">{{ dataHoraSeg(l.quando) }}</span>
+                            <span>{{ l.pesagem ? 'pesado' : 'conferido' }} {{ l.quantidade }}</span>
+                            @if (l.pesagem) {
+                              @if (l.origemPeso === 'BALANCA') {
+                                <span class="ap-leituras__origem ap-leituras__origem--balanca">Balança</span>
+                              } @else if (l.origemPeso === 'MANUAL') {
+                                <span class="ap-leituras__origem ap-leituras__origem--manual">Manual</span>
+                              } @else {
+                                <span class="ap-leituras__origem" title="Pesagem feita antes de a Torre registrar a origem do peso">origem não registrada</span>
+                              }
+                            }
+                            @if (l.recontagem) {
+                              <span class="ap-leituras__origem">recontagem</span>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </td>
                   <td class="num">
                     {{ qtd(i.qtdNegociada) }} {{ i.unidade }}
                     @if (i.unidadePadrao) { <small class="ap-itens__padrao">{{ qtd(i.qtdNegociadaPadrao) }} {{ i.unidadePadrao }}</small> }

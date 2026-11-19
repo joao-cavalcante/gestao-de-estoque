@@ -43,6 +43,22 @@ data class AuditoriaItemDto(
     val qtdConferidaPadrao: Double? = null,
     val valorUnitario: Double? = null,
     val valorTotal: Double? = null,
+    /** Conferências/pesagens do produto na Torre, uma por leitura, em ordem (só no 1º item do produto). */
+    val leituras: List<AuditoriaLeituraDto> = emptyList(),
+)
+
+/** Uma leitura (bipe ou pesagem) da Torre de Operação. */
+@Serializable
+data class AuditoriaLeituraDto(
+    /** ISO local de Brasília ("2026-11-19T06:17:33"). */
+    val quando: String,
+    /** Quantidade já formatada: "128 kg" (pesagem) ou "15 FD (75 PT)". */
+    val quantidade: String,
+    /** true = leitura com peso (pesável). */
+    val pesagem: Boolean,
+    /** "BALANCA" | "MANUAL"; nulo = sem peso ou pesagem anterior ao registro da origem (V77). */
+    val origemPeso: String? = null,
+    val recontagem: Boolean = false,
 )
 
 @Serializable

@@ -32,6 +32,21 @@ export interface AuditoriaItem {
   qtdConferidaPadrao: number | null;
   valorUnitario: number | null;
   valorTotal: number | null;
+  /** Conferências/pesagens do produto na Torre, em ordem (vêm só no 1º item do produto). */
+  leituras?: AuditoriaLeitura[];
+}
+
+export type OrigemPeso = 'BALANCA' | 'MANUAL';
+
+/** Uma leitura (bipe ou pesagem) da Torre de Operação. */
+export interface AuditoriaLeitura {
+  quando: string;
+  /** Já formatada: "128 kg" (pesagem) ou "15 FD (75 PT)". */
+  quantidade: string;
+  pesagem: boolean;
+  /** null = sem peso, ou pesagem anterior ao registro da origem (19/11/2026). */
+  origemPeso: OrigemPeso | null;
+  recontagem: boolean;
 }
 
 export interface AuditoriaNotaGerada {

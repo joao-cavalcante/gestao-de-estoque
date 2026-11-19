@@ -171,6 +171,8 @@ object SeparacaoLeiturasTable : Table("app.separacao_leituras") {
     val tara = decimal("tara", 15, 5).nullable()
     val codUma = integer("coduma").nullable()
     val qtdUma = decimal("qtd_uma", 15, 5).nullable()
+    /** V77 — "BALANCA" (capturado da balança) ou "MANUAL" (digitado); nula = sem peso ou pesagem anterior à V77. */
+    val origemPeso = text("origem_peso").nullable()
     val criadoEm = timestamp("criado_em")
 
     override val primaryKey = PrimaryKey(id)
