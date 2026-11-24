@@ -3,7 +3,6 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { Subscription } from 'rxjs';
 import { SyncTickService } from '../shared/app-header/sync-tick.service';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
-import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
 import { Carga, CargasService, PedidoCarga, ROTULO_PEDIDO, SituacaoCarga, SituacaoPedido, pesoTexto, rotuloImpressao } from './cargas.service';
 
@@ -16,12 +15,6 @@ interface Alerta {
   grave: boolean;
 }
 
-interface BarraHora {
-  hora: number;
-  qtd: number;
-  pct: number;
-}
-
 const ICONE_PEDIDO: Record<SituacaoPedido, OqIconName> = {
   corte: 'circle-alert',
   a_conferir: 'circle',
@@ -31,10 +24,10 @@ const ICONE_PEDIDO: Record<SituacaoPedido, OqIconName> = {
   com_nota: 'receipt',
 };
 
-const COLUNAS: { chave: SituacaoCarga; titulo: string; sub: string; icone: OqIconName }[] = [
-  { chave: 'pendente', titulo: 'Carregando', sub: 'ainda no galpão', icone: 'box' },
-  { chave: 'pronta', titulo: 'Prontos para sair', sub: 'só falta fechar a OC', icone: 'entrega' },
-  { chave: 'saiu', titulo: 'Já saíram hoje', sub: 'foram para a entrega', icone: 'check' },
+const COLUNAS: { chave: SituacaoCarga; titulo: string }[] = [
+  { chave: 'pendente', titulo: 'Carregando' },
+  { chave: 'pronta', titulo: 'Prontos para sair' },
+  { chave: 'saiu', titulo: 'Saíram hoje' },
 ];
 
 function plural(n: number, um: string, varios: string): string {
@@ -42,16 +35,15 @@ function plural(n: number, um: string, varios: string): string {
 }
 
 /**
- * Cargas (24/11/2026) — DASHBOARD de acompanhamento das Ordens de Carga, para quem não opera a expedição (pedido do
- * usuário: "como um dashboard e não uma tela operacional… fácil entendimento porém bem completo"). Só leitura: três
- * números grandes, andamento do dia, "Precisa de atenção" em frases, quadro com um cartão por caminhão (Carregando ·
- * Prontos para sair · Já saíram hoje) e saídas por hora. Filtro por período de entrega (Diurno/Noturno). Saiu =
- * Fechar OC (DECISÃO DE PRODUTO, 24/11/2026). Atualiza junto com o sync (60 s).
+ * Cargas (24/11/2026) — visão CONSOLIDADA das Ordens de Carga para quem acompanha (usuário: "dashboard… fácil
+ * entendimento porém completo"; depois "modelo consolidado", sem cartões nem cara de TV). Só leitura e numa tela só
+ * (a página não rola; só a lista de OCs rola por dentro): totais por situação, por período (Diurno/Noturno), uma linha
+ * de atenção e a lista de OCs (clique abre os pedidos). Saiu = Fechar OC (DECISÃO DE PRODUTO). Atualiza com o sync.
  */
 @Component({
   selector: 'app-cargas',
   standalone: true,
-  imports: [DatePipe, OqIconComponent, OqModalidadePinsComponent, OqSkeletonComponent],
+  imports: [DatePipe, OqIconComponent, OqSkeletonComponent],
   templateUrl: './cargas.component.html',
   styleUrl: './cargas.component.scss',
 })
@@ -101,62 +93,59 @@ export class CargasComponent implements OnInit, OnDestroy {
     const atrasadas = abertas.filter((c) => this.atrasada(c));
     if (atrasadas.length) {
       lista.push({ icone: 'clock', grave: true, ocs: atrasadas.map((c) => c.ordemCarga),
-        texto: `${plural(atrasadas.length, 'caminhão atrasado', 'caminhões atrasados')} — a saída prevista já passou` });
+        texto: plural(atrasadas.length, 'atrasado', 'atrasados') });
     }
     const pesados = this.cargas().filter((c) => (this.ocupacao(c) ?? 0) > 100);
     if (pesados.length) {
       lista.push({ icone: 'scale', grave: true, ocs: pesados.map((c) => c.ordemCarga),
-        texto: `${plural(pesados.length, 'caminhão', 'caminhões')} com mais peso do que cabe` });
+        texto: `${pesados.length} acima do peso` });
     }
     const cortes = abertas.filter((c) => c.faltas.corte > 0);
     if (cortes.length) {
       const n = cortes.reduce((s, c) => s + c.faltas.corte, 0);
       lista.push({ icone: 'circle-alert', grave: true, ocs: cortes.map((c) => c.ordemCarga),
-        texto: `${plural(n, 'pedido esperando', 'pedidos esperando')} liberação de corte (alguém precisa liberar)` });
+        texto: `${plural(n, 'pedido esperando', 'pedidos esperando')} liberação de corte` });
     }
     const notasRuins = saiu.filter((c) => c.notas.problema > 0);
     if (notasRuins.length) {
       lista.push({ icone: 'receipt', grave: true, ocs: notasRuins.map((c) => c.ordemCarga),
-        texto: `${plural(notasRuins.length, 'caminhão saiu', 'caminhões saíram')} com nota recusada pela SEFAZ` });
+        texto: `${notasRuins.length} com nota recusada pela SEFAZ` });
     }
     const impErro = saiu.filter((c) => c.impressao?.status === 'erro');
     if (impErro.length) {
       lista.push({ icone: 'impressora', grave: false, ocs: impErro.map((c) => c.ordemCarga),
-        texto: `Impressão das notas deu erro em ${plural(impErro.length, 'caminhão', 'caminhões')}` });
+        texto: `${impErro.length} com erro na impressão` });
     }
     const semMotorista = abertas.filter((c) => !c.motorista);
     if (semMotorista.length) {
       lista.push({ icone: 'user', grave: false, ocs: semMotorista.map((c) => c.ordemCarga),
-        texto: `${plural(semMotorista.length, 'caminhão', 'caminhões')} sem motorista definido` });
+        texto: `${semMotorista.length} sem motorista` });
     }
     return lista;
   });
 
-  /** Caminhões que saíram por hora (hora do Fechar OC). Eixo fixo 06h–22h, ampliado se houver saída fora disso. */
-  readonly saidasPorHora = computed<BarraHora[]>(() => {
-    const conta = new Map<number, number>();
-    for (const c of this.porColuna().saiu) {
-      if (!c.saiuEm) continue;
-      const h = new Date(c.saiuEm).getHours();
-      conta.set(h, (conta.get(h) ?? 0) + 1);
-    }
-    const horas = [...conta.keys()];
-    const ini = Math.min(6, ...horas);
-    const fim = Math.max(22, ...horas);
-    const max = Math.max(1, ...conta.values());
-    const barras: BarraHora[] = [];
-    for (let h = ini; h <= fim; h++) {
-      const qtd = conta.get(h) ?? 0;
-      barras.push({ hora: h, qtd, pct: (qtd * 100) / max });
-    }
-    return barras;
+  /** Pedidos por situação (soma dos pedidos das OCs). */
+  readonly pedidosPorColuna = computed(() => {
+    const r: Record<SituacaoCarga, number> = { pendente: 0, pronta: 0, saiu: 0 };
+    for (const c of this.cargas()) r[c.situacao] += c.pedidos.length;
+    return r;
   });
 
-  readonly picoHora = computed(() => {
-    const b = this.saidasPorHora();
-    const max = Math.max(0, ...b.map((x) => x.qtd));
-    return max > 0 ? b.find((x) => x.qtd === max)!.hora : null;
-  });
+  readonly pedidosTotal = computed(() => this.cargas().reduce((s, c) => s + c.pedidos.length, 0));
+  readonly pesoTotal = computed(() => this.cargas().reduce((s, c) => s + c.pesoKg, 0));
+
+  /** Caminhões por período × situação (OC com pedidos dos dois períodos conta nos dois). */
+  readonly porPeriodo = computed(() =>
+    (['D', 'N'] as const).map((t) => {
+      const doPeriodo = this.todas().filter((c) => (c.turnos ?? []).includes(t));
+      const n = (s: SituacaoCarga) => doPeriodo.filter((c) => c.situacao === s).length;
+      return { rotulo: t === 'D' ? 'Diurno' : 'Noturno', pendente: n('pendente'), pronta: n('pronta'), saiu: n('saiu'), total: doPeriodo.length };
+    }),
+  );
+  readonly temMista = computed(() => this.todas().some((c) => (c.turnos ?? []).length > 1));
+
+  /** Lista de OCs: carregando, depois prontas, depois as que saíram (a ordem do backend dentro de cada grupo). */
+  readonly linhas = computed(() => [...this.porColuna().pendente, ...this.porColuna().pronta, ...this.porColuna().saiu]);
 
   ngOnInit(): void {
     this.carregar();
@@ -222,6 +211,28 @@ export class CargasComponent implements OnInit, OnDestroy {
     return r;
   }
 
+  /** Situação numa frase curta para a linha da tabela. */
+  situacaoTexto(c: Carga): string {
+    if (c.situacao === 'pendente') {
+      const f = c.faltas;
+      const partes: string[] = [];
+      if (f.corte) partes.push(`${f.corte} no corte`);
+      if (f.aConferir) partes.push(`${f.aConferir} a conferir`);
+      if (f.emConferencia) partes.push(`${f.emConferencia} conferindo`);
+      if (f.aCarregar) partes.push(`${f.aCarregar} a carregar`);
+      return `Carregando · falta ${partes.join(', ')}`;
+    }
+    if (c.situacao === 'pronta') return 'Pronto · falta fechar a OC';
+    return `Saiu`;
+  }
+
+  saidaCurta(c: Carga): string {
+    const d = this.dataLocal(c.saidaPrevista);
+    if (!d) return '—';
+    if (d.toDateString() === new Date().toDateString()) return 'hoje';
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  }
+
   textoNotas(c: Carga): string {
     const n = c.notas;
     if (!n.total) return 'Notas emitidas';
@@ -247,7 +258,4 @@ export class CargasComponent implements OnInit, OnDestroy {
     return ICONE_PEDIDO[p.situacao];
   }
 
-  barraTitulo(b: BarraHora): string {
-    return `${String(b.hora).padStart(2, '0')}h: ${b.qtd === 0 ? 'nenhum caminhão saiu' : plural(b.qtd, 'caminhão saiu', 'caminhões saíram')}`;
-  }
 }

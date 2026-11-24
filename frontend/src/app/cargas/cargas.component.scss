@@ -1,73 +1,61 @@
-// Cargas — dashboard (24/11/2026): para bater o olho e entender. Números grandes, frases curtas, cor por situação
-// sempre com ícone + texto (laranja = carregando, verde = pronto, cinza-verde com ✓ = saiu, vermelho = problema).
-// Só tokens --oq-* (claro/escuro). Estilos próprios: roda igual no master e no develop.
+// Cargas — visão consolidada (24/11/2026). Tabelas limpas e texto; sem caixas coloridas, faixas laterais, bolinhas
+// de ícone ou emoji. Cor só na palavra da situação e em vermelho no que é problema. Tela única: a página não rola,
+// só a lista de OCs rola por dentro (cabeçalho da tabela fixo).
 
 :host { display: block; height: 100%; }
 
-.db {
+.cs {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding-top: 18px;
-  padding-bottom: 32px;
-  overflow-y: auto;
+  gap: 14px;
+  min-height: 0;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 18px 24px 16px;
+  box-sizing: border-box;
   font-family: var(--oq-font-body);
+  font-size: 14px;
   color: var(--oq-text-primary);
 
-  // Cores por situação (fundo leve + texto forte).
-  --db-pendente: var(--oq-attention);
-  --db-pendente-texto: var(--oq-warning-foreground);
-  --db-pronta: var(--oq-carregado);
-  --db-pronta-texto: var(--oq-carregado-foreground);
-  --db-saiu: var(--oq-concluido);
-  --db-saiu-texto: var(--oq-concluido-foreground);
+  @media (max-width: 639px) { padding: 12px 16px; }
 }
 
-[data-tipo='pendente'] { --db-cor: var(--db-pendente); --db-cor-texto: var(--db-pendente-texto); }
-[data-tipo='pronta'] { --db-cor: var(--db-pronta); --db-cor-texto: var(--db-pronta-texto); }
-[data-tipo='saiu'] { --db-cor: var(--db-saiu); --db-cor-texto: var(--db-saiu-texto); }
+.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.forte { font-weight: 700; }
+.ruim { color: var(--oq-critical-foreground) !important; font-weight: 600; }
 
-.db-ruim { color: var(--oq-critical-foreground) !important; font-weight: 700; }
+// Situação: só a palavra colorida.
+.cs-sit {
+  font-weight: 600;
+  &[data-tipo='pendente'] { color: var(--oq-warning-foreground); }
+  &[data-tipo='pronta'] { color: var(--oq-carregado-foreground); }
+  &[data-tipo='saiu'] { color: var(--oq-text-secondary); }
+}
 
 // ─── Topo ────────────────────────────────────────────────────────────────────────────────────────────────
-.db-topo {
+.cs-topo { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
+
+.cs-titulo { margin: 0; font-family: var(--oq-font-display); font-size: 20px; font-weight: 700; }
+
+.cs-data { color: var(--oq-text-secondary); font-size: 13px; }
+
+.cs-periodo {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.db-titulo {
-  margin: 0;
-  font-family: var(--oq-font-display);
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.db-data {
-  margin: 4px 0 0;
-  font-size: 14px;
-  color: var(--oq-text-secondary);
-  &::first-letter { text-transform: uppercase; }
-}
-
-.db-periodo {
-  display: flex;
+  margin-left: auto;
   border: 1px solid var(--oq-border);
   border-radius: var(--oq-radius-block);
   overflow: hidden;
   background: var(--oq-surface);
 
   button {
-    min-height: 40px;
-    padding: 8px 16px;
+    padding: 6px 14px;
     border: none;
     border-right: 1px solid var(--oq-border);
     background: transparent;
     font-family: var(--oq-font-body);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--oq-text-secondary);
     cursor: pointer;
@@ -79,382 +67,154 @@
   }
 }
 
-// ─── Números grandes ─────────────────────────────────────────────────────────────────────────────────────
-.db-numeros {
+// ─── Tabelas ─────────────────────────────────────────────────────────────────────────────────────────────
+.cs-tab {
+  border-collapse: collapse;
+
+  th, td { padding: 6px 12px; border-bottom: 1px solid var(--oq-border); text-align: left; }
+  thead th { font-size: 12px; font-weight: 600; color: var(--oq-text-secondary); white-space: nowrap; }
+  tbody th { font-weight: 400; }
+  .n { text-align: right; }
+  caption { caption-side: bottom; padding-top: 6px; text-align: left; font-size: 12px; color: var(--oq-text-secondary); }
+}
+
+// ─── Consolidado ─────────────────────────────────────────────────────────────────────────────────────────
+.cs-resumo {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 16px 32px;
+  padding: 14px 16px;
+  border: 1px solid var(--oq-border);
+  background: var(--oq-surface);
 
-  @media (max-width: 719px) { grid-template-columns: 1fr; }
+  @media (max-width: 1023px) { grid-template-columns: 1fr 1fr; .cs-dia { grid-column: 1 / -1; grid-row: 1; } }
+  @media (max-width: 639px) { grid-template-columns: 1fr; }
 }
 
-.db-numero {
+.cs-tab--resumo, .cs-tab--periodo {
+  width: 100%;
+  td, th { font-size: 14px; }
+  td.forte { font-size: 16px; }
+  tfoot th, tfoot td { border-bottom: none; border-top: 2px solid var(--oq-border); font-weight: 700; }
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: none; }
+}
+
+.cs-dia {
   display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto auto;
-  column-gap: 14px;
-  align-items: center;
-  padding: 18px 20px;
-  border: 1px solid color-mix(in srgb, var(--db-cor) 40%, var(--oq-border));
-  border-left: 6px solid var(--db-cor);
-  background: color-mix(in srgb, var(--db-cor) 9%, var(--oq-surface));
+  grid-template-columns: 1fr auto;
+  align-content: center;
+  gap: 4px 10px;
+  align-self: center;
 }
 
-.db-numero__icone {
-  grid-row: 1 / span 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--db-cor) 20%, transparent);
-  color: var(--db-cor-texto);
-}
-
-.db-numero__valor {
+.cs-dia__num {
   font-family: var(--oq-font-display);
-  font-size: 44px;
+  font-size: 34px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+
+  small { font-size: 18px; font-weight: 600; color: var(--oq-text-secondary); }
 }
 
-.db-numero__rotulo {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--db-cor-texto);
-}
+.cs-dia__rot { grid-column: 1 / -1; color: var(--oq-text-secondary); }
 
-.db-numero__sub {
-  font-size: 13px;
-  color: var(--oq-text-secondary);
-}
-
-// ─── Andamento do dia ────────────────────────────────────────────────────────────────────────────────────
-.db-dia {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px 16px;
-  padding: 14px 18px;
-  border: 1px solid var(--oq-border);
-  background: var(--oq-surface);
-
-  @media (max-width: 719px) { grid-template-columns: 1fr auto; .db-dia__texto { grid-column: 1 / -1; } }
-}
-
-.db-dia__texto { margin: 0; font-size: 16px; b { font-size: 18px; } }
-
-.db-dia__barra {
-  height: 14px;
-  border-radius: 7px;
+.cs-dia__barra {
+  height: 6px;
+  align-self: center;
   background: var(--oq-surface-2);
-  overflow: hidden;
 
-  span { display: block; height: 100%; border-radius: 7px; background: var(--db-saiu); transition: width .4s ease; }
+  span { display: block; height: 100%; background: var(--oq-text-primary); }
 }
 
-.db-dia__pct {
-  font-family: var(--oq-font-display);
-  font-size: 22px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
+.cs-dia__pct { font-weight: 700; font-variant-numeric: tabular-nums; }
 
-// ─── Precisa de atenção ──────────────────────────────────────────────────────────────────────────────────
-.db-secao {
+// ─── Atenção (uma linha) ─────────────────────────────────────────────────────────────────────────────────
+.cs-atencao {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 10px;
-  font-family: var(--oq-font-display);
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.db-atencao {
-  padding: 14px 18px;
-  border: 1px solid color-mix(in srgb, var(--oq-critical) 35%, var(--oq-border));
-  border-left: 6px solid var(--oq-critical);
-  background: color-mix(in srgb, var(--oq-critical) 6%, var(--oq-surface));
-
-  .db-secao { color: var(--oq-critical-foreground); }
-
-  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-
-  li {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 15px;
-    color: var(--oq-warning-foreground);
-
-    oq-icon { margin-top: 3px; flex: none; }
-    &.grave { color: var(--oq-critical-foreground); }
-    b { font-family: var(--oq-font-mono); font-size: 13px; }
-  }
-}
-
-.db-atencao--ok {
-  border-color: color-mix(in srgb, var(--db-saiu) 35%, var(--oq-border));
-  border-left-color: var(--db-saiu);
-  background: color-mix(in srgb, var(--db-saiu) 7%, var(--oq-surface));
-}
-
-.db-atencao__ok {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--db-saiu-texto);
+  color: var(--oq-warning-foreground);
+
+  oq-icon { align-self: center; }
+  b { color: var(--oq-critical-foreground); }
+  .grave { color: var(--oq-critical-foreground); font-weight: 600; }
+  small { font-weight: 400; color: var(--oq-text-secondary); }
+  .sep { color: var(--oq-text-secondary); }
 }
 
-// ─── Quadro de caminhões ─────────────────────────────────────────────────────────────────────────────────
-.db-quadro {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
+.cs-atencao--ok { color: var(--oq-text-secondary); }
 
-  @media (max-width: 1023px) { grid-template-columns: 1fr; }
-}
-
-.db-coluna {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-top: 5px solid var(--db-cor);
-  background: var(--oq-surface-2);
-}
-
-.db-coluna__titulo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 2px;
-  font-family: var(--oq-font-display);
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--db-cor-texto);
-
-  span {
-    margin-left: auto;
-    min-width: 28px;
-    padding: 2px 9px;
-    border-radius: 999px;
-    background: var(--db-cor);
-    color: #fff;
-    font-family: var(--oq-font-mono);
-    font-size: 14px;
-    text-align: center;
-  }
-}
-
-.db-coluna__vazia { margin: 4px 2px; font-size: 14px; color: var(--oq-text-secondary); }
-
-.db-cartao {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  padding: 12px 14px;
+// ─── Lista de OCs (rola por dentro) ──────────────────────────────────────────────────────────────────────
+.cs-lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   border: 1px solid var(--oq-border);
-  border-left: 4px solid var(--db-cor);
   background: var(--oq-surface);
-  text-align: left;
-  font-family: var(--oq-font-body);
-  font-size: 14px;
-  color: var(--oq-text-primary);
+}
+
+.cs-tab--ocs {
+  width: 100%;
+
+  thead th { position: sticky; top: 0; z-index: 1; background: var(--oq-surface-2); }
+  td { vertical-align: top; }
+}
+
+.cs-oc {
   cursor: pointer;
 
-  &:hover { border-color: color-mix(in srgb, var(--db-cor) 60%, var(--oq-border)); border-left-color: var(--db-cor); }
-  &:focus-visible { outline: 2px solid var(--oq-brand-accent); outline-offset: 2px; }
+  &:hover td { background: color-mix(in srgb, var(--oq-text-primary) 4%, transparent); }
+  &:focus-visible { outline: 2px solid var(--oq-brand-accent); outline-offset: -2px; }
+  &.aberta td { background: color-mix(in srgb, var(--oq-text-primary) 6%, transparent); border-bottom-color: transparent; }
 }
 
-.db-cartao--aberto { box-shadow: 0 2px 10px color-mix(in srgb, var(--oq-text-primary) 12%, transparent); }
+.cs-oc__num { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.db-cartao__topo { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.seta {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 9px 2px 0;
+  border-right: 1.5px solid var(--oq-text-secondary);
+  border-bottom: 1.5px solid var(--oq-text-secondary);
+  transform: rotate(-45deg);
+  transition: transform .12s ease;
 
-.db-cartao__oc {
-  font-family: var(--oq-font-display);
-  font-size: 20px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  .aberta & { transform: rotate(45deg); }
 }
 
-.db-cartao__periodo {
-  margin-left: auto;
-  font-size: 12px;
+.cs-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--oq-text-secondary); }
+
+.cs-quem { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cs-pedidos > td {
+  padding: 0 12px 10px 33px;
+  background: color-mix(in srgb, var(--oq-text-primary) 6%, transparent);
+}
+
+.cs-tab--pedidos {
+  width: 100%;
+  background: var(--oq-surface);
+
+  td { padding: 5px 10px; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  td.n:first-child { width: 80px; text-align: left; color: var(--oq-text-secondary); }
+}
+
+.cs-ped {
   font-weight: 600;
   color: var(--oq-text-secondary);
-}
-
-.db-cartao__quem {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.db-cartao__frase { font-size: 15px; font-weight: 700; color: var(--db-cor-texto); }
-
-.db-cartao__linha {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--oq-text-secondary);
-  b { color: var(--oq-text-primary); }
-}
-
-.db-cartao__falta { font-size: 14px; font-weight: 600; color: var(--db-pendente-texto); }
-
-.db-cartao__barra {
-  display: block;
-  height: 8px;
-  border-radius: 4px;
-  background: var(--oq-surface-2);
-  overflow: hidden;
-
-  span { display: block; height: 100%; border-radius: 4px; background: var(--db-cor); }
-}
-
-.db-cartao__barra--fina { height: 5px; margin-top: 3px; span { background: var(--oq-text-secondary); } }
-.db-ruim .db-cartao__barra--fina span { background: var(--oq-critical); }
-
-.db-cartao__carga {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--oq-border);
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.db-cartao__ocupacao { font-size: 12px; color: var(--oq-text-secondary); }
-
-.db-cartao__mais { font-size: 12px; color: var(--oq-brand-text); }
-
-.db-pedidos {
-  display: flex;
-  flex-direction: column;
-  margin-top: 4px;
-  border-top: 1px solid var(--oq-border);
-}
-
-.db-pedido {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--oq-border);
-
-  &:last-child { border-bottom: none; }
-}
-
-.db-pedido__cliente { font-size: 13px; font-weight: 600; small { font-weight: 400; color: var(--oq-text-secondary); } }
-
-.db-pedido__situacao {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--oq-status-idle);
 
   &[data-situacao='corte'] { color: var(--oq-critical-foreground); }
-  &[data-situacao='em_conferencia'] { color: var(--oq-warning-foreground); }
-  &[data-situacao='a_conferir'] { color: var(--oq-aguardando-foreground); }
-  &[data-situacao='a_carregar'] { color: var(--oq-carregar-foreground); }
+  &[data-situacao='em_conferencia'], &[data-situacao='a_conferir'], &[data-situacao='a_carregar'] { color: var(--oq-warning-foreground); }
   &[data-situacao='carregado'] { color: var(--oq-carregado-foreground); }
-  &[data-situacao='com_nota'] { color: var(--oq-concluido-foreground); }
   &[data-nfe='R'], &[data-nfe='D'], &[data-nfe='V'] { color: var(--oq-critical-foreground); }
 }
 
-// ─── Saídas por hora (uma série: sem legenda; o título diz o que é) ──────────────────────────────────────
-.db-horas {
-  padding: 14px 18px;
-  border: 1px solid var(--oq-border);
-  background: var(--oq-surface);
-}
+.cs-vazio { margin: 0; padding: 32px 16px; text-align: center; color: var(--oq-text-secondary); }
 
-.db-grafico {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  height: 150px;
-  padding-top: 4px;
-}
-
-.db-grafico__col {
-  position: relative;
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  align-items: center;
-  min-width: 0;
-
-  &:hover .db-dica { opacity: 1; }
-  &:hover .db-grafico__barra { filter: brightness(1.1); }
-}
-
-.db-grafico__valor { height: 18px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-
-.db-grafico__area {
-  position: relative;
-  flex: 1;
-  width: 100%;
-  border-bottom: 1px solid var(--oq-border);
-}
-
-.db-grafico__barra {
-  position: absolute;
-  left: 15%;
-  right: 15%;
-  bottom: 0;
-  min-height: 4px;
-  border-radius: 4px 4px 0 0;
-  background: var(--db-saiu);
-}
-
-.db-grafico__hora { height: 18px; margin-top: 4px; font-size: 11px; color: var(--oq-text-secondary); }
-
-.db-dica {
-  position: absolute;
-  bottom: calc(100% - 10px);
-  left: 50%;
-  z-index: 2;
-  transform: translateX(-50%);
-  padding: 4px 8px;
-  border-radius: var(--oq-radius-input);
-  background: var(--oq-text-primary);
-  color: var(--oq-surface);
-  font-size: 12px;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .1s ease;
-}
-
-// Tabela só para leitor de tela (mesmos números do gráfico).
-.db-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .db-dia__barra span { transition: none; }
-}
+.cs-carregando { padding: 8px 0; }

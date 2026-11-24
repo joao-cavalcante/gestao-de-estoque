@@ -1,18 +1,14 @@
 <div class="oq-page">
-  <div class="oq-page__content db">
-    <!-- Cabeçalho: o que é, de quando, filtro de período -->
-    <header class="db-topo">
-      <div>
-        <h1 class="db-titulo">Cargas de hoje</h1>
-        <p class="db-data">
-          {{ hoje | date: "EEEE, d 'de' MMMM" }}
-          @if (atualizadoEm(); as a) { · atualizado às {{ a | date: 'HH:mm' }} }
-        </p>
-      </div>
-      <div class="db-periodo" role="group" aria-label="Período de entrega">
+  <div class="cs">
+    <header class="cs-topo">
+      <h1 class="cs-titulo">Cargas de hoje</h1>
+      <span class="cs-data">
+        {{ hoje | date: "EEEE, dd/MM" }}@if (atualizadoEm(); as a) { · atualizado às {{ a | date: 'HH:mm' }} }
+      </span>
+      <div class="cs-periodo" role="group" aria-label="Período de entrega">
         <button type="button" [class.ativo]="periodo() === 'todos'" [attr.aria-pressed]="periodo() === 'todos'" (click)="periodo.set('todos')">Todos</button>
-        <button type="button" [class.ativo]="periodo() === 'D'" [attr.aria-pressed]="periodo() === 'D'" (click)="periodo.set('D')">☀ Diurno</button>
-        <button type="button" [class.ativo]="periodo() === 'N'" [attr.aria-pressed]="periodo() === 'N'" (click)="periodo.set('N')">☾ Noturno</button>
+        <button type="button" [class.ativo]="periodo() === 'D'" [attr.aria-pressed]="periodo() === 'D'" (click)="periodo.set('D')">Diurno</button>
+        <button type="button" [class.ativo]="periodo() === 'N'" [attr.aria-pressed]="periodo() === 'N'" (click)="periodo.set('N')">Noturno</button>
       </div>
     </header>
 
@@ -22,163 +18,121 @@
         <button type="button" (click)="carregar()">Tentar de novo</button>
       </div>
     } @else if (carregando()) {
-      <div class="db-numeros" aria-busy="true">
-        <oq-skeleton variant="line" [count]="3" />
-      </div>
+      <div class="cs-carregando" aria-busy="true"><oq-skeleton variant="line" [count]="6" /></div>
     } @else {
-      <!-- 1. Três números grandes -->
-      <section class="db-numeros" aria-label="Resumo">
-        @for (col of colunas; track col.chave) {
-          <div class="db-numero" [attr.data-tipo]="col.chave">
-            <span class="db-numero__icone"><oq-icon [name]="col.icone" [size]="22" /></span>
-            <span class="db-numero__valor">{{ porColuna()[col.chave].length }}</span>
-            <span class="db-numero__rotulo">{{ col.titulo }}</span>
-            <span class="db-numero__sub">{{ col.sub }} · {{ pesoTexto(pesoPorColuna()[col.chave]) }}</span>
-          </div>
-        }
-      </section>
+      <!-- Consolidado: por situação e por período -->
+      <section class="cs-resumo">
+        <table class="cs-tab cs-tab--resumo">
+          <thead>
+            <tr><th></th><th class="n">Caminhões</th><th class="n">Pedidos</th><th class="n">Peso</th></tr>
+          </thead>
+          <tbody>
+            @for (col of colunas; track col.chave) {
+              <tr>
+                <th scope="row"><span class="cs-sit" [attr.data-tipo]="col.chave">{{ col.titulo }}</span></th>
+                <td class="n forte">{{ porColuna()[col.chave].length }}</td>
+                <td class="n">{{ pedidosPorColuna()[col.chave] }}</td>
+                <td class="n">{{ pesoTexto(pesoPorColuna()[col.chave]) }}</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr><th scope="row">Total</th><td class="n forte">{{ total() }}</td><td class="n">{{ pedidosTotal() }}</td><td class="n">{{ pesoTexto(pesoTotal()) }}</td></tr>
+          </tfoot>
+        </table>
 
-      <!-- 2. Andamento do dia -->
-      <section class="db-dia" aria-label="Andamento do dia">
-        <p class="db-dia__texto">
-          @if (total() === 0) {
-            Nenhum caminhão programado {{ periodo() === 'todos' ? 'hoje' : 'neste período' }}.
-          } @else {
-            <b>{{ saidas() }} de {{ total() }}</b> caminhões já saíram para a entrega
-          }
-        </p>
-        <div class="db-dia__barra" role="progressbar" [attr.aria-valuenow]="pctDia()" aria-valuemin="0" aria-valuemax="100">
-          <span [style.width.%]="pctDia()"></span>
+        <div class="cs-dia">
+          <span class="cs-dia__num">{{ saidas() }} <small>de {{ total() }}</small></span>
+          <span class="cs-dia__rot">caminhões já saíram</span>
+          <span class="cs-dia__barra" role="progressbar" [attr.aria-valuenow]="pctDia()" aria-valuemin="0" aria-valuemax="100">
+            <span [style.width.%]="pctDia()"></span>
+          </span>
+          <span class="cs-dia__pct">{{ pctDia() }}%</span>
         </div>
-        <span class="db-dia__pct">{{ pctDia() }}%</span>
+
+        <table class="cs-tab cs-tab--periodo">
+          <thead>
+            <tr><th>Por período</th><th class="n">Carregando</th><th class="n">Prontos</th><th class="n">Saíram</th><th class="n">Total</th></tr>
+          </thead>
+          <tbody>
+            @for (p of porPeriodo(); track p.rotulo) {
+              <tr>
+                <th scope="row">{{ p.rotulo }}</th>
+                <td class="n">{{ p.pendente }}</td>
+                <td class="n">{{ p.pronta }}</td>
+                <td class="n">{{ p.saiu }}</td>
+                <td class="n forte">{{ p.total }}</td>
+              </tr>
+            }
+          </tbody>
+          @if (temMista()) {
+            <caption>OC com pedidos dos dois períodos conta nos dois.</caption>
+          }
+        </table>
       </section>
 
-      <!-- 3. Precisa de atenção -->
-      <section class="db-atencao" [class.db-atencao--ok]="alertas().length === 0" aria-label="Precisa de atenção">
+      <!-- Atenção: uma linha -->
+      <p class="cs-atencao" [class.cs-atencao--ok]="alertas().length === 0">
         @if (alertas().length === 0) {
-          <p class="db-atencao__ok"><oq-icon name="check" [size]="18" /> Tudo certo agora — nenhum problema nos caminhões.</p>
+          <oq-icon name="check" [size]="14" /> Nenhum problema agora.
         } @else {
-          <h2 class="db-secao"><oq-icon name="circle-alert" [size]="16" /> Precisa de atenção</h2>
-          <ul>
-            @for (a of alertas(); track a.texto) {
-              <li [class.grave]="a.grave">
-                <oq-icon [name]="a.icone" [size]="15" />
-                <span>{{ a.texto }}: <b>{{ a.ocs.length > 6 ? 'OC ' + a.ocs.slice(0, 6).join(', ') + '…' : 'OC ' + a.ocs.join(', ') }}</b></span>
-              </li>
-            }
-          </ul>
+          <oq-icon name="circle-alert" [size]="14" /> <b>Atenção:</b>
+          @for (a of alertas(); track a.texto; let ultimo = $last) {
+            <span [class.grave]="a.grave">{{ a.texto }} <small>(OC {{ a.ocs.slice(0, 5).join(', ') }}{{ a.ocs.length > 5 ? '…' : '' }})</small></span>@if (!ultimo) { <span class="sep">·</span> }
+          }
         }
-      </section>
+      </p>
 
-      <!-- 4. Quadro: um cartão por caminhão -->
-      <section class="db-quadro" aria-label="Caminhões">
-        @for (col of colunas; track col.chave) {
-          <div class="db-coluna" [attr.data-tipo]="col.chave">
-            <h2 class="db-coluna__titulo">
-              <oq-icon [name]="col.icone" [size]="16" /> {{ col.titulo }} <span>{{ porColuna()[col.chave].length }}</span>
-            </h2>
-            @for (c of porColuna()[col.chave]; track c.ordemCarga) {
-              <button type="button" class="db-cartao" [class.db-cartao--aberto]="aberta() === c.ordemCarga"
-                [attr.aria-expanded]="aberta() === c.ordemCarga" (click)="alternar(c.ordemCarga)">
-                <span class="db-cartao__topo">
-                  <span class="db-cartao__oc">OC {{ c.ordemCarga }}</span>
-                  <oq-modalidade-pins [modalidade]="{ express: c.express, retira: c.retira }" />
-                  @if (periodoTexto(c); as p) { <span class="db-cartao__periodo">{{ p }}</span> }
-                </span>
-                <span class="db-cartao__quem">
-                  <oq-icon name="user" [size]="13" /> {{ c.motorista ?? 'Sem motorista' }}{{ c.placa ? ' · ' + c.placa : '' }}
-                </span>
-
-                @switch (c.situacao) {
-                  @case ('pendente') {
-                    <span class="db-cartao__barra"><span [style.width.%]="c.pedidos.length ? (c.prontos * 100) / c.pedidos.length : 0"></span></span>
-                    <span class="db-cartao__linha"><b>{{ c.prontos }} de {{ c.pedidos.length }}</b> pedidos prontos</span>
-                    @for (f of frasesFalta(c); track f) {
-                      <span class="db-cartao__falta">• Falta: {{ f }}</span>
+      <!-- Uma linha por OC (só esta parte rola) -->
+      <div class="cs-lista">
+        @if (linhas().length === 0) {
+          <p class="cs-vazio">Nenhuma ordem de carga {{ periodo() === 'todos' ? 'hoje' : 'neste período' }}.</p>
+        } @else {
+          <table class="cs-tab cs-tab--ocs">
+            <thead>
+              <tr>
+                <th>OC</th><th>Situação</th><th>Motorista · placa</th><th class="n">Pedidos</th><th class="n">Peso</th><th class="n">Carga</th><th>Saída</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of linhas(); track c.ordemCarga) {
+                <tr class="cs-oc" [class.aberta]="aberta() === c.ordemCarga" (click)="alternar(c.ordemCarga)" tabindex="0"
+                  (keydown.enter)="alternar(c.ordemCarga)" [attr.aria-expanded]="aberta() === c.ordemCarga">
+                  <td class="cs-oc__num"><span class="seta" aria-hidden="true"></span>{{ c.ordemCarga }}</td>
+                  <td>
+                    <span class="cs-sit" [attr.data-tipo]="c.situacao">{{ situacaoTexto(c) }}</span>
+                    @if (c.situacao === 'saiu') {
+                      <span class="cs-sub">{{ c.saiuEm | date: 'HH:mm' }}{{ c.fechadaPor ? ' · ' + c.fechadaPor : '' }} · <span [class.ruim]="c.notas.problema > 0">{{ textoNotas(c) }}</span>@if (c.impressao?.status === 'erro') { · <span class="ruim">erro na impressão</span> }</span>
                     }
-                    <span class="db-cartao__linha" [class.db-ruim]="atrasada(c)">
-                      <oq-icon name="clock" [size]="12" /> {{ saidaPrevistaTexto(c) }}
-                    </span>
-                  }
-                  @case ('pronta') {
-                    <span class="db-cartao__frase">Tudo carregado. Só falta fechar a OC.</span>
-                    <span class="db-cartao__linha" [class.db-ruim]="atrasada(c)">
-                      <oq-icon name="clock" [size]="12" /> {{ saidaPrevistaTexto(c) }}
-                    </span>
-                  }
-                  @case ('saiu') {
-                    <span class="db-cartao__frase">Saiu às {{ c.saiuEm | date: 'HH:mm' }}{{ c.fechadaPor ? ' · fechada por ' + c.fechadaPor : '' }}</span>
-                    <span class="db-cartao__linha" [class.db-ruim]="c.notas.problema > 0"><oq-icon name="receipt" [size]="12" /> {{ textoNotas(c) }}</span>
-                    @if (c.impressao; as i) {
-                      <span class="db-cartao__linha" [class.db-ruim]="i.status === 'erro'"><oq-icon name="impressora" [size]="12" /> {{ rotuloImpressao(i.status) }}</span>
-                    }
-                  }
-                }
-
-                <span class="db-cartao__carga">
-                  <span>{{ c.pedidos.length }} {{ c.pedidos.length === 1 ? 'pedido' : 'pedidos' }} · {{ c.clientes }} {{ c.clientes === 1 ? 'cliente' : 'clientes' }}</span>
-                  <span>{{ pesoTexto(c.pesoKg) }}</span>
-                </span>
-                @if (ocupacao(c); as pct) {
-                  <span class="db-cartao__ocupacao" [class.db-ruim]="pct > 100">
-                    Caminhão {{ pct }}% cheio{{ pct > 100 ? ' — passou do peso' : '' }}
-                    <span class="db-cartao__barra db-cartao__barra--fina"><span [style.width.%]="pct > 100 ? 100 : pct"></span></span>
-                  </span>
-                }
-
+                    @if (c.express || c.retira) { <span class="cs-sub">{{ c.express ? 'Express' : '' }}{{ c.express && c.retira ? ' · ' : '' }}{{ c.retira ? 'Cliente retira' : '' }}</span> }
+                  </td>
+                  <td class="cs-quem">{{ c.motorista ?? 'Sem motorista' }}{{ c.placa ? ' · ' + c.placa : '' }}</td>
+                  <td class="n">{{ c.pedidos.length }}</td>
+                  <td class="n">{{ pesoTexto(c.pesoKg) }}</td>
+                  <td class="n" [class.ruim]="(ocupacao(c) ?? 0) > 100">{{ ocupacao(c) != null ? ocupacao(c) + '%' : '—' }}</td>
+                  <td [class.ruim]="atrasada(c)">{{ c.situacao === 'saiu' ? 'saiu' : saidaCurta(c) }}{{ atrasada(c) ? ' · atrasada' : '' }}</td>
+                </tr>
                 @if (aberta() === c.ordemCarga) {
-                  <span class="db-pedidos">
-                    @for (p of c.pedidos; track p.nunota) {
-                      <span class="db-pedido">
-                        <span class="db-pedido__cliente">{{ p.cliente ?? '—' }} <small>nº {{ p.nunota }} · {{ pesoTexto(p.pesoKg) }}</small></span>
-                        <span class="db-pedido__situacao" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">
-                          <oq-icon [name]="icone(p)" [size]="12" /> {{ rotuloPedido(p) }}
-                        </span>
-                      </span>
-                    }
-                  </span>
-                } @else {
-                  <span class="db-cartao__mais">Toque para ver os pedidos</span>
+                  <tr class="cs-pedidos">
+                    <td colspan="7">
+                      <table class="cs-tab cs-tab--pedidos">
+                        @for (p of c.pedidos; track p.nunota) {
+                          <tr>
+                            <td class="n">{{ p.nunota }}</td>
+                            <td>{{ p.cliente ?? '—' }}</td>
+                            <td class="n">{{ pesoTexto(p.pesoKg) }}</td>
+                            <td><span class="cs-ped" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">{{ rotuloPedido(p) }}</span></td>
+                          </tr>
+                        }
+                      </table>
+                    </td>
+                  </tr>
                 }
-              </button>
-            } @empty {
-              <p class="db-coluna__vazia">
-                @switch (col.chave) {
-                  @case ('pendente') { Nenhum caminhão carregando. }
-                  @case ('pronta') { Nenhum caminhão parado esperando. }
-                  @case ('saiu') { Nenhum caminhão saiu ainda. }
-                }
-              </p>
-            }
-          </div>
-        }
-      </section>
-
-      <!-- 5. Saídas por hora -->
-      <section class="db-horas" aria-label="Saídas por hora">
-        <h2 class="db-secao">Caminhões que saíram, hora a hora</h2>
-        @if (saidas() === 0) {
-          <p class="db-coluna__vazia">Assim que o primeiro caminhão sair, ele aparece aqui.</p>
-        } @else {
-          <div class="db-grafico">
-            @for (b of saidasPorHora(); track b.hora) {
-              <div class="db-grafico__col" [title]="barraTitulo(b)">
-                <span class="db-grafico__valor">{{ b.hora === picoHora() ? b.qtd : '' }}</span>
-                <span class="db-grafico__area">
-                  @if (b.qtd > 0) { <span class="db-grafico__barra" [style.height.%]="b.pct"></span> }
-                </span>
-                <span class="db-grafico__hora">{{ b.hora % 2 === 0 ? b.hora + 'h' : '' }}</span>
-                <span class="db-dica" role="tooltip">{{ barraTitulo(b) }}</span>
-              </div>
-            }
-          </div>
-          <table class="db-sr">
-            <caption>Caminhões que saíram por hora</caption>
-            <tr><th>Hora</th><th>Caminhões</th></tr>
-            @for (b of saidasPorHora(); track b.hora) { @if (b.qtd > 0) { <tr><td>{{ b.hora }}h</td><td>{{ b.qtd }}</td></tr> } }
+              }
+            </tbody>
           </table>
         }
-      </section>
+      </div>
     }
   </div>
 </div>
