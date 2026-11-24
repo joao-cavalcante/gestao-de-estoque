@@ -40,6 +40,8 @@ object CargasRegras {
         val carregamentoTotal: Int? = null,
         val carregamentoFeito: Int? = null,
         val nota: NotaResumo? = null,
+        /** TGFCAB.AD_TURNOENTREGA — D diurno, N noturno (null = não informado). */
+        val turno: String? = null,
     )
 
     data class NotaResumo(val numero: Long?, val situacao: String, val statusNfe: String?, val confirmada: Boolean)
@@ -110,6 +112,7 @@ object CargasRegras {
                 prontos = situacoes.values.count { !it.pendente },
                 express = doGrupo.any { it.express },
                 retira = doGrupo.any { it.retira },
+                turnos = doGrupo.mapNotNull { it.turno }.distinct().sorted(),
                 faltas = FaltasDto(
                     corte = situacoes.values.count { it == SituacaoPedido.CORTE },
                     aConferir = situacoes.values.count { it == SituacaoPedido.A_CONFERIR },
@@ -136,6 +139,7 @@ object CargasRegras {
                             situacao = situacoes.getValue(p.nunota).codigo,
                             express = p.express,
                             retira = p.retira,
+                            turno = p.turno,
                             notaNumero = p.nota?.numero,
                             notaSituacao = p.nota?.situacao,
                             notaStatusNfe = p.nota?.statusNfe,

@@ -69,6 +69,7 @@ object CargasService {
                 volumes = campo("QTDVOL")?.let { it.toDoubleOrNull() ?: it.replace(".", "").replace(',', '.').toDoubleOrNull() }?.toInt(),
                 express = campo("AD_EXPRESS")?.uppercase() == "S",
                 retira = campo("AD_RETIRA")?.uppercase() == "S",
+                turno = campo("AD_TURNOENTREGA")?.uppercase()?.takeIf { it == "D" || it == "N" },
                 dataNegociacao = campo("DTNEG")?.take(10)?.let { runCatching { LocalDate.parse(it, DTNEG) }.getOrNull() },
             )
         }

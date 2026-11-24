@@ -22,6 +22,7 @@ export interface PedidoCarga {
   situacao: SituacaoPedido;
   express: boolean;
   retira: boolean;
+  turno?: string | null;
   notaNumero: number | null;
   notaSituacao: string | null;
   notaStatusNfe: string | null;
@@ -42,6 +43,8 @@ export interface Carga {
   prontos: number;
   express: boolean;
   retira: boolean;
+  /** Períodos de entrega dos pedidos (D diurno, N noturno). */
+  turnos?: string[];
   faltas: Faltas;
   saiuEm: string | null;
   fechadaPor: string | null;

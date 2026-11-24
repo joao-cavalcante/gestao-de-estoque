@@ -31,6 +31,8 @@ data class CargaDto(
     val prontos: Int,
     val express: Boolean,
     val retira: Boolean,
+    /** Períodos de entrega dos pedidos da OC (D/N) — filtro Diurno/Noturno do dashboard; OC com os dois = mista. */
+    val turnos: List<String> = emptyList(),
     val faltas: FaltasDto,
     /** Só "saiu": quando o Fechar OC foi feito (ISO) e por quem. */
     val saiuEm: String? = null,
@@ -59,6 +61,7 @@ data class PedidoCargaDto(
     val situacao: String,
     val express: Boolean,
     val retira: Boolean,
+    val turno: String? = null,
     val notaNumero: Long? = null,
     val notaSituacao: String? = null,
     val notaStatusNfe: String? = null,

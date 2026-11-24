@@ -1,254 +1,374 @@
-// Cargas (24/11/2026) — mesmo tom das telas novas (Entrada, Fila revisada em 17/11): texto normal sem caixa alta,
-// número grande no topo do card, status com ícone + texto na cor do estado, um botão forte por card. Estilos
-// próprios (não depende de entrada.scss) para a tela funcionar igual no master e no develop.
+// Cargas — dashboard (24/11/2026): para bater o olho e entender. Números grandes, frases curtas, cor por situação
+// sempre com ícone + texto (laranja = carregando, verde = pronto, cinza-verde com ✓ = saiu, vermelho = problema).
+// Só tokens --oq-* (claro/escuro). Estilos próprios: roda igual no master e no develop.
 
 :host { display: block; height: 100%; }
 
-// ─── Topo ────────────────────────────────────────────────────────────────────────────────────────────────
-.cg-topo {
+.db {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-  padding: 12px 24px;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 18px;
+  padding-bottom: 32px;
+  overflow-y: auto;
+  font-family: var(--oq-font-body);
+  color: var(--oq-text-primary);
 
-  @media (max-width: 639px) { padding: 10px 16px; }
+  // Cores por situação (fundo leve + texto forte).
+  --db-pendente: var(--oq-attention);
+  --db-pendente-texto: var(--oq-warning-foreground);
+  --db-pronta: var(--oq-carregado);
+  --db-pronta-texto: var(--oq-carregado-foreground);
+  --db-saiu: var(--oq-concluido);
+  --db-saiu-texto: var(--oq-concluido-foreground);
 }
 
-.cg-abas {
+[data-tipo='pendente'] { --db-cor: var(--db-pendente); --db-cor-texto: var(--db-pendente-texto); }
+[data-tipo='pronta'] { --db-cor: var(--db-pronta); --db-cor-texto: var(--db-pronta-texto); }
+[data-tipo='saiu'] { --db-cor: var(--db-saiu); --db-cor-texto: var(--db-saiu-texto); }
+
+.db-ruim { color: var(--oq-critical-foreground) !important; font-weight: 700; }
+
+// ─── Topo ────────────────────────────────────────────────────────────────────────────────────────────────
+.db-topo {
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
   flex-wrap: wrap;
+  gap: 12px;
+}
+
+.db-titulo {
+  margin: 0;
+  font-family: var(--oq-font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.db-data {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--oq-text-secondary);
+  &::first-letter { text-transform: uppercase; }
+}
+
+.db-periodo {
+  display: flex;
   border: 1px solid var(--oq-border);
   border-radius: var(--oq-radius-block);
   overflow: hidden;
   background: var(--oq-surface);
-}
 
-.cg-aba {
-  border: none;
-  border-right: 1px solid var(--oq-border);
-  background: transparent;
-  padding: 7px 12px;
-  font-family: var(--oq-font-body);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--oq-text-secondary);
-  cursor: pointer;
-
-  &:last-child { border-right: none; }
-  &:hover:not(.cg-aba--ativa) { color: var(--oq-text-primary); }
-}
-
-.cg-aba--ativa { background: var(--oq-text-primary); color: var(--oq-surface); }
-
-.cg-aba__qtd {
-  margin-left: 4px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 14%, transparent);
-  font-family: var(--oq-font-mono);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-// OC pronta esperando o Fechar OC chama atenção mesmo com outra aba aberta.
-.cg-aba--destaque:not(.cg-aba--ativa) .cg-aba__qtd { background: var(--oq-attention); color: #fff; }
-
-.cg-busca {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 1 320px;
-  border: 1px solid var(--oq-border);
-  border-radius: var(--oq-radius-block);
-  padding: 7px 10px;
-  background: var(--oq-surface);
-  color: var(--oq-text-secondary);
-
-  &:focus-within { border-color: var(--oq-brand-accent); }
-
-  input {
-    flex: 1;
-    min-width: 0;
+  button {
+    min-height: 40px;
+    padding: 8px 16px;
     border: none;
-    outline: none;
+    border-right: 1px solid var(--oq-border);
     background: transparent;
     font-family: var(--oq-font-body);
-    font-size: 13px;
-    color: var(--oq-text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--oq-text-secondary);
+    cursor: pointer;
 
-    &::placeholder { color: var(--oq-text-secondary); }
+    &:last-child { border-right: none; }
+    &:hover:not(.ativo) { color: var(--oq-text-primary); }
+    &.ativo { background: var(--oq-text-primary); color: var(--oq-surface); }
+    &:focus-visible { outline: 2px solid var(--oq-brand-accent); outline-offset: -2px; }
   }
-
-  @media (max-width: 639px) { flex: 1 1 100%; }
 }
 
-// ─── Card da OC ──────────────────────────────────────────────────────────────────────────────────────────
-.cg-grade { align-content: start; }
+// ─── Números grandes ─────────────────────────────────────────────────────────────────────────────────────
+.db-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 
-.cg-card { gap: 0; }
+  @media (max-width: 719px) { grid-template-columns: 1fr; }
+}
 
-// Pedidos abertos: o card ocupa a linha inteira para a tabela caber.
-.cg-card--aberta { grid-column: 1 / -1; }
+.db-numero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 14px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--db-cor) 40%, var(--oq-border));
+  border-left: 6px solid var(--db-cor);
+  background: color-mix(in srgb, var(--db-cor) 9%, var(--oq-surface));
+}
 
-.cg-card__topo {
+.db-numero__icone {
+  grid-row: 1 / span 3;
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px 10px;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--db-cor) 20%, transparent);
+  color: var(--db-cor-texto);
 }
 
-.cg-card__oc {
+.db-numero__valor {
   font-family: var(--oq-font-display);
-  font-size: 22px;
+  font-size: 44px;
   font-weight: 700;
-  color: var(--oq-text-primary);
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-.cg-card__saida {
-  margin-left: auto;
-  font-family: var(--oq-font-body);
-  font-size: 12px;
+.db-numero__rotulo {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--db-cor-texto);
+}
+
+.db-numero__sub {
+  font-size: 13px;
   color: var(--oq-text-secondary);
 }
 
-.cg-card__saida--atrasada { color: var(--oq-critical-foreground); font-weight: 600; }
+// ─── Andamento do dia ────────────────────────────────────────────────────────────────────────────────────
+.db-dia {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--oq-border);
+  background: var(--oq-surface);
 
-.cg-card__transporte {
-  display: block;
-  margin-top: 2px;
+  @media (max-width: 719px) { grid-template-columns: 1fr auto; .db-dia__texto { grid-column: 1 / -1; } }
+}
+
+.db-dia__texto { margin: 0; font-size: 16px; b { font-size: 18px; } }
+
+.db-dia__barra {
+  height: 14px;
+  border-radius: 7px;
+  background: var(--oq-surface-2);
+  overflow: hidden;
+
+  span { display: block; height: 100%; border-radius: 7px; background: var(--db-saiu); transition: width .4s ease; }
+}
+
+.db-dia__pct {
+  font-family: var(--oq-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+// ─── Precisa de atenção ──────────────────────────────────────────────────────────────────────────────────
+.db-secao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-family: var(--oq-font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.db-atencao {
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--oq-critical) 35%, var(--oq-border));
+  border-left: 6px solid var(--oq-critical);
+  background: color-mix(in srgb, var(--oq-critical) 6%, var(--oq-surface));
+
+  .db-secao { color: var(--oq-critical-foreground); }
+
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 15px;
+    color: var(--oq-warning-foreground);
+
+    oq-icon { margin-top: 3px; flex: none; }
+    &.grave { color: var(--oq-critical-foreground); }
+    b { font-family: var(--oq-font-mono); font-size: 13px; }
+  }
+}
+
+.db-atencao--ok {
+  border-color: color-mix(in srgb, var(--db-saiu) 35%, var(--oq-border));
+  border-left-color: var(--db-saiu);
+  background: color-mix(in srgb, var(--db-saiu) 7%, var(--oq-surface));
+}
+
+.db-atencao__ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--db-saiu-texto);
+}
+
+// ─── Quadro de caminhões ─────────────────────────────────────────────────────────────────────────────────
+.db-quadro {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+
+  @media (max-width: 1023px) { grid-template-columns: 1fr; }
+}
+
+.db-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-top: 5px solid var(--db-cor);
+  background: var(--oq-surface-2);
+}
+
+.db-coluna__titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-family: var(--oq-font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--db-cor-texto);
+
+  span {
+    margin-left: auto;
+    min-width: 28px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--db-cor);
+    color: #fff;
+    font-family: var(--oq-font-mono);
+    font-size: 14px;
+    text-align: center;
+  }
+}
+
+.db-coluna__vazia { margin: 4px 2px; font-size: 14px; color: var(--oq-text-secondary); }
+
+.db-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--oq-border);
+  border-left: 4px solid var(--db-cor);
+  background: var(--oq-surface);
+  text-align: left;
   font-family: var(--oq-font-body);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--oq-text-primary);
+  cursor: pointer;
+
+  &:hover { border-color: color-mix(in srgb, var(--db-cor) 60%, var(--oq-border)); border-left-color: var(--db-cor); }
+  &:focus-visible { outline: 2px solid var(--oq-brand-accent); outline-offset: 2px; }
+}
+
+.db-cartao--aberto { box-shadow: 0 2px 10px color-mix(in srgb, var(--oq-text-primary) 12%, transparent); }
+
+.db-cartao__topo { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+
+.db-cartao__oc {
+  font-family: var(--oq-font-display);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-cartao__periodo {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+}
+
+.db-cartao__quem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.cg-status {
-  display: inline-flex;
-  align-items: flex-start;
+.db-cartao__frase { font-size: 15px; font-weight: 700; color: var(--db-cor-texto); }
+
+.db-cartao__linha {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  margin-top: 8px;
-  font-family: var(--oq-font-body);
   font-size: 13px;
-  font-weight: 600;
-
-  oq-icon { margin-top: 2px; flex: none; }
-
-  &[data-carga='pendente'] { color: var(--oq-warning-foreground); }
-  &[data-carga='pronta'] { color: var(--oq-carregado-foreground); }
-  &[data-carga='saiu'] { color: var(--oq-concluido-foreground); }
-}
-
-.cg-progresso {
-  margin-top: 8px;
-  font-family: var(--oq-font-body);
-  font-size: 12px;
   color: var(--oq-text-secondary);
+  b { color: var(--oq-text-primary); }
 }
 
-.cg-progresso--acima {
-  color: var(--oq-critical-foreground);
-  font-weight: 600;
+.db-cartao__falta { font-size: 14px; font-weight: 600; color: var(--db-pendente-texto); }
 
-  .cg-barra span { background: var(--oq-critical); }
-}
-
-.cg-barra {
+.db-cartao__barra {
   display: block;
-  height: 3px;
-  margin-top: 4px;
-  background: var(--oq-border);
+  height: 8px;
+  border-radius: 4px;
+  background: var(--oq-surface-2);
+  overflow: hidden;
 
-  span { display: block; height: 100%; background: var(--oq-brand); }
+  span { display: block; height: 100%; border-radius: 4px; background: var(--db-cor); }
 }
 
-.cg-avisos {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
+.db-cartao__barra--fina { height: 5px; margin-top: 3px; span { background: var(--oq-text-secondary); } }
+.db-ruim .db-cartao__barra--fina span { background: var(--oq-critical); }
+
+.db-cartao__carga {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--oq-border);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-cartao__ocupacao { font-size: 12px; color: var(--oq-text-secondary); }
+
+.db-cartao__mais { font-size: 12px; color: var(--oq-brand-text); }
+
+.db-pedidos {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-
-  li {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    font-family: var(--oq-font-body);
-    font-size: 12px;
-    color: var(--oq-text-secondary);
-
-    oq-icon { margin-top: 2px; flex: none; }
-  }
+  margin-top: 4px;
+  border-top: 1px solid var(--oq-border);
 }
 
-.cg-avisos__erro { color: var(--oq-critical-foreground) !important; font-weight: 600; }
-
-.cg-numeros {
+.db-pedido {
   display: flex;
-  gap: 8px 20px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--oq-border);
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--oq-border);
 
-  span {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    font-family: var(--oq-font-body);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--oq-text-primary);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  small { font-size: 11px; font-weight: 400; color: var(--oq-text-secondary); }
+  &:last-child { border-bottom: none; }
 }
 
-// ─── Pedidos da OC ───────────────────────────────────────────────────────────────────────────────────────
-.cg-tabela-rolagem { margin-top: 12px; overflow-x: auto; }
+.db-pedido__cliente { font-size: 13px; font-weight: 600; small { font-weight: 400; color: var(--oq-text-secondary); } }
 
-.cg-tabela {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--oq-font-body);
-  font-size: 13px;
-  color: var(--oq-text-primary);
-
-  th {
-    padding: 8px 10px;
-    text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--oq-text-secondary);
-    background: var(--oq-surface-2);
-    border-bottom: 1px solid var(--oq-border);
-    white-space: nowrap;
-  }
-
-  td {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--oq-border);
-    vertical-align: top;
-  }
-
-  oq-modalidade-pins { margin-left: 6px; vertical-align: middle; }
-}
-
-.cg-num { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
-
-.cg-nunota { font-weight: 600; font-variant-numeric: tabular-nums; }
-
-.cg-pedido {
+.db-pedido__situacao {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  font-size: 12px;
   font-weight: 600;
-  white-space: nowrap;
   color: var(--oq-status-idle);
 
   &[data-situacao='corte'] { color: var(--oq-critical-foreground); }
@@ -257,127 +377,84 @@
   &[data-situacao='a_carregar'] { color: var(--oq-carregar-foreground); }
   &[data-situacao='carregado'] { color: var(--oq-carregado-foreground); }
   &[data-situacao='com_nota'] { color: var(--oq-concluido-foreground); }
-  &[data-situacao='com_nota'][data-nfe='R'],
-  &[data-situacao='com_nota'][data-nfe='D'],
-  &[data-situacao='com_nota'][data-nfe='V'] { color: var(--oq-critical-foreground); }
+  &[data-nfe='R'], &[data-nfe='D'], &[data-nfe='V'] { color: var(--oq-critical-foreground); }
 }
 
-// ─── Ações ───────────────────────────────────────────────────────────────────────────────────────────────
-.cg-acoes {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: auto;
-  padding-top: 14px;
-}
-
-.cg-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font-family: var(--oq-font-body);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--oq-brand-text);
-  cursor: pointer;
-
-  &:hover { text-decoration: underline; }
-}
-
-.cg-btn {
-  flex: 0 1 220px;
-  margin-left: auto;
-  min-height: 38px;
-  padding: 8px 14px;
-  border: 1px solid var(--oq-brand);
-  border-radius: var(--oq-radius-input);
-  background: var(--oq-surface);
-  font-family: var(--oq-font-body);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--oq-brand-text);
-  cursor: pointer;
-  transition: background-color .15s ease, color .15s ease;
-
-  &:hover { background: var(--oq-brand); color: var(--oq-brand-ink); }
-}
-
-.cg-btn--forte {
-  background: var(--oq-brand);
-  color: var(--oq-brand-ink);
-
-  &:hover { background: var(--oq-brand-hover); }
-}
-
-// ─── Modo lista (padrão; usuário, 24/11/2026: nos cards "ficou muito apertado") ──────────────────────────
-.cg-modo { margin-left: auto; display: flex; }
-
-.cg-lista {
-  overflow-x: auto;
+// ─── Saídas por hora (uma série: sem legenda; o título diz o que é) ──────────────────────────────────────
+.db-horas {
+  padding: 14px 18px;
   border: 1px solid var(--oq-border);
   background: var(--oq-surface);
 }
 
-.cg-tabela--ocs {
-  td { vertical-align: middle; }
-  small { font-size: 11px; color: var(--oq-text-secondary); }
+.db-grafico {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 150px;
+  padding-top: 4px;
 }
 
-.cg-linha {
-  cursor: pointer;
+.db-grafico__col {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
 
-  &:hover td { background: color-mix(in srgb, var(--oq-brand) 5%, transparent); }
+  &:hover .db-dica { opacity: 1; }
+  &:hover .db-grafico__barra { filter: brightness(1.1); }
 }
 
-.cg-linha--aberta td { background: color-mix(in srgb, var(--oq-brand) 8%, transparent); border-bottom-color: transparent; }
+.db-grafico__valor { height: 18px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.cg-linha__oc {
+.db-grafico__area {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.db-grafico__barra {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 0;
+  min-height: 4px;
+  border-radius: 4px 4px 0 0;
+  background: var(--db-saiu);
+}
+
+.db-grafico__hora { height: 18px; margin-top: 4px; font-size: 11px; color: var(--oq-text-secondary); }
+
+.db-dica {
+  position: absolute;
+  bottom: calc(100% - 10px);
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-text-primary);
+  color: var(--oq-surface);
+  font-size: 12px;
   white-space: nowrap;
-  font-family: var(--oq-font-display);
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-
-  oq-modalidade-pins { margin-left: 4px; vertical-align: middle; }
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .1s ease;
 }
 
-.cg-seta {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin: 0 8px 0 2px;
-  border-right: 2px solid var(--oq-text-secondary);
-  border-bottom: 2px solid var(--oq-text-secondary);
-  transform: rotate(-45deg);
-  transition: transform .15s ease;
-  vertical-align: 2px;
-}
-
-.cg-linha--aberta .cg-seta { transform: rotate(45deg); }
-
-.cg-linha__transporte { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.cg-linha__saida { white-space: nowrap; }
-
-.cg-status--linha { margin-top: 0; font-size: 12.5px; }
-
-.cg-linha__sub { display: block; margin-top: 2px; }
-
-.cg-linha__ocupacao {
-  min-width: 90px;
+// Tabela só para leitor de tela (mesmos números do gráfico).
+.db-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-
-  .cg-barra { margin-top: 3px; }
 }
 
-.cg-linha__acao { text-align: right; white-space: nowrap; cursor: default; }
-
-.cg-btn--linha { min-height: 32px; padding: 5px 12px; font-size: 13px; margin-left: 0; }
-
-.cg-linha-pedidos > td {
-  padding: 0 12px 12px 30px;
-  background: color-mix(in srgb, var(--oq-brand) 8%, transparent);
-
-  .cg-tabela-rolagem { margin-top: 0; background: var(--oq-surface); }
+@media (prefers-reduced-motion: reduce) {
+  .db-dia__barra span { transition: none; }
 }

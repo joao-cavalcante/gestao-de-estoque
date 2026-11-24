@@ -68,6 +68,13 @@ class CargasRegrasTest {
     }
 
     @Test
+    fun `periodos de entrega da OC sem repetir`() {
+        val r = montar(listOf(pedido(1).copy(turno = "N"), pedido(2).copy(turno = "D"), pedido(3).copy(turno = "N"), pedido(4))).single()
+        assertEquals(listOf("D", "N"), r.turnos)
+        assertEquals("N", r.pedidos.first { it.nunota == 1L }.turno)
+    }
+
+    @Test
     fun `pendentes antes de saiu, por saida prevista e OC`() {
         val r = montar(listOf(pedido(1, oc = 300, status = "aguardando"), pedido(2, oc = 100), pedido(3, oc = 200, status = "aguardando")),
             listOf(fechamento(100, 10)), fechadas = setOf(100))
