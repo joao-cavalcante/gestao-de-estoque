@@ -33,6 +33,7 @@
           (ngModelChange)="busca.set($event)"
         />
       </label>
+      <div class="cg-modo"><oq-view-toggle [modo]="modo()" (modoChange)="trocarModo($event)" /></div>
     </div>
   </header>
 
@@ -54,6 +55,79 @@
         } @else {
           {{ textoVazio() }}
         }
+      </div>
+    } @else if (modo() === 'list') {
+      <div class="cg-lista">
+        <table class="cg-tabela cg-tabela--ocs">
+          <thead>
+            <tr>
+              <th>OC</th>
+              <th>Motorista · placa</th>
+              <th>{{ aba() === 'saiu' ? 'Saiu' : 'Saída' }}</th>
+              <th>Situação</th>
+              <th class="cg-num">Pedidos</th>
+              <th class="cg-num">Peso</th>
+              <th>Ocupação</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of visiveis(); track c.ordemCarga) {
+              <tr class="cg-linha" [class.cg-linha--aberta]="abertas().has(c.ordemCarga)" (click)="alternar(c.ordemCarga)">
+                <td class="cg-linha__oc">
+                  <span class="cg-seta" aria-hidden="true"></span>
+                  {{ c.ordemCarga }}
+                  <oq-modalidade-pins [modalidade]="{ express: c.express, retira: c.retira }" [compacto]="true" />
+                </td>
+                <td class="cg-linha__transporte">{{ c.motorista ?? 'Sem motorista' }}{{ c.placa ? ' · ' + c.placa : '' }}</td>
+                <td class="cg-linha__saida">
+                  @if (c.situacao === 'saiu') {
+                    {{ c.saiuEm | date: 'HH:mm' }}{{ c.fechadaPor ? ' · ' + c.fechadaPor : '' }}
+                  } @else {
+                    <span [class.cg-card__saida--atrasada]="atrasada(c)">{{ saidaTexto(c).replace('saída ', '') }}{{ atrasada(c) ? ' · atrasada' : '' }}</span>
+                  }
+                </td>
+                <td>
+                  @switch (c.situacao) {
+                    @case ('pendente') {
+                      <span class="cg-status cg-status--linha" data-carga="pendente"><oq-icon name="circle-alert" [size]="13" /> {{ textoFaltas(c.faltas) }}</span>
+                      <small class="cg-linha__sub">{{ c.prontos }} de {{ c.pedidos.length }} prontos</small>
+                    }
+                    @case ('pronta') {
+                      <span class="cg-status cg-status--linha" data-carga="pronta"><oq-icon name="entrega" [size]="13" /> Tudo carregado · falta Fechar OC</span>
+                    }
+                    @case ('saiu') {
+                      <span class="cg-status cg-status--linha" data-carga="saiu"><oq-icon name="check" [size]="13" /> Saiu</span>
+                      <small class="cg-linha__sub" [class.cg-avisos__erro]="c.notas.problema > 0 || c.impressao?.status === 'erro'">
+                        {{ textoNotas(c) }}{{ c.impressao ? ' · ' + rotuloImpressao(c.impressao.status) : '' }}
+                      </small>
+                    }
+                  }
+                </td>
+                <td class="cg-num">{{ c.pedidos.length }} <small>· {{ c.clientes }} cli.</small></td>
+                <td class="cg-num">{{ pesoTexto(c.pesoKg) }}</td>
+                <td class="cg-linha__ocupacao">
+                  @if (ocupacao(c); as pct) {
+                    <span [class.cg-progresso--acima]="pct > 100">{{ pct }}%</span>
+                    <span class="cg-barra" aria-hidden="true"><span [style.width.%]="pct > 100 ? 100 : pct"></span></span>
+                  } @else { — }
+                </td>
+                <td class="cg-linha__acao" (click)="$event.stopPropagation()">
+                  @switch (c.situacao) {
+                    @case ('pronta') { <button type="button" class="cg-btn cg-btn--forte cg-btn--linha" (click)="abrirNaFila(c)">Fechar OC</button> }
+                    @case ('saiu') { <button type="button" class="cg-btn cg-btn--linha" (click)="verImpressao()">Impressão</button> }
+                    @default { <button type="button" class="cg-btn cg-btn--linha" (click)="abrirNaFila(c)">Abrir na Fila</button> }
+                  }
+                </td>
+              </tr>
+              @if (abertas().has(c.ordemCarga)) {
+                <tr class="cg-linha-pedidos">
+                  <td colspan="8"><ng-container [ngTemplateOutlet]="pedidosDaOc" [ngTemplateOutletContext]="{ $implicit: c }" /></td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
       </div>
     } @else {
       <div class="oq-page__grid cg-grade">
@@ -131,37 +205,7 @@
 
             <!-- 4. Pedidos da OC -->
             @if (abertas().has(c.ordemCarga)) {
-              <div class="cg-tabela-rolagem">
-                <table class="cg-tabela">
-                  <thead>
-                    <tr>
-                      <th>Nº único</th>
-                      <th>Cliente</th>
-                      <th class="cg-num">Peso</th>
-                      @if (c.volumes != null) { <th class="cg-num">Vol.</th> }
-                      <th>Situação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (p of c.pedidos; track p.nunota) {
-                      <tr>
-                        <td class="cg-nunota">{{ p.nunota }}</td>
-                        <td>
-                          {{ p.cliente ?? '—' }}
-                          <oq-modalidade-pins [modalidade]="{ express: p.express, retira: p.retira }" [compacto]="true" />
-                        </td>
-                        <td class="cg-num">{{ pesoTexto(p.pesoKg) }}</td>
-                        @if (c.volumes != null) { <td class="cg-num">{{ p.volumes ?? '—' }}</td> }
-                        <td>
-                          <span class="cg-pedido" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">
-                            <oq-icon [name]="iconePedido[p.situacao]" [size]="13" /> {{ rotulo(p) }}
-                          </span>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
+              <ng-container [ngTemplateOutlet]="pedidosDaOc" [ngTemplateOutletContext]="{ $implicit: c }" />
             }
 
             <div class="cg-acoes">
@@ -186,3 +230,37 @@
     }
   </div>
 </div>
+
+<ng-template #pedidosDaOc let-c>
+  <div class="cg-tabela-rolagem">
+  <table class="cg-tabela">
+    <thead>
+      <tr>
+        <th>Nº único</th>
+        <th>Cliente</th>
+        <th class="cg-num">Peso</th>
+        @if (c.volumes != null) { <th class="cg-num">Vol.</th> }
+        <th>Situação</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (p of c.pedidos; track p.nunota) {
+        <tr>
+          <td class="cg-nunota">{{ p.nunota }}</td>
+          <td>
+            {{ p.cliente ?? '—' }}
+            <oq-modalidade-pins [modalidade]="{ express: p.express, retira: p.retira }" [compacto]="true" />
+          </td>
+          <td class="cg-num">{{ pesoTexto(p.pesoKg) }}</td>
+          @if (c.volumes != null) { <td class="cg-num">{{ p.volumes ?? '—' }}</td> }
+          <td>
+            <span class="cg-pedido" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">
+              <oq-icon [name]="icone(p)" [size]="13" /> {{ rotulo(p) }}
+            </span>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+</ng-template>

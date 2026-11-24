@@ -308,3 +308,76 @@
 
   &:hover { background: var(--oq-brand-hover); }
 }
+
+// ─── Modo lista (padrão; usuário, 24/11/2026: nos cards "ficou muito apertado") ──────────────────────────
+.cg-modo { margin-left: auto; display: flex; }
+
+.cg-lista {
+  overflow-x: auto;
+  border: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+}
+
+.cg-tabela--ocs {
+  td { vertical-align: middle; }
+  small { font-size: 11px; color: var(--oq-text-secondary); }
+}
+
+.cg-linha {
+  cursor: pointer;
+
+  &:hover td { background: color-mix(in srgb, var(--oq-brand) 5%, transparent); }
+}
+
+.cg-linha--aberta td { background: color-mix(in srgb, var(--oq-brand) 8%, transparent); border-bottom-color: transparent; }
+
+.cg-linha__oc {
+  white-space: nowrap;
+  font-family: var(--oq-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+
+  oq-modalidade-pins { margin-left: 4px; vertical-align: middle; }
+}
+
+.cg-seta {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0 8px 0 2px;
+  border-right: 2px solid var(--oq-text-secondary);
+  border-bottom: 2px solid var(--oq-text-secondary);
+  transform: rotate(-45deg);
+  transition: transform .15s ease;
+  vertical-align: 2px;
+}
+
+.cg-linha--aberta .cg-seta { transform: rotate(45deg); }
+
+.cg-linha__transporte { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cg-linha__saida { white-space: nowrap; }
+
+.cg-status--linha { margin-top: 0; font-size: 12.5px; }
+
+.cg-linha__sub { display: block; margin-top: 2px; }
+
+.cg-linha__ocupacao {
+  min-width: 90px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+
+  .cg-barra { margin-top: 3px; }
+}
+
+.cg-linha__acao { text-align: right; white-space: nowrap; cursor: default; }
+
+.cg-btn--linha { min-height: 32px; padding: 5px 12px; font-size: 13px; margin-left: 0; }
+
+.cg-linha-pedidos > td {
+  padding: 0 12px 12px 30px;
+  background: color-mix(in srgb, var(--oq-brand) 8%, transparent);
+
+  .cg-tabela-rolagem { margin-top: 0; background: var(--oq-surface); }
+}

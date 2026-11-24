@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -7,6 +7,8 @@ import { SyncTickService } from '../shared/app-header/sync-tick.service';
 import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
 import { OqModalidadePinsComponent } from '../shared/oq-modalidade-pins/oq-modalidade-pins.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
+import { OqViewToggleComponent } from '../shared/lista-layout/oq-view-toggle.component';
+import { ViewMode, salvarViewMode } from '../shared/lista-layout/view-mode';
 import {
   Carga,
   CargasService,
@@ -26,6 +28,16 @@ const ABAS: { chave: SituacaoCarga; rotulo: string }[] = [
   { chave: 'saiu', rotulo: 'Saíram' },
 ];
 
+const CHAVE_MODO = 'cargas-view-mode';
+
+function lerModo(): ViewMode {
+  try {
+    return localStorage.getItem(CHAVE_MODO) === 'cards' ? 'cards' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
 const ICONE_PEDIDO: Record<SituacaoPedido, OqIconName> = {
   corte: 'circle-alert',
   a_conferir: 'circle',
@@ -43,7 +55,7 @@ const ICONE_PEDIDO: Record<SituacaoPedido, OqIconName> = {
 @Component({
   selector: 'app-cargas',
   standalone: true,
-  imports: [DatePipe, FormsModule, OqIconComponent, OqModalidadePinsComponent, OqSkeletonComponent],
+  imports: [DatePipe, NgTemplateOutlet, FormsModule, OqIconComponent, OqModalidadePinsComponent, OqSkeletonComponent, OqViewToggleComponent],
   templateUrl: './cargas.component.html',
   styleUrl: './cargas.component.scss',
 })
@@ -68,6 +80,8 @@ export class CargasComponent implements OnInit, OnDestroy {
   readonly dia = signal<DiaSaida>('hoje');
   readonly busca = signal('');
   readonly abertas = signal<ReadonlySet<number>>(new Set());
+  /** Lista é o padrão (usuário, 24/11/2026: nos cards "ficou muito apertado"); a escolha fica no navegador. */
+  readonly modo = signal<ViewMode>(lerModo());
 
   readonly contagem = computed(() => {
     const c: Record<SituacaoCarga, number> = { pendente: 0, pronta: 0, saiu: 0 };
@@ -115,6 +129,11 @@ export class CargasComponent implements OnInit, OnDestroy {
     this.carregar();
   }
 
+  trocarModo(m: ViewMode): void {
+    this.modo.set(m);
+    salvarViewMode(CHAVE_MODO, m);
+  }
+
   alternar(oc: number): void {
     const s = new Set(this.abertas());
     if (s.has(oc)) s.delete(oc);
@@ -147,6 +166,10 @@ export class CargasComponent implements OnInit, OnDestroy {
     if (n.aguardando) partes.push(`${n.aguardando} aguardando SEFAZ`);
     if (n.problema) partes.push(`${n.problema} com problema`);
     return `${n.total} ${n.total === 1 ? 'NF' : 'NFs'}: ${partes.join(' · ')}`;
+  }
+
+  icone(p: PedidoCarga): OqIconName {
+    return this.iconePedido[p.situacao];
   }
 
   /** Situação do pedido; com nota mostra "NF 3837 · Aprovada". */
