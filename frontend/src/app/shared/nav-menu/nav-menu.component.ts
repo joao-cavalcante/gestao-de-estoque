@@ -29,6 +29,8 @@ const ITENS: ItemMenu[] = [
   // Telas do dia a dia soltas no topo, na ordem do fluxo (pedido do usuário: sem o grupo "Operações").
   { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
   { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
+  // Cargas (24/11/2026): OCs pendentes, prontas para sair e as que saíram (Fechar OC).
+  { rota: '/cargas', label: 'Cargas', icone: 'entrega' },
   { rota: '/impressao-etiquetas', label: 'Impressão de Etiquetas', icone: 'barcode' },
   // Fica aberta no computador da expedição: romaneio + DANFEs saem sozinhos (agente) ao fechar a OC.
   { rota: '/impressao-oc', label: 'Impressão de OCs', icone: 'impressora' },

@@ -1,0 +1,188 @@
+<div class="oq-page">
+  <header class="oq-page__header">
+    <div class="cg-topo">
+      <div class="cg-abas" role="tablist" aria-label="Situação da carga">
+        @for (a of abas; track a.chave) {
+          <button
+            type="button"
+            role="tab"
+            class="cg-aba"
+            [class.cg-aba--ativa]="aba() === a.chave"
+            [class.cg-aba--destaque]="a.chave === 'pronta' && contagem().pronta > 0"
+            [attr.aria-selected]="aba() === a.chave"
+            (click)="aba.set(a.chave)"
+          >
+            {{ a.rotulo }} <span class="cg-aba__qtd">{{ contagem()[a.chave] }}</span>
+          </button>
+        }
+      </div>
+      @if (aba() === 'saiu') {
+        <div class="cg-abas" role="group" aria-label="Dia da saída">
+          <button type="button" class="cg-aba" [class.cg-aba--ativa]="dia() === 'hoje'" (click)="escolherDia('hoje')">Hoje</button>
+          <button type="button" class="cg-aba" [class.cg-aba--ativa]="dia() === 'ontem'" (click)="escolherDia('ontem')">Ontem</button>
+        </div>
+      }
+      <label class="cg-busca">
+        <oq-icon name="search" [size]="14" />
+        <input
+          type="text"
+          autocomplete="off"
+          placeholder="OC, placa, motorista, pedido ou cliente"
+          aria-label="Buscar OC, placa, motorista, pedido ou cliente"
+          [ngModel]="busca()"
+          (ngModelChange)="busca.set($event)"
+        />
+      </label>
+    </div>
+  </header>
+
+  <div class="oq-page__content">
+    @if (erro()) {
+      <div class="oq-page__status oq-page__status--erro">
+        {{ erro() }}
+        <button type="button" (click)="carregar()">Tentar de novo</button>
+      </div>
+    } @else if (carregando()) {
+      <div class="oq-page__grid cg-grade" aria-busy="true">
+        <oq-skeleton variant="task-card" [count]="6" />
+      </div>
+    } @else if (visiveis().length === 0) {
+      <div class="oq-page__status">
+        @if (busca()) {
+          Nenhuma OC com "{{ busca() }}" nesta aba.
+          <button type="button" (click)="limparBusca()">Limpar busca</button>
+        } @else {
+          {{ textoVazio() }}
+        }
+      </div>
+    } @else {
+      <div class="oq-page__grid cg-grade">
+        @for (c of visiveis(); track c.ordemCarga) {
+          <article class="oq-card cg-card" [class.cg-card--aberta]="abertas().has(c.ordemCarga)">
+            <!-- 1. Identificação: OC grande; à direita a saída prevista (ou a hora em que saiu) -->
+            <div class="cg-card__topo">
+              <span class="cg-card__oc">OC {{ c.ordemCarga }}</span>
+              <oq-modalidade-pins [modalidade]="{ express: c.express, retira: c.retira }" />
+              @if (c.situacao === 'saiu') {
+                <span class="cg-card__saida">saiu {{ c.saiuEm | date: 'HH:mm' }}</span>
+              } @else {
+                <span class="cg-card__saida" [class.cg-card__saida--atrasada]="atrasada(c)">
+                  {{ saidaTexto(c) }}{{ atrasada(c) ? ' · atrasada' : '' }}
+                </span>
+              }
+            </div>
+            <span class="cg-card__transporte" [title]="(c.motorista ?? '') + ' ' + (c.placa ?? '') + ' ' + (c.veiculo ?? '')">
+              {{ c.motorista ?? 'Sem motorista' }}{{ c.placa ? ' · ' + c.placa : '' }}
+            </span>
+
+            <!-- 2. Situação escrita, na cor do estado -->
+            @switch (c.situacao) {
+              @case ('pendente') {
+                <span class="cg-status" data-carga="pendente">
+                  <oq-icon name="circle-alert" [size]="14" />
+                  Falta: {{ textoFaltas(c.faltas) }}
+                </span>
+                <div class="cg-progresso">
+                  {{ c.prontos }} de {{ c.pedidos.length }} pedidos prontos
+                  <span class="cg-barra" aria-hidden="true">
+                    <span [style.width.%]="c.pedidos.length ? (c.prontos * 100) / c.pedidos.length : 0"></span>
+                  </span>
+                </div>
+              }
+              @case ('pronta') {
+                <span class="cg-status" data-carga="pronta">
+                  <oq-icon name="entrega" [size]="14" />
+                  Tudo carregado · falta Fechar OC
+                </span>
+              }
+              @case ('saiu') {
+                <span class="cg-status" data-carga="saiu">
+                  <oq-icon name="check" [size]="14" />
+                  Saiu para entrega às {{ c.saiuEm | date: 'HH:mm' }}{{ c.fechadaPor ? ' · ' + c.fechadaPor : '' }}
+                </span>
+                <ul class="cg-avisos">
+                  <li [class.cg-avisos__erro]="c.notas.problema > 0">
+                    <oq-icon name="receipt" [size]="12" /> {{ textoNotas(c) }}
+                  </li>
+                  @if (c.impressao; as i) {
+                    <li [class.cg-avisos__erro]="i.status === 'erro'" [title]="i.erro ?? ''">
+                      <oq-icon name="impressora" [size]="12" />
+                      {{ rotuloImpressao(i.status) }}{{ i.impressoEm ? ' ' + (i.impressoEm | date: 'HH:mm') : '' }}
+                    </li>
+                  }
+                </ul>
+              }
+            }
+
+            <!-- 3. Carga -->
+            <div class="cg-numeros">
+              <span><small>Pedidos</small>{{ c.pedidos.length }} · {{ c.clientes }} {{ c.clientes === 1 ? 'cliente' : 'clientes' }}</span>
+              <span><small>Peso</small>{{ pesoTexto(c.pesoKg) }}</span>
+              @if (c.volumes != null) {
+                <span><small>Volumes</small>{{ c.volumes }}</span>
+              }
+            </div>
+            @if (ocupacao(c); as pct) {
+              <div class="cg-progresso" [class.cg-progresso--acima]="pct > 100">
+                {{ pct }}% de {{ pesoTexto(c.pesoMaxKg!) }}{{ pct > 100 ? ' · acima da capacidade' : '' }}
+                <span class="cg-barra" aria-hidden="true"><span [style.width.%]="pct > 100 ? 100 : pct"></span></span>
+              </div>
+            }
+
+            <!-- 4. Pedidos da OC -->
+            @if (abertas().has(c.ordemCarga)) {
+              <div class="cg-tabela-rolagem">
+                <table class="cg-tabela">
+                  <thead>
+                    <tr>
+                      <th>Nº único</th>
+                      <th>Cliente</th>
+                      <th class="cg-num">Peso</th>
+                      @if (c.volumes != null) { <th class="cg-num">Vol.</th> }
+                      <th>Situação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of c.pedidos; track p.nunota) {
+                      <tr>
+                        <td class="cg-nunota">{{ p.nunota }}</td>
+                        <td>
+                          {{ p.cliente ?? '—' }}
+                          <oq-modalidade-pins [modalidade]="{ express: p.express, retira: p.retira }" [compacto]="true" />
+                        </td>
+                        <td class="cg-num">{{ pesoTexto(p.pesoKg) }}</td>
+                        @if (c.volumes != null) { <td class="cg-num">{{ p.volumes ?? '—' }}</td> }
+                        <td>
+                          <span class="cg-pedido" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">
+                            <oq-icon [name]="iconePedido[p.situacao]" [size]="13" /> {{ rotulo(p) }}
+                          </span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            <div class="cg-acoes">
+              <button type="button" class="cg-link" [attr.aria-expanded]="abertas().has(c.ordemCarga)" (click)="alternar(c.ordemCarga)">
+                {{ abertas().has(c.ordemCarga) ? 'Esconder pedidos' : 'Ver pedidos' }}
+              </button>
+              @switch (c.situacao) {
+                @case ('pronta') {
+                  <button type="button" class="cg-btn cg-btn--forte" (click)="abrirNaFila(c)">Fechar OC</button>
+                }
+                @case ('saiu') {
+                  <button type="button" class="cg-btn" (click)="verImpressao()">Ver impressão</button>
+                }
+                @default {
+                  <button type="button" class="cg-btn" (click)="abrirNaFila(c)">Abrir na Fila</button>
+                }
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </div>
+</div>

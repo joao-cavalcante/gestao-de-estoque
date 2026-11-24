@@ -1,0 +1,310 @@
+// Cargas (24/11/2026) — mesmo tom das telas novas (Entrada, Fila revisada em 17/11): texto normal sem caixa alta,
+// número grande no topo do card, status com ícone + texto na cor do estado, um botão forte por card. Estilos
+// próprios (não depende de entrada.scss) para a tela funcionar igual no master e no develop.
+
+:host { display: block; height: 100%; }
+
+// ─── Topo ────────────────────────────────────────────────────────────────────────────────────────────────
+.cg-topo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 12px 24px;
+
+  @media (max-width: 639px) { padding: 10px 16px; }
+}
+
+.cg-abas {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  overflow: hidden;
+  background: var(--oq-surface);
+}
+
+.cg-aba {
+  border: none;
+  border-right: 1px solid var(--oq-border);
+  background: transparent;
+  padding: 7px 12px;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:last-child { border-right: none; }
+  &:hover:not(.cg-aba--ativa) { color: var(--oq-text-primary); }
+}
+
+.cg-aba--ativa { background: var(--oq-text-primary); color: var(--oq-surface); }
+
+.cg-aba__qtd {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-family: var(--oq-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+// OC pronta esperando o Fechar OC chama atenção mesmo com outra aba aberta.
+.cg-aba--destaque:not(.cg-aba--ativa) .cg-aba__qtd { background: var(--oq-attention); color: #fff; }
+
+.cg-busca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 320px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  padding: 7px 10px;
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+
+  &:focus-within { border-color: var(--oq-brand-accent); }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    color: var(--oq-text-primary);
+
+    &::placeholder { color: var(--oq-text-secondary); }
+  }
+
+  @media (max-width: 639px) { flex: 1 1 100%; }
+}
+
+// ─── Card da OC ──────────────────────────────────────────────────────────────────────────────────────────
+.cg-grade { align-content: start; }
+
+.cg-card { gap: 0; }
+
+// Pedidos abertos: o card ocupa a linha inteira para a tabela caber.
+.cg-card--aberta { grid-column: 1 / -1; }
+
+.cg-card__topo {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.cg-card__oc {
+  font-family: var(--oq-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cg-card__saida {
+  margin-left: auto;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.cg-card__saida--atrasada { color: var(--oq-critical-foreground); font-weight: 600; }
+
+.cg-card__transporte {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cg-status {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+
+  oq-icon { margin-top: 2px; flex: none; }
+
+  &[data-carga='pendente'] { color: var(--oq-warning-foreground); }
+  &[data-carga='pronta'] { color: var(--oq-carregado-foreground); }
+  &[data-carga='saiu'] { color: var(--oq-concluido-foreground); }
+}
+
+.cg-progresso {
+  margin-top: 8px;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.cg-progresso--acima {
+  color: var(--oq-critical-foreground);
+  font-weight: 600;
+
+  .cg-barra span { background: var(--oq-critical); }
+}
+
+.cg-barra {
+  display: block;
+  height: 3px;
+  margin-top: 4px;
+  background: var(--oq-border);
+
+  span { display: block; height: 100%; background: var(--oq-brand); }
+}
+
+.cg-avisos {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-family: var(--oq-font-body);
+    font-size: 12px;
+    color: var(--oq-text-secondary);
+
+    oq-icon { margin-top: 2px; flex: none; }
+  }
+}
+
+.cg-avisos__erro { color: var(--oq-critical-foreground) !important; font-weight: 600; }
+
+.cg-numeros {
+  display: flex;
+  gap: 8px 20px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--oq-border);
+
+  span {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-family: var(--oq-font-body);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--oq-text-primary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  small { font-size: 11px; font-weight: 400; color: var(--oq-text-secondary); }
+}
+
+// ─── Pedidos da OC ───────────────────────────────────────────────────────────────────────────────────────
+.cg-tabela-rolagem { margin-top: 12px; overflow-x: auto; }
+
+.cg-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  color: var(--oq-text-primary);
+
+  th {
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--oq-text-secondary);
+    background: var(--oq-surface-2);
+    border-bottom: 1px solid var(--oq-border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--oq-border);
+    vertical-align: top;
+  }
+
+  oq-modalidade-pins { margin-left: 6px; vertical-align: middle; }
+}
+
+.cg-num { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.cg-nunota { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.cg-pedido {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--oq-status-idle);
+
+  &[data-situacao='corte'] { color: var(--oq-critical-foreground); }
+  &[data-situacao='em_conferencia'] { color: var(--oq-warning-foreground); }
+  &[data-situacao='a_conferir'] { color: var(--oq-aguardando-foreground); }
+  &[data-situacao='a_carregar'] { color: var(--oq-carregar-foreground); }
+  &[data-situacao='carregado'] { color: var(--oq-carregado-foreground); }
+  &[data-situacao='com_nota'] { color: var(--oq-concluido-foreground); }
+  &[data-situacao='com_nota'][data-nfe='R'],
+  &[data-situacao='com_nota'][data-nfe='D'],
+  &[data-situacao='com_nota'][data-nfe='V'] { color: var(--oq-critical-foreground); }
+}
+
+// ─── Ações ───────────────────────────────────────────────────────────────────────────────────────────────
+.cg-acoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.cg-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-brand-text);
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+}
+
+.cg-btn {
+  flex: 0 1 220px;
+  margin-left: auto;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--oq-brand);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  font-family: var(--oq-font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--oq-brand-text);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+
+  &:hover { background: var(--oq-brand); color: var(--oq-brand-ink); }
+}
+
+.cg-btn--forte {
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+
+  &:hover { background: var(--oq-brand-hover); }
+}

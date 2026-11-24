@@ -27,6 +27,7 @@ import wms.backend.tenancy.TenantRepository
 import wms.backend.tipooperacao.TipoOperacaoRepository
 import wms.backend.tipooperacao.TipoOperacaoSyncService
 import wms.backend.tipooperacao.TopDestinoDto
+import wms.backend.usuarios.UsuariosRepository
 import java.util.UUID
 
 /**
@@ -365,16 +366,16 @@ object FechamentoOcService {
      * todos ok, fecha a OC no Sankhya. TRAVA FINAL: antes de fechar, relê no Sankhya — todo pedido da OC precisa ter
      * nota confirmada; senão a OC NÃO fecha.
      */
-    suspend fun fechar(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto =
+    suspend fun fechar(tenantSlug: String, tenantId: UUID, oc: Long, fechadoPor: String? = null): FechamentoOcDto =
         comTrava("oc:$oc", "O fechamento da OC $oc") {
             try {
-                fecharComProgresso(tenantSlug, tenantId, oc)
+                fecharComProgresso(tenantSlug, tenantId, oc, fechadoPor)
             } finally {
                 ProgressoEmissao.limpar("oc:$oc")
             }
         }
 
-    private suspend fun fecharComProgresso(tenantSlug: String, tenantId: UUID, oc: Long): FechamentoOcDto {
+    private suspend fun fecharComProgresso(tenantSlug: String, tenantId: UUID, oc: Long, fechadoPor: String?): FechamentoOcDto {
         val previa = previa(tenantSlug, tenantId, oc)
         if (!previa.podeFechar) return previa.copy(mensagem = "há pedidos bloqueados — resolva antes de fechar a OC")
 
@@ -402,7 +403,8 @@ object FechamentoOcService {
         return runCatching { fecharNoSankhya(tenantSlug, tenantId, oc) }.fold(
             onSuccess = {
                 // Impressão automática (romaneio + DANFEs): o worker espera a SEFAZ e o agente local imprime.
-                runCatching { ImpressaoOcRepository.enfileirar(tenantId, oc, "fechamento", null) }
+                // O job de "fechamento" também é o registro da saída da OC (tela Cargas: hora e quem fechou).
+                runCatching { ImpressaoOcRepository.enfileirar(tenantId, oc, "fechamento", fechadoPor) }
                     .onFailure { e -> println("AVISO: fechamento OC $oc — não enfileirou a impressão: ${e.message}") }
                 previa.copy(pedidos = resultado, ocFechada = true, mensagem = "Notas faturadas e confirmadas e OC $oc fechada no Sankhya.")
             },
@@ -523,7 +525,8 @@ fun Route.fechamentoOcRoutes() {
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
-                call.respond(FechamentoOcService.fechar(slug, claims.tenantId, oc))
+                val quem = runCatching { UsuariosRepository.buscarPorId(claims.tenantId, claims.userId)?.nome }.getOrNull()
+                call.respond(FechamentoOcService.fechar(slug, claims.tenantId, oc, quem))
             } catch (e: EmissaoEmAndamentoException) {
                 call.respond(HttpStatusCode.Conflict, EmissaoEmAndamentoDto(erro = e.message ?: "fechamento em andamento"))
             } catch (e: Exception) {

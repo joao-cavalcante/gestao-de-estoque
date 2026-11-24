@@ -2,6 +2,7 @@ package wms.backend
 
 import wms.backend.impressao.ImpressaoOcWorker
 import wms.backend.impressao.impressaoOcRoutes
+import wms.backend.cargas.cargasRoutes
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -119,5 +120,6 @@ fun Application.module() {
         consultaProdutosRoutes()
         auditoriaPedidoRoutes()
         impressaoOcRoutes()
+        cargasRoutes()
     }
 }
