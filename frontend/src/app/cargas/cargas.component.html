@@ -1,14 +1,15 @@
 <div class="oq-page">
-  <div class="cs">
-    <header class="cs-topo">
-      <h1 class="cs-titulo">Cargas de hoje</h1>
-      <span class="cs-data">
-        {{ hoje | date: "EEEE, dd/MM" }}@if (atualizadoEm(); as a) { · atualizado às {{ a | date: 'HH:mm' }} }
-      </span>
-      <div class="cs-periodo" role="group" aria-label="Período de entrega">
+  <div class="pn">
+    <!-- Cabeçalho -->
+    <header class="pn-topo">
+      <div class="pn-topo__titulo">
+        <h1>Expedição de hoje</h1>
+        <span>{{ hoje | date: "EEEE, d 'de' MMMM" }}@if (atualizadoEm(); as a) { · atualizado às {{ a | date: 'HH:mm' }} }</span>
+      </div>
+      <div class="pn-filtro" role="group" aria-label="Período de entrega">
         <button type="button" [class.ativo]="periodo() === 'todos'" [attr.aria-pressed]="periodo() === 'todos'" (click)="periodo.set('todos')">Todos</button>
-        <button type="button" [class.ativo]="periodo() === 'D'" [attr.aria-pressed]="periodo() === 'D'" (click)="periodo.set('D')">Diurno</button>
-        <button type="button" [class.ativo]="periodo() === 'N'" [attr.aria-pressed]="periodo() === 'N'" (click)="periodo.set('N')">Noturno</button>
+        <button type="button" [class.ativo]="periodo() === 'D'" [attr.aria-pressed]="periodo() === 'D'" (click)="periodo.set('D')">Diurno <small>{{ porTurno().D }}</small></button>
+        <button type="button" [class.ativo]="periodo() === 'N'" [attr.aria-pressed]="periodo() === 'N'" (click)="periodo.set('N')">Noturno <small>{{ porTurno().N }}</small></button>
       </div>
     </header>
 
@@ -18,121 +19,145 @@
         <button type="button" (click)="carregar()">Tentar de novo</button>
       </div>
     } @else if (carregando()) {
-      <div class="cs-carregando" aria-busy="true"><oq-skeleton variant="line" [count]="6" /></div>
+      <div class="pn-carregando" aria-busy="true"><oq-skeleton variant="line" [count]="8" /></div>
     } @else {
-      <!-- Consolidado: por situação e por período -->
-      <section class="cs-resumo">
-        <table class="cs-tab cs-tab--resumo">
-          <thead>
-            <tr><th></th><th class="n">Caminhões</th><th class="n">Pedidos</th><th class="n">Peso</th></tr>
-          </thead>
-          <tbody>
-            @for (col of colunas; track col.chave) {
-              <tr>
-                <th scope="row"><span class="cs-sit" [attr.data-tipo]="col.chave">{{ col.titulo }}</span></th>
-                <td class="n forte">{{ porColuna()[col.chave].length }}</td>
-                <td class="n">{{ pedidosPorColuna()[col.chave] }}</td>
-                <td class="n">{{ pesoTexto(pesoPorColuna()[col.chave]) }}</td>
-              </tr>
-            }
-          </tbody>
-          <tfoot>
-            <tr><th scope="row">Total</th><td class="n forte">{{ total() }}</td><td class="n">{{ pedidosTotal() }}</td><td class="n">{{ pesoTexto(pesoTotal()) }}</td></tr>
-          </tfoot>
-        </table>
-
-        <div class="cs-dia">
-          <span class="cs-dia__num">{{ saidas() }} <small>de {{ total() }}</small></span>
-          <span class="cs-dia__rot">caminhões já saíram</span>
-          <span class="cs-dia__barra" role="progressbar" [attr.aria-valuenow]="pctDia()" aria-valuemin="0" aria-valuemax="100">
-            <span [style.width.%]="pctDia()"></span>
-          </span>
-          <span class="cs-dia__pct">{{ pctDia() }}%</span>
+      <!-- Indicadores -->
+      <section class="pn-kpis" aria-label="Indicadores do dia">
+        <div class="pn-kpi pn-kpi--principal">
+          <span class="pn-kpi__rot">Saíram para entrega</span>
+          <span class="pn-kpi__val">{{ saidas().length }}<small> de {{ total() }}</small></span>
+          <span class="pn-kpi__barra" role="progressbar" [attr.aria-valuenow]="pctSaiu()" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="pctSaiu()"></span></span>
+          <span class="pn-kpi__sub">{{ pctSaiu() }}% dos caminhões do dia</span>
         </div>
-
-        <table class="cs-tab cs-tab--periodo">
-          <thead>
-            <tr><th>Por período</th><th class="n">Carregando</th><th class="n">Prontos</th><th class="n">Saíram</th><th class="n">Total</th></tr>
-          </thead>
-          <tbody>
-            @for (p of porPeriodo(); track p.rotulo) {
-              <tr>
-                <th scope="row">{{ p.rotulo }}</th>
-                <td class="n">{{ p.pendente }}</td>
-                <td class="n">{{ p.pronta }}</td>
-                <td class="n">{{ p.saiu }}</td>
-                <td class="n forte">{{ p.total }}</td>
-              </tr>
-            }
-          </tbody>
-          @if (temMista()) {
-            <caption>OC com pedidos dos dois períodos conta nos dois.</caption>
-          }
-        </table>
+        <div class="pn-kpi" data-tom="pronta">
+          <span class="pn-kpi__rot"><i></i>Prontos para sair</span>
+          <span class="pn-kpi__val">{{ prontas().length }}</span>
+          <span class="pn-kpi__sub">carregados, falta fechar a OC</span>
+        </div>
+        <div class="pn-kpi" data-tom="pendente">
+          <span class="pn-kpi__rot"><i></i>Carregando</span>
+          <span class="pn-kpi__val">{{ carregandoOcs().length }}</span>
+          <span class="pn-kpi__sub">{{ pedidosFaltando() }} pedidos ainda faltam</span>
+        </div>
+        <div class="pn-kpi">
+          <span class="pn-kpi__rot">Peso expedido</span>
+          <span class="pn-kpi__val">{{ pesoTexto(pesoSaiu()) }}</span>
+          <span class="pn-kpi__sub">de {{ pesoTexto(pesoTotal()) }} programados</span>
+        </div>
+        <div class="pn-kpi" [attr.data-tom]="ocorrencias().length ? 'ruim' : 'ok'">
+          <span class="pn-kpi__rot"><i></i>Ocorrências</span>
+          <span class="pn-kpi__val">{{ ocorrencias().length }}</span>
+          <span class="pn-kpi__sub">{{ ocorrencias().length ? 'precisam de atenção' : 'nenhum problema agora' }}</span>
+        </div>
       </section>
 
-      <!-- Atenção: uma linha -->
-      <p class="cs-atencao" [class.cs-atencao--ok]="alertas().length === 0">
-        @if (alertas().length === 0) {
-          <oq-icon name="check" [size]="14" /> Nenhum problema agora.
-        } @else {
-          <oq-icon name="circle-alert" [size]="14" /> <b>Atenção:</b>
-          @for (a of alertas(); track a.texto; let ultimo = $last) {
-            <span [class.grave]="a.grave">{{ a.texto }} <small>(OC {{ a.ocs.slice(0, 5).join(', ') }}{{ a.ocs.length > 5 ? '…' : '' }})</small></span>@if (!ultimo) { <span class="sep">·</span> }
+      <!-- Corpo: andamento (esquerda) · ocorrências, saídas e últimas saídas (direita) -->
+      <section class="pn-corpo">
+        <article class="pn-painel pn-painel--andamento">
+          <header class="pn-painel__cab">
+            <h2>Andamento dos caminhões no galpão</h2>
+            <span>{{ noGalpao().length }} {{ noGalpao().length === 1 ? 'caminhão' : 'caminhões' }} · pedidos por etapa · clique para ver os pedidos</span>
+          </header>
+          @if (noGalpao().length === 0) {
+            <p class="pn-vazio">Nenhum caminhão no galpão {{ periodo() === 'todos' ? 'agora' : 'neste período' }}.</p>
           }
-        }
-      </p>
+          <div #grafAndamento class="pn-grafico" [class.pn-grafico--oculto]="noGalpao().length === 0" role="img"
+            [attr.aria-label]="'Andamento de ' + noGalpao().length + ' caminhões por etapa'"></div>
+        </article>
 
-      <!-- Uma linha por OC (só esta parte rola) -->
-      <div class="cs-lista">
-        @if (linhas().length === 0) {
-          <p class="cs-vazio">Nenhuma ordem de carga {{ periodo() === 'todos' ? 'hoje' : 'neste período' }}.</p>
-        } @else {
-          <table class="cs-tab cs-tab--ocs">
-            <thead>
-              <tr>
-                <th>OC</th><th>Situação</th><th>Motorista · placa</th><th class="n">Pedidos</th><th class="n">Peso</th><th class="n">Carga</th><th>Saída</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (c of linhas(); track c.ordemCarga) {
-                <tr class="cs-oc" [class.aberta]="aberta() === c.ordemCarga" (click)="alternar(c.ordemCarga)" tabindex="0"
-                  (keydown.enter)="alternar(c.ordemCarga)" [attr.aria-expanded]="aberta() === c.ordemCarga">
-                  <td class="cs-oc__num"><span class="seta" aria-hidden="true"></span>{{ c.ordemCarga }}</td>
-                  <td>
-                    <span class="cs-sit" [attr.data-tipo]="c.situacao">{{ situacaoTexto(c) }}</span>
-                    @if (c.situacao === 'saiu') {
-                      <span class="cs-sub">{{ c.saiuEm | date: 'HH:mm' }}{{ c.fechadaPor ? ' · ' + c.fechadaPor : '' }} · <span [class.ruim]="c.notas.problema > 0">{{ textoNotas(c) }}</span>@if (c.impressao?.status === 'erro') { · <span class="ruim">erro na impressão</span> }</span>
-                    }
-                    @if (c.express || c.retira) { <span class="cs-sub">{{ c.express ? 'Express' : '' }}{{ c.express && c.retira ? ' · ' : '' }}{{ c.retira ? 'Cliente retira' : '' }}</span> }
-                  </td>
-                  <td class="cs-quem">{{ c.motorista ?? 'Sem motorista' }}{{ c.placa ? ' · ' + c.placa : '' }}</td>
-                  <td class="n">{{ c.pedidos.length }}</td>
-                  <td class="n">{{ pesoTexto(c.pesoKg) }}</td>
-                  <td class="n" [class.ruim]="(ocupacao(c) ?? 0) > 100">{{ ocupacao(c) != null ? ocupacao(c) + '%' : '—' }}</td>
-                  <td [class.ruim]="atrasada(c)">{{ c.situacao === 'saiu' ? 'saiu' : saidaCurta(c) }}{{ atrasada(c) ? ' · atrasada' : '' }}</td>
-                </tr>
-                @if (aberta() === c.ordemCarga) {
-                  <tr class="cs-pedidos">
-                    <td colspan="7">
-                      <table class="cs-tab cs-tab--pedidos">
-                        @for (p of c.pedidos; track p.nunota) {
-                          <tr>
-                            <td class="n">{{ p.nunota }}</td>
-                            <td>{{ p.cliente ?? '—' }}</td>
-                            <td class="n">{{ pesoTexto(p.pesoKg) }}</td>
-                            <td><span class="cs-ped" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">{{ rotuloPedido(p) }}</span></td>
-                          </tr>
-                        }
-                      </table>
-                    </td>
-                  </tr>
+        <div class="pn-lado">
+          <article class="pn-painel pn-painel--ocorrencias">
+            <header class="pn-painel__cab"><h2>Ocorrências</h2></header>
+            @if (ocorrencias().length === 0) {
+              <p class="pn-ok"><oq-icon name="check" [size]="15" /> Nenhum problema nos caminhões agora.</p>
+            } @else {
+              <ul class="pn-ocorrencias">
+                @for (o of ocorrencias(); track o.texto) {
+                  <li [class.grave]="o.grave">
+                    <span class="pn-ocorrencias__texto">{{ o.texto }}</span>
+                    <span class="pn-ocorrencias__ocs">
+                      @for (oc of o.ocs.slice(0, 6); track oc) {
+                        <button type="button" (click)="abrirOc(oc)">OC {{ oc }}</button>
+                      }
+                      @if (o.ocs.length > 6) { <span>+{{ o.ocs.length - 6 }}</span> }
+                    </span>
+                  </li>
                 }
-              }
-            </tbody>
-          </table>
-        }
-      </div>
+              </ul>
+            }
+          </article>
+
+          <article class="pn-painel pn-painel--saidas">
+            <header class="pn-painel__cab">
+              <h2>Saídas ao longo do dia</h2>
+              <span>acumulado × programados</span>
+            </header>
+            <div #grafSaidas class="pn-grafico pn-grafico--saidas" role="img"
+              [attr.aria-label]="saidas().length + ' de ' + total() + ' caminhões saíram até agora'"></div>
+          </article>
+
+          <article class="pn-painel pn-painel--ultimas">
+            <header class="pn-painel__cab"><h2>Últimas saídas</h2></header>
+            @if (ultimasSaidas().length === 0) {
+              <p class="pn-vazio">Nenhum caminhão saiu ainda.</p>
+            } @else {
+              <ul class="pn-saidas">
+                @for (c of ultimasSaidas(); track c.ordemCarga) {
+                  <li>
+                    <button type="button" (click)="abrirOc(c.ordemCarga)">
+                      <span class="pn-saidas__hora">{{ c.saiuEm | date: 'HH:mm' }}</span>
+                      <span class="pn-saidas__oc">OC {{ c.ordemCarga }}</span>
+                      <span class="pn-saidas__quem">{{ nome(c.motorista) }}</span>
+                      <span class="pn-saidas__notas" [class.ruim]="c.notas.problema > 0 || c.impressao?.status === 'erro'">
+                        {{ textoNotas(c) }}{{ c.impressao?.status === 'erro' ? ' · erro na impressão' : '' }}
+                      </span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </article>
+        </div>
+      </section>
     }
   </div>
+
+  <!-- Detalhe do caminhão -->
+  @if (detalhe(); as c) {
+    <div class="pn-fundo" (click)="fechar()"></div>
+    <aside class="pn-detalhe" role="dialog" aria-modal="true" [attr.aria-label]="'OC ' + c.ordemCarga">
+      <header class="pn-detalhe__cab">
+        <div>
+          <h2>OC {{ c.ordemCarga }}</h2>
+          <span>{{ nome(c.motorista) }}{{ c.placa ? ' · ' + c.placa : '' }}</span>
+        </div>
+        <button type="button" class="pn-fechar" (click)="fechar()" aria-label="Fechar"><oq-icon name="x" [size]="16" /></button>
+      </header>
+      <p class="pn-detalhe__sit" [attr.data-tom]="c.situacao">
+        {{ situacaoTexto(c) }}@if (c.situacao === 'saiu') { às {{ c.saiuEm | date: 'HH:mm' }}{{ c.fechadaPor ? ' · fechada por ' + c.fechadaPor : '' }} }
+      </p>
+      <dl class="pn-detalhe__dados">
+        <div><dt>Pedidos</dt><dd>{{ c.pedidos.length }} · {{ c.clientes }} {{ c.clientes === 1 ? 'cliente' : 'clientes' }}</dd></div>
+        <div><dt>Peso</dt><dd>{{ pesoTexto(c.pesoKg) }}@if (ocupacao(c); as pct) { &nbsp;<small [class.ruim]="pct > 100">({{ pct }}% do caminhão)</small> }</dd></div>
+        <div><dt>Saída prevista</dt><dd [class.ruim]="atrasada(c)">{{ c.saidaPrevista ? (c.saidaPrevista | date: 'dd/MM') : '—' }}{{ atrasada(c) ? ' · atrasada' : '' }}</dd></div>
+        @if (c.situacao === 'saiu') {
+          <div><dt>Notas</dt><dd [class.ruim]="c.notas.problema > 0">{{ textoNotas(c) }}</dd></div>
+          @if (c.impressao; as i) { <div><dt>Impressão</dt><dd [class.ruim]="i.status === 'erro'">{{ rotuloImpressao(i.status) }}</dd></div> }
+        }
+      </dl>
+      <table class="pn-pedidos">
+        <thead><tr><th>Nº único</th><th>Cliente</th><th class="n">Peso</th><th>Situação</th></tr></thead>
+        <tbody>
+          @for (p of c.pedidos; track p.nunota) {
+            <tr>
+              <td class="n-esq">{{ p.nunota }}</td>
+              <td>{{ p.cliente ?? '—' }}</td>
+              <td class="n">{{ pesoTexto(p.pesoKg) }}</td>
+              <td><span class="pn-ped" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">{{ rotuloPedido(p) }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </aside>
+  }
 </div>

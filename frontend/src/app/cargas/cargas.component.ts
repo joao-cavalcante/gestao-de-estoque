@@ -1,44 +1,44 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { Subscription } from 'rxjs';
 import { SyncTickService } from '../shared/app-header/sync-tick.service';
-import { OqIconComponent, OqIconName } from '../shared/icons/oq-icon.component';
+import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
-import { Carga, CargasService, PedidoCarga, ROTULO_PEDIDO, SituacaoCarga, SituacaoPedido, pesoTexto, rotuloImpressao } from './cargas.service';
+import { echarts, lerCores, nomeProprio, opcaoAndamento, opcaoSaidas } from './cargas-graficos';
+import { Carga, CargasService, PedidoCarga, ROTULO_PEDIDO, pesoTexto, rotuloImpressao } from './cargas.service';
 
 type Periodo = 'todos' | 'D' | 'N';
 
-interface Alerta {
-  icone: OqIconName;
+interface Ocorrencia {
   texto: string;
   ocs: number[];
   grave: boolean;
 }
-
-const ICONE_PEDIDO: Record<SituacaoPedido, OqIconName> = {
-  corte: 'circle-alert',
-  a_conferir: 'circle',
-  em_conferencia: 'gear',
-  a_carregar: 'entrega',
-  carregado: 'entrega',
-  com_nota: 'receipt',
-};
-
-const COLUNAS: { chave: SituacaoCarga; titulo: string }[] = [
-  { chave: 'pendente', titulo: 'Carregando' },
-  { chave: 'pronta', titulo: 'Prontos para sair' },
-  { chave: 'saiu', titulo: 'Saíram hoje' },
-];
 
 function plural(n: number, um: string, varios: string): string {
   return `${n} ${n === 1 ? um : varios}`;
 }
 
 /**
- * Cargas (24/11/2026) — visão CONSOLIDADA das Ordens de Carga para quem acompanha (usuário: "dashboard… fácil
- * entendimento porém completo"; depois "modelo consolidado", sem cartões nem cara de TV). Só leitura e numa tela só
- * (a página não rola; só a lista de OCs rola por dentro): totais por situação, por período (Diurno/Noturno), uma linha
- * de atenção e a lista de OCs (clique abre os pedidos). Saiu = Fechar OC (DECISÃO DE PRODUTO). Atualiza com o sync.
+ * Cargas (24/11/2026) — painel de acompanhamento da expedição para quem não opera (pedido do usuário: dashboard fácil
+ * de entender e completo; referências de painéis de doca/pátio e de expedição). Só leitura, numa tela só:
+ *  - faixa de indicadores (caminhões do dia, saíram, prontos, carregando, peso expedido, ocorrências);
+ *  - "Andamento dos caminhões": barra empilhada por OC ainda no galpão, pedidos por etapa (ECharts);
+ *  - ocorrências em frases, saídas acumuladas ao longo do dia × programados, últimas saídas;
+ *  - clique num caminhão abre os pedidos dele.
+ * Saiu = Fechar OC (DECISÃO DE PRODUTO, 24/11/2026). Filtro por período de entrega (Diurno/Noturno).
  */
 @Component({
   selector: 'app-cargas',
@@ -47,15 +47,24 @@ function plural(n: number, um: string, varios: string): string {
   templateUrl: './cargas.component.html',
   styleUrl: './cargas.component.scss',
 })
-export class CargasComponent implements OnInit, OnDestroy {
+export class CargasComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly service = inject(CargasService);
   private readonly syncTick = inject(SyncTickService);
+  private readonly zone = inject(NgZone);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   private syncSub?: Subscription;
   private carregada = false;
 
-  readonly colunas = COLUNAS;
+  @ViewChild('grafAndamento') private grafAndamentoEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('grafSaidas') private grafSaidasEl?: ElementRef<HTMLDivElement>;
+  private grafAndamento?: echarts.ECharts;
+  private grafSaidas?: echarts.ECharts;
+  private redim?: ResizeObserver;
+  private temaObs?: MutationObserver;
+
   readonly pesoTexto = pesoTexto;
   readonly rotuloImpressao = rotuloImpressao;
+  readonly nome = nomeProprio;
   readonly hoje = new Date();
 
   private readonly todas = signal<Carga[]>([]);
@@ -63,97 +72,81 @@ export class CargasComponent implements OnInit, OnDestroy {
   readonly carregando = signal(true);
   readonly erro = signal<string | null>(null);
   readonly periodo = signal<Periodo>('todos');
-  readonly aberta = signal<number | null>(null);
+  readonly detalhe = signal<Carga | null>(null);
 
   readonly cargas = computed(() => {
     const p = this.periodo();
     return p === 'todos' ? this.todas() : this.todas().filter((c) => (c.turnos ?? []).includes(p));
   });
 
-  readonly porColuna = computed(() => {
-    const r: Record<SituacaoCarga, Carga[]> = { pendente: [], pronta: [], saiu: [] };
-    for (const c of this.cargas()) r[c.situacao].push(c);
-    return r;
-  });
-
-  readonly pesoPorColuna = computed(() => {
-    const r: Record<SituacaoCarga, number> = { pendente: 0, pronta: 0, saiu: 0 };
-    for (const c of this.cargas()) r[c.situacao] += c.pesoKg;
-    return r;
-  });
-
-  readonly total = computed(() => this.cargas().length);
-  readonly saidas = computed(() => this.porColuna().saiu.length);
-  readonly pctDia = computed(() => (this.total() ? Math.round((this.saidas() * 100) / this.total()) : 0));
-
-  readonly alertas = computed<Alerta[]>(() => {
-    const abertas = this.cargas().filter((c) => c.situacao !== 'saiu');
-    const saiu = this.porColuna().saiu;
-    const lista: Alerta[] = [];
-    const atrasadas = abertas.filter((c) => this.atrasada(c));
-    if (atrasadas.length) {
-      lista.push({ icone: 'clock', grave: true, ocs: atrasadas.map((c) => c.ordemCarga),
-        texto: plural(atrasadas.length, 'atrasado', 'atrasados') });
-    }
-    const pesados = this.cargas().filter((c) => (this.ocupacao(c) ?? 0) > 100);
-    if (pesados.length) {
-      lista.push({ icone: 'scale', grave: true, ocs: pesados.map((c) => c.ordemCarga),
-        texto: `${pesados.length} acima do peso` });
-    }
-    const cortes = abertas.filter((c) => c.faltas.corte > 0);
-    if (cortes.length) {
-      const n = cortes.reduce((s, c) => s + c.faltas.corte, 0);
-      lista.push({ icone: 'circle-alert', grave: true, ocs: cortes.map((c) => c.ordemCarga),
-        texto: `${plural(n, 'pedido esperando', 'pedidos esperando')} liberação de corte` });
-    }
-    const notasRuins = saiu.filter((c) => c.notas.problema > 0);
-    if (notasRuins.length) {
-      lista.push({ icone: 'receipt', grave: true, ocs: notasRuins.map((c) => c.ordemCarga),
-        texto: `${notasRuins.length} com nota recusada pela SEFAZ` });
-    }
-    const impErro = saiu.filter((c) => c.impressao?.status === 'erro');
-    if (impErro.length) {
-      lista.push({ icone: 'impressora', grave: false, ocs: impErro.map((c) => c.ordemCarga),
-        texto: `${impErro.length} com erro na impressão` });
-    }
-    const semMotorista = abertas.filter((c) => !c.motorista);
-    if (semMotorista.length) {
-      lista.push({ icone: 'user', grave: false, ocs: semMotorista.map((c) => c.ordemCarga),
-        texto: `${semMotorista.length} sem motorista` });
-    }
-    return lista;
-  });
-
-  /** Pedidos por situação (soma dos pedidos das OCs). */
-  readonly pedidosPorColuna = computed(() => {
-    const r: Record<SituacaoCarga, number> = { pendente: 0, pronta: 0, saiu: 0 };
-    for (const c of this.cargas()) r[c.situacao] += c.pedidos.length;
-    return r;
-  });
-
-  readonly pedidosTotal = computed(() => this.cargas().reduce((s, c) => s + c.pedidos.length, 0));
-  readonly pesoTotal = computed(() => this.cargas().reduce((s, c) => s + c.pesoKg, 0));
-
-  /** Caminhões por período × situação (OC com pedidos dos dois períodos conta nos dois). */
-  readonly porPeriodo = computed(() =>
-    (['D', 'N'] as const).map((t) => {
-      const doPeriodo = this.todas().filter((c) => (c.turnos ?? []).includes(t));
-      const n = (s: SituacaoCarga) => doPeriodo.filter((c) => c.situacao === s).length;
-      return { rotulo: t === 'D' ? 'Diurno' : 'Noturno', pendente: n('pendente'), pronta: n('pronta'), saiu: n('saiu'), total: doPeriodo.length };
-    }),
+  /** Caminhões ainda no galpão: prontos primeiro (esperando o Fechar OC), depois os mais atrasados no carregamento. */
+  readonly noGalpao = computed(() =>
+    this.cargas()
+      .filter((c) => c.situacao !== 'saiu')
+      .sort((a, b) =>
+        a.situacao === b.situacao
+          ? a.prontos / Math.max(1, a.pedidos.length) - b.prontos / Math.max(1, b.pedidos.length)
+          : a.situacao === 'pronta' ? -1 : 1,
+      ),
   );
-  readonly temMista = computed(() => this.todas().some((c) => (c.turnos ?? []).length > 1));
+  readonly saidas = computed(() => this.cargas().filter((c) => c.situacao === 'saiu'));
+  readonly prontas = computed(() => this.cargas().filter((c) => c.situacao === 'pronta'));
+  readonly carregandoOcs = computed(() => this.cargas().filter((c) => c.situacao === 'pendente'));
+  readonly total = computed(() => this.cargas().length);
+  readonly pctSaiu = computed(() => (this.total() ? Math.round((this.saidas().length * 100) / this.total()) : 0));
+  readonly pesoTotal = computed(() => this.cargas().reduce((s, c) => s + c.pesoKg, 0));
+  readonly pesoSaiu = computed(() => this.saidas().reduce((s, c) => s + c.pesoKg, 0));
+  readonly pedidosFaltando = computed(() => this.carregandoOcs().reduce((s, c) => s + c.pedidos.length - c.prontos, 0));
+  readonly porTurno = computed(() => ({
+    D: this.todas().filter((c) => (c.turnos ?? []).includes('D')).length,
+    N: this.todas().filter((c) => (c.turnos ?? []).includes('N')).length,
+  }));
 
-  /** Lista de OCs: carregando, depois prontas, depois as que saíram (a ordem do backend dentro de cada grupo). */
-  readonly linhas = computed(() => [...this.porColuna().pendente, ...this.porColuna().pronta, ...this.porColuna().saiu]);
+  readonly ocorrencias = computed<Ocorrencia[]>(() => {
+    const abertas = this.cargas().filter((c) => c.situacao !== 'saiu');
+    const r: Ocorrencia[] = [];
+    const add = (lista: Carga[], texto: string, grave: boolean) => {
+      if (lista.length) r.push({ texto, ocs: lista.map((c) => c.ordemCarga), grave });
+    };
+    const cortes = abertas.filter((c) => c.faltas.corte > 0);
+    const nCortes = cortes.reduce((s, c) => s + c.faltas.corte, 0);
+    add(cortes, `${plural(nCortes, 'pedido parado', 'pedidos parados')} esperando liberação de corte`, true);
+    const atrasadas = abertas.filter((c) => this.atrasada(c));
+    add(atrasadas, plural(atrasadas.length, 'caminhão com saída atrasada', 'caminhões com saída atrasada'), true);
+    const pesados = this.cargas().filter((c) => (this.ocupacao(c) ?? 0) > 100);
+    add(pesados, `${plural(pesados.length, 'caminhão acima', 'caminhões acima')} da capacidade de peso`, true);
+    const notas = this.saidas().filter((c) => c.notas.problema > 0);
+    add(notas, `${plural(notas.length, 'caminhão saiu', 'caminhões saíram')} com nota recusada pela SEFAZ`, true);
+    const imp = this.saidas().filter((c) => c.impressao?.status === 'erro');
+    add(imp, `Erro na impressão das notas (${plural(imp.length, 'caminhão', 'caminhões')})`, false);
+    const semMot = abertas.filter((c) => !c.motorista);
+    add(semMot, `${plural(semMot.length, 'caminhão', 'caminhões')} sem motorista definido`, false);
+    return r;
+  });
+
+  readonly ultimasSaidas = computed(() => [...this.saidas()].sort((a, b) => (b.saiuEm ?? '').localeCompare(a.saiuEm ?? '')));
+
+  constructor() {
+    // Redesenha os gráficos quando os dados ou o filtro mudam.
+    effect(() => this.desenhar(this.cargas(), this.noGalpao()));
+  }
 
   ngOnInit(): void {
     this.carregar();
     this.syncSub = this.syncTick.onTick.subscribe(() => this.carregar());
   }
 
+  ngAfterViewInit(): void {
+    this.temaObs = new MutationObserver(() => this.desenhar(this.cargas(), this.noGalpao()));
+    this.temaObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+
   ngOnDestroy(): void {
     this.syncSub?.unsubscribe();
+    this.redim?.disconnect();
+    this.temaObs?.disconnect();
+    this.grafAndamento?.dispose();
+    this.grafSaidas?.dispose();
   }
 
   carregar(): void {
@@ -165,6 +158,10 @@ export class CargasComponent implements OnInit, OnDestroy {
         this.carregada = true;
         this.erro.set(null);
         this.carregando.set(false);
+        const d = this.detalhe();
+        if (d) this.detalhe.set(p.cargas.find((c) => c.ordemCarga === d.ordemCarga) ?? null);
+        // Os contêineres dos gráficos só existem depois do 1º carregamento.
+        setTimeout(() => this.desenhar(this.cargas(), this.noGalpao()));
       },
       error: (e) => {
         if (!this.carregada) this.erro.set(e?.error?.erro ?? 'Não foi possível carregar as cargas.');
@@ -173,8 +170,44 @@ export class CargasComponent implements OnInit, OnDestroy {
     });
   }
 
-  alternar(oc: number): void {
-    this.aberta.set(this.aberta() === oc ? null : oc);
+  private desenhar(cargas: Carga[], galpao: Carga[]): void {
+    const elA = this.grafAndamentoEl?.nativeElement;
+    const elS = this.grafSaidasEl?.nativeElement;
+    if (!elA || !elS) return;
+    this.zone.runOutsideAngular(() => {
+      if (!this.grafAndamento || this.grafAndamento.getDom() !== elA) {
+        this.grafAndamento?.dispose();
+        this.grafAndamento = echarts.init(elA);
+        this.grafAndamento.on('click', (ev: any) => {
+          const lista = [...this.noGalpao()].reverse(); // mesma ordem do eixo (1ª categoria embaixo)
+          const c = lista[ev.dataIndex];
+          if (c) this.zone.run(() => this.detalhe.set(c));
+        });
+      }
+      if (!this.grafSaidas || this.grafSaidas.getDom() !== elS) {
+        this.grafSaidas?.dispose();
+        this.grafSaidas = echarts.init(elS);
+      }
+      this.redim ??= new ResizeObserver(() => {
+        this.grafAndamento?.resize();
+        this.grafSaidas?.resize();
+      });
+      this.redim.disconnect();
+      this.redim.observe(elA);
+      this.redim.observe(elS);
+      const cores = lerCores(this.host.nativeElement);
+      this.grafAndamento.setOption(opcaoAndamento(galpao, cores), true);
+      this.grafSaidas.setOption(opcaoSaidas(cargas, cores), true);
+    });
+  }
+
+  fechar(): void {
+    this.detalhe.set(null);
+  }
+
+  abrirOc(oc: number): void {
+    const c = this.todas().find((x) => x.ordemCarga === oc);
+    if (c) this.detalhe.set(c);
   }
 
   ocupacao(c: Carga): number | null {
@@ -192,70 +225,28 @@ export class CargasComponent implements OnInit, OnDestroy {
     return d.getTime() < new Date(this.hoje.getFullYear(), this.hoje.getMonth(), this.hoje.getDate()).getTime();
   }
 
-  saidaPrevistaTexto(c: Carga): string {
-    const d = this.dataLocal(c.saidaPrevista);
-    if (!d) return 'Sem data de saída';
-    if (d.toDateString() === new Date().toDateString()) return 'Sai hoje';
-    const txt = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    return this.atrasada(c) ? `Era para sair ${txt}` : `Sai ${txt}`;
-  }
-
-  /** Frases do que falta, em português simples. */
-  frasesFalta(c: Carga): string[] {
-    const f = c.faltas;
-    const r: string[] = [];
-    if (f.corte) r.push(`${plural(f.corte, 'pedido esperando', 'pedidos esperando')} liberação de corte`);
-    if (f.aConferir) r.push(`${plural(f.aConferir, 'pedido', 'pedidos')} para conferir`);
-    if (f.emConferencia) r.push(`${plural(f.emConferencia, 'pedido sendo conferido', 'pedidos sendo conferidos')} agora`);
-    if (f.aCarregar) r.push(`${plural(f.aCarregar, 'pedido', 'pedidos')} para colocar no caminhão`);
-    return r;
-  }
-
-  /** Situação numa frase curta para a linha da tabela. */
-  situacaoTexto(c: Carga): string {
-    if (c.situacao === 'pendente') {
-      const f = c.faltas;
-      const partes: string[] = [];
-      if (f.corte) partes.push(`${f.corte} no corte`);
-      if (f.aConferir) partes.push(`${f.aConferir} a conferir`);
-      if (f.emConferencia) partes.push(`${f.emConferencia} conferindo`);
-      if (f.aCarregar) partes.push(`${f.aCarregar} a carregar`);
-      return `Carregando · falta ${partes.join(', ')}`;
-    }
-    if (c.situacao === 'pronta') return 'Pronto · falta fechar a OC';
-    return `Saiu`;
-  }
-
-  saidaCurta(c: Carga): string {
-    const d = this.dataLocal(c.saidaPrevista);
-    if (!d) return '—';
-    if (d.toDateString() === new Date().toDateString()) return 'hoje';
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  }
-
   textoNotas(c: Carga): string {
     const n = c.notas;
-    if (!n.total) return 'Notas emitidas';
-    if (n.problema) return `${plural(n.problema, 'nota recusada', 'notas recusadas')} pela SEFAZ`;
-    if (n.aguardando) return `${plural(n.aguardando, 'nota aguardando', 'notas aguardando')} a SEFAZ`;
-    return n.total === 1 ? 'Nota aprovada' : `${n.total} notas aprovadas`;
+    if (!n.total) return 'notas emitidas';
+    if (n.problema) return plural(n.problema, 'nota recusada', 'notas recusadas');
+    if (n.aguardando) return plural(n.aguardando, 'nota na SEFAZ', 'notas na SEFAZ');
+    return n.total === 1 ? 'nota ok' : `${n.total} notas ok`;
   }
 
-  periodoTexto(c: Carga): string | null {
-    const t = c.turnos ?? [];
-    if (t.length > 1) return 'Diurno e noturno';
-    if (t[0] === 'D') return 'Diurno';
-    if (t[0] === 'N') return 'Noturno';
-    return null;
+  situacaoTexto(c: Carga): string {
+    if (c.situacao === 'saiu') return 'Saiu para entrega';
+    if (c.situacao === 'pronta') return 'Pronto — falta fechar a OC';
+    const f = c.faltas;
+    const p: string[] = [];
+    if (f.corte) p.push(`${f.corte} no corte`);
+    if (f.aConferir) p.push(`${f.aConferir} a conferir`);
+    if (f.emConferencia) p.push(`${f.emConferencia} conferindo`);
+    if (f.aCarregar) p.push(`${f.aCarregar} a carregar`);
+    return `Carregando — falta ${p.join(', ')}`;
   }
 
   rotuloPedido(p: PedidoCarga): string {
     if (p.situacao === 'com_nota' && p.notaNumero) return `NF ${p.notaNumero} · ${p.notaSituacao ?? ''}`.trim();
     return ROTULO_PEDIDO[p.situacao];
   }
-
-  icone(p: PedidoCarga): OqIconName {
-    return ICONE_PEDIDO[p.situacao];
-  }
-
 }

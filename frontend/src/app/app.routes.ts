@@ -29,7 +29,6 @@ import { EtiquetaPesoComponent } from './etiqueta-peso/etiqueta-peso.component';
 import { CarregamentoComponent } from './reconferencia/carregamento.component';
 import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
 import { ImpressaoOcComponent } from './impressao-oc/impressao-oc.component';
-import { CargasComponent } from './cargas/cargas.component';
 import { MapaSeparacaoComponent } from './mapa-separacao/mapa-separacao.component';
 import { ConsultaProdutosComponent } from './consulta-produtos/consulta-produtos.component';
 import { AuditoriaPedidoComponent } from './auditoria-pedido/auditoria-pedido.component';
@@ -55,7 +54,8 @@ export const routes: Routes = [
   { path: 'pendencias-integracao', component: PendenciasIntegracaoComponent, canActivate: [authGuard] },
   { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
   { path: 'impressao-oc', component: ImpressaoOcComponent, canActivate: [authGuard] },
-  { path: 'cargas', component: CargasComponent, canActivate: [authGuard] },
+  // Painel da expedição — carregado só ao abrir (ECharts fica fora do bundle inicial).
+  { path: 'cargas', loadComponent: () => import('./cargas/cargas.component').then((m) => m.CargasComponent), canActivate: [authGuard] },
   { path: 'carregamento', component: CarregamentoComponent, canActivate: [authGuard] },
   { path: 'carregamento/:sessaoId', component: CarregamentoComponent, canActivate: [authGuard] },
   { path: 'mapa-separacao', component: MapaSeparacaoComponent, canActivate: [authGuard] },
