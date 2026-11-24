@@ -19,10 +19,13 @@ class CargasRegrasTest {
         CargasRegras.Fechamento(oc, ZonedDateTime.of(dia.atTime(h, 5), zona).toInstant(), "Ana", motivo, status, null, null)
 
     private fun montar(pedidos: List<CargasRegras.Pedido>, fech: List<CargasRegras.Fechamento> = emptyList(),
-                       fechadas: Set<Long> = emptySet(), dia: LocalDate = hoje) =
+                       fechadas: Set<Long> = emptySet(), dia: LocalDate = hoje,
+                       alteradas: Map<Long, java.time.Instant> = emptyMap(), prontas: Map<Long, java.time.Instant> = emptyMap()) =
         CargasRegras.montar(pedidos, fech,
-            pedidos.map { it.ordemCarga }.associateWith { CargasRegras.Transporte("JOAO", "ABC1D23", null, it in fechadas, 1000.0, hoje) },
-            dia, hoje, zona)
+            pedidos.map { it.ordemCarga }.associateWith {
+                CargasRegras.Transporte("JOAO", "ABC1D23", null, it in fechadas, 1000.0, hoje, "PINDAMONHANGABA", alteradas[it])
+            },
+            ZonedDateTime.of(dia.atStartOfDay(), zona).toInstant(), hoje, prontas)
 
     @Test
     fun `pedido a conferir, corte ou a carregar deixa a OC pendente e diz o que falta`() {
@@ -51,11 +54,29 @@ class CargasRegrasTest {
     }
 
     @Test
-    fun `saiu em outro dia ou fechada sem registro nao aparece`() {
+    fun `saida antes da janela nao aparece`() {
         val ontem = hoje.minusDays(1)
         val pedidos = listOf(pedido(1), pedido(2, oc = 200))
         assertTrue(montar(pedidos, listOf(fechamento(100, 18, ontem)), fechadas = setOf(100, 200)).isEmpty())
         assertEquals(listOf(100L), montar(pedidos, listOf(fechamento(100, 18, ontem)), fechadas = setOf(100, 200), dia = ontem).map { it.ordemCarga })
+    }
+
+    @Test
+    fun `fechada direto no Sankhya sai com a hora do DTALTER e marcada`() {
+        val quando = ZonedDateTime.of(hoje.atTime(16, 20), zona).toInstant()
+        val c = montar(listOf(pedido(1)), fechadas = setOf(100), alteradas = mapOf(100L to quando)).single()
+        assertEquals("saiu", c.situacao)
+        assertEquals(quando.toString(), c.saiuEm)
+        assertTrue(c.fechadaNoSankhya)
+        assertEquals("PINDAMONHANGABA", c.regiao)
+    }
+
+    @Test
+    fun `pronta informa desde quando`() {
+        val desde = ZonedDateTime.of(hoje.atTime(15, 0), zona).toInstant()
+        val c = montar(listOf(pedido(1)), prontas = mapOf(100L to desde)).single()
+        assertEquals("pronta", c.situacao)
+        assertEquals(desde.toString(), c.prontaDesde)
     }
 
     @Test

@@ -164,6 +164,42 @@
 .pn-painel--andamento { @media (max-width: 1023px) { height: 480px; } }
 
 .pn-grafico { flex: 1; min-height: 0; width: 100%; }
+
+// Andamento: o gráfico cresce com o número de caminhões e rola dentro do painel (a página não rola).
+.pn-rolagem {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  .pn-grafico { flex: none; min-height: 100%; }
+}
+
+// Lista equivalente ao gráfico, só para teclado/leitor de tela (aparece ao receber foco).
+.pn-sr {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  li:focus-within { position: static; width: auto; height: auto; clip: auto; margin-top: 6px; }
+  button { font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid var(--oq-border); border-radius: 4px; background: var(--oq-surface); color: var(--oq-text-primary); }
+}
+
+// Dados velhos (sync com o Sankhya atrasado ou servidor fora).
+.pn-aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--oq-attention) 45%, var(--oq-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--oq-attention) 10%, var(--oq-surface));
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-warning-foreground);
+}
 .pn-grafico--oculto { visibility: hidden; flex: 0; }
 .pn-grafico--saidas { min-height: 100px; }
 
@@ -250,7 +286,12 @@
 
 .pn-saidas__hora { font-family: var(--oq-font-mono); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pn-saidas__oc { font-weight: 700; font-variant-numeric: tabular-nums; }
-.pn-saidas__quem { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pn-saidas__quem {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  small { margin-left: 4px; font-family: var(--oq-font-mono); font-size: 11.5px; color: var(--oq-text-secondary); }
+}
 .pn-saidas__notas { font-size: 12px; color: var(--oq-concluido-foreground); white-space: nowrap; }
 
 // ─── Detalhe do caminhão (painel lateral) ────────────────────────────────────────────────────────────────
@@ -281,8 +322,11 @@
   align-items: flex-start;
 
   h2 { margin: 0; font-family: var(--oq-font-display); font-size: 22px; font-weight: 700; }
+  h2 small { margin-left: 6px; font-family: var(--oq-font-mono); font-size: 15px; font-weight: 600; color: var(--oq-text-secondary); }
   span { font-size: 13px; color: var(--oq-text-secondary); }
 }
+
+.pn-detalhe__nota { margin: -4px 0 0; font-size: 12px; color: var(--oq-text-secondary); }
 
 .pn-fechar {
   display: grid;

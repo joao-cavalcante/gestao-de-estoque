@@ -20,6 +20,7 @@ export interface CoresTema {
   conferindo: string;
   aConferir: string;
   corte: string;
+  alerta: string;
   linha: string;
   fonte: string;
 }
@@ -41,15 +42,40 @@ export function lerCores(el: HTMLElement): CoresTema {
     borda: v('--oq-border', '#e3e0ea'),
     superficie: v('--oq-surface', '#ffffff'),
     ...(escuro ? ETAPAS_ESCURO : ETAPAS_CLARO),
+    alerta: v('--oq-critical-foreground', '#7A1610'),
     linha: v('--oq-text-primary', '#1d1b22'),
     fonte: v('--oq-font-body', 'Inter, sans-serif'),
   };
 }
 
-/** "JOSE CARLOS SILVA" → "José Carlos Silva" (sem acento: só capitaliza). */
-export function nomeProprio(m: string | null): string {
-  if (!m) return 'sem motorista';
-  return m.trim().toLowerCase().replace(/(^|\s)(\p{L})/gu, (_, e, l) => e + l.toUpperCase()).replace(/ (Da|De|Do|Das|Dos|E) /g, (x) => x.toLowerCase());
+/** "JOSE CARLOS SILVA" → "Jose Carlos Silva" (preposições em minúsculas). */
+export function nomeProprio(m: string | null | undefined, vazio = 'sem motorista'): string {
+  if (!m) return vazio;
+  return m
+    .trim()
+    .toLowerCase()
+    .replace(/(^|\s)(\p{L})/gu, (_, e, l) => e + l.toUpperCase())
+    .replace(/ (Da|De|Do|Das|Dos|E) /g, (x) => x.toLowerCase());
+}
+
+/** "ABC1D23" → "ABC-1D23". */
+export function placaTexto(p: string | null | undefined): string {
+  if (!p) return 'sem placa';
+  const t = p.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return t.length === 7 ? `${t.slice(0, 3)}-${t.slice(3)}` : t;
+}
+
+/** Minutos inteiros desde [iso] (null sem data). */
+export function minutosDesde(iso: string | null | undefined, agora = Date.now()): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.floor((agora - new Date(iso).getTime()) / 60_000));
+}
+
+export function duracaoTexto(min: number): string {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
 }
 
 /** Etapas na ordem do fluxo (da esquerda para a direita na barra): o que já está pronto primeiro. */
@@ -58,7 +84,7 @@ export const ETAPAS: { chave: SituacaoPedido | 'pronto'; nome: string; cor: keyo
   { chave: 'a_carregar', nome: 'A carregar', cor: 'aCarregar' },
   { chave: 'em_conferencia', nome: 'Conferindo', cor: 'conferindo' },
   { chave: 'a_conferir', nome: 'A conferir', cor: 'aConferir' },
-  { chave: 'corte', nome: 'Corte a liberar', cor: 'corte' },
+  { chave: 'corte', nome: 'Falta a aprovar', cor: 'corte' },
 ];
 
 function contar(c: Carga, chave: SituacaoPedido | 'pronto'): number {
@@ -66,27 +92,34 @@ function contar(c: Carga, chave: SituacaoPedido | 'pronto'): number {
   return c.pedidos.filter((p) => p.situacao === chave).length;
 }
 
-function nomeCurto(m: string | null): string {
-  if (!m) return 'sem motorista';
-  const partes = nomeProprio(m).split(/\s+/);
-  return partes.length > 1 ? `${partes[0]} ${partes[1][0]}.` : partes[0];
+function curto(t: string, max: number): string {
+  return t.length > max ? t.slice(0, max - 1) + '…' : t;
 }
 
-/** Texto à direita da barra: o que falta para o caminhão sair. */
-function falta(c: Carga): string {
-  if (c.situacao === 'pronta') return '{ok|✓ pronto · fechar OC}';
-  const n = c.pedidos.length - c.prontos;
-  return `{falta|faltam ${n}}`;
-}
+/** Altura por caminhão no gráfico (duas linhas de rótulo). */
+export const ALTURA_LINHA = 46;
 
-/** Barras empilhadas: uma linha por caminhão ainda no galpão, pedidos por etapa. */
-export function opcaoAndamento(cargas: Carga[], cores: CoresTema): echarts.EChartsCoreOption {
+/**
+ * Barras empilhadas: uma linha por caminhão ainda no galpão, pedidos por etapa. Rótulo à esquerda: OC + placa e a
+ * região embaixo; à direita, o que falta (ou há quanto tempo está pronto).
+ */
+export function opcaoAndamento(
+  cargas: Carga[],
+  cores: CoresTema,
+  ladoDireito: (c: Carga) => { texto: string; tom: 'ok' | 'falta' | 'alerta' | 'futuro' },
+): echarts.EChartsCoreOption {
   const linhas = [...cargas].reverse(); // ECharts desenha a 1ª categoria embaixo
-  const rotulos = linhas.map((c) => `OC ${c.ordemCarga}  ·  ${nomeCurto(c.motorista)}`);
+  const rotulos = linhas.map(
+    (c) => `{oc|OC ${c.ordemCarga}}{sep|·}{placa|${placaTexto(c.placa)}}\n{reg|${curto(nomeProprio(c.regiao, 'sem região'), 26)}}`,
+  );
+  const direita = linhas.map((c) => {
+    const d = ladoDireito(c);
+    return `{${d.tom}|${d.texto}}`;
+  });
   return {
     textStyle: { fontFamily: cores.fonte },
     animationDuration: 300,
-    grid: { left: 8, right: 8, top: 36, bottom: 8, containLabel: true },
+    grid: { left: 8, right: 8, top: 34, bottom: 4, containLabel: true },
     legend: {
       top: 0,
       left: 0,
@@ -106,9 +139,8 @@ export function opcaoAndamento(cargas: Carga[], cores: CoresTema): echarts.EChar
       formatter: (ps: any) => {
         const arr = Array.isArray(ps) ? ps : [ps];
         const c = linhas[arr[0].dataIndex];
-        const itens = arr.filter((p: any) => p.value > 0)
-          .map((p: any) => `${p.marker} ${p.seriesName}: <b>${p.value}</b>`).join('<br/>');
-        return `<b>OC ${c.ordemCarga}</b> · ${nomeProprio(c.motorista)}${c.placa ? ' · ' + c.placa : ''}<br/>${itens}<br/><span style="opacity:.7">clique para ver os pedidos</span>`;
+        const itens = arr.filter((p: any) => p.value > 0).map((p: any) => `${p.marker} ${p.seriesName}: <b>${p.value}</b>`).join('<br/>');
+        return `<b>OC ${c.ordemCarga}</b> · ${placaTexto(c.placa)}<br/>${nomeProprio(c.motorista)} · ${nomeProprio(c.regiao, 'sem região')}<br/>${itens}<br/><span style="opacity:.7">clique para ver os pedidos</span>`;
       },
     },
     xAxis: {
@@ -123,18 +155,28 @@ export function opcaoAndamento(cargas: Carga[], cores: CoresTema): echarts.EChar
         data: rotulos,
         axisTick: { show: false },
         axisLine: { lineStyle: { color: cores.borda } },
-        axisLabel: { color: cores.texto, fontSize: 12, fontWeight: 600 },
+        axisLabel: {
+          lineHeight: 16,
+          rich: {
+            oc: { color: cores.texto, fontSize: 12.5, fontWeight: 700 },
+            sep: { color: cores.textoFraco, fontSize: 12, padding: [0, 6] },
+            placa: { color: cores.texto, fontSize: 12, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 },
+            reg: { color: cores.textoFraco, fontSize: 11.5 },
+          },
+        },
       },
       {
         type: 'category',
         position: 'right',
-        data: linhas.map(falta),
+        data: direita,
         axisTick: { show: false },
         axisLine: { show: false },
         axisLabel: {
           rich: {
             ok: { color: cores.carregado, fontSize: 12, fontWeight: 700 },
             falta: { color: cores.textoFraco, fontSize: 12, fontWeight: 600 },
+            alerta: { color: cores.alerta, fontSize: 12, fontWeight: 700 },
+            futuro: { color: cores.textoFraco, fontSize: 12, fontStyle: 'italic' },
           },
         },
       },
@@ -143,8 +185,8 @@ export function opcaoAndamento(cargas: Carga[], cores: CoresTema): echarts.EChar
       name: e.nome,
       type: 'bar',
       stack: 'pedidos',
-      barMaxWidth: 26,
-      barMinWidth: 14,
+      barMaxWidth: 22,
+      barMinWidth: 12,
       itemStyle: {
         color: cores[e.cor],
         borderColor: cores.superficie,
@@ -157,20 +199,22 @@ export function opcaoAndamento(cargas: Carga[], cores: CoresTema): echarts.EChar
   };
 }
 
-/** Saídas acumuladas por hora (realizado) com a linha do total programado (meta do dia). */
-export function opcaoSaidas(cargas: Carga[], cores: CoresTema, agora = new Date()): echarts.EChartsCoreOption {
-  const saidas = cargas.filter((c) => c.situacao === 'saiu' && c.saiuEm).map((c) => new Date(c.saiuEm!).getHours());
-  const total = cargas.length;
-  const ini = Math.min(6, ...saidas);
-  const fim = Math.max(22, ...saidas);
-  const horaAtual = agora.getHours();
+/** Saídas acumuladas por hora dentro da janela (dia ou noite), com a linha do total programado. */
+export function opcaoSaidas(
+  saidas: Carga[],
+  total: number,
+  inicio: Date,
+  horasJanela: number,
+  cores: CoresTema,
+  agora = new Date(),
+): echarts.EChartsCoreOption {
   const horas: string[] = [];
   const acumulado: (number | null)[] = [];
-  let soma = 0;
-  for (let h = ini; h <= fim; h++) {
-    soma += saidas.filter((x) => x === h).length;
-    horas.push(`${String(h).padStart(2, '0')}h`);
-    acumulado.push(h <= horaAtual ? soma : null); // futuro fica em branco
+  const momentos = saidas.filter((c) => c.saiuEm).map((c) => new Date(c.saiuEm!).getTime());
+  for (let i = 0; i <= horasJanela; i++) {
+    const ini = inicio.getTime() + i * 3_600_000;
+    horas.push(`${String(new Date(ini).getHours()).padStart(2, '0')}h`);
+    acumulado.push(ini <= agora.getTime() ? momentos.filter((m) => m < ini + 3_600_000).length : null);
   }
   return {
     textStyle: { fontFamily: cores.fonte },
@@ -189,7 +233,7 @@ export function opcaoSaidas(cargas: Carga[], cores: CoresTema, agora = new Date(
       boundaryGap: false,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: cores.borda } },
-      axisLabel: { color: cores.textoFraco, fontSize: 11, interval: 2 },
+      axisLabel: { color: cores.textoFraco, fontSize: 11, interval: horasJanela > 12 ? 2 : 1 },
     },
     yAxis: {
       type: 'value',

@@ -3,8 +3,8 @@
     <!-- Cabeçalho -->
     <header class="pn-topo">
       <div class="pn-topo__titulo">
-        <h1>Expedição de hoje</h1>
-        <span>{{ hoje | date: "EEEE, d 'de' MMMM" }}@if (atualizadoEm(); as a) { · atualizado às {{ a | date: 'HH:mm' }} }</span>
+        <h1>{{ periodo() === 'N' ? 'Expedição da noite' : 'Expedição de hoje' }}</h1>
+        <span>{{ janela().titulo }}@if (atualizadoEm(); as a) { · atualizado às {{ a | date: 'HH:mm' }} }</span>
       </div>
       <div class="pn-filtro" role="group" aria-label="Período de entrega">
         <button type="button" [class.ativo]="periodo() === 'todos'" [attr.aria-pressed]="periodo() === 'todos'" (click)="periodo.set('todos')">Todos</button>
@@ -12,6 +12,17 @@
         <button type="button" [class.ativo]="periodo() === 'N'" [attr.aria-pressed]="periodo() === 'N'" (click)="periodo.set('N')">Noturno <small>{{ porTurno().N }}</small></button>
       </div>
     </header>
+
+    @if (dadosVelhos() && !erro()) {
+      <p class="pn-aviso" role="status">
+        <oq-icon name="circle-alert" [size]="14" />
+        @if (falhaDesde(); as f) {
+          Sem conexão com o servidor desde {{ f | date: 'HH:mm' }} — os números abaixo podem estar desatualizados.
+        } @else {
+          Os dados do Sankhya estão sem atualizar há {{ duracao(minutosSemSync() ?? 0) }} (última leitura às {{ sincronizadoEm() | date: 'HH:mm' }}) — os números podem estar desatualizados.
+        }
+      </p>
+    }
 
     @if (erro()) {
       <div class="oq-page__status oq-page__status--erro">
@@ -22,36 +33,36 @@
       <div class="pn-carregando" aria-busy="true"><oq-skeleton variant="line" [count]="8" /></div>
     } @else {
       <!-- Indicadores -->
-      <section class="pn-kpis" aria-label="Indicadores do dia">
+      <section class="pn-kpis" aria-label="Indicadores">
         <div class="pn-kpi pn-kpi--principal">
           <span class="pn-kpi__rot">Saíram para entrega</span>
           <span class="pn-kpi__val">{{ saidas().length }}<small> de {{ total() }}</small></span>
           <span class="pn-kpi__barra" role="progressbar" [attr.aria-valuenow]="pctSaiu()" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="pctSaiu()"></span></span>
-          <span class="pn-kpi__sub">{{ pctSaiu() }}% dos caminhões do dia</span>
+          <span class="pn-kpi__sub">{{ pctSaiu() }}% dos caminhões {{ periodo() === 'N' ? 'da noite' : 'do dia' }}@if (futuras().length) { · +{{ futuras().length }} para os próximos dias }</span>
         </div>
         <div class="pn-kpi" data-tom="pronta">
           <span class="pn-kpi__rot"><i></i>Prontos para sair</span>
           <span class="pn-kpi__val">{{ prontas().length }}</span>
-          <span class="pn-kpi__sub">carregados, falta fechar a OC</span>
+          <span class="pn-kpi__sub">carregados, falta emitir as notas</span>
         </div>
         <div class="pn-kpi" data-tom="pendente">
           <span class="pn-kpi__rot"><i></i>Carregando</span>
           <span class="pn-kpi__val">{{ carregandoOcs().length }}</span>
-          <span class="pn-kpi__sub">{{ pedidosFaltando() }} pedidos ainda faltam</span>
+          <span class="pn-kpi__sub">{{ plural(pedidosFaltando(), 'pedido ainda falta', 'pedidos ainda faltam') }}</span>
         </div>
         <div class="pn-kpi">
           <span class="pn-kpi__rot">Peso expedido</span>
           <span class="pn-kpi__val">{{ pesoTexto(pesoSaiu()) }}</span>
           <span class="pn-kpi__sub">de {{ pesoTexto(pesoTotal()) }} programados</span>
         </div>
-        <div class="pn-kpi" [attr.data-tom]="ocorrencias().length ? 'ruim' : 'ok'">
-          <span class="pn-kpi__rot"><i></i>Ocorrências</span>
-          <span class="pn-kpi__val">{{ ocorrencias().length }}</span>
-          <span class="pn-kpi__sub">{{ ocorrencias().length ? 'precisam de atenção' : 'nenhum problema agora' }}</span>
+        <div class="pn-kpi" [attr.data-tom]="caminhoesComOcorrencia() ? 'ruim' : 'ok'">
+          <span class="pn-kpi__rot"><i></i>Com ocorrência</span>
+          <span class="pn-kpi__val">{{ caminhoesComOcorrencia() }}</span>
+          <span class="pn-kpi__sub">{{ caminhoesComOcorrencia() ? (caminhoesComOcorrencia() === 1 ? 'caminhão precisa' : 'caminhões precisam') + ' de atenção' : 'nenhum problema agora' }}</span>
         </div>
       </section>
 
-      <!-- Corpo: andamento (esquerda) · ocorrências, saídas e últimas saídas (direita) -->
+      <!-- Corpo -->
       <section class="pn-corpo">
         <article class="pn-painel pn-painel--andamento">
           <header class="pn-painel__cab">
@@ -61,8 +72,16 @@
           @if (noGalpao().length === 0) {
             <p class="pn-vazio">Nenhum caminhão no galpão {{ periodo() === 'todos' ? 'agora' : 'neste período' }}.</p>
           }
-          <div #grafAndamento class="pn-grafico" [class.pn-grafico--oculto]="noGalpao().length === 0" role="img"
-            [attr.aria-label]="'Andamento de ' + noGalpao().length + ' caminhões por etapa'"></div>
+          <div class="pn-rolagem" [class.pn-grafico--oculto]="noGalpao().length === 0">
+            <div #grafAndamento class="pn-grafico" [style.height.px]="alturaGrafico()" role="img"
+              [attr.aria-label]="'Andamento de ' + noGalpao().length + ' caminhões por etapa'"></div>
+          </div>
+          <!-- Mesma lista para teclado e leitor de tela (o gráfico só abre com clique). -->
+          <ul class="pn-sr" aria-label="Caminhões no galpão">
+            @for (c of noGalpao(); track c.ordemCarga) {
+              <li><button type="button" (click)="abrirOc(c.ordemCarga)">OC {{ c.ordemCarga }}, {{ placa(c.placa) }}, {{ nome(c.regiao, 'sem região') }}: {{ situacaoTexto(c) }}</button></li>
+            }
+          </ul>
         </article>
 
         <div class="pn-lado">
@@ -89,8 +108,8 @@
 
           <article class="pn-painel pn-painel--saidas">
             <header class="pn-painel__cab">
-              <h2>Saídas ao longo do dia</h2>
-              <span>acumulado × programados</span>
+              <h2>Saídas {{ periodo() === 'N' ? 'da noite' : 'ao longo do dia' }}</h2>
+              <span>acumulado × programados · pela hora do Fechar OC</span>
             </header>
             <div #grafSaidas class="pn-grafico pn-grafico--saidas" role="img"
               [attr.aria-label]="saidas().length + ' de ' + total() + ' caminhões saíram até agora'"></div>
@@ -98,18 +117,18 @@
 
           <article class="pn-painel pn-painel--ultimas">
             <header class="pn-painel__cab"><h2>Últimas saídas</h2></header>
-            @if (ultimasSaidas().length === 0) {
-              <p class="pn-vazio">Nenhum caminhão saiu ainda.</p>
+            @if (saidas().length === 0) {
+              <p class="pn-vazio">Nenhum caminhão saiu {{ periodo() === 'N' ? 'nesta noite' : 'hoje' }} ainda.</p>
             } @else {
               <ul class="pn-saidas">
-                @for (c of ultimasSaidas(); track c.ordemCarga) {
+                @for (c of saidas(); track c.ordemCarga) {
                   <li>
                     <button type="button" (click)="abrirOc(c.ordemCarga)">
                       <span class="pn-saidas__hora">{{ c.saiuEm | date: 'HH:mm' }}</span>
                       <span class="pn-saidas__oc">OC {{ c.ordemCarga }}</span>
-                      <span class="pn-saidas__quem">{{ nome(c.motorista) }}</span>
+                      <span class="pn-saidas__quem">{{ nome(c.regiao, 'sem região') }} <small>{{ placa(c.placa) }}</small></span>
                       <span class="pn-saidas__notas" [class.ruim]="c.notas.problema > 0 || c.impressao?.status === 'erro'">
-                        {{ textoNotas(c) }}{{ c.impressao?.status === 'erro' ? ' · erro na impressão' : '' }}
+                        {{ textoNotas(c) }}{{ c.impressao?.status === 'erro' ? ' · erro na impressão' : '' }}{{ c.fechadaNoSankhya ? ' · fechada no Sankhya' : '' }}
                       </span>
                     </button>
                   </li>
@@ -128,8 +147,8 @@
     <aside class="pn-detalhe" role="dialog" aria-modal="true" [attr.aria-label]="'OC ' + c.ordemCarga">
       <header class="pn-detalhe__cab">
         <div>
-          <h2>OC {{ c.ordemCarga }}</h2>
-          <span>{{ nome(c.motorista) }}{{ c.placa ? ' · ' + c.placa : '' }}</span>
+          <h2>OC {{ c.ordemCarga }} <small>{{ placa(c.placa) }}</small></h2>
+          <span>{{ nome(c.regiao, 'sem região') }} · {{ nome(c.motorista) }}</span>
         </div>
         <button type="button" class="pn-fechar" (click)="fechar()" aria-label="Fechar"><oq-icon name="x" [size]="16" /></button>
       </header>
@@ -138,20 +157,27 @@
       </p>
       <dl class="pn-detalhe__dados">
         <div><dt>Pedidos</dt><dd>{{ c.pedidos.length }} · {{ c.clientes }} {{ c.clientes === 1 ? 'cliente' : 'clientes' }}</dd></div>
-        <div><dt>Peso</dt><dd>{{ pesoTexto(c.pesoKg) }}@if (ocupacao(c); as pct) { &nbsp;<small [class.ruim]="pct > 100">({{ pct }}% do caminhão)</small> }</dd></div>
-        <div><dt>Saída prevista</dt><dd [class.ruim]="atrasada(c)">{{ c.saidaPrevista ? (c.saidaPrevista | date: 'dd/MM') : '—' }}{{ atrasada(c) ? ' · atrasada' : '' }}</dd></div>
+        <div>
+          <dt>Peso dos pedidos</dt>
+          <dd>{{ pesoTexto(c.pesoKg) }}@if (ocupacao(c); as pct) { &nbsp;<small [class.ruim]="pct > 100">({{ pct }}% do caminhão)</small> }</dd>
+        </div>
+        <div>
+          <dt>Saída prevista</dt>
+          <dd [class.ruim]="diasParaSair(c) < 0 && c.situacao !== 'saiu'">{{ dataCurta(c.saidaPrevista) }}{{ diasParaSair(c) < 0 && c.situacao !== 'saiu' ? ' · ' + atrasoTexto(c) : '' }}</dd>
+        </div>
         @if (c.situacao === 'saiu') {
           <div><dt>Notas</dt><dd [class.ruim]="c.notas.problema > 0">{{ textoNotas(c) }}</dd></div>
           @if (c.impressao; as i) { <div><dt>Impressão</dt><dd [class.ruim]="i.status === 'erro'">{{ rotuloImpressao(i.status) }}</dd></div> }
         }
       </dl>
+      <p class="pn-detalhe__nota">O peso é o dos pedidos; cortes feitos na conferência ainda não descontam.</p>
       <table class="pn-pedidos">
         <thead><tr><th>Nº único</th><th>Cliente</th><th class="n">Peso</th><th>Situação</th></tr></thead>
         <tbody>
           @for (p of c.pedidos; track p.nunota) {
             <tr>
               <td class="n-esq">{{ p.nunota }}</td>
-              <td>{{ p.cliente ?? '—' }}</td>
+              <td>{{ nome(p.cliente, '—') }}</td>
               <td class="n">{{ pesoTexto(p.pesoKg) }}</td>
               <td><span class="pn-ped" [attr.data-situacao]="p.situacao" [attr.data-nfe]="p.notaStatusNfe">{{ rotuloPedido(p) }}</span></td>
             </tr>

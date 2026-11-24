@@ -6,8 +6,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CargasDto(
     val atualizadoEm: String,
-    /** Dia das OCs que saíram (yyyy-MM-dd). */
-    val diaSaida: String,
+    /** Saídas a partir deste instante (ISO) — a tela recorta o dia ou o turno. */
+    val saidasDesde: String,
+    /** Último ciclo de sincronização com o Sankhya que deu certo (ISO; null = desconhecido). */
+    val sincronizadoEm: String? = null,
     val cargas: List<CargaDto>,
 )
 
@@ -37,6 +39,12 @@ data class CargaDto(
     /** Só "saiu": quando o Fechar OC foi feito (ISO) e por quem. */
     val saiuEm: String? = null,
     val fechadaPor: String? = null,
+    /** Saiu sem o Fechar OC da Torre (fechada direto no Sankhya; hora = TGFORD.DTALTER). */
+    val fechadaNoSankhya: Boolean = false,
+    /** TSIREG.NOMEREG. */
+    val regiao: String? = null,
+    /** Só "pronta": desde quando está pronta (último item carregado ou conferência concluída), ISO. */
+    val prontaDesde: String? = null,
     val impressao: ImpressaoResumoDto? = null,
     val notas: NotasResumoDto,
     val pedidos: List<PedidoCargaDto>,

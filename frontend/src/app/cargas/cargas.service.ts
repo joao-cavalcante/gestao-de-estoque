@@ -48,6 +48,12 @@ export interface Carga {
   faltas: Faltas;
   saiuEm: string | null;
   fechadaPor: string | null;
+  /** Saiu sem o Fechar OC da Torre (fechada direto no Sankhya). */
+  fechadaNoSankhya?: boolean;
+  /** TSIREG.NOMEREG. */
+  regiao?: string | null;
+  /** Só "pronta": desde quando (ISO). */
+  prontaDesde?: string | null;
   impressao: { status: string; erro: string | null; impressoEm: string | null } | null;
   notas: { total: number; aprovadas: number; aguardando: number; problema: number };
   pedidos: PedidoCarga[];
@@ -55,7 +61,10 @@ export interface Carga {
 
 export interface PainelCargas {
   atualizadoEm: string;
-  diaSaida: string;
+  /** Saídas devolvidas a partir deste instante (últimas 36 h) — a tela recorta o dia ou a noite. */
+  saidasDesde: string;
+  /** Último sync com o Sankhya que deu certo. */
+  sincronizadoEm?: string | null;
   cargas: Carga[];
 }
 
@@ -63,8 +72,8 @@ export interface PainelCargas {
 export class CargasService {
   private readonly http = inject(HttpClient);
 
-  painel(dia: DiaSaida): Observable<PainelCargas> {
-    return this.http.get<PainelCargas>('/api/cargas', { params: { dia } });
+  painel(): Observable<PainelCargas> {
+    return this.http.get<PainelCargas>('/api/cargas');
   }
 }
 
@@ -85,7 +94,7 @@ export function pesoTexto(kg: number): string {
 }
 
 export const ROTULO_PEDIDO: Record<SituacaoPedido, string> = {
-  corte: 'Aguardando corte',
+  corte: 'Falta esperando aprovação',
   a_conferir: 'Aguardando conferência',
   em_conferencia: 'Em conferência',
   a_carregar: 'Aguardando carregamento',

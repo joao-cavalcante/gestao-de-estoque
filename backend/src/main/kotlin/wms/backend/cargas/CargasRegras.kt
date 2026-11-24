@@ -2,7 +2,6 @@ package wms.backend.cargas
 
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 
 /**
  * Regra da tela Cargas (24/11/2026) — situação de cada Ordem de Carga, sem I/O (testável). DECISÃO DE PRODUTO
@@ -48,7 +47,18 @@ object CargasRegras {
 
     data class Fechamento(val ordemCarga: Long, val criadoEm: Instant, val solicitadoPor: String?, val motivo: String, val status: String, val erro: String?, val impressoEm: Instant?)
 
-    data class Transporte(val motorista: String?, val placa: String?, val veiculo: String?, val fechada: Boolean, val pesoMaxKg: Double?, val saidaPrevista: LocalDate?)
+    data class Transporte(
+        val motorista: String?,
+        val placa: String?,
+        val veiculo: String?,
+        val fechada: Boolean,
+        val pesoMaxKg: Double?,
+        val saidaPrevista: LocalDate?,
+        /** TSIREG.NOMEREG da OC (TGFORD.CODREG) — "PINDAMONHANGABA". */
+        val regiao: String? = null,
+        /** TGFORD.DTALTER — na OC fechada é a hora do fechamento (bate no segundo com o Fechar OC da Torre, 24/11). */
+        val alteradaEm: Instant? = null,
+    )
 
     private val EM_CONFERENCIA = setOf("andamento", "recontagem_andamento", "aguardando_finalizacao")
     private val A_CONFERIR = setOf("aguardando", "aguardando_recontagem")
@@ -70,9 +80,11 @@ object CargasRegras {
         pedidos: List<Pedido>,
         fechamentos: List<Fechamento>,
         transporte: Map<Long, Transporte>,
-        diaSaida: LocalDate,
+        /** Saídas (Fechar OC) a partir deste instante entram — a tela recorta o dia/turno. */
+        saidasDesde: Instant,
         hoje: LocalDate,
-        zona: ZoneId,
+        /** Quando cada OC ficou pronta (último item carregado / conferência concluída). */
+        prontaDesde: Map<Long, Instant> = emptyMap(),
     ): List<CargaDto> {
         val primeiroFechamento = fechamentos.filter { it.motivo == "fechamento" }.groupBy { it.ordemCarga }
             .mapValues { (_, l) -> l.minBy { it.criadoEm } }
@@ -84,8 +96,9 @@ object CargasRegras {
             val situacoes = doGrupo.associate { it.nunota to situacaoPedido(it) }
             val situacao = when {
                 t?.fechada == true || fechamento != null -> {
-                    // Sem o registro do Fechar OC (fechada direto no Sankhya) não há hora para encaixar no dia.
-                    if (fechamento == null || fechamento.criadoEm.atZone(zona).toLocalDate() != diaSaida) return@mapNotNull null
+                    // Fechada direto no Sankhya (sem Fechar OC da Torre): a hora vem do TGFORD.DTALTER.
+                    val quando = fechamento?.criadoEm ?: t?.alteradaEm ?: return@mapNotNull null
+                    if (quando.isBefore(saidasDesde)) return@mapNotNull null
                     "saiu"
                 }
                 situacoes.values.any { it.pendente } -> "pendente"
@@ -119,8 +132,11 @@ object CargasRegras {
                     emConferencia = situacoes.values.count { it == SituacaoPedido.EM_CONFERENCIA },
                     aCarregar = situacoes.values.count { it == SituacaoPedido.A_CARREGAR },
                 ),
-                saiuEm = if (situacao == "saiu") fechamento?.criadoEm?.toString() else null,
+                saiuEm = if (situacao == "saiu") (fechamento?.criadoEm ?: t?.alteradaEm)?.toString() else null,
                 fechadaPor = if (situacao == "saiu") fechamento?.solicitadoPor else null,
+                fechadaNoSankhya = situacao == "saiu" && fechamento == null,
+                regiao = t?.regiao,
+                prontaDesde = if (situacao == "pronta") prontaDesde[oc]?.toString() else null,
                 impressao = if (situacao == "saiu" && job != null) ImpressaoResumoDto(job.status, job.erro, job.impressoEm?.toString()) else null,
                 notas = NotasResumoDto(
                     total = notas.size,
