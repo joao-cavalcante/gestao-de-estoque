@@ -361,12 +361,7 @@
   padding: 16px;
   background: var(--oq-surface);
   border: 1px solid var(--oq-border);
-  border-left: 4px solid var(--oq-status-idle);
-
-  &[data-situacao='aguardando_liberacao'] { border-left-color: var(--oq-attention); }
-  &[data-situacao='liberada'] { border-left-color: var(--oq-concluido); }
-  &[data-situacao='divergencia'] { border-left-color: var(--oq-critical); }
-  &[data-situacao='em_conferencia'] { border-left-color: var(--oq-aguardando); }
+  /* Sem faixa lateral colorida (decisão 17/11/2026, reforçada em 25/11): o estado está escrito com ícone e cor. */
 }
 
 .en-decisao__estado {
@@ -527,10 +522,6 @@
   small { display: block; font-size: 11px; color: var(--oq-text-secondary); }
   td.en-num small { display: inline; }
 
-  tr[data-tipo='falta'] td:first-child { box-shadow: inset 3px 0 0 var(--oq-critical); }
-  tr[data-tipo='sobra'] td:first-child,
-  tr[data-tipo='fora_pedido'] td:first-child { box-shadow: inset 3px 0 0 var(--oq-attention); }
-  tr[data-tipo='ajuste'] td:first-child { box-shadow: inset 3px 0 0 var(--oq-aguardando); }
 }
 
 .en-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
