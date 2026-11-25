@@ -9,7 +9,7 @@
     </header>
 
     <div class="cc-lista__itens">
-      <div class="cc-grupo">Todas as compras</div>
+      <div class="cc-grupo">Geral</div>
       <button
         type="button"
         class="cc-item"
@@ -17,11 +17,11 @@
         [attr.aria-current]="selecao() === 'ajuste' ? 'true' : null"
         (click)="abrirAjuste()"
       >
-        <span class="cc-item__nome">Diferença de peso na compra</span>
+        <span class="cc-item__nome">Ajuste de peso na compra</span>
         <span class="cc-item__meta" [class.cc-item__meta--ligado]="ajusteSalvo().habilitado">{{ resumoAjuste() }}</span>
       </button>
 
-      <div class="cc-grupo">Configurações do Sankhya <span class="cc-grupo__qtd">{{ lista().length }}</span></div>
+      <div class="cc-grupo">Conferências <span class="cc-grupo__qtd">{{ lista().length }}</span></div>
       @if (carregando() && lista().length === 0) {
         <p class="cc-vazio"><oq-spinner [size]="14" /> Carregando…</p>
       } @else if (lista().length === 0) {
@@ -36,7 +36,7 @@
           (click)="abrirConfiguracao(item.nucco)"
         >
           <span class="cc-item__nome">{{ item.descricao }}</span>
-          <span class="cc-item__meta">Configuração {{ item.nucco }}</span>
+          <span class="cc-item__meta">Nº {{ item.nucco }} no Sankhya</span>
         </button>
       }
     </div>
@@ -76,64 +76,48 @@
   <!-- 2) Detalhe -->
   <section class="cc-detalhe">
     @if (selecao() === 'ajuste') {
-      <!-- ─── Diferença de peso na compra (configuração do cliente, não da CCO) ─── -->
+      <!-- ─── Ajuste de peso na compra (configuração do cliente; só pelo addon desde 25/11/2026) ─── -->
       <div class="cc-detalhe__corpo">
         <header class="cc-topo">
           <button type="button" class="cc-voltar" (click)="voltar()" aria-label="Voltar para a lista"><oq-icon name="arrow-left" [size]="16" /></button>
-          <h1 class="cc-topo__nome">Diferença de peso na compra</h1>
-          <p class="cc-topo__meta"><span>Todas as conferências de compra</span><span>gerada pelo addon TOR no Sankhya</span></p>
+          <h1 class="cc-topo__nome">Ajuste de peso na compra</h1>
+          <p class="cc-topo__desc">
+            Quando o peso conferido difere do peso da nota do fornecedor, dentro da tolerância, o sistema lança uma nota de
+            ajuste no Sankhya com a diferença, sem gerar divergência na conferência.
+          </p>
         </header>
 
-        <section class="cc-bloco">
+        <section class="cc-painel">
           <div class="cc-linha">
             <div class="cc-linha__rotulo">
-              Ajuste da diferença de peso
-              <small>Ligado: a diferença dentro da tolerância vira nota de ajuste, gerada e confirmada pelo addon TOR no Sankhya. Desligado: regra anterior — só o peso a maior dentro da tolerância vai com o peso da nota.</small>
+              Lançar nota de ajuste
+              @if (!ajuste.habilitado) {
+                <small>Desligado: nenhuma nota é lançada. Dentro da tolerância, a sobra fica com o peso da nota e a falta com o peso conferido.</small>
+              }
             </div>
             <label class="cc-check">
               <input type="checkbox" [(ngModel)]="ajuste.habilitado" />
               {{ ajuste.habilitado ? 'Ligado' : 'Desligado' }}
             </label>
           </div>
-          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
-            <div class="cc-linha__rotulo">
-              Peso a maior
-              <small>Ajusta = nota de entrada com a diferença. Desmarcado = vai para divergência e liberação.</small>
-            </div>
-            <label class="cc-check">
-              <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" [disabled]="!ajuste.habilitado" />
-              {{ ajuste.ajusteEntrada ? 'Ajusta' : 'Não ajusta' }}
-            </label>
-          </div>
-          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
-            <div class="cc-linha__rotulo">
-              Peso a menor
-              <small>Ajusta = nota de saída com a diferença. Desmarcado = vai para divergência e liberação.</small>
-            </div>
-            <label class="cc-check">
-              <input type="checkbox" [(ngModel)]="ajuste.ajusteSaida" [disabled]="!ajuste.habilitado" />
-              {{ ajuste.ajusteSaida ? 'Ajusta' : 'Não ajusta' }}
-            </label>
-          </div>
-        </section>
 
-        <section class="cc-bloco">
-          <h2 class="cc-bloco__titulo">Notas de ajuste</h2>
-          <p class="cc-bloco__sub">
-            TOP, série, parceiro e tipo de negociação das notas de ajuste ficam no Sankhya, na tela
-            <b>Torre de Operação › Configuração</b> (por empresa) — junto com quem pode aprovar o recebimento.
-          </p>
-        </section>
+          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
+            <div class="cc-linha__rotulo">Peso conferido maior que o da nota</div>
+            <div class="cc-segmento" role="radiogroup" aria-label="Peso conferido maior que o da nota">
+              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="ajuste.ajusteEntrada" [attr.aria-checked]="ajuste.ajusteEntrada" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteEntrada = true">Nota de ajuste de entrada</button>
+              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!ajuste.ajusteEntrada" [attr.aria-checked]="!ajuste.ajusteEntrada" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteEntrada = false">Enviar para liberação</button>
+            </div>
+          </div>
 
-        <section class="cc-bloco">
-          <h2 class="cc-bloco__titulo">Como a diferença é tratada</h2>
-          <dl class="cc-faixas">
-            <dt>Dentro da tolerância</dt>
-            <dd>A nota do fornecedor fica igual ao XML e a diferença entra por nota de ajuste, gerada depois que a compra é confirmada.</dd>
-            <dt>Acima da tolerância, ou sentido não ajustado</dt>
-            <dd>Vai o peso lido; a conferência segue para divergência e liberação, conforme a Divergência a maior/a menor da configuração.</dd>
-          </dl>
-          <p class="cc-bloco__sub">A tolerância é a do produto; sem ela, a da configuração da conferência.</p>
+          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
+            <div class="cc-linha__rotulo">Peso conferido menor que o da nota</div>
+            <div class="cc-segmento" role="radiogroup" aria-label="Peso conferido menor que o da nota">
+              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="ajuste.ajusteSaida" [attr.aria-checked]="ajuste.ajusteSaida" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteSaida = true">Nota de ajuste de saída</button>
+              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!ajuste.ajusteSaida" [attr.aria-checked]="!ajuste.ajusteSaida" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteSaida = false">Enviar para liberação</button>
+            </div>
+          </div>
+
+          <p class="cc-painel__nota">Acima da tolerância, a diferença sempre vai para liberação.</p>
         </section>
       </div>
 
@@ -145,57 +129,75 @@
         </button>
       </footer>
     } @else if (detalhe()) {
-      <!-- ─── Uma configuração de conferência (TGFCCO) ─── -->
+      <!-- ─── Uma configuração de conferência (TGFCCO): regras da Torre editáveis em destaque; Sankhya só consulta ─── -->
       <div class="cc-detalhe__corpo">
         <header class="cc-topo">
           <button type="button" class="cc-voltar" (click)="voltar()" aria-label="Voltar para a lista"><oq-icon name="arrow-left" [size]="16" /></button>
           <h1 class="cc-topo__nome">{{ detalhe()!.descricao }}</h1>
           <p class="cc-topo__meta">
-            <span>Configuração {{ detalhe()!.nucco }} do Sankhya</span>
+            <span>Nº {{ detalhe()!.nucco }} no Sankhya</span>
             @if (detalhe()!.sankhyaAtualizadoEm) { <span>lida em {{ detalhe()!.sankhyaAtualizadoEm | date: 'dd/MM/yyyy HH:mm' }}</span> }
           </p>
         </header>
 
-        <section class="cc-bloco">
-          <h2 class="cc-bloco__titulo">Regras da Torre</h2>
-          <p class="cc-bloco__sub">Valem só na Torre; não existem no Sankhya.</p>
+        <section class="cc-painel">
+          <h2 class="cc-painel__titulo">Regras da Torre</h2>
 
           <div class="cc-linha">
             <div class="cc-linha__rotulo">
-              Tolerância de peso do item pesável
+              Tolerância de peso
               <small>
-                Quanto o peso pode ficar acima ou abaixo do pedido sem virar divergência (e ser liberado sozinho no corte).
-                Vazio = sem limite · 0 = qualquer diferença diverge.
-                @if (!tolConfigurada()) { Sem valor gravado: vale o padrão, acima sem limite e abaixo 5%. }
+                Diferença aceita nos itens pesáveis sem gerar divergência. Vazio = sem limite; 0 = nenhuma.
+                @if (!tolConfigurada()) { Sem valor salvo vale: acima sem limite, abaixo 5%. }
               </small>
             </div>
             <div class="cc-pct">
-              <label class="cc-campo cc-campo--curto">
-                <span>Acima</span>
-                <span class="cc-pct__entrada"><input type="text" inputmode="decimal" placeholder="sem limite" [ngModel]="tolAcima()" (ngModelChange)="tolAcima.set($event)" /> %</span>
+              <label class="cc-pct__campo">
+                Acima
+                <input type="text" inputmode="decimal" placeholder="—" [ngModel]="tolAcima()" (ngModelChange)="tolAcima.set($event)" />
+                %
               </label>
-              <label class="cc-campo cc-campo--curto">
-                <span>Abaixo</span>
-                <span class="cc-pct__entrada"><input type="text" inputmode="decimal" placeholder="sem limite" [ngModel]="tolAbaixo()" (ngModelChange)="tolAbaixo.set($event)" /> %</span>
+              <label class="cc-pct__campo">
+                Abaixo
+                <input type="text" inputmode="decimal" placeholder="—" [ngModel]="tolAbaixo()" (ngModelChange)="tolAbaixo.set($event)" />
+                %
               </label>
             </div>
           </div>
 
           <div class="cc-linha">
             <div class="cc-linha__rotulo">
-              Pedir a quantidade na unidade do pedido na pesagem
-              <small>Marcado: quando o pedido não é em KG, a quantidade (CX, UN, PC) é obrigatória no pop-up de pesagem e sai na etiqueta. Desmarcado: pede só o peso (ex.: compra).</small>
+              Quantidade na pesagem
+              <small>Pede também a quantidade na unidade do pedido (CX, UN, PC) quando o pedido não é em KG; ela sai na etiqueta.</small>
             </div>
             <label class="cc-check">
               <input type="checkbox" [ngModel]="pedirQtdComercial()" (ngModelChange)="pedirQtdComercial.set($event)" />
-              {{ pedirQtdComercial() ? 'Pede' : 'Não pede' }}
+              {{ pedirQtdComercial() ? 'Pedir' : 'Não pedir' }}
             </label>
           </div>
         </section>
 
-        <section class="cc-bloco">
-          <div class="cc-bloco__cab">
-            <h2 class="cc-bloco__titulo">Configuração no Sankhya</h2>
+        <section class="cc-consulta">
+          <div class="cc-consulta__cab">
+            <h2 class="cc-consulta__titulo">Configuração do Sankhya</h2>
+            <span class="cc-consulta__tag">somente leitura · altere no Sankhya</span>
+          </div>
+
+          <div class="cc-abas-linha">
+            <div class="cc-abas" role="tablist" aria-label="Seções da configuração">
+              @for (aba of abas; track aba.valor) {
+                <button
+                  type="button"
+                  role="tab"
+                  class="cc-aba"
+                  [class.cc-aba--ativa]="abaAtual() === aba.valor"
+                  [attr.aria-selected]="abaAtual() === aba.valor"
+                  (click)="abaAtual.set(aba.valor)"
+                >
+                  {{ aba.label }}
+                </button>
+              }
+            </div>
             @if (abaAtual() !== 'corte') {
               <label class="cc-check cc-check--discreto">
                 <input type="checkbox" [ngModel]="mostrarTodos()" (ngModelChange)="mostrarTodos.set($event)" />
@@ -203,41 +205,20 @@
               </label>
             }
           </div>
-          <p class="cc-bloco__sub">Só consulta. Para mudar, altere a Configuração de Conferência no Sankhya; a Torre relê na sincronização.</p>
-
-          <div class="cc-abas" role="tablist" aria-label="Seções da configuração">
-            @for (aba of abas; track aba.valor) {
-              <button
-                type="button"
-                role="tab"
-                class="cc-aba"
-                [class.cc-aba--ativa]="abaAtual() === aba.valor"
-                [attr.aria-selected]="abaAtual() === aba.valor"
-                (click)="abaAtual.set(aba.valor)"
-              >
-                {{ aba.label }}
-              </button>
-            }
-          </div>
 
           @for (secao of secoesAba(); track secao.titulo) {
             <h3 class="cc-sec">{{ secao.titulo }}</h3>
             @for (campo of secao.campos; track campo.nome) {
-              <div class="cc-linha cc-linha--leitura" [class.cc-linha--inativa]="!habilitado(campo)">
-                <div class="cc-linha__rotulo">
-                  {{ campo.label }}
-                  <small>{{ campo.descricao }}</small>
-                </div>
-                <div class="cc-linha__valor">
-                  <span class="cc-valor">{{ textoValor(campo) }}</span>
-                  @if (notaUso(campo); as nota) {
-                    <span class="cc-uso" [title]="campo.statusObservacao ?? ''">{{ nota }}</span>
-                  }
-                </div>
+              <div class="cc-campo-ro" [class.cc-campo-ro--inativo]="!habilitado(campo)" [title]="campo.descricao">
+                <span class="cc-campo-ro__rotulo">{{ campo.label }}</span>
+                @if (notaUso(campo); as nota) {
+                  <span class="cc-uso" [title]="campo.statusObservacao ?? ''">{{ nota }}</span>
+                }
+                <span class="cc-campo-ro__valor">{{ textoValor(campo) }}</span>
               </div>
             }
           } @empty {
-            <p class="cc-vazio">Nenhum campo desta seção é usado pela Torre. Marque "Mostrar campos que a Torre não usa" para ver todos.</p>
+            <p class="cc-vazio">Nenhum campo desta seção é usado pela Torre.</p>
           }
         </section>
       </div>

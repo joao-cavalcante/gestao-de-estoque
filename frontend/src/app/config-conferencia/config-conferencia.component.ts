@@ -279,7 +279,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
   estadoRegras(): Mensagem | null {
     const m = this.regrasMensagem();
     if (m?.erro) return m;
-    if (this.regrasAlteradas()) return { texto: 'Alterações não salvas nas regras da Torre', erro: false };
+    if (this.regrasAlteradas()) return { texto: 'Alterações não salvas', erro: false };
     return m;
   }
 
@@ -293,8 +293,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
 
   readonly resumoAjuste = computed(() => {
     const a = this.ajusteSalvo();
-    if (!a.habilitado) return 'Desligada';
-    return a.viaAddon ? 'Ligada · pelo addon TOR' : 'Ligada · pela Torre (salve para passar ao addon)';
+    return a.habilitado ? 'Ligado' : 'Desligado';
   });
 
   private carregarAjuste(): void {
@@ -357,8 +356,8 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
         this.ajuste = { ...salvo, viaAddon: true };
         this.ajusteMensagem.set({
           texto: salvo.habilitado
-            ? 'Salvo — ligado: vale para as próximas conferências de compra.'
-            : 'Salvo — desligado: a conferência de compra segue a regra anterior.',
+            ? 'Salvo. Vale para as próximas conferências de compra.'
+            : 'Salvo. Ajuste de peso desligado.',
           erro: false,
         });
       },
