@@ -38,6 +38,19 @@ type ModoSentido = 'nao' | 'pct' | 'sem';
 const FUSOS = ['America/Sao_Paulo', 'America/Bahia', 'America/Fortaleza', 'America/Recife', 'America/Belem', 'America/Manaus', 'America/Cuiaba', 'America/Campo_Grande', 'America/Porto_Velho', 'America/Boa_Vista', 'America/Rio_Branco', 'America/Noronha'];
 
 /** Painel Master — configuração de UM cliente. Nada de regra de negócio aqui: o backend valida tudo. */
+const AJUSTE_PADRAO = {
+  habilitado: false,
+  ajusteEntrada: false,
+  ajusteSaida: false,
+  topEntrada: null,
+  topSaida: null,
+  serieEntrada: null,
+  serieSaida: null,
+  codTipVenda: null,
+  codParc: null,
+  viaAddon: false,
+};
+
 @Component({
   selector: 'app-master-tenant',
   standalone: true,
@@ -288,38 +301,8 @@ export class MasterTenantComponent implements OnInit {
       return 'tolerância: informe o percentual';
     }
     const u = this.param.usuarioSankhya;
-    const aj = this.param.ajustePesoCompra ?? {
-      habilitado: false,
-      ajusteEntrada: false,
-      ajusteSaida: false,
-      topEntrada: null,
-      topSaida: null,
-      serieEntrada: null,
-      serieSaida: null,
-      codTipVenda: null,
-      codParc: null,
-    };
-    const num = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(v));
-    const serie = (v: string | null | undefined) => (v ?? '').toString().trim() || null;
-    const ajuste = {
-      habilitado: !!aj.habilitado,
-      ajusteEntrada: !!aj.ajusteEntrada,
-      ajusteSaida: !!aj.ajusteSaida,
-      topEntrada: num(aj.topEntrada),
-      topSaida: num(aj.topSaida),
-      serieEntrada: serie(aj.serieEntrada),
-      serieSaida: serie(aj.serieSaida),
-      codTipVenda: num(aj.codTipVenda),
-      codParc: num(aj.codParc),
-    };
-    if ([ajuste.serieEntrada, ajuste.serieSaida].some((v) => v !== null && v.length > 3)) {
-      return 'ajuste de peso: série com até 3 caracteres';
-    }
-    if ([ajuste.topEntrada, ajuste.topSaida].some((v) => v !== null && (!Number.isInteger(v) || v <= 0))) {
-      return 'ajuste de peso: informe o código da TOP';
-    }
-    if (ajuste.ajusteEntrada && ajuste.topEntrada === null) return 'diferença de peso: ajuste a maior ligado sem TOP de entrada';
-    if (ajuste.ajusteSaida && ajuste.topSaida === null) return 'diferença de peso: ajuste a menor ligado sem TOP de saída';
+    // 25/11/2026: só a chave do addon é editada aqui; o resto do ajuste é preservado como está gravado.
+    const ajuste = { ...(this.param.ajustePesoCompra ?? AJUSTE_PADRAO), viaAddon: !!this.param.ajustePesoCompra?.viaAddon };
     return {
       ...this.param,
       liberacaoHerdada: { ...this.param.liberacaoHerdada, eventos, todosEventos: !!this.param.liberacaoHerdada.todosEventos },

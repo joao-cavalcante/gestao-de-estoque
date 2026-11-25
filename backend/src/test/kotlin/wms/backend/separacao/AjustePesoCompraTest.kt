@@ -153,6 +153,18 @@ class AjustePesoCompraTest {
         assertTrue(ParametrosAjustePesoCompra(habilitado = true, ajusteEntrada = true, viaAddon = false).validar().isNotEmpty())
     }
 
+    @Test
+    fun `parametros por NUCCO - vazio herda o do cliente, preenchido vale`() {
+        val cliente = ParametrosAjustePesoCompra(habilitado = true, ajusteEntrada = true, ajusteSaida = true, viaAddon = true)
+        val o = wms.backend.configconferencia.OpcoesConferenciaDto()
+        assertEquals(cliente, AjustePesoCompra.combinar(cliente, null))
+        assertEquals(cliente, AjustePesoCompra.combinar(cliente, o))
+        val desligado = AjustePesoCompra.combinar(cliente, o.copy(ajustePesoHabilitado = false))
+        assertTrue(!desligado.habilitado && desligado.viaAddon)
+        val soMaior = AjustePesoCompra.combinar(cliente, o.copy(ajustePesoSaida = false))
+        assertTrue(soMaior.habilitado && soMaior.ajusteEntrada && !soMaior.ajusteSaida)
+    }
+
     // ─── Payloads ────────────────────────────────────────────────────────
 
     @Test

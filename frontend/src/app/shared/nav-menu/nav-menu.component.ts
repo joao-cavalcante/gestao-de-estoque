@@ -93,8 +93,7 @@ const SECOES: SecaoMenu[] = [
           { rota: '/usuarios', label: 'Usuários', icone: 'user' },
           { rota: '/balancas', label: 'Balanças', icone: 'scale' },
           { rota: '/downloads', label: 'Downloads', icone: 'download' },
-          { rota: '/config-conferencia', label: 'Configuração de Conferência', icone: 'badge' },
-          { rota: '/tipos-operacao', label: 'Tipos de Operação', icone: 'badge' },
+          { rota: '/config-conferencia', label: 'Conferência', icone: 'badge' },
           // Protótipo "Roteiros Operacionais" (/roteiros) fora do menu desde 17/11/2026 — a rota segue no ar.
         ],
       },

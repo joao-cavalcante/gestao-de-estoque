@@ -41,7 +41,7 @@ describe('AppComponent', () => {
   });
 
   it('mostra o header global nas telas operacionais', async () => {
-    for (const url of ['/fila', '/transferencia', '/usuarios', '/tipos-operacao']) {
+    for (const url of ['/fila', '/transferencia', '/usuarios', '/config-conferencia']) {
       const { app, dom } = await abrir(url);
       expect(app.mostrarHeaderGlobal()).withContext(url).toBeTrue();
       expect(dom.querySelector('app-header')).withContext(url).not.toBeNull();

@@ -55,6 +55,8 @@ export interface ParametrosTenant {
     serieSaida: string | null;
     codTipVenda?: number | null;
     codParc?: number | null;
+    /** Ajuste de peso e Aprovar do recebimento pelo addon TOR no Sankhya. */
+    viaAddon?: boolean;
   };
 }
 

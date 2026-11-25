@@ -1,42 +1,46 @@
-<!-- Configuração de Conferência (25/11/2026) — mesmo desenho da mesa da Liberações: lista à esquerda, detalhe à direita.
-     Regras da Torre editáveis com um Salvar por item; campos da TGFCCO só leitura (a sincronização sobrescreve qualquer
-     edição local, então editar aqui não tinha efeito). -->
+<!-- Conferência (25/11/2026): Configurações de Conferência + Tipos de Operação numa tela, organizada pela configuração
+     (a TOP pertence a ela). Mesmo desenho da mesa da Liberações: lista à esquerda, detalhe à direita, um Salvar. -->
 <div class="cc-mesa" [class.cc-mesa--aberta]="abertoNoCelular()">
-  <!-- 1) Lista -->
+  <!-- 1) Lista de configurações -->
   <aside class="cc-lista" aria-label="Configurações de conferência">
     <header class="cc-lista__topo">
-      <div class="cc-lista__titulo">Configuração de conferência</div>
+      <div class="cc-lista__titulo">Configurações de conferência <span class="cc-grupo__qtd">{{ lista().length }}</span></div>
+      <label class="cc-busca">
+        <oq-icon name="search" [size]="14" />
+        <input type="text" placeholder="Configuração ou TOP" aria-label="Buscar configuração ou TOP" [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
+      </label>
     </header>
 
     <div class="cc-lista__itens">
-      <div class="cc-grupo">Geral</div>
-      <button
-        type="button"
-        class="cc-item"
-        [class.cc-item--sel]="selecao() === 'ajuste'"
-        [attr.aria-current]="selecao() === 'ajuste' ? 'true' : null"
-        (click)="abrirAjuste()"
-      >
-        <span class="cc-item__nome">Ajuste de peso na compra</span>
-        <span class="cc-item__meta" [class.cc-item__meta--ligado]="ajusteSalvo().habilitado">{{ resumoAjuste() }}</span>
-      </button>
-
-      <div class="cc-grupo">Conferências <span class="cc-grupo__qtd">{{ lista().length }}</span></div>
       @if (carregando() && lista().length === 0) {
         <p class="cc-vazio"><oq-spinner [size]="14" /> Carregando…</p>
       } @else if (lista().length === 0) {
         <p class="cc-vazio">Nenhuma configuração sincronizada ainda. Use "Sincronizar com o Sankhya" abaixo.</p>
+      } @else if (listaFiltrada().length === 0) {
+        <p class="cc-vazio">Nada encontrado para "{{ busca() }}".</p>
       }
-      @for (item of lista(); track item.nucco) {
+      @for (item of listaFiltrada(); track item.nucco) {
         <button
           type="button"
           class="cc-item"
           [class.cc-item--sel]="selecao() === item.nucco"
           [attr.aria-current]="selecao() === item.nucco ? 'true' : null"
-          (click)="abrirConfiguracao(item.nucco)"
+          (click)="abrir(item.nucco)"
         >
           <span class="cc-item__nome">{{ item.descricao }}</span>
-          <span class="cc-item__meta">Nº {{ item.nucco }} no Sankhya</span>
+          <span class="cc-item__meta">{{ resumoItem(item.nucco) }}</span>
+        </button>
+      }
+      @if (topsSemConfiguracao().length > 0 && !busca().trim()) {
+        <button
+          type="button"
+          class="cc-item cc-item--secundario"
+          [class.cc-item--sel]="selecao() === 'sem'"
+          [attr.aria-current]="selecao() === 'sem' ? 'true' : null"
+          (click)="abrir('sem')"
+        >
+          <span class="cc-item__nome">Sem configuração de conferência</span>
+          <span class="cc-item__meta">{{ topsSemConfiguracao().length }} TOPs</span>
         </button>
       }
     </div>
@@ -51,12 +55,10 @@
         } @else if (r.rodando) {
           <p class="cc-msg">Ressincronizando produtos… pode levar alguns minutos; a operação continua normal.</p>
         } @else if (r.concluidoEm) {
-          <p class="cc-msg cc-msg--ok">
-            <oq-icon name="check" [size]="13" /> {{ r.produtos }} produtos relidos. Unidades alternativas são relidas na próxima conferência ou mapa de cada nota.
-          </p>
+          <p class="cc-msg cc-msg--ok"><oq-icon name="check" [size]="13" /> {{ r.produtos }} produtos relidos.</p>
         }
       }
-      <button type="button" class="cc-acao" [disabled]="sincronizando()" (click)="sincronizarAgora()" title="Relê as configurações de conferência do Sankhya">
+      <button type="button" class="cc-acao" [disabled]="sincronizando()" (click)="sincronizarAgora()" title="Relê configurações de conferência e tipos de operação do Sankhya">
         <oq-icon name="sync" [size]="14" [class.oq-spin]="sincronizando()" />
         {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar com o Sankhya' }}
       </button>
@@ -75,74 +77,31 @@
 
   <!-- 2) Detalhe -->
   <section class="cc-detalhe">
-    @if (selecao() === 'ajuste') {
-      <!-- ─── Ajuste de peso na compra (configuração do cliente; só pelo addon desde 25/11/2026) ─── -->
+    @if (selecao() === 'sem') {
       <div class="cc-detalhe__corpo">
         <header class="cc-topo">
           <button type="button" class="cc-voltar" (click)="voltar()" aria-label="Voltar para a lista"><oq-icon name="arrow-left" [size]="16" /></button>
-          <h1 class="cc-topo__nome">Ajuste de peso na compra</h1>
-          <p class="cc-topo__desc">
-            Quando o peso conferido difere do peso da nota do fornecedor, dentro da tolerância, o sistema lança uma nota de
-            ajuste no Sankhya com a diferença, sem gerar divergência na conferência.
-          </p>
+          <h1 class="cc-topo__nome">Sem configuração de conferência</h1>
+          <p class="cc-topo__desc">Tipos de operação sem configuração de conferência no Sankhya. Para conferir as notas deles, ligue uma configuração na TOP, no Sankhya.</p>
         </header>
-
-        <section class="cc-painel">
-          <div class="cc-linha">
-            <div class="cc-linha__rotulo">
-              Lançar nota de ajuste
-              @if (!ajuste.habilitado) {
-                <small>Desligado: nenhuma nota é lançada. Dentro da tolerância, a sobra fica com o peso da nota e a falta com o peso conferido.</small>
-              }
-            </div>
-            <label class="cc-check">
-              <input type="checkbox" [(ngModel)]="ajuste.habilitado" />
-              {{ ajuste.habilitado ? 'Ligado' : 'Desligado' }}
-            </label>
-          </div>
-
-          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
-            <div class="cc-linha__rotulo">Peso conferido maior que o da nota</div>
-            <div class="cc-segmento" role="radiogroup" aria-label="Peso conferido maior que o da nota">
-              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="ajuste.ajusteEntrada" [attr.aria-checked]="ajuste.ajusteEntrada" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteEntrada = true">Nota de ajuste de entrada</button>
-              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!ajuste.ajusteEntrada" [attr.aria-checked]="!ajuste.ajusteEntrada" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteEntrada = false">Enviar para liberação</button>
-            </div>
-          </div>
-
-          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
-            <div class="cc-linha__rotulo">Peso conferido menor que o da nota</div>
-            <div class="cc-segmento" role="radiogroup" aria-label="Peso conferido menor que o da nota">
-              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="ajuste.ajusteSaida" [attr.aria-checked]="ajuste.ajusteSaida" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteSaida = true">Nota de ajuste de saída</button>
-              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!ajuste.ajusteSaida" [attr.aria-checked]="!ajuste.ajusteSaida" [disabled]="!ajuste.habilitado" (click)="ajuste.ajusteSaida = false">Enviar para liberação</button>
-            </div>
-          </div>
-
-          <p class="cc-painel__nota">Acima da tolerância, a diferença sempre vai para liberação.</p>
-        </section>
+        <ng-container *ngTemplateOutlet="listaTops; context: { $implicit: topsSemConfiguracao() }" />
       </div>
-
-      <footer class="cc-salvar">
-        <span class="cc-salvar__estado" [class.cc-salvar__estado--erro]="estadoAjuste()?.erro" role="status">{{ estadoAjuste()?.texto }}</span>
-        <button type="button" class="cc-btn" [disabled]="!ajusteAlterado() || ajusteSalvando()" (click)="descartarAjuste()">Descartar</button>
-        <button type="button" class="cc-btn cc-btn--cheio" [disabled]="!ajusteAlterado() || ajusteSalvando()" (click)="salvarAjuste()">
-          @if (ajusteSalvando()) { <oq-spinner [size]="14" /> Salvando… } @else { Salvar }
-        </button>
-      </footer>
-    } @else if (detalhe()) {
-      <!-- ─── Uma configuração de conferência (TGFCCO): regras da Torre editáveis em destaque; Sankhya só consulta ─── -->
+      <ng-container *ngTemplateOutlet="barraSalvar" />
+    } @else if (detalhe() && regras()) {
       <div class="cc-detalhe__corpo">
         <header class="cc-topo">
           <button type="button" class="cc-voltar" (click)="voltar()" aria-label="Voltar para a lista"><oq-icon name="arrow-left" [size]="16" /></button>
           <h1 class="cc-topo__nome">{{ detalhe()!.descricao }}</h1>
           <p class="cc-topo__meta">
             <span>Nº {{ detalhe()!.nucco }} no Sankhya</span>
+            @if (tipoDe(detalhe()!.nucco)) { <span>{{ tipoDe(detalhe()!.nucco) }}</span> }
             @if (detalhe()!.sankhyaAtualizadoEm) { <span>lida em {{ detalhe()!.sankhyaAtualizadoEm | date: 'dd/MM/yyyy HH:mm' }}</span> }
           </p>
         </header>
 
+        <!-- Regras da conferência -->
         <section class="cc-painel">
-          <h2 class="cc-painel__titulo">Regras da Torre</h2>
-
+          <h2 class="cc-painel__titulo">Regras da conferência</h2>
           <div class="cc-linha">
             <div class="cc-linha__rotulo">
               Tolerância de peso
@@ -154,82 +113,122 @@
             <div class="cc-pct">
               <label class="cc-pct__campo">
                 Acima
-                <input type="text" inputmode="decimal" placeholder="—" [ngModel]="tolAcima()" (ngModelChange)="tolAcima.set($event)" />
+                <input type="text" inputmode="decimal" placeholder="—" [ngModel]="regras()!.tolAcima" (ngModelChange)="alterar('tolAcima', $event)" />
                 %
               </label>
               <label class="cc-pct__campo">
                 Abaixo
-                <input type="text" inputmode="decimal" placeholder="—" [ngModel]="tolAbaixo()" (ngModelChange)="tolAbaixo.set($event)" />
+                <input type="text" inputmode="decimal" placeholder="—" [ngModel]="regras()!.tolAbaixo" (ngModelChange)="alterar('tolAbaixo', $event)" />
                 %
               </label>
             </div>
           </div>
-
           <div class="cc-linha">
             <div class="cc-linha__rotulo">
               Quantidade na pesagem
               <small>Pede também a quantidade na unidade do pedido (CX, UN, PC) quando o pedido não é em KG; ela sai na etiqueta.</small>
             </div>
             <label class="cc-check">
-              <input type="checkbox" [ngModel]="pedirQtdComercial()" (ngModelChange)="pedirQtdComercial.set($event)" />
-              {{ pedirQtdComercial() ? 'Pedir' : 'Não pedir' }}
+              <input type="checkbox" [ngModel]="regras()!.pedirQtdComercial" (ngModelChange)="alterar('pedirQtdComercial', $event)" />
+              {{ regras()!.pedirQtdComercial ? 'Pedir' : 'Não pedir' }}
             </label>
           </div>
         </section>
 
-        <section class="cc-consulta">
-          <div class="cc-consulta__cab">
-            <h2 class="cc-consulta__titulo">Configuração do Sankhya</h2>
-            <span class="cc-consulta__tag">somente leitura · altere no Sankhya</span>
-          </div>
+        <!-- Ajuste de peso (só com TOP de compra) -->
+        @if (temCompra(detalhe()!.nucco)) {
+          <section class="cc-painel">
+            <h2 class="cc-painel__titulo">Ajuste de peso</h2>
+            <p class="cc-painel__sub">
+              Quando o peso conferido difere do peso da nota do fornecedor, dentro da tolerância, o sistema pode lançar uma
+              nota de ajuste no Sankhya com a diferença, sem gerar divergência.
+            </p>
+            <div class="cc-linha">
+              <div class="cc-linha__rotulo">
+                Lançar nota de ajuste
+                @if (!regras()!.ajusteHabilitado) {
+                  <small>Desligado: nenhuma nota é lançada. Dentro da tolerância, a sobra fica com o peso da nota e a falta com o peso conferido.</small>
+                }
+              </div>
+              <label class="cc-check">
+                <input type="checkbox" [ngModel]="regras()!.ajusteHabilitado" (ngModelChange)="alterar('ajusteHabilitado', $event)" />
+                {{ regras()!.ajusteHabilitado ? 'Ligado' : 'Desligado' }}
+              </label>
+            </div>
+            <div class="cc-linha" [class.cc-linha--inativa]="!regras()!.ajusteHabilitado">
+              <div class="cc-linha__rotulo">Peso conferido maior que o da nota</div>
+              <div class="cc-segmento" role="radiogroup" aria-label="Peso conferido maior que o da nota">
+                <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="regras()!.ajusteEntrada" [attr.aria-checked]="regras()!.ajusteEntrada" [disabled]="!regras()!.ajusteHabilitado" (click)="alterar('ajusteEntrada', true)">Nota de ajuste de entrada</button>
+                <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!regras()!.ajusteEntrada" [attr.aria-checked]="!regras()!.ajusteEntrada" [disabled]="!regras()!.ajusteHabilitado" (click)="alterar('ajusteEntrada', false)">Enviar para liberação</button>
+              </div>
+            </div>
+            <div class="cc-linha" [class.cc-linha--inativa]="!regras()!.ajusteHabilitado">
+              <div class="cc-linha__rotulo">Peso conferido menor que o da nota</div>
+              <div class="cc-segmento" role="radiogroup" aria-label="Peso conferido menor que o da nota">
+                <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="regras()!.ajusteSaida" [attr.aria-checked]="regras()!.ajusteSaida" [disabled]="!regras()!.ajusteHabilitado" (click)="alterar('ajusteSaida', true)">Nota de ajuste de saída</button>
+                <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!regras()!.ajusteSaida" [attr.aria-checked]="!regras()!.ajusteSaida" [disabled]="!regras()!.ajusteHabilitado" (click)="alterar('ajusteSaida', false)">Enviar para liberação</button>
+              </div>
+            </div>
+            <p class="cc-painel__nota">Acima da tolerância, a diferença sempre vai para liberação.</p>
+          </section>
+        }
 
-          <div class="cc-abas-linha">
-            <div class="cc-abas" role="tablist" aria-label="Seções da configuração">
-              @for (aba of abas; track aba.valor) {
-                <button
-                  type="button"
-                  role="tab"
-                  class="cc-aba"
-                  [class.cc-aba--ativa]="abaAtual() === aba.valor"
-                  [attr.aria-selected]="abaAtual() === aba.valor"
-                  (click)="abaAtual.set(aba.valor)"
-                >
-                  {{ aba.label }}
-                </button>
+        <!-- Tipos de operação desta configuração -->
+        <section class="cc-painel">
+          <h2 class="cc-painel__titulo">Tipos de operação <span class="cc-grupo__qtd">{{ topsDe(detalhe()!.nucco).length }}</span></h2>
+          <ng-container *ngTemplateOutlet="listaTops; context: { $implicit: topsDe(detalhe()!.nucco) }" />
+        </section>
+
+        <!-- Configuração do Sankhya: consulta, recolhida -->
+        <section class="cc-consulta">
+          <button type="button" class="cc-consulta__cab" [attr.aria-expanded]="verSankhya()" (click)="verSankhya.set(!verSankhya())">
+            <oq-icon name="chevron-right" [size]="14" [class.cc-seta--aberta]="verSankhya()" />
+            <span class="cc-consulta__titulo">Configuração do Sankhya</span>
+            <span class="cc-consulta__tag">somente leitura · altere no Sankhya</span>
+          </button>
+
+          @if (verSankhya()) {
+            <div class="cc-abas-linha">
+              <div class="cc-abas" role="tablist" aria-label="Seções da configuração">
+                @for (aba of abas; track aba.valor) {
+                  <button
+                    type="button"
+                    role="tab"
+                    class="cc-aba"
+                    [class.cc-aba--ativa]="abaAtual() === aba.valor"
+                    [attr.aria-selected]="abaAtual() === aba.valor"
+                    (click)="abaAtual.set(aba.valor)"
+                  >
+                    {{ aba.label }}
+                  </button>
+                }
+              </div>
+              @if (abaAtual() !== 'corte') {
+                <label class="cc-check cc-check--discreto">
+                  <input type="checkbox" [ngModel]="mostrarTodos()" (ngModelChange)="mostrarTodos.set($event)" />
+                  Mostrar campos que a Torre não usa
+                </label>
               }
             </div>
-            @if (abaAtual() !== 'corte') {
-              <label class="cc-check cc-check--discreto">
-                <input type="checkbox" [ngModel]="mostrarTodos()" (ngModelChange)="mostrarTodos.set($event)" />
-                Mostrar campos que a Torre não usa
-              </label>
-            }
-          </div>
 
-          @for (secao of secoesAba(); track secao.titulo) {
-            <h3 class="cc-sec">{{ secao.titulo }}</h3>
-            @for (campo of secao.campos; track campo.nome) {
-              <div class="cc-campo-ro" [class.cc-campo-ro--inativo]="!habilitado(campo)" [title]="campo.descricao">
-                <span class="cc-campo-ro__rotulo">{{ campo.label }}</span>
-                @if (notaUso(campo); as nota) {
-                  <span class="cc-uso" [title]="campo.statusObservacao ?? ''">{{ nota }}</span>
-                }
-                <span class="cc-campo-ro__valor">{{ textoValor(campo) }}</span>
-              </div>
+            @for (secao of secoesAba(); track secao.titulo) {
+              <h3 class="cc-sec">{{ secao.titulo }}</h3>
+              @for (campo of secao.campos; track campo.nome) {
+                <div class="cc-campo-ro" [class.cc-campo-ro--inativo]="!habilitado(campo)" [title]="campo.descricao">
+                  <span class="cc-campo-ro__rotulo">{{ campo.label }}</span>
+                  @if (notaUso(campo); as nota) {
+                    <span class="cc-uso" [title]="campo.statusObservacao ?? ''">{{ nota }}</span>
+                  }
+                  <span class="cc-campo-ro__valor">{{ textoValor(campo) }}</span>
+                </div>
+              }
+            } @empty {
+              <p class="cc-vazio">Nenhum campo desta seção é usado pela Torre.</p>
             }
-          } @empty {
-            <p class="cc-vazio">Nenhum campo desta seção é usado pela Torre.</p>
           }
         </section>
       </div>
-
-      <footer class="cc-salvar">
-        <span class="cc-salvar__estado" [class.cc-salvar__estado--erro]="estadoRegras()?.erro" role="status">{{ estadoRegras()?.texto }}</span>
-        <button type="button" class="cc-btn" [disabled]="!regrasAlteradas() || regrasSalvando()" (click)="descartarRegras()">Descartar</button>
-        <button type="button" class="cc-btn cc-btn--cheio" [disabled]="!regrasAlteradas() || regrasSalvando()" (click)="salvarRegras()">
-          @if (regrasSalvando()) { <oq-spinner [size]="14" /> Salvando… } @else { Salvar }
-        </button>
-      </footer>
+      <ng-container *ngTemplateOutlet="barraSalvar" />
     } @else if (selecao() !== null) {
       <p class="cc-vazio"><oq-spinner [size]="14" /> Carregando a configuração…</p>
     } @else if (!carregando()) {
@@ -237,3 +236,59 @@
     }
   </section>
 </div>
+
+<!-- Linhas de TOP: conferência por etapa (vai no Salvar), quem confere (pop-up), fatura em (do Sankhya). -->
+<ng-template #listaTops let-tops>
+  @for (top of tops; track top.codtop) {
+    <div class="cc-top">
+      <div class="cc-top__id">
+        <span class="cc-top__cod">{{ top.codtop }}</span>
+        <span class="cc-top__nome">{{ top.descricao }}</span>
+        <span class="cc-top__tipo">{{ rotuloTipmov(top.tipmov) }}</span>
+      </div>
+      <div class="cc-top__fatura" title="TOPs de destino do faturamento (restrições de destino da TOP no Sankhya)">
+        Fatura em:
+        @for (d of top.destinos ?? []; track d.codtop) {
+          <span>{{ d.codtop }} · {{ d.descricao }}{{ d.serie ? ' (série ' + d.serie + ')' : '' }}</span>
+        } @empty {
+          <span class="cc-top__vazio">nenhuma TOP de destino</span>
+        }
+      </div>
+      <div class="cc-top__acoes">
+        <label class="cc-check cc-check--discreto" title="Desligado: as notas desta TOP abrem em conferência única, sem etapas Não pesáveis/Pesáveis">
+          <input type="checkbox" [ngModel]="etapaDe(top)" (ngModelChange)="alterarEtapa(top, $event)" />
+          Conferência por etapa
+        </label>
+        <button type="button" class="cc-top__quem" (click)="abrirUsuarios(top)" title="Usuários autorizados a conferir notas desta TOP (nenhum = todos)">
+          <oq-icon name="user" [size]="13" />
+          {{ top.usuariosAutorizados ? top.usuariosAutorizados + (top.usuariosAutorizados === 1 ? ' usuário' : ' usuários') : 'Todos conferem' }}
+        </button>
+      </div>
+    </div>
+  } @empty {
+    <p class="cc-vazio">Nenhum tipo de operação usa esta configuração.</p>
+  }
+</ng-template>
+
+<ng-template #barraSalvar>
+  <footer class="cc-salvar">
+    <span class="cc-salvar__estado" [class.cc-salvar__estado--erro]="estado()?.erro" role="status">{{ estado()?.texto }}</span>
+    <button type="button" class="cc-btn" [disabled]="!alterado() || salvando()" (click)="descartar()">Descartar</button>
+    <button type="button" class="cc-btn cc-btn--cheio" [disabled]="!alterado() || salvando()" (click)="salvar()">
+      @if (salvando()) { <oq-spinner [size]="14" /> Salvando… } @else { Salvar }
+    </button>
+  </footer>
+</ng-template>
+
+@if (usuariosTop(); as ua) {
+  <oq-usuarios-autorizados
+    [titulo]="ua.top.codtop + ' — ' + ua.top.descricao"
+    subtitulo="Só os usuários selecionados conferem notas desta TOP. Nenhum selecionado = todos."
+    [usuarios]="usuarios()"
+    [selecionadosIniciais]="ua.selecionados"
+    [salvando]="salvandoUsuarios()"
+    [erro]="erroUsuarios()"
+    (salvar)="salvarUsuarios($event)"
+    (fechar)="usuariosTop.set(null)"
+  />
+}

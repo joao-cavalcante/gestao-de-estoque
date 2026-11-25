@@ -31,7 +31,7 @@ export class ConfigConferenciaService {
     return this.http.get<OpcoesConferencia>(`/api/config-conferencia/${nucco}/opcoes`);
   }
 
-  salvarOpcoes(nucco: number, opcoes: Pick<OpcoesConferencia, 'pedirQtdComercial'>): Observable<OpcoesConferencia> {
+  salvarOpcoes(nucco: number, opcoes: Partial<OpcoesConferencia>): Observable<OpcoesConferencia> {
     return this.http.put<OpcoesConferencia>(`/api/config-conferencia/${nucco}/opcoes`, opcoes);
   }
 

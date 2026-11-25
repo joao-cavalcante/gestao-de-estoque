@@ -17,6 +17,10 @@ object ConferenciaOpcoesTable : Table("app.conferencia_opcoes") {
     val tenantId = uuid("tenant_id")
     val nucco = integer("nucco")
     val pedirQtdComercial = bool("pedir_qtd_comercial")
+    /** V78 — ajuste de peso da compra por NUCCO; null = herda o do cliente (parametros.ajustePesoCompra). */
+    val ajustePesoHabilitado = bool("ajuste_peso_habilitado").nullable()
+    val ajustePesoEntrada = bool("ajuste_peso_entrada").nullable()
+    val ajustePesoSaida = bool("ajuste_peso_saida").nullable()
     val atualizadoEm = timestamp("atualizado_em")
 
     override val primaryKey = PrimaryKey(tenantId, nucco)
@@ -30,6 +34,14 @@ object ConferenciaOpcoesTable : Table("app.conferencia_opcoes") {
 data class OpcoesConferenciaDto(
     val pedirQtdComercial: Boolean = true,
     val configurada: Boolean = true,
+    /**
+     * V78 (25/11/2026) — ajuste de peso da compra nesta configuração: lançar nota de ajuste dentro da tolerância
+     * ([ajustePesoHabilitado]) e em quais sentidos ([ajustePesoEntrada] = peso a maior, [ajustePesoSaida] = a menor;
+     * false = vai para divergência/liberação). null = herda o do cliente. Na resposta do GET vêm já resolvidos.
+     */
+    val ajustePesoHabilitado: Boolean? = null,
+    val ajustePesoEntrada: Boolean? = null,
+    val ajustePesoSaida: Boolean? = null,
 )
 
 object ConferenciaOpcoesRepository {
@@ -41,7 +53,14 @@ object ConferenciaOpcoesRepository {
             ConferenciaOpcoesTable.selectAll()
                 .where { (ConferenciaOpcoesTable.tenantId eq tenantId) and (ConferenciaOpcoesTable.nucco eq nucco) }
                 .singleOrNull()
-                ?.let { OpcoesConferenciaDto(pedirQtdComercial = it[ConferenciaOpcoesTable.pedirQtdComercial]) }
+                ?.let {
+                    OpcoesConferenciaDto(
+                        pedirQtdComercial = it[ConferenciaOpcoesTable.pedirQtdComercial],
+                        ajustePesoHabilitado = it[ConferenciaOpcoesTable.ajustePesoHabilitado],
+                        ajustePesoEntrada = it[ConferenciaOpcoesTable.ajustePesoEntrada],
+                        ajustePesoSaida = it[ConferenciaOpcoesTable.ajustePesoSaida],
+                    )
+                }
         } ?: PADRAO
     }
 
@@ -51,6 +70,9 @@ object ConferenciaOpcoesRepository {
             (ConferenciaOpcoesTable.tenantId eq tenantId) and (ConferenciaOpcoesTable.nucco eq nucco)
         }) {
             it[pedirQtdComercial] = opcoes.pedirQtdComercial
+            it[ajustePesoHabilitado] = opcoes.ajustePesoHabilitado
+            it[ajustePesoEntrada] = opcoes.ajustePesoEntrada
+            it[ajustePesoSaida] = opcoes.ajustePesoSaida
             it[atualizadoEm] = agora
         }
         if (atualizou == 0) {
@@ -58,6 +80,9 @@ object ConferenciaOpcoesRepository {
                 it[ConferenciaOpcoesTable.tenantId] = tenantId
                 it[ConferenciaOpcoesTable.nucco] = nucco
                 it[pedirQtdComercial] = opcoes.pedirQtdComercial
+                it[ajustePesoHabilitado] = opcoes.ajustePesoHabilitado
+                it[ajustePesoEntrada] = opcoes.ajustePesoEntrada
+                it[ajustePesoSaida] = opcoes.ajustePesoSaida
                 it[atualizadoEm] = agora
             }
         }

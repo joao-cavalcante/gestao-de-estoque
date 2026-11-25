@@ -496,7 +496,10 @@ object SeparacaoService {
         val tipMov = withContext(Dispatchers.IO) { TarefasRepository.buscarTipMovLocal(tenantId, nunota) }?.trim()
         if (tipMov != "C") return grupos
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
-        val paramAjuste = withContext(Dispatchers.IO) { AjustePesoCompra.parametros(tenantId) }
+        // V78: ligado/sentidos da configuração de conferência da nota (vazio = o do cliente).
+        val paramAjuste = withContext(Dispatchers.IO) {
+            AjustePesoCompra.parametros(tenantId, TarefasRepository.buscarNuccoLocal(tenantId, nunota))
+        }
         val diferencas = mutableListOf<Triple<SeparacaoRepository.GrupoConferido, java.math.BigDecimal, java.math.BigDecimal>>()
         val pesaveis = grupos.filter { g -> itensPorProduto[g.codprod].orEmpty().any { it.usaConfPeso } }.map { it.codprod }
         // Tolerância do produto tem prioridade sobre a do NUCCO (05/11/2026) — ver AjustePesoCompra.toleranciaEfetiva.

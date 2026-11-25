@@ -71,15 +71,17 @@ fun Route.configConferenciaRoutes() {
             val claims = call.exigirAdmin() ?: return@get
             val nucco = call.parameters["nucco"]?.toIntOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
-            call.respond(ConferenciaOpcoesRepository.buscar(claims.tenantId, nucco))
+            call.respond(opcoesResolvidas(claims.tenantId, nucco))
         }
 
         put("/{nucco}/opcoes") {
             val claims = call.exigirAdmin() ?: return@put
             val nucco = call.parameters["nucco"]?.toIntOrNull()
                 ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nucco' precisa ser um número"))
-            ConferenciaOpcoesRepository.salvar(claims.tenantId, nucco, call.receive<OpcoesConferenciaDto>())
-            call.respond(ConferenciaOpcoesRepository.buscar(claims.tenantId, nucco))
+            val opcoes = call.receive<OpcoesConferenciaDto>()
+            ConferenciaOpcoesRepository.salvar(claims.tenantId, nucco, opcoes)
+            println("INFO: opções da conferência NUCCO $nucco alteradas pelo usuário ${claims.userId} (tenant ${claims.tenantId}): $opcoes")
+            call.respond(opcoesResolvidas(claims.tenantId, nucco))
         }
 
         /**
@@ -125,4 +127,11 @@ fun Route.configConferenciaRoutes() {
             }
         }
     }
+}
+
+/** Opções do NUCCO com o ajuste de peso já resolvido (null = herda o do cliente) — a tela mostra o que vale. */
+internal fun opcoesResolvidas(tenantId: java.util.UUID, nucco: Int): OpcoesConferenciaDto {
+    val o = ConferenciaOpcoesRepository.buscar(tenantId, nucco)
+    val p = wms.backend.separacao.AjustePesoCompra.parametros(tenantId, nucco)
+    return o.copy(ajustePesoHabilitado = p.habilitado, ajustePesoEntrada = p.ajusteEntrada, ajustePesoSaida = p.ajusteSaida)
 }

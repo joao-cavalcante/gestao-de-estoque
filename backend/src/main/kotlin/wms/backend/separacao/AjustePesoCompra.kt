@@ -168,6 +168,21 @@ object AjustePesoCompra {
     fun parametros(tenantId: UUID): ParametrosAjustePesoCompra =
         runCatching { TenantRepository.parametros(tenantId).ajustePesoCompra }.getOrElse { ParametrosAjustePesoCompra() }
 
+    /**
+     * V78 (25/11/2026) — parâmetros que valem para a conferência deste NUCCO: o ligado e os sentidos vêm da configuração
+     * de conferência (app.conferencia_opcoes); o que estiver vazio lá herda o do cliente. O resto (addon) é do cliente.
+     */
+    fun parametros(tenantId: UUID, nucco: Int?): ParametrosAjustePesoCompra =
+        combinar(parametros(tenantId), runCatching { wms.backend.configconferencia.ConferenciaOpcoesRepository.buscar(tenantId, nucco) }.getOrNull())
+
+    fun combinar(cliente: ParametrosAjustePesoCompra, nucco: wms.backend.configconferencia.OpcoesConferenciaDto?): ParametrosAjustePesoCompra =
+        if (nucco == null) cliente
+        else cliente.copy(
+            habilitado = nucco.ajustePesoHabilitado ?: cliente.habilitado,
+            ajusteEntrada = nucco.ajustePesoEntrada ?: cliente.ajusteEntrada,
+            ajusteSaida = nucco.ajustePesoSaida ?: cliente.ajusteSaida,
+        )
+
     /** Grava as diferenças da sessão (idempotente: reenvio do mesmo grupo não duplica). */
     fun registrarDiferencas(
         tenantId: UUID,
@@ -243,8 +258,8 @@ object AjustePesoCompra {
 
     /** Chamado a cada ciclo do TarefaSyncService. Nunca derruba o ciclo — cada documento falha sozinho. */
     suspend fun processarPendentes(tenantSlug: String, tenantId: UUID) {
+        // Sem checar o "ligado": desde a V78 ele é por NUCCO — diferença gravada por uma conferência ligada é processada.
         val p = withContext(Dispatchers.IO) { parametros(tenantId) }
-        if (!p.habilitado) return
         val docs = withContext(Dispatchers.IO) {
             TenantTx.run(tenantId) {
                 CompraAjustePesoNotasTable.selectAll()

@@ -11,7 +11,6 @@ import { InventarioComponent } from './inventario/inventario.component';
 import { InventariosDesktopComponent } from './inventarios-desktop/inventarios-desktop.component';
 import { InventarioDetalheComponent } from './inventarios-desktop/inventario-detalhe/inventario-detalhe.component';
 import { ConfigConferenciaComponent } from './config-conferencia/config-conferencia.component';
-import { TiposOperacaoComponent } from './tipos-operacao/tipos-operacao.component';
 import { LoginComponent } from './auth/login/login.component';
 import { authGuard } from './auth/auth.guard';
 import { adminGuard } from './auth/admin.guard';
@@ -82,7 +81,8 @@ export const routes: Routes = [
   { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas/:sessaoId', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas-peso/:sessaoId', component: EtiquetaPesoComponent, canActivate: [authGuard] },
-  { path: 'tipos-operacao', component: TiposOperacaoComponent, canActivate: [adminGuard] },
+  // 25/11/2026: Tipos de Operação entrou na tela Conferência (organizada pela configuração de conferência).
+  { path: 'tipos-operacao', redirectTo: 'config-conferencia', pathMatch: 'full' },
   { path: 'usuarios', component: UsuarioListComponent, canActivate: [adminGuard] },
   { path: 'crachas', component: CrachasImpressaoComponent, canActivate: [adminGuard] },
   { path: 'balancas', component: BalancaListComponent, canActivate: [adminGuard] },

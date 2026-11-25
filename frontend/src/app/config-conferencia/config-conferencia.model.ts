@@ -52,6 +52,10 @@ export interface SincronizarResponse {
 export interface OpcoesConferencia {
   pedirQtdComercial: boolean;
   configurada: boolean;
+  /** V78 — ajuste de peso da compra nesta configuração (o GET devolve já resolvido com o padrão do cliente). */
+  ajustePesoHabilitado?: boolean | null;
+  ajustePesoEntrada?: boolean | null;
+  ajustePesoSaida?: boolean | null;
 }
 
 /**

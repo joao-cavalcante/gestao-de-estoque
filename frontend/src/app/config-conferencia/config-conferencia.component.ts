@@ -5,8 +5,13 @@ import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
+import { OqUsuariosAutorizadosComponent } from '../shared/oq-usuarios-autorizados/oq-usuarios-autorizados.component';
+import { UsuarioService } from '../usuarios/usuario.service';
+import { Usuario } from '../usuarios/usuario.model';
+import { TiposOperacaoService } from '../tipos-operacao/tipos-operacao.service';
+import { TipoOperacao, rotuloTipmov } from '../tipos-operacao/tipos-operacao.model';
 import { ConfigConferenciaService } from './config-conferencia.service';
-import { Aba, AjustePesoCompra, CampoCatalogo, ConfigConferenciaDetalhe, ConfigConferenciaListItem } from './config-conferencia.model';
+import { Aba, CampoCatalogo, ConfigConferenciaDetalhe, ConfigConferenciaListItem, OpcoesConferencia } from './config-conferencia.model';
 import { ABAS, CATALOGO_CONFIG_CONFERENCIA } from './config-conferencia.catalogo';
 import { agruparPorSubSecao, campoHabilitado } from './config-conferencia.util';
 
@@ -16,67 +21,116 @@ interface Mensagem {
   erro: boolean;
 }
 
-const AJUSTE_VAZIO: AjustePesoCompra = {
-  habilitado: false,
-  ajusteEntrada: false,
-  ajusteSaida: false,
-  topEntrada: null,
-  topSaida: null,
-  serieEntrada: null,
-  serieSaida: null,
-  codTipVenda: null,
-  codParc: null,
-  viaAddon: false,
-};
+/** Estado editável do detalhe de uma configuração (o que o Salvar grava). */
+interface Regras {
+  tolAcima: string;
+  tolAbaixo: string;
+  pedirQtdComercial: boolean;
+  ajusteHabilitado: boolean;
+  ajusteEntrada: boolean;
+  ajusteSaida: boolean;
+}
+
+const TIPMOV_COMPRA = new Set(['C', 'O']);
+const TIPMOV_VENDA = new Set(['V', 'P']);
 
 /**
- * Configuração de Conferência (redesenho de 25/11/2026, no padrão da mesa da Liberações):
- * - lista à esquerda: "Diferença de peso na compra" (configuração do cliente; só pelo addon TOR desde 25/11/2026)
- *   + as CCOs sincronizadas do Sankhya;
- * - detalhe à direita, com UM Salvar por item (barra presa no rodapé);
- * - campos da TGFCCO só leitura: a sincronização (`upsertDoSankhya`) apaga e regrava tudo, então a edição local
- *   que existia antes se perdia sem aviso.
+ * Conferência (25/11/2026) — Configurações de Conferência (TGFCCO) e Tipos de Operação numa tela só, organizada pela
+ * configuração (a TOP pertence a ela). Lista à esquerda = configurações (+ TOPs sem configuração, recolhidas);
+ * detalhe = regras da conferência, ajuste de peso (só com TOP de compra; por configuração desde a V78), as TOPs que
+ * usam a configuração (etapa, quem confere, fatura em) e a configuração do Sankhya só para consulta. Um Salvar.
+ * Campos da TGFCCO só leitura: a sincronização (`upsertDoSankhya`) regrava tudo.
  */
 @Component({
   selector: 'app-config-conferencia',
   standalone: true,
-  imports: [CommonModule, FormsModule, OqIconComponent, OqSpinnerComponent],
+  imports: [CommonModule, FormsModule, OqIconComponent, OqSpinnerComponent, OqUsuariosAutorizadosComponent],
   templateUrl: './config-conferencia.component.html',
   styleUrl: './config-conferencia.component.scss',
 })
 export class ConfigConferenciaComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly service = inject(ConfigConferenciaService);
+  private readonly topService = inject(TiposOperacaoService);
+  private readonly usuarioService = inject(UsuarioService);
 
   readonly abas = ABAS;
+  readonly rotuloTipmov = rotuloTipmov;
 
-  // ─── Lista e seleção ───
+  // ─── Lista ───
   readonly lista = signal<ConfigConferenciaListItem[]>([]);
-  /** 'ajuste' = Diferença de peso na compra; número = NUCCO. */
-  readonly selecao = signal<'ajuste' | number | null>(null);
+  readonly tops = signal<TipoOperacao[]>([]);
+  readonly busca = signal('');
+  /** número = NUCCO; 'sem' = TOPs sem configuração de conferência. */
+  readonly selecao = signal<number | 'sem' | null>(null);
   readonly detalhe = signal<ConfigConferenciaDetalhe | null>(null);
   readonly carregando = signal(true);
   readonly sincronizando = signal(false);
   readonly erro = signal<string | null>(null);
-  /** Celular/tablet em pé: lista OU detalhe. */
   readonly abertoNoCelular = signal(false);
+  readonly verSankhya = signal(false);
+
+  readonly topsPorNucco = computed(() => {
+    const m = new Map<number | null, TipoOperacao[]>();
+    for (const t of this.tops()) {
+      const k = t.nucco ?? null;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(t);
+    }
+    for (const l of m.values()) l.sort((a, b) => a.codtop - b.codtop);
+    return m;
+  });
+
+  readonly topsSemConfiguracao = computed(() => this.topsPorNucco().get(null) ?? []);
+
+  readonly listaFiltrada = computed(() => {
+    const termo = this.busca().trim().toLowerCase();
+    if (!termo) return this.lista();
+    return this.lista().filter(
+      (c) =>
+        c.descricao.toLowerCase().includes(termo) ||
+        String(c.nucco) === termo ||
+        (this.topsPorNucco().get(c.nucco) ?? []).some((t) => String(t.codtop).startsWith(termo) || t.descricao.toLowerCase().includes(termo)),
+    );
+  });
+
+  topsDe(nucco: number): TipoOperacao[] {
+    return this.topsPorNucco().get(nucco) ?? [];
+  }
+
+  /** "Compra", "Venda", "Compra e venda" ou "" — pelo TIPMOV das TOPs que usam a configuração. */
+  tipoDe(nucco: number): string {
+    const tipos = this.topsDe(nucco).map((t) => t.tipmov ?? '');
+    const compra = tipos.some((t) => TIPMOV_COMPRA.has(t));
+    const venda = tipos.some((t) => TIPMOV_VENDA.has(t));
+    return compra && venda ? 'Compra e venda' : compra ? 'Compra' : venda ? 'Venda' : '';
+  }
+
+  temCompra(nucco: number): boolean {
+    return this.topsDe(nucco).some((t) => TIPMOV_COMPRA.has(t.tipmov ?? ''));
+  }
+
+  resumoItem(nucco: number): string {
+    const n = this.topsDe(nucco).length;
+    return [this.tipoDe(nucco), n === 0 ? 'nenhuma TOP' : n === 1 ? '1 TOP' : `${n} TOPs`].filter(Boolean).join(' · ');
+  }
 
   ngOnInit(): void {
-    this.carregarLista();
-    this.carregarAjuste();
+    this.carregarTudo();
   }
 
   ngOnDestroy(): void {
     if (this.ressincTimer) clearInterval(this.ressincTimer);
   }
 
-  private carregarLista(): void {
+  private carregarTudo(): void {
     this.carregando.set(true);
-    this.service.listar().subscribe({
-      next: (itens) => {
-        this.lista.set(itens);
+    forkJoin({ ccos: this.service.listar(), tops: this.topService.listar() }).subscribe({
+      next: ({ ccos, tops }) => {
+        this.lista.set(ccos);
+        this.tops.set(tops);
         this.carregando.set(false);
-        if (itens.length > 0 && this.selecao() == null) this.selecionarConfiguracao(itens[0].nucco);
+        if (ccos.length > 0 && this.selecao() == null) this.selecionar(ccos[0].nucco);
       },
       error: (err) => {
         this.carregando.set(false);
@@ -85,13 +139,8 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     });
   }
 
-  abrirConfiguracao(nucco: number): void {
-    this.selecionarConfiguracao(nucco);
-    this.abertoNoCelular.set(true);
-  }
-
-  abrirAjuste(): void {
-    this.selecao.set('ajuste');
+  abrir(sel: number | 'sem'): void {
+    this.selecionar(sel);
     this.abertoNoCelular.set(true);
   }
 
@@ -99,29 +148,31 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     this.abertoNoCelular.set(false);
   }
 
-  private selecionarConfiguracao(nucco: number): void {
-    this.selecao.set(nucco);
+  private selecionar(sel: number | 'sem'): void {
+    this.selecao.set(sel);
     this.detalhe.set(null);
-    this.regrasMensagem.set(null);
-    this.service.detalhe(nucco).subscribe({
+    this.mensagem.set(null);
+    this.etapaPendente.set(new Map());
+    if (sel === 'sem') return;
+    this.service.detalhe(sel).subscribe({
       next: (d) => {
-        if (this.selecao() === nucco) this.detalhe.set(d);
+        if (this.selecao() === sel) this.detalhe.set(d);
       },
       error: (err) => this.erro.set(err.error?.erro ?? 'Não foi possível carregar a configuração.'),
     });
-    this.carregarRegras(nucco);
+    this.carregarRegras(sel);
   }
 
   sincronizarAgora(): void {
     if (this.sincronizando()) return;
     this.sincronizando.set(true);
     this.erro.set(null);
-    this.service.sincronizar().subscribe({
+    forkJoin([this.service.sincronizar(), this.topService.sincronizar()]).subscribe({
       next: () => {
         this.sincronizando.set(false);
-        this.carregarLista();
         const atual = this.selecao();
-        if (typeof atual === 'number') this.selecionarConfiguracao(atual);
+        this.carregarTudo();
+        if (atual != null) this.selecionar(atual);
       },
       error: (err) => {
         this.sincronizando.set(false);
@@ -145,7 +196,6 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Consulta o andamento a cada 3 s até terminar. */
   private acompanharRessinc(): void {
     if (this.ressincTimer) clearInterval(this.ressincTimer);
     this.ressincTimer = setInterval(() => {
@@ -166,8 +216,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
   readonly secoesAba = computed(() => {
     const aba = this.abaAtual();
     const daAba = CATALOGO_CONFIG_CONFERENCIA.filter((c) => c.aba === aba);
-    // Corte e divergência sempre inteira (usuário, 10/11/2026): os campos valem no corte que a Torre dispara
-    // (ConferenciaSP.cortar), mesmo os que a tela da Torre não usa diretamente.
+    // Corte e divergência sempre inteira (usuário, 10/11/2026): os campos valem no corte que a Torre dispara.
     const visiveis = aba === 'corte' || this.mostrarTodos() ? daAba : daAba.filter((c) => c.status === 'implementado');
     return agruparPorSubSecao(visiveis);
   });
@@ -184,7 +233,6 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     return v;
   }
 
-  /** Uso na Torre em texto discreto; implementado não leva nota. Detalhe técnico na dica. */
   notaUso(campo: CampoCatalogo): string | null {
     switch (campo.status) {
       case 'parcial':
@@ -198,46 +246,87 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ─── Regras da Torre por configuração (tolerância V50 + opções V70) — um Salvar ───
-  readonly tolAcima = signal('');
-  readonly tolAbaixo = signal('');
-  readonly pedirQtdComercial = signal(true);
+  // ─── Regras da conferência + ajuste de peso (por NUCCO) + etapa das TOPs — um Salvar ───
+  readonly regras = signal<Regras | null>(null);
+  private readonly regrasOriginais = signal<Regras | null>(null);
   readonly tolConfigurada = signal(false);
-  private readonly regrasOriginais = signal({ tolAcima: '', tolAbaixo: '', pedirQtdComercial: true });
-  readonly regrasSalvando = signal(false);
-  readonly regrasMensagem = signal<Mensagem | null>(null);
-
-  private readonly tolAlterada = computed(
-    () => this.tolAcima().trim() !== this.regrasOriginais().tolAcima || this.tolAbaixo().trim() !== this.regrasOriginais().tolAbaixo,
-  );
-  private readonly opcoesAlteradas = computed(() => this.pedirQtdComercial() !== this.regrasOriginais().pedirQtdComercial);
-  readonly regrasAlteradas = computed(() => this.tolAlterada() || this.opcoesAlteradas());
+  /** codtop → novo valor de "conferência por etapa" ainda não salvo. */
+  readonly etapaPendente = signal<Map<number, boolean>>(new Map());
+  readonly salvando = signal(false);
+  readonly mensagem = signal<Mensagem | null>(null);
 
   private carregarRegras(nucco: number): void {
+    this.regras.set(null);
     forkJoin({ tol: this.service.toleranciaPeso(nucco), opcoes: this.service.opcoes(nucco) }).subscribe({
       next: ({ tol, opcoes }) => {
         if (this.selecao() !== nucco) return;
-        const original = {
+        const r: Regras = {
           tolAcima: tol.acimaPct == null ? '' : String(tol.acimaPct),
           tolAbaixo: tol.abaixoPct == null ? '' : String(tol.abaixoPct),
           pedirQtdComercial: opcoes.pedirQtdComercial,
+          ajusteHabilitado: !!opcoes.ajustePesoHabilitado,
+          ajusteEntrada: !!opcoes.ajustePesoEntrada,
+          ajusteSaida: !!opcoes.ajustePesoSaida,
         };
-        this.regrasOriginais.set(original);
+        this.regrasOriginais.set(r);
+        this.regras.set({ ...r });
         this.tolConfigurada.set(tol.configurada);
-        this.descartarRegras();
       },
-      error: () => this.regrasMensagem.set({ texto: 'Não foi possível carregar as regras da Torre desta configuração.', erro: true }),
+      error: () => this.mensagem.set({ texto: 'Não foi possível carregar as regras desta configuração.', erro: true }),
     });
   }
 
-  descartarRegras(): void {
-    const o = this.regrasOriginais();
-    this.tolAcima.set(o.tolAcima);
-    this.tolAbaixo.set(o.tolAbaixo);
-    this.pedirQtdComercial.set(o.pedirQtdComercial);
+  alterar<K extends keyof Regras>(campo: K, valor: Regras[K]): void {
+    const r = this.regras();
+    if (r) this.regras.set({ ...r, [campo]: valor });
   }
 
-  /** '' = sem limite; número >= 0; qualquer outra coisa = inválido (undefined). */
+  etapaDe(top: TipoOperacao): boolean {
+    return this.etapaPendente().get(top.codtop) ?? top.conferenciaPorEtapa;
+  }
+
+  alterarEtapa(top: TipoOperacao, valor: boolean): void {
+    const m = new Map(this.etapaPendente());
+    if (valor === top.conferenciaPorEtapa) m.delete(top.codtop);
+    else m.set(top.codtop, valor);
+    this.etapaPendente.set(m);
+  }
+
+  private readonly tolAlterada = computed(() => {
+    const r = this.regras();
+    const o = this.regrasOriginais();
+    return !!r && !!o && (r.tolAcima.trim() !== o.tolAcima || r.tolAbaixo.trim() !== o.tolAbaixo);
+  });
+
+  private readonly opcoesAlteradas = computed(() => {
+    const r = this.regras();
+    const o = this.regrasOriginais();
+    return (
+      !!r &&
+      !!o &&
+      (r.pedirQtdComercial !== o.pedirQtdComercial ||
+        r.ajusteHabilitado !== o.ajusteHabilitado ||
+        r.ajusteEntrada !== o.ajusteEntrada ||
+        r.ajusteSaida !== o.ajusteSaida)
+    );
+  });
+
+  readonly alterado = computed(() => this.tolAlterada() || this.opcoesAlteradas() || this.etapaPendente().size > 0);
+
+  estado(): Mensagem | null {
+    const m = this.mensagem();
+    if (m?.erro) return m;
+    if (this.alterado()) return { texto: 'Alterações não salvas', erro: false };
+    return m;
+  }
+
+  descartar(): void {
+    const o = this.regrasOriginais();
+    if (o) this.regras.set({ ...o });
+    this.etapaPendente.set(new Map());
+    this.mensagem.set(null);
+  }
+
   private lerPct(texto: string): number | null | undefined {
     const t = texto.trim().replace(',', '.');
     if (t === '') return null;
@@ -245,125 +334,95 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     return Number.isFinite(n) && n >= 0 ? n : undefined;
   }
 
-  salvarRegras(): void {
+  salvar(): void {
     const nucco = this.selecao();
-    if (typeof nucco !== 'number' || this.regrasSalvando() || !this.regrasAlteradas()) return;
-    const acima = this.lerPct(this.tolAcima());
-    const abaixo = this.lerPct(this.tolAbaixo());
-    if (acima === undefined || abaixo === undefined) {
-      this.regrasMensagem.set({ texto: 'Tolerância: informe um número (%) maior ou igual a 0, ou deixe vazio para sem limite.', erro: true });
-      return;
-    }
+    const r = this.regras();
+    if (this.salvando() || !this.alterado()) return;
     const chamadas: Record<string, Observable<unknown>> = {};
-    if (this.tolAlterada()) chamadas['tol'] = this.service.salvarToleranciaPeso(nucco, acima, abaixo);
-    if (this.opcoesAlteradas()) chamadas['opcoes'] = this.service.salvarOpcoes(nucco, { pedirQtdComercial: this.pedirQtdComercial() });
+    if (typeof nucco === 'number' && r) {
+      const acima = this.lerPct(r.tolAcima);
+      const abaixo = this.lerPct(r.tolAbaixo);
+      if (acima === undefined || abaixo === undefined) {
+        this.mensagem.set({ texto: 'Tolerância: informe um número (%) maior ou igual a 0, ou deixe vazio para sem limite.', erro: true });
+        return;
+      }
+      if (this.tolAlterada()) chamadas['tol'] = this.service.salvarToleranciaPeso(nucco, acima, abaixo);
+      if (this.opcoesAlteradas()) {
+        const opcoes: Partial<OpcoesConferencia> = {
+          pedirQtdComercial: r.pedirQtdComercial,
+          ajustePesoHabilitado: r.ajusteHabilitado,
+          ajustePesoEntrada: r.ajusteEntrada,
+          ajustePesoSaida: r.ajusteSaida,
+        };
+        chamadas['opcoes'] = this.service.salvarOpcoes(nucco, opcoes);
+      }
+    }
+    for (const [codtop, valor] of this.etapaPendente()) {
+      chamadas[`top${codtop}`] = this.topService.definirConferenciaPorEtapa(codtop, valor);
+    }
 
-    this.regrasSalvando.set(true);
-    this.regrasMensagem.set(null);
+    this.salvando.set(true);
+    this.mensagem.set(null);
     forkJoin(chamadas).subscribe({
-      next: (r) => {
-        this.regrasSalvando.set(false);
-        const tol = r['tol'] as { configurada: boolean } | undefined;
+      next: (res) => {
+        this.salvando.set(false);
+        const tol = res['tol'] as { configurada: boolean } | undefined;
         if (tol) this.tolConfigurada.set(tol.configurada);
-        this.regrasOriginais.set({ tolAcima: this.tolAcima().trim(), tolAbaixo: this.tolAbaixo().trim(), pedirQtdComercial: this.pedirQtdComercial() });
-        this.regrasMensagem.set({ texto: 'Salvo — vale para as próximas conferências abertas.', erro: false });
+        if (r) {
+          const salvo = { ...r, tolAcima: r.tolAcima.trim(), tolAbaixo: r.tolAbaixo.trim() };
+          this.regrasOriginais.set(salvo);
+          this.regras.set({ ...salvo });
+        }
+        const pend = this.etapaPendente();
+        this.tops.update((l) => l.map((t) => (pend.has(t.codtop) ? { ...t, conferenciaPorEtapa: pend.get(t.codtop)! } : t)));
+        this.etapaPendente.set(new Map());
+        this.mensagem.set({ texto: 'Salvo. Vale para as próximas conferências abertas.', erro: false });
       },
       error: (err) => {
-        this.regrasSalvando.set(false);
-        this.regrasMensagem.set({ texto: err.error?.erro ?? 'Não foi possível salvar as regras da Torre.', erro: true });
+        this.salvando.set(false);
+        this.mensagem.set({ texto: err.error?.erro ?? 'Não foi possível salvar.', erro: true });
       },
     });
   }
 
-  /** Erro tem prioridade sobre "não salvo"; sucesso só aparece sem alteração pendente. */
-  estadoRegras(): Mensagem | null {
-    const m = this.regrasMensagem();
-    if (m?.erro) return m;
-    if (this.regrasAlteradas()) return { texto: 'Alterações não salvas', erro: false };
-    return m;
-  }
+  // ─── Quem confere (usuários autorizados por TOP; nenhum = todos) — salva pelo pop-up ───
+  readonly usuarios = signal<Usuario[]>([]);
+  readonly usuariosTop = signal<{ top: TipoOperacao; selecionados: string[] } | null>(null);
+  readonly salvandoUsuarios = signal(false);
+  readonly erroUsuarios = signal<string | null>(null);
 
-  // ─── Diferença de peso na compra (configuração do cliente, não da CCO) — um Salvar ───
-  /** Formulário vivo (ngModel). */
-  ajuste: AjustePesoCompra = { ...AJUSTE_VAZIO };
-  /** O que está gravado (resumo da lista e base do "não salvo"). */
-  readonly ajusteSalvo = signal<AjustePesoCompra>({ ...AJUSTE_VAZIO });
-  readonly ajusteSalvando = signal(false);
-  readonly ajusteMensagem = signal<Mensagem | null>(null);
-
-  readonly resumoAjuste = computed(() => {
-    const a = this.ajusteSalvo();
-    return a.habilitado ? 'Ligado' : 'Desligado';
-  });
-
-  private carregarAjuste(): void {
-    this.service.ajustePesoCompra().subscribe({
-      next: (a) => {
-        this.ajusteSalvo.set({ ...a });
-        this.ajuste = { ...a, viaAddon: true };
-      },
-      error: () => this.ajusteMensagem.set({ texto: 'Não foi possível carregar a configuração da diferença de peso na compra.', erro: true }),
-    });
-  }
-
-  private normalizarAjuste(a: AjustePesoCompra): AjustePesoCompra {
-    const num = (v: unknown) => (v === null || v === undefined || `${v}`.trim() === '' ? null : Number(v));
-    const serie = (v: unknown) => (v === null || v === undefined ? '' : `${v}`).trim() || null;
-    return {
-      habilitado: !!a.habilitado,
-      ajusteEntrada: !!a.ajusteEntrada,
-      ajusteSaida: !!a.ajusteSaida,
-      topEntrada: num(a.topEntrada),
-      topSaida: num(a.topSaida),
-      serieEntrada: serie(a.serieEntrada),
-      serieSaida: serie(a.serieSaida),
-      codTipVenda: num(a.codTipVenda),
-      codParc: num(a.codParc),
-      viaAddon: !!a.viaAddon,
-    };
-  }
-
-  ajusteAlterado(): boolean {
-    return JSON.stringify(this.normalizarAjuste(this.ajuste)) !== JSON.stringify(this.normalizarAjuste(this.ajusteSalvo()));
-  }
-
-  estadoAjuste(): Mensagem | null {
-    const m = this.ajusteMensagem();
-    if (m?.erro) return m;
-    if (this.ajusteAlterado()) return { texto: 'Alterações não salvas', erro: false };
-    return m;
-  }
-
-  descartarAjuste(): void {
-    this.ajuste = { ...this.ajusteSalvo(), viaAddon: true };
-    this.ajusteMensagem.set(null);
-  }
-
-  salvarAjuste(): void {
-    if (this.ajusteSalvando()) return;
-    const a = this.normalizarAjuste(this.ajuste);
-    const falha = (texto: string) => this.ajusteMensagem.set({ texto, erro: true });
-    // Só pelo addon (usuário, 25/11/2026): TOP, série, parceiro e tipo de negociação vêm da TORCFG no Sankhya; os
-    // valores antigos gravados aqui seguem como estão (o backend não exige TOP com viaAddon).
-    a.viaAddon = true;
-
-    this.ajusteSalvando.set(true);
-    this.ajusteMensagem.set(null);
-    this.service.salvarAjustePesoCompra(a).subscribe({
-      next: (salvo) => {
-        this.ajusteSalvando.set(false);
-        this.ajusteSalvo.set({ ...salvo });
-        this.ajuste = { ...salvo, viaAddon: true };
-        this.ajusteMensagem.set({
-          texto: salvo.habilitado
-            ? 'Salvo. Vale para as próximas conferências de compra.'
-            : 'Salvo. Ajuste de peso desligado.',
-          erro: false,
+  abrirUsuarios(top: TipoOperacao): void {
+    this.erroUsuarios.set(null);
+    this.topService.listarUsuarios(top.codtop).subscribe({
+      next: ({ usuarioIds }) => {
+        const abrir = () => this.usuariosTop.set({ top, selecionados: usuarioIds });
+        if (this.usuarios().length) return abrir();
+        this.usuarioService.listar().subscribe({
+          next: (lista) => {
+            this.usuarios.set(lista);
+            abrir();
+          },
+          error: (err) => this.mensagem.set({ texto: err.error?.erro ?? 'Não foi possível carregar os usuários.', erro: true }),
         });
       },
+      error: (err) => this.mensagem.set({ texto: err.error?.erro ?? `Não foi possível carregar os usuários da TOP ${top.codtop}.`, erro: true }),
+    });
+  }
+
+  salvarUsuarios(ids: string[]): void {
+    const atual = this.usuariosTop();
+    if (!atual || this.salvandoUsuarios()) return;
+    this.salvandoUsuarios.set(true);
+    this.erroUsuarios.set(null);
+    this.topService.definirUsuarios(atual.top.codtop, ids).subscribe({
+      next: ({ usuarioIds }) => {
+        this.tops.update((l) => l.map((t) => (t.codtop === atual.top.codtop ? { ...t, usuariosAutorizados: usuarioIds.length } : t)));
+        this.salvandoUsuarios.set(false);
+        this.usuariosTop.set(null);
+      },
       error: (err) => {
-        this.ajusteSalvando.set(false);
-        falha(err.error?.erro ?? 'Não foi possível salvar.');
+        this.salvandoUsuarios.set(false);
+        this.erroUsuarios.set(err.error?.erro ?? 'Não foi possível salvar os usuários autorizados.');
       },
     });
   }
