@@ -66,7 +66,8 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
   readonly carregando = signal(true);
   readonly erro = signal<string | null>(null);
   readonly soDivergencias = signal(false);
-  readonly confirmandoAprovacao = signal(false);
+  /** Pop-up do Aprovar: null = fechado. */
+  readonly etapaAprovacao = signal<'confirmar' | 'aprovando' | 'ok' | 'liberacao' | 'erro' | null>(null);
   readonly aprovando = signal(false);
   readonly erroAprovacao = signal<string | null>(null);
   readonly resultadoAprovacao = signal<AprovacaoRecebimento | null>(null);
@@ -96,7 +97,7 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
     if (!changes['nunota']) return; // troca de liberador não recarrega a mesa
     this.mesa.set(null);
     this.soDivergencias.set(false);
-    this.confirmandoAprovacao.set(false);
+    this.etapaAprovacao.set(null);
     this.erroAprovacao.set(null);
     this.resultadoAprovacao.set(null);
     this.carregar();
@@ -108,24 +109,50 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
       && !!this.usuario.trim() && !!this.senha && !this.aprovando();
   }
 
+  abrirAprovacao(): void {
+    if (!this.podeAprovar) return;
+    this.erroAprovacao.set(null);
+    this.resultadoAprovacao.set(null);
+    this.etapaAprovacao.set('confirmar');
+  }
+
+  fecharAprovacao(): void {
+    if (this.aprovando()) return;
+    this.etapaAprovacao.set(null);
+  }
+
   aprovar(): void {
     if (!this.podeAprovar) return;
     const alvo = this.nunota;
     this.aprovando.set(true);
+    this.etapaAprovacao.set('aprovando');
     this.erroAprovacao.set(null);
     this.resultadoAprovacao.set(null);
     this.service.aprovar(alvo, this.usuario.trim(), this.senha).subscribe({
       next: (r) => {
-        this.aprovando.set(false);
-        this.confirmandoAprovacao.set(false);
-        if (alvo !== this.nunota) return;
+        if (alvo !== this.nunota) {
+          this.aprovando.set(false);
+          this.etapaAprovacao.set(null);
+          return;
+        }
         this.resultadoAprovacao.set(r);
-        this.carregar();
+        // Relê a mesa antes de mostrar o resultado: as notas de ajuste lançadas na mesma ação entram no pop-up.
+        this.service.mesa(alvo).subscribe({
+          next: (m) => {
+            this.mesa.set(m);
+            this.aprovando.set(false);
+            this.etapaAprovacao.set(r.situacao === 'APROVADO' ? 'ok' : 'liberacao');
+          },
+          error: () => {
+            this.aprovando.set(false);
+            this.etapaAprovacao.set(r.situacao === 'APROVADO' ? 'ok' : 'liberacao');
+          },
+        });
       },
       error: (e) => {
         this.aprovando.set(false);
-        this.confirmandoAprovacao.set(false);
         this.erroAprovacao.set(e?.error?.erro ?? 'Não foi possível aprovar o recebimento.');
+        this.etapaAprovacao.set('erro');
       },
     });
   }

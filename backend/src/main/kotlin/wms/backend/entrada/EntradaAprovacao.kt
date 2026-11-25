@@ -49,6 +49,12 @@ object EntradaAprovacao {
         val r = lerResposta(resposta)
         EntradaSituacao.atualizarUma(tenantSlug, tenantId, nunota)
         println("INFO: recebimento $nunota (conferência $nuconf) — aprovar por CODUSU $codusu: ${r.situacao}${if (r.liberacoes.isEmpty()) "" else " ${r.liberacoes}"}")
+        // Encadeamento decidido em 23/11/2026: com a compra confirmada, o ajuste de peso sai na mesma ação (transação 2,
+        // pelo addon) em vez de esperar o próximo ciclo. Falha aqui não desfaz a aprovação — o ciclo tenta de novo.
+        if (r.situacao == "APROVADO") {
+            runCatching { wms.backend.separacao.AjustePesoCompra.processarPendentes(tenantSlug, tenantId) }
+                .onFailure { println("AVISO: ajuste de peso logo após aprovar $nunota falhou (o ciclo tenta de novo): ${it.message}") }
+        }
         return r
     }
 

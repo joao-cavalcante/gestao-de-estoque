@@ -44,35 +44,15 @@
       <div class="en-decisao__acoes">
         @if (!m.aprovacaoDisponivel) {
           <button type="button" class="en-btn en-btn--forte" disabled
-            title="Aprovar pela Torre depende do addon TOR ligado para este cliente. Por enquanto, confirme a nota no Sankhya.">
+            title="Aprovar pela Torre depende do addon ligado para este cliente. Por enquanto, confirme a nota no Sankhya.">
             Aprovar
           </button>
-          <span class="en-decisao__dica">Aprovar pela Torre depende do addon TOR no Sankhya.</span>
-        } @else if (confirmandoAprovacao()) {
-          <button type="button" class="en-btn en-btn--forte" [disabled]="!podeAprovar" (click)="aprovar()">
-            {{ aprovando() ? 'Aprovando…' : 'Confirmar aprovação' }}
-          </button>
-          <button type="button" class="en-btn" [disabled]="aprovando()" (click)="confirmandoAprovacao.set(false)">Cancelar</button>
-          <span class="en-decisao__dica">A nota {{ m.recebimento.numeroNota ?? m.recebimento.nunota }} será confirmada no Sankhya como {{ usuario }}.</span>
         } @else {
-          <button type="button" class="en-btn en-btn--forte" [disabled]="!podeAprovar" (click)="confirmandoAprovacao.set(true)">Aprovar</button>
+          <button type="button" class="en-btn en-btn--forte" [disabled]="!podeAprovar" (click)="abrirAprovacao()">Aprovar</button>
         }
         <button type="button" class="en-btn" disabled
           title="O Sankhya não aceita recontagem de conferência já finalizada. Em definição.">Devolver para recontagem</button>
       </div>
-      }
-      @if (erroAprovacao(); as e) {
-        <p class="en-decisao__erro" role="alert">{{ e }}</p>
-      }
-      @if (resultadoAprovacao(); as r) {
-        @if (r.situacao === 'APROVADO') {
-          <p class="en-decisao__ok" role="status">{{ r.jaExistia ? 'Este recebimento já estava aprovado.' : 'Recebimento aprovado: compra confirmada no Sankhya.' }}</p>
-        } @else {
-          <div class="en-decisao__erro" role="alert">
-            O Sankhya pediu liberação para confirmar a nota — ela continua aberta. Depois de liberado, aprove de novo.
-            <ul>@for (l of r.liberacoes; track l) { <li>{{ l }}</li> }</ul>
-          </div>
-        }
       }
     </section>
 
@@ -210,3 +190,72 @@
   </div>
   }
 }
+
+<!-- Aprovar (25/11/2026): um pop-up só — confirma, mostra o andamento enquanto o Sankhya confirma a compra e lança o
+     ajuste de peso (leva até ~1 min) e termina com o resultado. Sem faixa colorida na mesa. -->
+@if (etapaAprovacao(); as etapa) {
+  <div class="oq-modal-backdrop" (click)="etapa !== 'aprovando' && fecharAprovacao()">
+    <div class="en-aprovar" role="dialog" aria-modal="true" aria-labelledby="en-aprovar-titulo" (click)="$event.stopPropagation()">
+      <h2 class="en-aprovar__titulo" id="en-aprovar-titulo">
+        @switch (etapa) {
+          @case ('confirmar') { Aprovar o recebimento }
+          @case ('aprovando') { Aprovando o recebimento }
+          @case ('ok') { Recebimento aprovado }
+          @case ('liberacao') { O Sankhya pediu liberação }
+          @default { Não foi possível aprovar }
+        }
+      </h2>
+
+      @if (mesa(); as m) {
+        <p class="en-aprovar__nota">
+          Compra {{ m.recebimento.nunota }}{{ m.recebimento.numeroNota ? ' · NF ' + m.recebimento.numeroNota : '' }}
+          @if (m.recebimento.fornecedor) { · {{ m.recebimento.fornecedor }} }
+        </p>
+      }
+
+      @switch (etapa) {
+        @case ('confirmar') {
+          <p class="en-aprovar__texto">
+            A compra será confirmada no Sankhya e o aprovador registrado como <b>{{ usuario }}</b>. Se a conferência teve
+            diferença de peso, a nota de ajuste é lançada em seguida.
+          </p>
+        }
+        @case ('aprovando') {
+          <div class="en-aprovar__barra" role="progressbar" aria-label="Aprovando"><span></span></div>
+          <p class="en-aprovar__texto">Confirmando a compra e lançando o ajuste de peso no Sankhya. Pode levar até 1 minuto — não feche esta tela.</p>
+        }
+        @case ('ok') {
+          <ul class="en-aprovar__lista">
+            <li><oq-icon name="check" [size]="14" /> {{ resultadoAprovacao()?.jaExistia ? 'Este recebimento já estava aprovado.' : 'Compra confirmada no Sankhya.' }}</li>
+            @for (a of mesa()?.recebimento?.ajustesPeso ?? []; track a.sentido) {
+              <li [class.en-t--falta]="a.status === 'erro'">
+                <oq-icon [name]="a.status === 'erro' ? 'circle-alert' : 'scale'" [size]="14" /> {{ rotuloAjuste(a) }}
+              </li>
+            }
+          </ul>
+        }
+        @case ('liberacao') {
+          <p class="en-aprovar__texto">A nota continua aberta. Depois de liberado no Sankhya, aprove de novo.</p>
+          <ul class="en-aprovar__lista">@for (l of resultadoAprovacao()?.liberacoes ?? []; track l) { <li>{{ l }}</li> }</ul>
+        }
+        @case ('erro') {
+          <p class="en-aprovar__texto en-t--falta">{{ erroAprovacao() }}</p>
+        }
+      }
+
+      <div class="en-aprovar__acoes">
+        @switch (etapa) {
+          @case ('confirmar') {
+            <button type="button" class="en-btn" (click)="fecharAprovacao()">Cancelar</button>
+            <button type="button" class="en-btn en-btn--forte" [disabled]="!podeAprovar" (click)="aprovar()">Aprovar</button>
+          }
+          @case ('aprovando') {}
+          @default {
+            <button type="button" class="en-btn en-btn--forte" (click)="fecharAprovacao()">Fechar</button>
+          }
+        }
+      </div>
+    </div>
+  </div>
+}
+

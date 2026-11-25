@@ -546,3 +546,108 @@
   &[data-tipo='sobra'], &[data-tipo='fora_pedido'] { color: var(--oq-warning-foreground); }
   &[data-tipo='ajuste'] { color: var(--oq-aguardando-foreground); }
 }
+
+// ─── Aprovar (25/11/2026): pop-up único; sem faixa colorida na mesa ─────────────────────────────────────────────
+.en-decisao__erro,
+.en-decisao__ok {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-weight: 600;
+}
+
+.en-aprovar {
+  width: 100%;
+  max-width: 460px;
+  padding: 20px 22px 16px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  font-family: var(--oq-font-body);
+}
+
+.en-aprovar__titulo {
+  margin: 0;
+  font-family: var(--oq-font-body);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--oq-text-primary);
+}
+
+.en-aprovar__nota {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--oq-text-secondary);
+}
+
+.en-aprovar__texto {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--oq-text-primary);
+}
+
+.en-aprovar__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+  color: var(--oq-text-primary);
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  oq-icon {
+    margin-top: 2px;
+  }
+}
+
+// Barra de andamento indeterminada (o Sankhya não informa progresso).
+.en-aprovar__barra {
+  position: relative;
+  height: 4px;
+  margin-top: 18px;
+  overflow: hidden;
+  background: var(--oq-surface-2);
+
+  span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 35%;
+    background: var(--oq-brand);
+    animation: en-aprovar-barra 1.3s ease-in-out infinite;
+  }
+}
+
+@keyframes en-aprovar-barra {
+  from { left: -35%; }
+  to { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .en-aprovar__barra span {
+    left: 0;
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.en-aprovar__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 0;
+  margin-top: 18px;
+
+  &:empty {
+    margin-top: 0;
+  }
+}
