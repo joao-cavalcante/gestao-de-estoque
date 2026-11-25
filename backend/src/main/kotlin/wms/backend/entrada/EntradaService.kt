@@ -133,7 +133,7 @@ object EntradaService {
 
     /** Liberada: só os últimos [DIAS_LIBERADAS] dias. Conferida sem liberação: [DIAS_PENDENTES]. Em aberto: sempre. */
     private fun visivel(r: RecebimentoDto): Boolean = when (r.situacao) {
-        SituacaoRecebimento.LIBERADA -> r.ajustePendente || dentroDaJanela(r.dataMovimento, DIAS_LIBERADAS)
+        SituacaoRecebimento.LIBERADA -> dentroDaJanela(r.dataMovimento, DIAS_LIBERADAS)
         SituacaoRecebimento.AGUARDANDO_LIBERACAO -> dentroDaJanela(r.dataMovimento, DIAS_PENDENTES)
         else -> true
     }
@@ -155,9 +155,13 @@ object EntradaService {
 
     // ─── Conferência feita na Torre (itens da mesa) ───────────────────────────────────────────────────
 
-    private data class ConferenciaTorre(
+    internal data class ConferenciaTorre(
         val itens: List<ItemMesaDto>, val conferente: String?, val inicio: String?, val fim: String?, val recontagem: Boolean,
+        val nuconf: Int? = null,
     )
+
+    /** Auditoria de Recebimento: a conferência da Torre desta compra (null = não conferida pela Torre). */
+    internal fun conferenciaResumo(tenantId: UUID, nunota: Long): ConferenciaTorre? = conferenciaDaTorre(tenantId, nunota)
 
     private data class Sessao(
         val id: UUID, val status: String, val nuconf: Int?, val recontagem: Boolean,
@@ -239,6 +243,7 @@ object EntradaService {
             inicio = usadas.minOf { it.criadoEm }.toString(),
             fim = if (ultima.status == SeparacaoStatus.CONCLUIDA) ultima.atualizadoEm.toString() else null,
             recontagem = usadas.size > 1 || usadas.any { it.recontagem },
+            nuconf = ultima.nuconf,
         )
     }
 }

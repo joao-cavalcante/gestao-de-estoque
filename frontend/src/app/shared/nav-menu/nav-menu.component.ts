@@ -60,6 +60,7 @@ const SECOES: SecaoMenu[] = [
     itens: [
       { rota: '/consulta-produtos', label: 'Produtos', icone: 'search' },
       { rota: '/auditoria-pedido', label: 'Auditoria de Pedidos', icone: 'clock' },
+      { rota: '/auditoria-recebimento', label: 'Auditoria de Recebimento', icone: 'recebimento' },
       { rota: '/pendencias-integracao', label: 'Pendências de Integração', icone: 'circle-alert' },
       { rota: '/galpao', label: 'Planta do Galpão', icone: 'grid', somenteGalpao: true },
     ],

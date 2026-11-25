@@ -196,6 +196,13 @@ object TarefaSyncService {
                 }
             }
             launch {
+                // Auditoria de Recebimento (25/11/2026): histórico das compras conferidas e o que ainda não fechou.
+                medirEtapa(tenantSlug, "auditoria-recebimento") {
+                    runCatching { wms.backend.entrada.AuditoriaRecebimento.sincronizar(tenantSlug, tenantId) }
+                        .onFailure { println("AVISO: auditoria de recebimento (tenant $tenantSlug) falhou: ${it.message}") }
+                }
+            }
+            launch {
                 medirEtapa(tenantSlug, "aguardando-nota") {
                     // "Aguardando nota" (V58): nota faturada/confirmada direto no Sankhya, ou conferência reaberta, sai da fila.
                     runCatching { wms.backend.aguardandonota.AguardandoNotaService.revalidarTodos(tenantSlug, tenantId) }

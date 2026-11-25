@@ -1,0 +1,169 @@
+<!-- Auditoria de Recebimento (25/11/2026): lista de todas as compras conferidas pela Torre + detalhe à direita. -->
+<div class="ar" [class.ar--aberta]="selecionada() !== null">
+  <section class="ar-lista">
+    <header class="ar-topo">
+      <label class="ar-busca">
+        <oq-icon name="search" [size]="14" />
+        <input type="text" placeholder="Nº único, NF, fornecedor, conferente ou nota gerada" aria-label="Buscar"
+          [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
+      </label>
+      <div class="ar-filtros" role="tablist" aria-label="Filtro">
+        <button type="button" role="tab" class="ar-filtro" [class.ar-filtro--ativo]="filtro() === 'todas'" (click)="filtro.set('todas')">Todas <span>{{ lista().length }}</span></button>
+        <button type="button" role="tab" class="ar-filtro" [class.ar-filtro--ativo]="filtro() === 'atencao'" [class.ar-filtro--alerta]="qtdAtencao() > 0" (click)="filtro.set('atencao')">Atenção <span>{{ qtdAtencao() }}</span></button>
+        <button type="button" role="tab" class="ar-filtro" [class.ar-filtro--ativo]="filtro() === 'ajustes'" (click)="filtro.set('ajustes')">Com ajuste</button>
+        <button type="button" role="tab" class="ar-filtro" [class.ar-filtro--ativo]="filtro() === 'derivadas'" (click)="filtro.set('derivadas')">Devolução / complemento</button>
+      </div>
+      <button type="button" class="ar-icone" (click)="carregar()" [disabled]="carregando()" title="Atualizar" aria-label="Atualizar">
+        <oq-icon name="sync" [size]="15" [class.oq-spin]="carregando()" />
+      </button>
+    </header>
+
+    <div class="ar-tabela-rolagem">
+      @if (erro()) {
+        <p class="ar-msg ar-msg--erro"><oq-icon name="circle-alert" [size]="14" /> {{ erro() }}</p>
+      }
+      @if (carregando() && lista().length === 0) {
+        <p class="ar-msg"><oq-spinner [size]="14" /> Carregando…</p>
+      } @else if (visiveis().length === 0) {
+        <p class="ar-msg">{{ busca().trim() || filtro() !== 'todas' ? 'Nada com esse filtro.' : 'Nenhuma compra conferida pela Torre ainda.' }}</p>
+      } @else {
+        <table class="ar-tabela">
+          <thead>
+            <tr>
+              <th>Nº único</th>
+              <th>NF</th>
+              <th>Fornecedor</th>
+              <th>Conferência</th>
+              <th>Confirmação</th>
+              <th>Notas geradas</th>
+              <th>Situação</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of visiveis(); track r.nunota) {
+              <tr [class.ar-sel]="selecionada() === r.nunota" (click)="abrir(r)" tabindex="0" (keydown.enter)="abrir(r)">
+                <td class="ar-num"><b>{{ r.nunota }}</b></td>
+                <td class="ar-num">{{ r.numeroNota ?? '—' }}</td>
+                <td class="ar-forn">{{ r.fornecedor ?? '—' }}</td>
+                <td>
+                  {{ r.conferente ?? '—' }}
+                  @if (r.conferenciaFim) { <small>{{ r.conferenciaFim | date: 'dd/MM HH:mm' }}</small> }
+                </td>
+                <td>{{ confirmacaoTexto(r) }}@if (r.confirmadoEm) { <small>{{ r.confirmadoEm }}</small> }</td>
+                <td class="ar-notas">
+                  @for (a of r.ajustes; track a.sentido) { <span [class.ar-t--erro]="a.status === 'erro'">{{ ajusteCurto(a) }}</span> }
+                  @if (r.devolucao; as d) { <span [class.ar-t--atencao]="!d.confirmada">Devolução {{ d.numero ?? d.nunota }}</span> }
+                  @if (r.complemento; as c) { <span [class.ar-t--atencao]="!c.confirmada">Complemento {{ c.numero ?? c.nunota }}</span> }
+                  @if (!r.ajustes.length && !r.devolucao && !r.complemento) { <span class="ar-vazio">—</span> }
+                </td>
+                <td>
+                  <span class="ar-situacao" [class.ar-situacao--alerta]="r.alertas.length" [class.ar-situacao--ok]="!r.alertas.length && r.statusNota === 'L'">
+                    <oq-icon [name]="r.alertas.length ? 'triangle' : r.statusNota === 'L' ? 'check' : 'clock'" [size]="13" />
+                    {{ situacaoTexto(r) }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </section>
+
+  @if (selecionada() !== null) {
+    <aside class="ar-detalhe" aria-live="polite">
+      <header class="ar-detalhe__topo">
+        <button type="button" class="ar-icone" (click)="fechar()" aria-label="Fechar"><oq-icon name="x" [size]="15" /></button>
+        @if (detalhe(); as d) {
+          <div>
+            <h1 class="ar-detalhe__nome">{{ d.recebimento.nunota }}{{ d.recebimento.numeroNota ? ' · NF ' + d.recebimento.numeroNota : '' }}</h1>
+            <p class="ar-detalhe__meta">{{ d.recebimento.fornecedor ?? '—' }}@if (d.recebimento.tipoOperacao) { · {{ d.recebimento.tipoOperacao }} }</p>
+          </div>
+        }
+      </header>
+
+      @if (carregandoDetalhe()) {
+        <p class="ar-msg"><oq-spinner [size]="14" /> Carregando…</p>
+      } @else if (detalhe()) {
+        @if (detalhe(); as d) {
+        <div class="ar-detalhe__corpo">
+          @if (d.recebimento.alertas.length) {
+            <section class="ar-bloco">
+              <h2 class="ar-bloco__titulo">Atenção</h2>
+              <ul class="ar-alertas">
+                @for (a of d.recebimento.alertas; track a.tipo) {
+                  <li><oq-icon name="triangle" [size]="13" /> {{ a.texto }}</li>
+                }
+              </ul>
+              @if (temAjustePendente(d.recebimento)) {
+                <button type="button" class="ar-btn ar-btn--cheio" [disabled]="gerando()" (click)="gerarAjuste(d.recebimento.nunota)">
+                  @if (gerando()) { <oq-spinner [size]="14" /> Gerando o ajuste… } @else { Gerar ajuste agora }
+                </button>
+              }
+              @if (erroAcao(); as e) { <p class="ar-msg ar-msg--erro">{{ e }}</p> }
+            </section>
+          }
+
+          <section class="ar-bloco">
+            <h2 class="ar-bloco__titulo">Linha do tempo</h2>
+            <dl class="ar-tempo">
+              <dt>Conferência</dt>
+              <dd>
+                {{ d.recebimento.conferente ?? '—' }}
+                @if (d.recebimento.conferenciaFim) { · {{ d.recebimento.conferenciaInicio | date: 'dd/MM HH:mm' }} → {{ d.recebimento.conferenciaFim | date: 'HH:mm' }} }
+                @if (d.recontagem) { · com recontagem }
+              </dd>
+              <dt>Confirmação</dt>
+              <dd>
+                @if (d.recebimento.statusNota === 'L') {
+                  {{ confirmacaoTexto(d.recebimento) }}@if (d.recebimento.confirmadoEm) { · {{ d.recebimento.confirmadoEm }} }
+                } @else if (d.recebimento.statusNota === 'X') {
+                  Nota excluída no Sankhya
+                } @else {
+                  Aguardando
+                }
+              </dd>
+              @for (a of d.recebimento.ajustes; track a.sentido) {
+                <dt>{{ a.sentido === 'E' ? 'Ajuste de entrada' : 'Ajuste de saída' }}</dt>
+                <dd [class.ar-t--erro]="a.status === 'erro'">{{ rotuloAjuste(a) }}@if (a.erro && a.status !== 'confirmado') { <small>{{ a.erro }}</small> }</dd>
+              }
+              @if (d.recebimento.devolucao; as dv) {
+                <dt>Devolução</dt>
+                <dd>Nº {{ dv.numero ?? '—' }} · nº único {{ dv.nunota }} · {{ dv.confirmada ? 'confirmada' : 'não confirmada' }}</dd>
+              }
+              @if (d.recebimento.complemento; as c) {
+                <dt>Complemento</dt>
+                <dd>Nº {{ c.numero ?? '—' }} · nº único {{ c.nunota }} · {{ c.confirmada ? 'confirmado' : 'não confirmado' }}</dd>
+              }
+            </dl>
+          </section>
+
+          <section class="ar-bloco">
+            <h2 class="ar-bloco__titulo">Itens</h2>
+            @if (!d.itens.length) {
+              <p class="ar-msg">Sem itens da conferência na Torre.</p>
+            } @else {
+              <table class="ar-itens">
+                <thead><tr><th>Produto</th><th class="ar-num">Nota</th><th class="ar-num">Conferido</th><th class="ar-num">Diferença</th><th class="ar-num">Ajuste</th></tr></thead>
+                <tbody>
+                  @for (i of d.itens; track i.sequencia + '-' + i.tipo) {
+                    <tr>
+                      <td>{{ i.produto }} <small>{{ i.codprod }}{{ i.controle ? ' · lote ' + i.controle : '' }}</small></td>
+                      <td class="ar-num">{{ qtd(i.qtdNota) }} <small>{{ i.unidade }}</small></td>
+                      <td class="ar-num">{{ qtd(i.qtdConferida) }}</td>
+                      <td class="ar-num" [class.ar-t--erro]="i.tipo === 'falta'" [class.ar-t--atencao]="i.tipo === 'sobra' || i.tipo === 'fora_pedido'">{{ diferenca(i) }}</td>
+                      <td class="ar-num">{{ i.ajustePeso ? (i.ajustePeso > 0 ? '+' : '−') + qtd(i.ajustePeso > 0 ? i.ajustePeso : -i.ajustePeso) : '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </section>
+        </div>
+        }
+      } @else if (erroAcao()) {
+        <p class="ar-msg ar-msg--erro">{{ erroAcao() }}</p>
+      }
+    </aside>
+  }
+</div>

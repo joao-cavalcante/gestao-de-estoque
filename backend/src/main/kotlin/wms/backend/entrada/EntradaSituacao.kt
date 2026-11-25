@@ -55,6 +55,9 @@ object EntradaSituacao {
         return lida
     }
 
+    /** Auditoria de Recebimento: mesma leitura, sem mexer no cache da Entrada. */
+    internal suspend fun lerSituacoes(tenantSlug: String, lote: List<Long>): Map<Long, Situacao> = ler(tenantSlug, lote)
+
     private suspend fun ler(tenantSlug: String, lote: List<Long>): Map<Long, Situacao> {
         val r = HashMap<Long, Situacao>()
         SankhyaDbExplorerClient.executarQuery(tenantSlug, sql(lote)).forEach { l ->

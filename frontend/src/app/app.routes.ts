@@ -31,6 +31,7 @@ import { ImpressaoOcComponent } from './impressao-oc/impressao-oc.component';
 import { MapaSeparacaoComponent } from './mapa-separacao/mapa-separacao.component';
 import { ConsultaProdutosComponent } from './consulta-produtos/consulta-produtos.component';
 import { AuditoriaPedidoComponent } from './auditoria-pedido/auditoria-pedido.component';
+import { AuditoriaRecebimentoComponent } from './auditoria-recebimento/auditoria-recebimento.component';
 import { ColetorFilaComponent } from './coletor/coletor-fila.component';
 import { coletorRedirectGuard } from './coletor/coletor-modo';
 
@@ -76,6 +77,8 @@ export const routes: Routes = [
   { path: 'mapa-separacao', component: MapaSeparacaoComponent, canActivate: [authGuard] },
   { path: 'consulta-produtos', component: ConsultaProdutosComponent, canActivate: [authGuard] },
   // Linha do tempo de um pedido (Sankhya + WMS); /auditoria-pedido/63486 abre direto.
+  // Auditoria de Recebimento (25/11/2026): compras conferidas pela Torre, notas geradas e o que travou.
+  { path: 'auditoria-recebimento', component: AuditoriaRecebimentoComponent, canActivate: [authGuard] },
   { path: 'auditoria-pedido', component: AuditoriaPedidoComponent, canActivate: [authGuard] },
   { path: 'auditoria-pedido/:numero', component: AuditoriaPedidoComponent, canActivate: [authGuard] },
   { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },

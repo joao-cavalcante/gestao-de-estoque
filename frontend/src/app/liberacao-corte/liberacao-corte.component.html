@@ -55,15 +55,6 @@
           @for (r of recebimentosAguardando(); track r.nunota) {
             <ng-container *ngTemplateOutlet="itemRecebimento; context: { $implicit: r }" />
           }
-          <button type="button" class="lc-grupo" [attr.aria-expanded]="mostrarLiberadas()" (click)="mostrarLiberadas.set(!mostrarLiberadas())">
-            <oq-icon name="chevron-right" [size]="13" [class.lc-grupo__seta--aberta]="mostrarLiberadas()" />
-            Recebimentos liberados <span class="lc-fila__qtd">{{ recebimentosLiberados().length }}</span>
-          </button>
-          @if (mostrarLiberadas()) {
-            @for (r of recebimentosLiberados(); track r.nunota) {
-              <ng-container *ngTemplateOutlet="itemRecebimento; context: { $implicit: r }" />
-            }
-          }
         }
       </div>
 
@@ -233,11 +224,7 @@
     </span>
     <span class="lc-pedido__cliente">{{ r.fornecedor ?? '—' }}</span>
     <span class="lc-pedido__tipo">
-      @if (r.ajustePendente) {
-        <b class="lc-tag lc-t--falta">Ajuste de peso pendente</b>
-      } @else {
-        <b class="lc-tag">{{ r.situacao === 'liberada' ? 'Liberado' : 'Recebimento' }}</b>
-      }
+      <b class="lc-tag">Recebimento</b>
       @if (r.numeroNota) { NF {{ r.numeroNota }} }
       @if (r.devolucao) { · <b class="lc-t--falta">devolução</b> }
       @if (r.complemento) { · <b class="lc-t--sobra">complemento</b> }
