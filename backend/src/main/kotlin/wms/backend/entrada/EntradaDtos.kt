@@ -44,6 +44,8 @@ data class RecebimentoDto(
     val ajustesPeso: List<AjustePesoDto>? = null,
     /** TGFCAB.STATUSNOTA = 'L' (null = ainda não lido do Sankhya neste processo). */
     val notaConfirmada: Boolean? = null,
+    /** Compra confirmada e algum ajuste de peso ainda não emitido (pendente/gerando/erro) — salvaguarda 25/11/2026. */
+    val ajustePendente: Boolean = false,
     val devolucao: NotaDerivadaDto? = null,
     val complemento: NotaDerivadaDto? = null,
     val segundosDesdeSync: Long,

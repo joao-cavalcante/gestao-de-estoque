@@ -40,6 +40,8 @@ export interface Recebimento {
   andamento?: { conferidos: number; total: number; conferente?: string | null; desde: string } | null;
   ajustesPeso?: AjustePeso[] | null;
   notaConfirmada?: boolean | null;
+  /** Compra confirmada e ajuste de peso ainda não emitido (salvaguarda 25/11/2026). */
+  ajustePendente?: boolean;
   devolucao?: NotaDerivada | null;
   complemento?: NotaDerivada | null;
   segundosDesdeSync: number;
@@ -93,6 +95,11 @@ export class EntradaService {
   }
 
   /** Aprovar o recebimento (etapa 2): o addon TOR confirma a compra em nome do liberador. */
+  /** Salvaguarda: tenta de novo, na hora, o ajuste de peso que não saiu. Devolve a mesa atualizada. */
+  gerarAjuste(nunota: number): Observable<MesaLiberacao> {
+    return this.http.post<MesaLiberacao>(`/api/entrada/${nunota}/ajuste-peso/gerar`, {});
+  }
+
   aprovar(nunota: number, usuario: string, senha: string): Observable<AprovacaoRecebimento> {
     return this.http.post<AprovacaoRecebimento>(`/api/entrada/${nunota}/aprovar`, { usuario, senha });
   }

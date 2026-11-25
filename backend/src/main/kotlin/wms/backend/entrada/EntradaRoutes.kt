@@ -34,6 +34,20 @@ fun Route.entradaRoutes() {
             call.respond(mesa)
         }
 
+        /** Salvaguarda (25/11/2026): tenta de novo, na hora, o ajuste de peso que ainda não saiu (inclusive em erro). */
+        post("/{nunota}/ajuste-peso/gerar") {
+            val claims = call.exigirAuth() ?: return@post
+            val nunota = call.parameters["nunota"]?.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
+            if (EntradaService.mesa(claims, nunota) == null) {
+                return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Recebimento $nunota não encontrado na Entrada"))
+            }
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+            wms.backend.separacao.AjustePesoCompra.reprocessar(slug, claims.tenantId, nunota)
+            call.respond(EntradaService.mesa(claims, nunota)!!)
+        }
+
         /** Aprovar o recebimento: o addon TOR confirma a compra em nome do liberador e registra em TORREC. */
         post("/{nunota}/aprovar") {
             val claims = call.exigirAuth() ?: return@post

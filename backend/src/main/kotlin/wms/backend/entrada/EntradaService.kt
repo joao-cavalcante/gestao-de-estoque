@@ -124,6 +124,7 @@ object EntradaService {
             andamento = t.andamento,
             ajustesPeso = ajustes?.map { AjustePesoDto(it.sentido, it.status, it.nunotaAjuste, it.erro) },
             notaConfirmada = confirmada,
+            ajustePendente = confirmada == true && ajustes.orEmpty().any { it.status !in setOf("confirmado", "cancelado") },
             devolucao = s?.devolucao,
             complemento = s?.complemento,
             segundosDesdeSync = t.segundosDesdeSync,
@@ -132,7 +133,7 @@ object EntradaService {
 
     /** Liberada: só os últimos [DIAS_LIBERADAS] dias. Conferida sem liberação: [DIAS_PENDENTES]. Em aberto: sempre. */
     private fun visivel(r: RecebimentoDto): Boolean = when (r.situacao) {
-        SituacaoRecebimento.LIBERADA -> dentroDaJanela(r.dataMovimento, DIAS_LIBERADAS)
+        SituacaoRecebimento.LIBERADA -> r.ajustePendente || dentroDaJanela(r.dataMovimento, DIAS_LIBERADAS)
         SituacaoRecebimento.AGUARDANDO_LIBERACAO -> dentroDaJanela(r.dataMovimento, DIAS_PENDENTES)
         else -> true
     }

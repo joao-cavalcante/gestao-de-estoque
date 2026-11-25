@@ -234,7 +234,11 @@
     </span>
     <span class="lc-pedido__cliente">{{ r.fornecedor ?? '—' }}</span>
     <span class="lc-pedido__tipo">
-      <b class="lc-tag">{{ r.situacao === 'liberada' ? 'Liberado' : 'Recebimento' }}</b>
+      @if (r.ajustePendente) {
+        <b class="lc-tag lc-t--falta">Ajuste de peso pendente</b>
+      } @else {
+        <b class="lc-tag">{{ r.situacao === 'liberada' ? 'Liberado' : 'Recebimento' }}</b>
+      }
       @if (r.numeroNota) { NF {{ r.numeroNota }} }
       @if (r.devolucao) { · <b class="lc-t--falta">devolução</b> }
       @if (r.complemento) { · <b class="lc-t--sobra">complemento</b> }

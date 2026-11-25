@@ -15,6 +15,9 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
+import org.jetbrains.exposed.sql.or
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.insertIgnore
@@ -265,10 +268,16 @@ object AjustePesoCompra {
         val p = withContext(Dispatchers.IO) { parametros(tenantId) }
         val docs = withContext(Dispatchers.IO) {
             TenantTx.run(tenantId) {
+                // Salvaguarda (25/11/2026): ajuste em "erro" não fica esquecido — pelo addon (transação única, nada pela
+                // metade) volta a ser tentado a cada [RETENTAR_ERRO_SEG] até sair.
+                val limiteErro = Instant.now().minusSeconds(RETENTAR_ERRO_SEG)
                 CompraAjustePesoNotasTable.selectAll()
                     .where {
-                        (CompraAjustePesoNotasTable.tenantId eq tenantId) and
-                            (CompraAjustePesoNotasTable.status inList listOf("pendente", "criando", "cabecalho"))
+                        (CompraAjustePesoNotasTable.tenantId eq tenantId) and (
+                            (CompraAjustePesoNotasTable.status inList listOf("pendente", "criando", "cabecalho")) or
+                                (if (p.viaAddon) (CompraAjustePesoNotasTable.status eq "erro") and (CompraAjustePesoNotasTable.atualizadoEm less limiteErro)
+                                else Op.FALSE)
+                            )
                     }
                     .limit(50)
                     .map {
@@ -294,7 +303,7 @@ object AjustePesoCompra {
             when (statusSessao[doc.sessaoId]) {
                 SeparacaoStatus.CONCLUIDA -> Unit
                 null, SeparacaoStatus.CANCELADA, SeparacaoStatus.INVALIDADA -> {
-                    if (doc.status == "pendente") {
+                    if (doc.status == "pendente" || doc.status == "erro") {
                         marcar(tenantId, doc.id, "cancelado", erro = "sessão da conferência cancelada")
                         continue
                     }
@@ -304,7 +313,7 @@ object AjustePesoCompra {
             val s = situacao[doc.nunota]
             // Nota excluída, ou conferência refeita (recontagem/excluída): as diferenças desta sessão não valem mais.
             if (s == null || s.nuconfAtual != doc.nuconf) {
-                if (doc.status == "pendente") {
+                if (doc.status == "pendente" || doc.status == "erro") {
                     marcar(tenantId, doc.id, "cancelado", erro = if (s == null) "nota de compra não encontrada" else "conferência refeita (NUCONF ${s.nuconfAtual})")
                     println("INFO: ajuste de peso nota ${doc.nunota} (${doc.sentido}) cancelado — ${if (s == null) "nota sumiu" else "conferência refeita"}")
                     continue
@@ -315,7 +324,7 @@ object AjustePesoCompra {
             }
             // Addon TOR: os pendentes da mesma conferência vão juntos numa chamada só (abaixo). Já começado pela Torre
             // (criando/cabeçalho) termina pelo caminho antigo — nunca os dois na mesma conferência.
-            if (p.viaAddon && doc.status == "pendente") {
+            if (p.viaAddon && (doc.status == "pendente" || doc.status == "erro")) {
                 viaAddon.getOrPut(doc.sessaoId) { mutableListOf() }.add(doc)
                 continue
             }
@@ -332,6 +341,29 @@ object AjustePesoCompra {
                 docsSessao.forEach { registrarFalha(tenantId, it, e) }
             }
         }
+    }
+
+    /** Ajuste em "erro" volta a ser tentado depois deste intervalo (caminho do addon). */
+    private const val RETENTAR_ERRO_SEG = 30L * 60
+
+    /**
+     * "Gerar ajuste agora" da mesa (25/11/2026): o ajuste da compra que parou em erro volta para pendente (zera as
+     * tentativas) e o processamento roda na hora, sem esperar o ciclo.
+     */
+    suspend fun reprocessar(tenantSlug: String, tenantId: UUID, nunota: Long) {
+        withContext(Dispatchers.IO) {
+            TenantTx.run(tenantId) {
+                CompraAjustePesoNotasTable.update({
+                    (CompraAjustePesoNotasTable.tenantId eq tenantId) and (CompraAjustePesoNotasTable.nunota eq nunota.toInt()) and
+                        (CompraAjustePesoNotasTable.status eq "erro")
+                }) {
+                    it[status] = "pendente"
+                    it[tentativas] = 0
+                    it[atualizadoEm] = Instant.now()
+                }
+            }
+        }
+        processarPendentes(tenantSlug, tenantId)
     }
 
     private suspend fun registrarFalha(tenantId: UUID, doc: Doc, e: Exception) {

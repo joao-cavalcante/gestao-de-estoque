@@ -109,6 +109,30 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
       && !!this.usuario.trim() && !!this.senha && !this.aprovando();
   }
 
+  // ─── Salvaguarda (25/11/2026): ajuste de peso que não saiu depois da confirmação ───
+  readonly gerandoAjuste = signal(false);
+  readonly erroAjuste = signal<string | null>(null);
+
+  gerarAjuste(): void {
+    if (this.gerandoAjuste()) return;
+    const alvo = this.nunota;
+    this.gerandoAjuste.set(true);
+    this.erroAjuste.set(null);
+    this.service.gerarAjuste(alvo).subscribe({
+      next: (m) => {
+        this.gerandoAjuste.set(false);
+        if (alvo !== this.nunota) return;
+        this.mesa.set(m);
+        const erro = m.recebimento.ajustesPeso?.find((a) => a.status === 'erro');
+        if (m.recebimento.ajustePendente && erro?.erro) this.erroAjuste.set(erro.erro);
+      },
+      error: (e) => {
+        this.gerandoAjuste.set(false);
+        this.erroAjuste.set(e?.error?.erro ?? 'Não foi possível gerar o ajuste agora.');
+      },
+    });
+  }
+
   abrirAprovacao(): void {
     if (!this.podeAprovar) return;
     this.erroAprovacao.set(null);

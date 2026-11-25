@@ -34,12 +34,27 @@
                 a nota pela Central de Notas. A mesa muda para "Liberada" em até 1 minuto.
               }
             }
-            @case ('liberada') { Nota confirmada no Sankhya — o estoque já entrou. }
+            @case ('liberada') {
+              @if (m.recebimento.ajustePendente) {
+                Nota confirmada no Sankhya, mas o ajuste de peso ainda não foi emitido. A Torre tenta de novo sozinha;
+                use "Gerar ajuste agora" para tentar já.
+              } @else {
+                Nota confirmada no Sankhya — o estoque já entrou.
+              }
+            }
             @case ('divergencia') { A conferência está aguardando liberação de corte. }
             @default { A conferência ainda não foi concluída. }
           }
         </span>
       </div>
+      @if (m.recebimento.ajustePendente) {
+        <div class="en-decisao__acoes">
+          <button type="button" class="en-btn en-btn--forte" [disabled]="gerandoAjuste()" (click)="gerarAjuste()">
+            {{ gerandoAjuste() ? 'Gerando o ajuste…' : 'Gerar ajuste agora' }}
+          </button>
+        </div>
+        @if (erroAjuste(); as e) { <p class="en-decisao__erro" role="alert">{{ e }}</p> }
+      }
       @if (m.recebimento.situacao === 'aguardando_liberacao') {
       <div class="en-decisao__acoes">
         @if (!m.aprovacaoDisponivel) {

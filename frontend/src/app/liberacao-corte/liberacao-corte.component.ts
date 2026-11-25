@@ -77,12 +77,15 @@ export class LiberacaoCorteComponent implements OnInit, OnDestroy {
   }
 
   readonly recebimentosAguardando = computed(() =>
-    this.filtrarRecebimentos(this.recebimentos().filter((r) => r.situacao === 'aguardando_liberacao').sort((a, b) => a.nunota - b.nunota)),
+    // Salvaguarda (25/11/2026): compra confirmada com ajuste de peso não emitido continua na lista até o ajuste sair.
+    this.filtrarRecebimentos(
+      this.recebimentos().filter((r) => r.situacao === 'aguardando_liberacao' || !!r.ajustePendente).sort((a, b) => a.nunota - b.nunota),
+    ),
   );
   readonly recebimentosLiberados = computed(() =>
-    this.filtrarRecebimentos(this.recebimentos().filter((r) => r.situacao === 'liberada').sort((a, b) => b.nunota - a.nunota)),
+    this.filtrarRecebimentos(this.recebimentos().filter((r) => r.situacao === 'liberada' && !r.ajustePendente).sort((a, b) => b.nunota - a.nunota)),
   );
-  readonly qtdRecebimento = computed(() => this.recebimentos().filter((r) => r.situacao === 'aguardando_liberacao').length);
+  readonly qtdRecebimento = computed(() => this.recebimentos().filter((r) => r.situacao === 'aguardando_liberacao' || !!r.ajustePendente).length);
   readonly qtdAguardando = computed(() => this.lista().length + this.qtdRecebimento());
 
   /** Mensagem da lista vazia conforme o filtro (null = tem o que mostrar). */
