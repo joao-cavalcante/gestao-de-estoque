@@ -794,3 +794,10 @@
 }
 
 .lc-grupo__seta--aberta { transform: rotate(90deg); }
+
+// 25/11/2026: login dentro do painel da direita (a lista aparece sem login).
+.lc-portao--painel {
+  min-height: 0;
+  place-items: start center;
+  padding: 24px 0;
+}

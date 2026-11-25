@@ -1,36 +1,7 @@
-<!-- Mesa de liberação de corte (17/11/2026): login do liberador a cada entrada → fila à esquerda, corte aberto à
-     direita. O pop-up oq-liberacao-corte-modal (Conferência) não é usado aqui e não mudou. -->
-@if (!liberado()) {
-  <!-- 1) Login do liberador — sempre que a tela abre (o operador entrega o tablet ao supervisor). -->
-  <div class="lc-portao">
-    <form class="lc-login" (ngSubmit)="entrar()" autocomplete="off">
-      <h1 class="lc-login__titulo">Liberações</h1>
-      <p class="lc-login__texto">Entre com o usuário e a senha do <b>liberador no Sankhya</b> para ver e liberar cortes e recebimentos.</p>
+<!-- Mesa de liberação (17/11/2026; 25/11/2026: a lista aparece sem login — o login do liberador é pedido ao abrir um
+     corte ou recebimento, e vale até sair da tela ou "Trocar liberador"). O pop-up oq-liberacao-corte-modal
+     (Conferência) não é usado aqui e não mudou. -->
 
-      <label class="lc-campo">
-        <span>Usuário</span>
-        <input type="text" name="usuario" [(ngModel)]="usuario" autocomplete="off" autocapitalize="off" spellcheck="false" />
-      </label>
-      <label class="lc-campo">
-        <span>Senha</span>
-        <span class="lc-senha">
-          <input [type]="mostrarSenha ? 'text' : 'password'" name="senha" [(ngModel)]="senha" autocomplete="new-password" />
-          <button type="button" (click)="mostrarSenha = !mostrarSenha" [attr.aria-label]="mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'">
-            {{ mostrarSenha ? 'Ocultar' : 'Mostrar' }}
-          </button>
-        </span>
-      </label>
-
-      @if (erroAutenticacao()) {
-        <p class="lc-erro" role="alert">{{ erroAutenticacao() }}</p>
-      }
-
-      <button type="submit" class="lc-btn lc-btn--cheio lc-login__entrar" [disabled]="!podeEntrar">
-        @if (autenticando()) { <oq-spinner [size]="14" /> Validando no Sankhya… } @else { Entrar }
-      </button>
-    </form>
-  </div>
-} @else {
   <div class="lc-mesa" [class.lc-mesa--aberta]="!!selecionada() || recebimentoAberto() != null">
     <!-- 2) Fila de corte -->
     <aside class="lc-fila" aria-label="Aguardando liberação: cortes e recebimentos">
@@ -97,15 +68,49 @@
       </div>
 
       <footer class="lc-fila__rodape">
-        <span class="lc-fila__liberador" title="Liberador conectado nesta tela">
-          <oq-icon name="user" [size]="13" /> {{ liberadorNome() }}
-        </span>
-        <button type="button" class="lc-link" (click)="trocarLiberador()">Trocar liberador</button>
+        @if (liberado()) {
+          <span class="lc-fila__liberador" title="Liberador conectado nesta tela">
+            <oq-icon name="user" [size]="13" /> {{ liberadorNome() }}
+          </span>
+          <button type="button" class="lc-link" (click)="trocarLiberador()">Trocar liberador</button>
+        } @else {
+          <span class="lc-fila__liberador">Abrir uma liberação pede o login do liberador</span>
+        }
       </footer>
     </aside>
 
     <!-- 3) Corte aberto -->
     <section class="lc-corte" aria-live="polite">
+      @if (precisaLogin()) {
+        <div class="lc-portao lc-portao--painel">
+        <form class="lc-login" (ngSubmit)="entrar()" autocomplete="off">
+          <h1 class="lc-login__titulo">Entrar como liberador</h1>
+          <p class="lc-login__texto">Para abrir {{ alvoLogin() }}, entre com o usuário e a senha do <b>liberador no Sankhya</b>. Vale para as próximas liberações até você sair da tela.</p>
+
+          <label class="lc-campo">
+            <span>Usuário</span>
+            <input type="text" name="usuario" [(ngModel)]="usuario" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          </label>
+          <label class="lc-campo">
+            <span>Senha</span>
+            <span class="lc-senha">
+              <input [type]="mostrarSenha ? 'text' : 'password'" name="senha" [(ngModel)]="senha" autocomplete="new-password" />
+              <button type="button" (click)="mostrarSenha = !mostrarSenha" [attr.aria-label]="mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'">
+                {{ mostrarSenha ? 'Ocultar' : 'Mostrar' }}
+              </button>
+            </span>
+          </label>
+
+          @if (erroAutenticacao()) {
+            <p class="lc-erro" role="alert">{{ erroAutenticacao() }}</p>
+          }
+
+          <button type="submit" class="lc-btn lc-btn--cheio lc-login__entrar" [disabled]="!podeEntrar">
+            @if (autenticando()) { <oq-spinner [size]="14" /> Validando no Sankhya… } @else { Entrar }
+          </button>
+        </form>
+        </div>
+      } @else {
       @if (selecionada(); as sel) {
         <header class="lc-corte__topo">
           <button type="button" class="lc-voltar" (click)="fecharCorte()" aria-label="Voltar para a fila"><oq-icon name="arrow-left" [size]="16" /></button>
@@ -204,6 +209,7 @@
       } @else {
         <p class="lc-corte__vazio">Escolha um corte ou um recebimento na lista.</p>
       }
+      }
     </section>
   </div>
 
@@ -211,7 +217,6 @@
     <!-- Mesmo modal de faturamento da Fila ("Gerar nota"). -->
     <oq-fechamento-oc-modal [nunota]="nunota" (fechado)="encerrarFaturamento()" />
   }
-}
 
 <!-- Item de recebimento na lista única (19/11/2026). -->
 <ng-template #itemRecebimento let-r>

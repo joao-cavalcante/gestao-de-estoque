@@ -1,4 +1,4 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -40,7 +40,22 @@ type TipoLiberacao = 'todos' | 'corte' | 'recebimento';
   templateUrl: './liberacao-corte.component.html',
   styleUrl: './liberacao-corte.component.scss',
 })
-export class LiberacaoCorteComponent implements OnDestroy {
+export class LiberacaoCorteComponent implements OnInit, OnDestroy {
+  /** 25/11/2026: a lista carrega sem login; abrir um corte ou recebimento pede o liberador. */
+  ngOnInit(): void {
+    this.carregar();
+  }
+
+  /** Há um corte/recebimento escolhido, mas ainda sem liberador conectado: o painel mostra o login. */
+  readonly precisaLogin = computed(() => !this.liberado() && (this.selecionada() != null || this.recebimentoAberto() != null));
+
+  readonly alvoLogin = computed(() => {
+    const c = this.selecionada();
+    if (c) return `o corte ${c.nunota}`;
+    const r = this.recebimentoAberto();
+    return r != null ? `o recebimento ${r}` : 'a liberação';
+  });
+
   private readonly service = inject(LiberacaoCorteService);
   private readonly feedback = inject(ActionFeedbackService);
   private readonly entradaService = inject(EntradaService);
@@ -130,7 +145,9 @@ export class LiberacaoCorteComponent implements OnDestroy {
         this.autenticando.set(false);
         this.liberadorNome.set(this.usuario.trim());
         this.liberado.set(true);
-        this.carregar();
+        // Abre o que estava escolhido quando o login foi pedido (corte; o recebimento abre sozinho).
+        const alvo = this.selecionada();
+        if (alvo) this.abrir(alvo);
       },
       error: (err) => {
         this.autenticando.set(false);
@@ -144,13 +161,12 @@ export class LiberacaoCorteComponent implements OnDestroy {
   trocarLiberador(): void {
     this.limparCredenciais();
     this.liberado.set(false);
-    this.lista.set([]);
     this.selecionada.set(null);
     this.pendentes.set([]);
     this.selecionadas.set(new Set());
     this.erroAcao.set(null);
     this.mensagem.set(null);
-    this.recebimentos.set([]);
+    if (this.recebimentoAberto() != null) this.fecharRecebimento();
   }
 
   ngOnDestroy(): void {
@@ -243,6 +259,7 @@ export class LiberacaoCorteComponent implements OnDestroy {
     this.selecionadas.set(new Set());
     this.pendentes.set([]);
     this.selecionada.set(item);
+    if (!this.liberado()) return; // o painel pede o login; depois dele, entrar() reabre este corte
     if (item.nuconf == null) {
       this.erroAcao.set(`Nº único ${item.nunota}: NUCONF não encontrado localmente — a conferência não passou pelo WMS.`);
       return;
