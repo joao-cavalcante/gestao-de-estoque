@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!--
+  TORCFG - configuracao do addon TOR por empresa (19/11/2026).
+  Ajuste de peso da compra: segue o nativo do WMS (TGFEMP.TOPENTDIFPESOWMS / TOPSAIDADIFPESOWMS e
+  SERIETOPDIFMAIOR / SERIETOPDIFMENOR); o que estiver preenchido aqui tem prioridade (Negri: TOP 1495 entrada, 1195 saida).
+  Parceiro e tipo de negociacao configuraveis como hoje na Torre (decisao 18/11/2026); vazio = os da nota de compra.
+-->
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+    <table name="TORCFG" sequenceType="M">
+        <description>Torre de Opera&#231;&#227;o - Configura&#231;&#227;o</description>
+        <primaryKey>
+            <field name="CODEMP"/>
+        </primaryKey>
+        <instances>
+            <instance name="ConfiguracaoTorre">
+                <description>Torre de Opera&#231;&#227;o - Configura&#231;&#227;o</description>
+            </instance>
+        </instances>
+        <fields>
+            <field name="CODEMP" dataType="PESQUISA" targetInstance="Empresa" targetField="CODEMP" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Empresa</description>
+            </field>
+            <field name="TOPENTAJ" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>TOP do Ajuste de Entrada</description>
+            </field>
+            <field name="TOPSAIAJ" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>TOP do Ajuste de Sa&#237;da</description>
+            </field>
+            <field name="SERIEENTAJ" dataType="TEXTO" size="3" allowSearch="S" visibleOnSearch="S">
+                <description>S&#233;rie do Ajuste de Entrada</description>
+            </field>
+            <field name="SERIESAIAJ" dataType="TEXTO" size="3" allowSearch="S" visibleOnSearch="S">
+                <description>S&#233;rie do Ajuste de Sa&#237;da</description>
+            </field>
+            <field name="CODPARCAJ" dataType="PESQUISA" targetInstance="Parceiro" targetField="CODPARC" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Parceiro do Ajuste</description>
+            </field>
+            <field name="CODTIPVENDAAJ" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Tipo de Negocia&#231;&#227;o do Ajuste</description>
+            </field>
+            <field name="USUAPROVREC" dataType="TEXTO" size="400" allowSearch="S" visibleOnSearch="S">
+                <description>Usu&#225;rios que Aprovam o Recebimento</description>
+            </field>
+        </fields>
+    </table>
+</metadados>

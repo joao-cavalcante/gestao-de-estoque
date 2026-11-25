@@ -1,0 +1,8 @@
+/*
+    Addon TOR (Torre de Operação) — dados e regras da entrada com endereçamento no Sankhya.
+    Configuração do Addon Studio: https://developer.sankhya.com.br/docs/03_conf_addonstudio
+ */
+
+rootProject.name = 'torre'
+include 'torre-model'
+include 'torre-vc'

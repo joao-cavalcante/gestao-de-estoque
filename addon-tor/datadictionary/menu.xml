@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+
+    <!-- Menu do addon TOR no Sankhya (19/11/2026): telas das tabelas do addon (formulario dinamico). -->
+    <menu id="torre" description="Torre de Opera&#231;&#227;o" icon="/$ctx/assets/icon.png">
+        <dynamicForm id="torre_configuracao" instance="ConfiguracaoTorre" description="Torre de Opera&#231;&#227;o - Configura&#231;&#227;o"
+                     resourceId="br.com.torre.addon.configuracao"/>
+        <dynamicForm id="torre_peso_variavel" instance="PesoVariavelTorre" description="Torre de Opera&#231;&#227;o - Diferen&#231;as de Peso da Compra"
+                     resourceId="br.com.torre.addon.pesovariavel"/>
+        <dynamicForm id="torre_recebimento" instance="RecebimentoTorre" description="Torre de Opera&#231;&#227;o - Recebimento"
+                     resourceId="br.com.torre.addon.recebimento"/>
+        <dynamicForm id="torre_log" instance="LogTorre" description="Torre de Opera&#231;&#227;o - Log"
+                     resourceId="br.com.torre.addon.log"/>
+    </menu>
+</metadados>

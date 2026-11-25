@@ -1,0 +1,42 @@
+/*
+    Addon TOR (Torre de Operação) — 19/11/2026, etapa 1 do plano "Entrada com endereçamento, lote e validade"
+    (Sankhya Hub: docs/projetos/torre-enderecamento-entrada.md). Esqueleto copiado do addon do Portal do Vendedor GBI.
+    https://developer.sankhya.com.br/docs/03_conf_addonstudio
+ */
+
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven {
+            url = uri("https://artifacts-partners.sankhya.com.br/repository/maven-releases")
+        }
+    }
+    dependencies {
+        classpath "br.com.sankhya.studio:gradle-plugin:2+"
+        classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:2.0.0-1.0.24"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0"
+    }
+}
+
+group = 'br.com.torre.addon'
+version = "0.4.0"
+description = "Torre de Operacao - entrada com enderecamento"
+
+apply(plugin: "br.com.sankhya.addonstudio")
+
+snkmodule {
+    // WildFly local usado só para compilar (mesmo do addon GBI).
+    serverFolder = 'C:/wildfly_producao'
+    // PENDENTE (risco A1): conferir a versão da plataforma da Negri antes de publicar.
+    plataformaMinima = "4.28"
+}
+
+addon {
+    // Tabelas TOR* geradas pelo dicionário (datadictionary/). Prefixo TOR, nomes sem sublinhado (decisão 18/11/2026).
+    autoDDL = true
+    // appKey real da Área do Desenvolvedor (informada pelo usuário em 24/11/2026) — 25/11/2026: lida de fora do git.
+    // Fora do repositório: torreAppKey no ~/.gradle/gradle.properties (ou -PtorreAppKey=...).
+    appKey = (findProperty("torreAppKey") ?: System.getenv("TORRE_APPKEY") ?: "")
+    parceiroNome = "Torre de Operacao"
+}

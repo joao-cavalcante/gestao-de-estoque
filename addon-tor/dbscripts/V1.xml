@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<scripts xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../.gradle/scripts.xsd">
+
+    <!--
+        Para mais informações sobre a criação e utilização dos Scripts de Banco,
+        consulte a documentação oficial da Sankhya em: https://developer.sankhya.com.br/docs/02_scripts
+    -->
+
+
+</scripts>

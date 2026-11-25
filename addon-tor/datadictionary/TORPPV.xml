@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!--
+  TORPPV - diferenca de peso da compra por item (espelho da TGWPPV do WMS nativo, sem usar a TGWPPV) - 19/11/2026.
+  A Torre decide a faixa na conferencia (tolerancia) e manda a diferenca; o servico AjustePesoSP grava aqui, gera a
+  nota de ajuste (entrada > 0, saida < 0), confirma, liga na TGFVAR e marca G - tudo na mesma transacao.
+  STATUS: P registrada pela Torre (compra nao confirmada); A compra confirmada, a gerar (job AjustePesoJob);
+          G gerado (NUNOTAAJ preenchido); E parou em erro (5 tentativas). Plano B, 25/11/2026.
+-->
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+    <table name="TORPPV" sequenceType="M">
+        <description>Torre de Opera&#231;&#227;o - Diferen&#231;as de Peso da Compra</description>
+        <primaryKey>
+            <field name="NUNOTA"/>
+            <field name="NUCONF"/>
+            <field name="SEQUENCIA"/>
+        </primaryKey>
+        <instances>
+            <instance name="PesoVariavelTorre">
+                <description>Torre de Opera&#231;&#227;o - Diferen&#231;as de Peso da Compra</description>
+            </instance>
+        </instances>
+        <fields>
+            <field name="NUNOTA" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>N&#250;mero &#218;nico da Compra</description>
+            </field>
+            <field name="NUCONF" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Confer&#234;ncia</description>
+            </field>
+            <field name="SEQUENCIA" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Sequ&#234;ncia do Item</description>
+            </field>
+            <field name="CODPROD" dataType="PESQUISA" targetInstance="Produto" targetField="CODPROD" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Produto</description>
+            </field>
+            <field name="CONTROLE" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
+                <description>Controle</description>
+            </field>
+            <field name="QTDNOTA" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Quantidade da Nota</description>
+            </field>
+            <field name="QTDBALANCA" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Quantidade Pesada</description>
+            </field>
+            <field name="QTDDIF" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Diferen&#231;a</description>
+            </field>
+            <field name="NUNOTAAJ" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Nota de Ajuste Gerada</description>
+            </field>
+            <field name="STATUS" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+                <description>Situa&#231;&#227;o</description>
+            </field>
+            <field name="TENTATIVAS" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Tentativas</description>
+            </field>
+            <field name="ERRO" dataType="TEXTO" size="400" allowSearch="S" visibleOnSearch="S">
+                <description>&#218;ltimo Erro</description>
+            </field>
+            <field name="DHPROC" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Processado em</description>
+            </field>
+            <field name="CODUSU" dataType="PESQUISA" targetInstance="Usuario" targetField="CODUSU" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Usu&#225;rio</description>
+            </field>
+        </fields>
+    </table>
+</metadados>

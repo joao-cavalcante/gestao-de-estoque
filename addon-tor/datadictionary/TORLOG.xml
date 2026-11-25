@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- TORLOG - log das chamadas aos servicos do addon TOR (19/11/2026). -->
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+    <table name="TORLOG" sequenceType="A" sequenceField="NULOG">
+        <description>Torre de Opera&#231;&#227;o - Log</description>
+        <primaryKey>
+            <field name="NULOG"/>
+        </primaryKey>
+        <instances>
+            <instance name="LogTorre">
+                <description>Torre de Opera&#231;&#227;o - Log</description>
+            </instance>
+        </instances>
+        <fields>
+            <field name="NULOG" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>N&#250;mero do Log</description>
+            </field>
+            <field name="DHLOG" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Data e Hora</description>
+            </field>
+            <field name="SERVICO" dataType="TEXTO" size="60" allowSearch="S" visibleOnSearch="S">
+                <description>Servi&#231;o</description>
+            </field>
+            <field name="NUNOTA" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>N&#250;mero &#218;nico</description>
+            </field>
+            <field name="SUCESSO" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+                <description>Sucesso</description>
+            </field>
+            <field name="MENSAGEM" dataType="CAIXA_TEXTO" allowSearch="S" visibleOnSearch="S">
+                <description>Mensagem</description>
+            </field>
+            <field name="CODUSU" dataType="PESQUISA" targetInstance="Usuario" targetField="CODUSU" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Usu&#225;rio</description>
+            </field>
+        </fields>
+    </table>
+</metadados>
