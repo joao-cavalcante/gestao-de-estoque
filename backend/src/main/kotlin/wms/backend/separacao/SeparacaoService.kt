@@ -520,6 +520,7 @@ object SeparacaoService {
         if (diferencas.isNotEmpty()) {
             withContext(Dispatchers.IO) { AjustePesoCompra.registrarDiferencas(tenantId, sessaoId, nunota, nuconf, diferencas) }
         }
+        AjustePesoCompra.registrarNoAddon(tenantSlug, tenantId, sessaoId, nunota, nuconf)
         return resultado
     }
 

@@ -27,7 +27,7 @@ class AjustePesoAddonTest {
         val itens = corpo["ITENS"]!!.jsonArray
         assertEquals(2, itens.size)
         assertEquals("", itens[0].jsonObject["CONTROLE"]!!.jsonPrimitive.content)
-        assertEquals("-25.30", itens[0].jsonObject["QTDDIF"]!!.jsonPrimitive.content)
+        assertEquals("-25.300", itens[0].jsonObject["QTDDIF"]!!.jsonPrimitive.content)
         assertEquals("L01", itens[1].jsonObject["CONTROLE"]!!.jsonPrimitive.content)
     }
 

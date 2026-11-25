@@ -392,6 +392,31 @@ object AjustePesoCompra {
     internal data class ItemAddon(val codprod: Int, val controle: String, val qtdNota: BigDecimal, val qtdBalanca: BigDecimal, val diferenca: BigDecimal)
 
     /**
+     * Plano B (25/11/2026): ao finalizar a conferência da compra, registra no addon as diferenças desta sessão (pode ser
+     * nenhuma) e o recebimento pendente. A confirmação da compra — pelo Aprovar ou pela Central de Notas — dispara o
+     * evento do addon, que registra quem confirmou e libera o ajuste para o job do addon gerar. O ciclo da Torre continua
+     * como reserva (o addon trava a conferência e não gera duas vezes). Falha aqui não trava a conferência.
+     */
+    suspend fun registrarNoAddon(tenantSlug: String, tenantId: UUID, sessaoId: UUID, nunota: Long, nuconf: Int) {
+        if (!parametros(tenantId).viaAddon) return
+        runCatching {
+            val itens = withContext(Dispatchers.IO) {
+                TenantTx.run(tenantId) {
+                    CompraAjustePesoItensTable.selectAll()
+                        .where { (CompraAjustePesoItensTable.tenantId eq tenantId) and (CompraAjustePesoItensTable.sessaoId eq sessaoId) }
+                        .map {
+                            ItemAddon(it[CompraAjustePesoItensTable.codprod], it[CompraAjustePesoItensTable.controle], it[CompraAjustePesoItensTable.qtdNota],
+                                it[CompraAjustePesoItensTable.qtdBalanca], it[CompraAjustePesoItensTable.diferenca])
+                        }
+                        .filter { it.diferenca.signum() != 0 }
+                }
+            }
+            SankhyaSpClient.chamarRaw(tenantSlug, "AjustePesoSP.registrar", MODULO_ADDON, payloadAddon(nunota.toInt(), nuconf, itens), retentar = false)
+            println("INFO: compra $nunota (conferência $nuconf) registrada no addon: ${itens.size} diferença(s)")
+        }.onFailure { println("AVISO: registro da compra $nunota no addon falhou (o ciclo da Torre segue como reserva): ${it.message}") }
+    }
+
+    /**
      * requestBody do gateway: `{"request": {NUNOTA, NUCONF, ITENS}}` — o bean gerado pelo Addon Studio lê
      * `ctx.getJsonRequestBody().get("request")` (mesmo contrato do addon do Portal GBI em produção). Números como texto:
      * o Gson do addon converte número JSON em Double.
