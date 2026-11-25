@@ -691,6 +691,6 @@ export const CATALOGO_CONFIG_CONFERENCIA: CampoCatalogo[] = [
 
 export const ABAS: { valor: 'geral' | 'corte' | 'volumes'; label: string }[] = [
   { valor: 'geral', label: 'Geral' },
-  { valor: 'corte', label: 'Corte/Divergência' },
-  { valor: 'volumes', label: 'Formação de Volumes' },
+  { valor: 'corte', label: 'Corte e divergência' },
+  { valor: 'volumes', label: 'Formação de volumes' },
 ];

@@ -1,233 +1,317 @@
-<div class="oq-admin-page">
-  <oq-panel-section icon="badge" title="CONFIGURAÇÃO DE CONFERÊNCIA" [count]="lista().length">
-    <div class="oq-cc__escopo" role="tablist">
-      <button type="button" role="tab" class="oq-cc__escopo-btn" [class.oq-cc__escopo-btn--ativo]="escopo() === 'nucco'" (click)="escopo.set('nucco')">
-        Por configuração (NUCCO)
-      </button>
-      <button type="button" role="tab" class="oq-cc__escopo-btn" [class.oq-cc__escopo-btn--ativo]="escopo() === 'cliente'" (click)="escopo.set('cliente')">
-        Gerais — todas as conferências
-      </button>
-    </div>
+<!-- Configuração de Conferência (25/11/2026) — mesmo desenho da mesa da Liberações: lista à esquerda, detalhe à direita.
+     Regras da Torre editáveis com um Salvar por item; campos da TGFCCO só leitura (a sincronização sobrescreve qualquer
+     edição local, então editar aqui não tinha efeito). -->
+<div class="cc-mesa" [class.cc-mesa--aberta]="abertoNoCelular()">
+  <!-- 1) Lista -->
+  <aside class="cc-lista" aria-label="Configurações de conferência">
+    <header class="cc-lista__topo">
+      <div class="cc-lista__titulo">Configuração de conferência</div>
+    </header>
 
-    <div class="oq-admin-toolbar oq-cc__toolbar">
-      @if (escopo() === 'nucco') {
-      <select
-        class="oq-cc__seletor"
-        [ngModel]="nuccoSelecionado()"
-        (ngModelChange)="selecionar($event)"
-        [disabled]="lista().length === 0"
-      >
-        @for (item of lista(); track item.nucco) {
-          <option [value]="item.nucco">{{ item.nucco }} — {{ item.descricao }}</option>
-        }
-      </select>
-
-      <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="mostrarTodos.set(!mostrarTodos())">
-        {{ mostrarTodos() ? 'Mostrar só implementados' : 'Mostrar não implementados' }}
-      </button>
-      }
-
-      <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="sincronizando()" (click)="sincronizarAgora()">
-        <oq-icon name="sync" [size]="13" />
-        {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar agora' }}
-      </button>
-
+    <div class="cc-lista__itens">
+      <div class="cc-grupo">Todas as compras</div>
       <button
         type="button"
-        class="oq-admin-btn oq-admin-btn--outline"
+        class="cc-item"
+        [class.cc-item--sel]="selecao() === 'ajuste'"
+        [attr.aria-current]="selecao() === 'ajuste' ? 'true' : null"
+        (click)="abrirAjuste()"
+      >
+        <span class="cc-item__nome">Diferença de peso na compra</span>
+        <span class="cc-item__meta" [class.cc-item__meta--ligado]="ajusteSalvo().habilitado">{{ resumoAjuste() }}</span>
+      </button>
+
+      <div class="cc-grupo">Configurações do Sankhya <span class="cc-grupo__qtd">{{ lista().length }}</span></div>
+      @if (carregando() && lista().length === 0) {
+        <p class="cc-vazio"><oq-spinner [size]="14" /> Carregando…</p>
+      } @else if (lista().length === 0) {
+        <p class="cc-vazio">Nenhuma configuração sincronizada ainda. Use "Sincronizar com o Sankhya" abaixo.</p>
+      }
+      @for (item of lista(); track item.nucco) {
+        <button
+          type="button"
+          class="cc-item"
+          [class.cc-item--sel]="selecao() === item.nucco"
+          [attr.aria-current]="selecao() === item.nucco ? 'true' : null"
+          (click)="abrirConfiguracao(item.nucco)"
+        >
+          <span class="cc-item__nome">{{ item.descricao }}</span>
+          <span class="cc-item__meta">Configuração {{ item.nucco }}</span>
+        </button>
+      }
+    </div>
+
+    <footer class="cc-lista__rodape">
+      @if (erro()) {
+        <p class="cc-msg cc-msg--erro" role="alert"><oq-icon name="circle-alert" [size]="13" /> {{ erro() }}</p>
+      }
+      @if (ressinc(); as r) {
+        @if (r.erro) {
+          <p class="cc-msg cc-msg--erro" role="alert"><oq-icon name="circle-alert" [size]="13" /> Ressincronização de produtos falhou: {{ r.erro }}</p>
+        } @else if (r.rodando) {
+          <p class="cc-msg">Ressincronizando produtos… pode levar alguns minutos; a operação continua normal.</p>
+        } @else if (r.concluidoEm) {
+          <p class="cc-msg cc-msg--ok">
+            <oq-icon name="check" [size]="13" /> {{ r.produtos }} produtos relidos. Unidades alternativas são relidas na próxima conferência ou mapa de cada nota.
+          </p>
+        }
+      }
+      <button type="button" class="cc-acao" [disabled]="sincronizando()" (click)="sincronizarAgora()" title="Relê as configurações de conferência do Sankhya">
+        <oq-icon name="sync" [size]="14" [class.oq-spin]="sincronizando()" />
+        {{ sincronizando() ? 'Sincronizando…' : 'Sincronizar com o Sankhya' }}
+      </button>
+      <button
+        type="button"
+        class="cc-acao"
         [disabled]="ressinc()?.rodando"
         (click)="ressincronizarProdutos()"
         title="Apaga o cache de produtos, códigos de barra e unidades alternativas e relê tudo do Sankhya (use depois de corrigir cadastro no Sankhya)"
       >
-        <oq-icon name="box" [size]="13" [class.oq-spin]="ressinc()?.rodando" />
+        <oq-icon name="box" [size]="14" [class.oq-spin]="ressinc()?.rodando" />
         {{ ressinc()?.rodando ? 'Ressincronizando produtos…' : 'Ressincronizar produtos' }}
       </button>
+    </footer>
+  </aside>
 
-      @if (escopo() === 'nucco') {
-        <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!alterado() || salvando()" (click)="salvar()">
-          {{ salvando() ? 'Salvando…' : 'Salvar alterações' }}
-        </button>
-      }
-    </div>
+  <!-- 2) Detalhe -->
+  <section class="cc-detalhe">
+    @if (selecao() === 'ajuste') {
+      <!-- ─── Diferença de peso na compra (configuração do cliente, não da CCO) ─── -->
+      <div class="cc-detalhe__corpo">
+        <header class="cc-topo">
+          <button type="button" class="cc-voltar" (click)="voltar()" aria-label="Voltar para a lista"><oq-icon name="arrow-left" [size]="16" /></button>
+          <h1 class="cc-topo__nome">Diferença de peso na compra</h1>
+          <p class="cc-topo__meta"><span>Vale para todas as conferências de compra, em qualquer configuração</span></p>
+        </header>
 
-    @if (ressinc(); as r) {
-      @if (r.erro) {
-        <div class="oq-cc__alerta">Ressincronização de produtos falhou: {{ r.erro }}</div>
-      } @else if (!r.rodando && r.concluidoEm) {
-        <div class="oq-form-hint">Produtos ressincronizados com o Sankhya ({{ r.produtos }} produtos). Unidades alternativas são relidas na próxima conferência/mapa de cada nota.</div>
-      } @else if (r.rodando) {
-        <div class="oq-form-hint">Ressincronizando produtos com o Sankhya… pode levar alguns minutos. A operação continua normal enquanto isso.</div>
-      }
-    }
+        <section class="cc-bloco">
+          <div class="cc-linha">
+            <div class="cc-linha__rotulo">
+              Ajuste da diferença de peso
+              <small>Desligado: regra anterior — só o peso a maior dentro da tolerância vai com o peso da nota.</small>
+            </div>
+            <label class="cc-check">
+              <input type="checkbox" [(ngModel)]="ajuste.habilitado" />
+              {{ ajuste.habilitado ? 'Ligado' : 'Desligado' }}
+            </label>
+          </div>
 
-    @if (erro()) {
-      <div class="oq-cc__alerta">{{ erro() }}</div>
-    }
+          <div class="cc-linha">
+            <div class="cc-linha__rotulo">
+              Quem gera as notas de ajuste
+              <small>
+                @if (ajuste.viaAddon) {
+                  O addon gera, confirma e liga a nota de ajuste à compra numa operação só, dentro do Sankhya. TOP, série,
+                  parceiro e tipo de negociação vêm da tela Torre de Operação › Configuração no Sankhya.
+                } @else {
+                  A Torre gera a nota de ajuste depois que a compra é confirmada, com a TOP e a série informadas abaixo.
+                }
+              </small>
+            </div>
+            <div class="cc-segmento" role="radiogroup" aria-label="Quem gera as notas de ajuste">
+              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!ajuste.viaAddon" [attr.aria-checked]="!ajuste.viaAddon" (click)="ajuste.viaAddon = false">
+                Pela Torre
+              </button>
+              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!!ajuste.viaAddon" [attr.aria-checked]="!!ajuste.viaAddon" (click)="ajuste.viaAddon = true">
+                Pelo addon TOR no Sankhya
+              </button>
+            </div>
+          </div>
+        </section>
 
-    @if (escopo() === 'cliente') {
-      <div class="oq-cc__conteudo">
-      <!-- Configuração do CLIENTE (não é por NUCCO) — a mesma do Painel Master. -->
-      <div class="oq-cc__tolerancia">
-        <div class="oq-cc__tolerancia-titulo">
-          Diferença de peso na compra
-          <span class="oq-cc__tolerancia-sub">vale para todas as conferências de compra, em qualquer NUCCO</span>
-        </div>
-        <label class="oq-cc__tolerancia-campo">
-          <input type="checkbox" [(ngModel)]="ajuste.habilitado" />
-          Ligado (desligado = regra anterior: só o peso a maior dentro da tolerância vai com o peso da nota)
-        </label>
-        <span class="oq-cc__tolerancia-ajuda">
-          Faixa 2 — até a tolerância de peso (do produto, senão a do NUCCO da conferência): a nota do fornecedor fica igual ao XML
-          e a diferença entra por nota de ajuste, gerada e confirmada depois que a nota do fornecedor é confirmada.
-        </span>
-        <label class="oq-cc__tolerancia-campo">
-          <input type="checkbox" [(ngModel)]="ajuste.viaAddon" />
-          Gerar pelo addon TOR no Sankhya
-        </label>
-        <span class="oq-cc__tolerancia-ajuda">
-          Com o addon, a nota de ajuste é gerada, confirmada e ligada à compra numa operação só, dentro do Sankhya; a TOP,
-          a série, o parceiro e o tipo de negociação passam a vir da tela Torre de Operação › Configuração no Sankhya (os
-          campos abaixo deixam de valer). Só ligue depois de instalar o addon e preencher essa configuração.
-        </span>
-        <label class="oq-cc__tolerancia-campo">
-          <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" />
-          Peso a maior: nota de entrada
-        </label>
-        <label class="oq-cc__tolerancia-campo">
-          TOP de entrada
-          <input type="text" inputmode="numeric" placeholder="ex.: 1495" [(ngModel)]="ajuste.topEntrada" />
-        </label>
-        <label class="oq-cc__tolerancia-campo">
-          Série
-          <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieEntrada" />
-        </label>
-        <label class="oq-cc__tolerancia-campo">
-          <input type="checkbox" [(ngModel)]="ajuste.ajusteSaida" />
-          Peso a menor: nota de saída
-        </label>
-        <label class="oq-cc__tolerancia-campo">
-          TOP de saída
-          <input type="text" inputmode="numeric" placeholder="ex.: 1195" [(ngModel)]="ajuste.topSaida" />
-        </label>
-        <label class="oq-cc__tolerancia-campo">
-          Série
-          <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieSaida" />
-        </label>
-        <label class="oq-cc__tolerancia-campo">
-          Parceiro
-          <input type="text" inputmode="numeric" placeholder="o fornecedor" [(ngModel)]="ajuste.codParc" />
-        </label>
-        <label class="oq-cc__tolerancia-campo">
-          Tipo de negociação
-          <input type="text" inputmode="numeric" placeholder="o da compra" [(ngModel)]="ajuste.codTipVenda" />
-        </label>
-        <span class="oq-cc__tolerancia-ajuda">
-          Parceiro das notas de ajuste (vazio = o fornecedor; nota de saída exige parceiro marcado como cliente — ex.: 1).
-          Tipo de negociação das notas de ajuste (vazio = o da nota de compra). Na nota de saída o Sankhya confere o grupo de
-          autorização do fornecedor — use um tipo sem grupo, ex.: 11 À VISTA (a TOP de ajuste não gera financeiro).
-        </span>
-        <span class="oq-cc__tolerancia-ajuda">
-          Faixa 3 — acima da tolerância (ou sentido desligado): vai o peso lido, segue para divergência/liberação e o
-          Sankhya trata pelos campos de Divergência a maior/a menor da aba Corte/Divergência de cada NUCCO.
-        </span>
-        <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="ajusteSalvando()" (click)="salvarAjuste()">
-          {{ ajusteSalvando() ? 'Salvando…' : 'Salvar diferença de peso' }}
-        </button>
-        @if (ajusteMensagem()) {
-          <span class="oq-cc__tolerancia-msg">{{ ajusteMensagem() }}</span>
-        }
-      </div>
-      </div>
-    } @else {
-    @if (alterado()) {
-      <div class="oq-cc__aviso">Há alterações não salvas — gravadas só no nosso sistema (não escreve no Sankhya ainda).</div>
-    }
-
-    @if (carregando()) {
-      <div class="oq-cc__conteudo" aria-busy="true">
-        <oq-skeleton variant="detail-block" [count]="8" />
-      </div>
-    } @else if (lista().length === 0) {
-      <div class="oq-empty-row">Nenhuma Configuração de Conferência sincronizada ainda — clique em "Sincronizar agora"</div>
-    } @else if (detalhe()) {
-      <div class="oq-cc__abas">
-        @for (aba of abas; track aba.valor) {
-          <button
-            type="button"
-            class="oq-cc__aba-btn"
-            [class.oq-cc__aba-btn--ativa]="abaAtual() === aba.valor"
-            (click)="abaAtual.set(aba.valor)"
-          >
-            {{ aba.label }}
-          </button>
-        }
-      </div>
-
-      <div class="oq-cc__conteudo">
-        @switch (abaAtual()) {
-          @case ('geral') {
-            <oq-aba-geral [campos]="valoresEditados()" [mostrarTodos]="mostrarTodos()" (campoAlterado)="onCampoAlterado($event)" />
+        <section class="cc-bloco">
+          <h2 class="cc-bloco__titulo">Sentidos</h2>
+          @if (ajuste.viaAddon) {
+            <p class="cc-bloco__sub">Com o addon, a TOP e a série usadas são as da configuração no Sankhya; as daqui ficam para o modo pela Torre.</p>
           }
-          @case ('corte') {
-            <!-- Regra do WMS (não existe no Sankhya) — salva à parte do "Salvar alterações". -->
-            <div class="oq-cc__tolerancia">
-              <div class="oq-cc__tolerancia-titulo">
-                Tolerância de peso — item pesável
-                <span class="oq-cc__tolerancia-sub">
-                  {{ tolConfigurada() ? 'configurada para este NUCCO' : 'padrão: acima sem limite, abaixo 5%' }}
-                </span>
+          <div class="cc-sentidos">
+            <fieldset class="cc-sentido">
+              <legend>
+                <label class="cc-check">
+                  <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" />
+                  Peso a maior → nota de entrada
+                </label>
+              </legend>
+              <div class="cc-sentido__campos" [class.cc-sentido__campos--reserva]="ajuste.viaAddon">
+                <label class="cc-campo">
+                  <span>TOP de entrada</span>
+                  <input type="text" inputmode="numeric" placeholder="ex.: 1203" [(ngModel)]="ajuste.topEntrada" />
+                </label>
+                <label class="cc-campo cc-campo--curto">
+                  <span>Série</span>
+                  <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieEntrada" />
+                </label>
               </div>
-              <label class="oq-cc__tolerancia-campo">
-                Acima (%)
-                <input type="text" inputmode="decimal" placeholder="sem limite" [(ngModel)]="tolAcima" />
-              </label>
-              <label class="oq-cc__tolerancia-campo">
-                Abaixo (%)
-                <input type="text" inputmode="decimal" placeholder="sem limite" [(ngModel)]="tolAbaixo" />
-              </label>
-              <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="tolSalvando()" (click)="salvarTolerancia()">
-                {{ tolSalvando() ? 'Salvando…' : 'Salvar tolerância' }}
-              </button>
-              <span class="oq-cc__tolerancia-ajuda">
-                Quanto o peso pode ficar acima/abaixo do pedido sem virar divergência (e ser liberado sozinho no corte).
-                Vazio = sem limite · 0 = qualquer diferença diverge.
-              </span>
-              @if (tolMensagem()) {
-                <span class="oq-cc__tolerancia-msg">{{ tolMensagem() }}</span>
-              }
-            </div>
+            </fieldset>
+            <fieldset class="cc-sentido">
+              <legend>
+                <label class="cc-check">
+                  <input type="checkbox" [(ngModel)]="ajuste.ajusteSaida" />
+                  Peso a menor → nota de saída
+                </label>
+              </legend>
+              <div class="cc-sentido__campos" [class.cc-sentido__campos--reserva]="ajuste.viaAddon">
+                <label class="cc-campo">
+                  <span>TOP de saída</span>
+                  <input type="text" inputmode="numeric" placeholder="ex.: 1200" [(ngModel)]="ajuste.topSaida" />
+                </label>
+                <label class="cc-campo cc-campo--curto">
+                  <span>Série</span>
+                  <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieSaida" />
+                </label>
+              </div>
+            </fieldset>
+          </div>
+        </section>
 
-            <!-- V70 — opções da Torre (não existem no Sankhya) — salvas à parte. -->
-            <div class="oq-cc__tolerancia">
-              <div class="oq-cc__tolerancia-titulo">Pesagem — item pesável</div>
-              <label class="oq-cc__tolerancia-campo">
-                <input type="checkbox" [(ngModel)]="pedirQtdComercial" />
-                Pedir a quantidade na unidade do pedido (CX, UN, PC) no pop-up de pesagem
-              </label>
-              <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="opcoesSalvando()" (click)="salvarOpcoes()">
-                {{ opcoesSalvando() ? 'Salvando…' : 'Salvar opções' }}
-              </button>
-              <span class="oq-cc__tolerancia-ajuda">
-                Desmarcado: a pesagem pede só o peso (ex.: conferência de compra). Marcado: quando o pedido não é em KG, a
-                quantidade de caixas/unidades é obrigatória e sai na etiqueta.
-              </span>
-              @if (opcoesMensagem()) {
-                <span class="oq-cc__tolerancia-msg">{{ opcoesMensagem() }}</span>
-              }
+        @if (!ajuste.viaAddon) {
+          <section class="cc-bloco">
+            <h2 class="cc-bloco__titulo">Parceiro e negociação das notas de ajuste</h2>
+            <div class="cc-linha">
+              <div class="cc-linha__rotulo">
+                Parceiro
+                <small>Vazio = o fornecedor da compra. A TOP de saída precisa aceitar fornecedor (devolução de compra, TIPMOV E); uma TOP de venda exige parceiro cliente.</small>
+              </div>
+              <input class="cc-entrada" type="text" inputmode="numeric" placeholder="o fornecedor" [(ngModel)]="ajuste.codParc" aria-label="Parceiro" />
             </div>
-
-            <oq-aba-corte-divergencia [campos]="valoresEditados()" [mostrarTodos]="mostrarTodos()" (campoAlterado)="onCampoAlterado($event)" />
-          }
-          @case ('volumes') {
-            <oq-aba-formacao-volumes [campos]="valoresEditados()" [mostrarTodos]="mostrarTodos()" (campoAlterado)="onCampoAlterado($event)" />
-          }
+            <div class="cc-linha">
+              <div class="cc-linha__rotulo">
+                Tipo de negociação
+                <small>Vazio = o da compra.</small>
+              </div>
+              <input class="cc-entrada" type="text" inputmode="numeric" placeholder="o da compra" [(ngModel)]="ajuste.codTipVenda" aria-label="Tipo de negociação" />
+            </div>
+          </section>
         }
+
+        <section class="cc-bloco">
+          <h2 class="cc-bloco__titulo">Como a diferença é tratada</h2>
+          <dl class="cc-faixas">
+            <dt>Dentro da tolerância</dt>
+            <dd>A nota do fornecedor fica igual ao XML e a diferença entra por nota de ajuste, gerada e confirmada depois que a compra é confirmada.</dd>
+            <dt>Acima da tolerância, ou sentido desligado</dt>
+            <dd>Vai o peso lido; a conferência segue para divergência e liberação, conforme a Divergência a maior/a menor da configuração.</dd>
+          </dl>
+          <p class="cc-bloco__sub">A tolerância é a do produto; sem ela, a da configuração da conferência.</p>
+        </section>
       </div>
-    } @else {
-      <div class="oq-cc__conteudo" aria-busy="true">
-        <oq-skeleton variant="detail-block" [count]="8" />
+
+      <footer class="cc-salvar">
+        <span class="cc-salvar__estado" [class.cc-salvar__estado--erro]="estadoAjuste()?.erro" role="status">{{ estadoAjuste()?.texto }}</span>
+        <button type="button" class="cc-btn" [disabled]="!ajusteAlterado() || ajusteSalvando()" (click)="descartarAjuste()">Descartar</button>
+        <button type="button" class="cc-btn cc-btn--cheio" [disabled]="!ajusteAlterado() || ajusteSalvando()" (click)="salvarAjuste()">
+          @if (ajusteSalvando()) { <oq-spinner [size]="14" /> Salvando… } @else { Salvar }
+        </button>
+      </footer>
+    } @else if (detalhe()) {
+      <!-- ─── Uma configuração de conferência (TGFCCO) ─── -->
+      <div class="cc-detalhe__corpo">
+        <header class="cc-topo">
+          <button type="button" class="cc-voltar" (click)="voltar()" aria-label="Voltar para a lista"><oq-icon name="arrow-left" [size]="16" /></button>
+          <h1 class="cc-topo__nome">{{ detalhe()!.descricao }}</h1>
+          <p class="cc-topo__meta">
+            <span>Configuração {{ detalhe()!.nucco }} do Sankhya</span>
+            @if (detalhe()!.sankhyaAtualizadoEm) { <span>lida em {{ detalhe()!.sankhyaAtualizadoEm | date: 'dd/MM/yyyy HH:mm' }}</span> }
+          </p>
+        </header>
+
+        <section class="cc-bloco">
+          <h2 class="cc-bloco__titulo">Regras da Torre</h2>
+          <p class="cc-bloco__sub">Valem só na Torre; não existem no Sankhya.</p>
+
+          <div class="cc-linha">
+            <div class="cc-linha__rotulo">
+              Tolerância de peso do item pesável
+              <small>
+                Quanto o peso pode ficar acima ou abaixo do pedido sem virar divergência (e ser liberado sozinho no corte).
+                Vazio = sem limite · 0 = qualquer diferença diverge.
+                @if (!tolConfigurada()) { Sem valor gravado: vale o padrão, acima sem limite e abaixo 5%. }
+              </small>
+            </div>
+            <div class="cc-pct">
+              <label class="cc-campo cc-campo--curto">
+                <span>Acima</span>
+                <span class="cc-pct__entrada"><input type="text" inputmode="decimal" placeholder="sem limite" [ngModel]="tolAcima()" (ngModelChange)="tolAcima.set($event)" /> %</span>
+              </label>
+              <label class="cc-campo cc-campo--curto">
+                <span>Abaixo</span>
+                <span class="cc-pct__entrada"><input type="text" inputmode="decimal" placeholder="sem limite" [ngModel]="tolAbaixo()" (ngModelChange)="tolAbaixo.set($event)" /> %</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="cc-linha">
+            <div class="cc-linha__rotulo">
+              Pedir a quantidade na unidade do pedido na pesagem
+              <small>Marcado: quando o pedido não é em KG, a quantidade (CX, UN, PC) é obrigatória no pop-up de pesagem e sai na etiqueta. Desmarcado: pede só o peso (ex.: compra).</small>
+            </div>
+            <label class="cc-check">
+              <input type="checkbox" [ngModel]="pedirQtdComercial()" (ngModelChange)="pedirQtdComercial.set($event)" />
+              {{ pedirQtdComercial() ? 'Pede' : 'Não pede' }}
+            </label>
+          </div>
+        </section>
+
+        <section class="cc-bloco">
+          <div class="cc-bloco__cab">
+            <h2 class="cc-bloco__titulo">Configuração no Sankhya</h2>
+            @if (abaAtual() !== 'corte') {
+              <label class="cc-check cc-check--discreto">
+                <input type="checkbox" [ngModel]="mostrarTodos()" (ngModelChange)="mostrarTodos.set($event)" />
+                Mostrar campos que a Torre não usa
+              </label>
+            }
+          </div>
+          <p class="cc-bloco__sub">Só consulta. Para mudar, altere a Configuração de Conferência no Sankhya; a Torre relê na sincronização.</p>
+
+          <div class="cc-abas" role="tablist" aria-label="Seções da configuração">
+            @for (aba of abas; track aba.valor) {
+              <button
+                type="button"
+                role="tab"
+                class="cc-aba"
+                [class.cc-aba--ativa]="abaAtual() === aba.valor"
+                [attr.aria-selected]="abaAtual() === aba.valor"
+                (click)="abaAtual.set(aba.valor)"
+              >
+                {{ aba.label }}
+              </button>
+            }
+          </div>
+
+          @for (secao of secoesAba(); track secao.titulo) {
+            <h3 class="cc-sec">{{ secao.titulo }}</h3>
+            @for (campo of secao.campos; track campo.nome) {
+              <div class="cc-linha cc-linha--leitura" [class.cc-linha--inativa]="!habilitado(campo)">
+                <div class="cc-linha__rotulo">
+                  {{ campo.label }}
+                  <small>{{ campo.descricao }}</small>
+                </div>
+                <div class="cc-linha__valor">
+                  <span class="cc-valor">{{ textoValor(campo) }}</span>
+                  @if (notaUso(campo); as nota) {
+                    <span class="cc-uso" [title]="campo.statusObservacao ?? ''">{{ nota }}</span>
+                  }
+                </div>
+              </div>
+            }
+          } @empty {
+            <p class="cc-vazio">Nenhum campo desta seção é usado pela Torre. Marque "Mostrar campos que a Torre não usa" para ver todos.</p>
+          }
+        </section>
       </div>
+
+      <footer class="cc-salvar">
+        <span class="cc-salvar__estado" [class.cc-salvar__estado--erro]="estadoRegras()?.erro" role="status">{{ estadoRegras()?.texto }}</span>
+        <button type="button" class="cc-btn" [disabled]="!regrasAlteradas() || regrasSalvando()" (click)="descartarRegras()">Descartar</button>
+        <button type="button" class="cc-btn cc-btn--cheio" [disabled]="!regrasAlteradas() || regrasSalvando()" (click)="salvarRegras()">
+          @if (regrasSalvando()) { <oq-spinner [size]="14" /> Salvando… } @else { Salvar }
+        </button>
+      </footer>
+    } @else if (selecao() !== null) {
+      <p class="cc-vazio"><oq-spinner [size]="14" /> Carregando a configuração…</p>
+    } @else if (!carregando()) {
+      <p class="cc-vazio">Escolha uma configuração na lista.</p>
     }
-    }
-  </oq-panel-section>
+  </section>
 </div>
