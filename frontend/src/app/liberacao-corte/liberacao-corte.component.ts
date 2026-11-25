@@ -1,4 +1,6 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LiberacaoCorteService } from './liberacao-corte.service';
 import { ConferenciaAguardandoCorte, LiberacaoPendente } from './liberacao-corte.model';
@@ -6,8 +8,17 @@ import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
 import { ActionFeedbackService } from '../shared/action-feedback/action-feedback.service';
 import { OqFechamentoOcModalComponent } from '../fila-tarefas/oq-fechamento-oc-modal/oq-fechamento-oc-modal.component';
+import { EntradaService, Recebimento, ddmm } from '../entrada/entrada.service';
+import { MesaRecebimentoComponent } from '../entrada/mesa-recebimento.component';
+
+/** Filtro da lista única (19/11/2026). */
+type TipoLiberacao = 'todos' | 'corte' | 'recebimento';
 
 /**
+ * Liberações (19/11/2026: corte + recebimento numa tela só, pedido do usuário — "as telas de liberação meio que são a
+ * mesma coisa"). Lista única com filtro Todos/Corte/Recebimento; o detalhe à direita é o corte (abaixo) ou a mesa do
+ * recebimento (oq-mesa-recebimento, só leitura até o addon). O login do liberador vale para a tela inteira.
+ *
  * Mesa de liberação de corte (17/11/2026 — antes era a grade de cards da Fila + o pop-up).
  *
  * Fluxo, a pedido do usuário:
@@ -25,13 +36,76 @@ import { OqFechamentoOcModalComponent } from '../fila-tarefas/oq-fechamento-oc-m
 @Component({
   selector: 'app-liberacao-corte',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent, OqFechamentoOcModalComponent],
+  imports: [NgTemplateOutlet, FormsModule, OqIconComponent, OqSpinnerComponent, OqFechamentoOcModalComponent, MesaRecebimentoComponent],
   templateUrl: './liberacao-corte.component.html',
   styleUrl: './liberacao-corte.component.scss',
 })
 export class LiberacaoCorteComponent implements OnDestroy {
   private readonly service = inject(LiberacaoCorteService);
   private readonly feedback = inject(ActionFeedbackService);
+  private readonly entradaService = inject(EntradaService);
+  private readonly router = inject(Router);
+  readonly ddmm = ddmm;
+
+  // ─── Recebimento (19/11/2026) ───────────────────────────────────────────────
+  readonly tipo = signal<TipoLiberacao>('todos');
+  readonly recebimentos = signal<Recebimento[]>([]);
+  readonly mostrarLiberadas = signal(false);
+  /** Recebimento aberto à direita (exclusivo com o corte aberto). Link /liberacoes/recebimento/:nunota abre direto. */
+  readonly recebimentoAberto = signal<number | null>(Number(inject(ActivatedRoute).snapshot.paramMap.get('nunota')) || null);
+
+  private filtrarRecebimentos(l: Recebimento[]): Recebimento[] {
+    const termo = this.buscaTermo().trim().toLowerCase();
+    return termo
+      ? l.filter((r) => [r.nunota, r.numeroNota, r.fornecedor].some((v) => v != null && String(v).toLowerCase().includes(termo)))
+      : l;
+  }
+
+  readonly recebimentosAguardando = computed(() =>
+    this.filtrarRecebimentos(this.recebimentos().filter((r) => r.situacao === 'aguardando_liberacao').sort((a, b) => a.nunota - b.nunota)),
+  );
+  readonly recebimentosLiberados = computed(() =>
+    this.filtrarRecebimentos(this.recebimentos().filter((r) => r.situacao === 'liberada').sort((a, b) => b.nunota - a.nunota)),
+  );
+  readonly qtdRecebimento = computed(() => this.recebimentos().filter((r) => r.situacao === 'aguardando_liberacao').length);
+  readonly qtdAguardando = computed(() => this.lista().length + this.qtdRecebimento());
+
+  /** Mensagem da lista vazia conforme o filtro (null = tem o que mostrar). */
+  readonly vazioTexto = computed<string | null>(() => {
+    const busca = !!this.buscaTermo().trim();
+    const cortes = this.listaFiltrada().length;
+    const receb = this.recebimentosAguardando().length;
+    switch (this.tipo()) {
+      case 'corte':
+        return cortes ? null : busca ? 'Nenhum corte com essa busca.' : 'Nenhum corte aguardando liberação.';
+      case 'recebimento':
+        return receb ? null : busca ? 'Nenhum recebimento com essa busca.' : 'Nenhum recebimento aguardando liberação.';
+      default:
+        return cortes + receb ? null : busca ? 'Nada com essa busca.' : 'Nada aguardando liberação.';
+    }
+  });
+
+  private carregarRecebimentos(): void {
+    this.entradaService.listar().subscribe({
+      next: (l) => {
+        this.recebimentos.set(l);
+        const aberto = this.recebimentoAberto();
+        if (aberto && l.some((r) => r.nunota === aberto && r.situacao === 'liberada')) this.mostrarLiberadas.set(true);
+      },
+      error: (err) => this.erro.set(err?.error?.erro ?? 'Falha ao carregar os recebimentos.'),
+    });
+  }
+
+  abrirRecebimento(r: Recebimento): void {
+    this.fecharCorte();
+    this.recebimentoAberto.set(r.nunota);
+    this.router.navigate(['/liberacoes/recebimento', r.nunota], { replaceUrl: true });
+  }
+
+  fecharRecebimento(): void {
+    this.recebimentoAberto.set(null);
+    this.router.navigate(['/liberacoes'], { replaceUrl: true });
+  }
 
   // ─── 1) Login do liberador (a cada entrada na tela) ─────────────────────────
   readonly liberado = signal(false);
@@ -76,6 +150,7 @@ export class LiberacaoCorteComponent implements OnDestroy {
     this.selecionadas.set(new Set());
     this.erroAcao.set(null);
     this.mensagem.set(null);
+    this.recebimentos.set([]);
   }
 
   ngOnDestroy(): void {
@@ -110,6 +185,7 @@ export class LiberacaoCorteComponent implements OnDestroy {
   carregar(): void {
     this.carregando.set(true);
     this.erro.set(null);
+    this.carregarRecebimentos();
     this.service.listar().subscribe({
       next: (l) => {
         this.lista.set(l);
@@ -159,6 +235,7 @@ export class LiberacaoCorteComponent implements OnDestroy {
   }
 
   abrir(item: ConferenciaAguardandoCorte): void {
+    if (this.recebimentoAberto() != null) this.fecharRecebimento();
     this.faturarOferta.set(null);
     this.erroAcao.set(null);
     this.mensagem.set(null);

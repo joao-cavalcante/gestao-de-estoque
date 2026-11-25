@@ -136,6 +136,13 @@ data class ParametrosAjustePesoCompra(
      * nota de saída e fornecedor não é (compra 84117, parceiro 2525, 11/11/2026).
      */
     val codParc: Int? = null,
+    /**
+     * 19/11/2026 (etapa 1 do plano "Entrada com endereçamento"): gerar as notas de ajuste pelo addon TOR no Sankhya
+     * (AjustePesoSP.gerar, módulo "torre", uma transação por conferência) em vez das 4 chamadas da Torre. Com o addon,
+     * TOP, série, parceiro e tipo de negociação vêm da TORCFG no Sankhya (os campos acima deixam de valer). Ajuste já
+     * começado pelo caminho antigo termina pelo caminho antigo — nunca os dois na mesma conferência.
+     */
+    val viaAddon: Boolean = false,
 ) {
     fun validar(): List<String> = buildList {
         if (listOfNotNull(serieEntrada, serieSaida).any { it.trim().length > 3 }) add("ajustePesoCompra: série com mais de 3 caracteres")

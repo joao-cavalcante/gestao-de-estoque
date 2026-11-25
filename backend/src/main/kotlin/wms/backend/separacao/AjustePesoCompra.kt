@@ -269,6 +269,7 @@ object AjustePesoCompra {
             }
         }
         val situacao = situacaoCompras(tenantSlug, docs.map { it.nunota }.distinct())
+        val viaAddon = LinkedHashMap<UUID, MutableList<Doc>>()
         for (doc in docs) {
             // Só sessão concluída vale: cancelada/invalidada (mesmo com o mesmo NUCONF) não gera ajuste — a que
             // substituiu grava as próprias diferenças. Ainda aberta: espera.
@@ -294,24 +295,129 @@ object AjustePesoCompra {
             } else if (s.statusNota != "L" || s.statusConf !in setOf("F", "D")) {
                 continue // espera a nota do fornecedor ser confirmada com a conferência finalizada
             }
+            // Addon TOR: os pendentes da mesma conferência vão juntos numa chamada só (abaixo). Já começado pela Torre
+            // (criando/cabeçalho) termina pelo caminho antigo — nunca os dois na mesma conferência.
+            if (p.viaAddon && doc.status == "pendente") {
+                viaAddon.getOrPut(doc.sessaoId) { mutableListOf() }.add(doc)
+                continue
+            }
             try {
                 processar(tenantSlug, tenantId, doc, p, s?.codemp)
             } catch (e: Exception) {
-                val msg = (e.message ?: e::class.simpleName ?: "erro").take(1000)
-                val tentativas = doc.tentativas + 1
-                println("AVISO: ajuste de peso nota ${doc.nunota} (${doc.sentido}) tentativa $tentativas falhou: $msg")
-                withContext(Dispatchers.IO) {
-                    TenantTx.run(tenantId) {
-                        CompraAjustePesoNotasTable.update({ CompraAjustePesoNotasTable.id eq doc.id }) {
-                            it[CompraAjustePesoNotasTable.tentativas] = tentativas
-                            it[ultimoErro] = msg
-                            if (tentativas >= MAX_TENTATIVAS) it[status] = "erro"
-                            it[atualizadoEm] = Instant.now()
-                        }
-                    }
+                registrarFalha(tenantId, doc, e)
+            }
+        }
+        for ((_, docsSessao) in viaAddon) {
+            try {
+                processarViaAddon(tenantSlug, tenantId, docsSessao)
+            } catch (e: Exception) {
+                docsSessao.forEach { registrarFalha(tenantId, it, e) }
+            }
+        }
+    }
+
+    private suspend fun registrarFalha(tenantId: UUID, doc: Doc, e: Exception) {
+        val msg = (e.message ?: e::class.simpleName ?: "erro").take(1000)
+        val tentativas = doc.tentativas + 1
+        println("AVISO: ajuste de peso nota ${doc.nunota} (${doc.sentido}) tentativa $tentativas falhou: $msg")
+        withContext(Dispatchers.IO) {
+            TenantTx.run(tenantId) {
+                CompraAjustePesoNotasTable.update({ CompraAjustePesoNotasTable.id eq doc.id }) {
+                    it[CompraAjustePesoNotasTable.tentativas] = tentativas
+                    it[ultimoErro] = msg
+                    // Pelo addon o status continua "pendente": a transação foi desfeita no Sankhya, nada ficou pela metade.
+                    if (tentativas >= MAX_TENTATIVAS) it[status] = "erro"
+                    it[atualizadoEm] = Instant.now()
                 }
             }
         }
+    }
+
+    // ─── Caminho pelo addon TOR (19/11/2026) ─────────────────────────────────────────────────────────
+
+    /** Módulo do gateway do addon (nome do projeto no Addon Studio — addon-tor/settings.gradle). */
+    private const val MODULO_ADDON = "torre"
+
+    /**
+     * Uma chamada ao AjustePesoSP.gerar com TODAS as diferenças da conferência (os dois sentidos): o addon gera,
+     * confirma e liga na TGFVAR numa transação e devolve a nota de cada sentido. Repetir a chamada (ex.: a resposta se
+     * perdeu) devolve as mesmas notas — o addon é idempotente por compra + conferência.
+     */
+    private suspend fun processarViaAddon(tenantSlug: String, tenantId: UUID, docs: List<Doc>) {
+        val doc = docs.first()
+        val sentidos = docs.map { it.sentido }.toSet()
+        val itens = withContext(Dispatchers.IO) {
+            TenantTx.run(tenantId) {
+                CompraAjustePesoItensTable.selectAll()
+                    .where { (CompraAjustePesoItensTable.tenantId eq tenantId) and (CompraAjustePesoItensTable.sessaoId eq doc.sessaoId) }
+                    .map {
+                        ItemAddon(it[CompraAjustePesoItensTable.codprod], it[CompraAjustePesoItensTable.controle], it[CompraAjustePesoItensTable.qtdNota],
+                            it[CompraAjustePesoItensTable.qtdBalanca], it[CompraAjustePesoItensTable.diferenca])
+                    }
+                    .filter { it.diferenca.signum() != 0 && (if (it.diferenca.signum() > 0) ENTRADA else SAIDA) in sentidos }
+            }
+        }
+        if (itens.isEmpty()) {
+            docs.forEach { marcar(tenantId, it.id, "cancelado", erro = "sem diferença neste sentido") }
+            return
+        }
+        val resposta = SankhyaSpClient.chamarRaw(tenantSlug, "AjustePesoSP.gerar", MODULO_ADDON, payloadAddon(doc.nunota, doc.nuconf, itens), retentar = false)
+        val notas = notasDoAddon(resposta)
+        for (d in docs) {
+            val nAj = notas[d.sentido]
+                ?: error("o addon não devolveu a nota de ajuste de ${nomeSentido(d.sentido)} (resposta: ${resposta.toString().take(300)})")
+            marcar(tenantId, d.id, "confirmado", nunotaAjuste = nAj, erro = null)
+            println("INFO: ajuste de peso nota ${d.nunota} (${d.sentido}) — nota $nAj gerada e confirmada pelo addon")
+        }
+    }
+
+    internal data class ItemAddon(val codprod: Int, val controle: String, val qtdNota: BigDecimal, val qtdBalanca: BigDecimal, val diferenca: BigDecimal)
+
+    /**
+     * requestBody do gateway: `{"request": {NUNOTA, NUCONF, ITENS}}` — o bean gerado pelo Addon Studio lê
+     * `ctx.getJsonRequestBody().get("request")` (mesmo contrato do addon do Portal GBI em produção). Números como texto:
+     * o Gson do addon converte número JSON em Double.
+     */
+    internal fun payloadAddon(nunota: Int, nuconf: Int, itens: List<ItemAddon>): JsonObject = buildJsonObject {
+        putJsonObject("request") {
+            put("NUNOTA", nunota.toString())
+            put("NUCONF", nuconf.toString())
+            putJsonArray("ITENS") {
+                itens.forEach { i ->
+                    add(buildJsonObject {
+                        put("CODPROD", i.codprod.toString())
+                        put("CONTROLE", i.controle.trim())
+                        put("QTDNOTA", i.qtdNota.toPlainString())
+                        put("QTDBALANCA", i.qtdBalanca.toPlainString())
+                        put("QTDDIF", i.diferenca.toPlainString())
+                    })
+                }
+            }
+        }
+    }
+
+    /**
+     * responseBody.body.NOTAS = [{SENTIDO, NUNOTAAJ}] (o bean do Studio embrulha a resposta em `body`; lista, ou objeto
+     * quando vem uma só) -> sentido -> nota.
+     */
+    internal fun notasDoAddon(resposta: JsonObject): Map<String, Int> {
+        val corpo = resposta["body"] as? JsonObject ?: resposta
+        val bruto = corpo["NOTAS"] ?: return emptyMap()
+        val lista = when (bruto) {
+            is kotlinx.serialization.json.JsonArray -> bruto.mapNotNull { it as? JsonObject }
+            is JsonObject -> listOf(bruto)
+            else -> emptyList()
+        }
+        fun texto(o: JsonObject, campo: String): String? {
+            val v = o[campo] ?: return null
+            val prim = (v as? JsonObject)?.get("$") ?: v
+            return (prim as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.trim()
+        }
+        return lista.mapNotNull { o ->
+            val sentido = texto(o, "SENTIDO") ?: return@mapNotNull null
+            val n = texto(o, "NUNOTAAJ")?.substringBefore('.')?.toIntOrNull() ?: return@mapNotNull null
+            sentido to n
+        }.toMap()
     }
 
     /**

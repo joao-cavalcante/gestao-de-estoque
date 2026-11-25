@@ -81,6 +81,15 @@
           e a diferença entra por nota de ajuste, gerada e confirmada depois que a nota do fornecedor é confirmada.
         </span>
         <label class="oq-cc__tolerancia-campo">
+          <input type="checkbox" [(ngModel)]="ajuste.viaAddon" />
+          Gerar pelo addon TOR no Sankhya
+        </label>
+        <span class="oq-cc__tolerancia-ajuda">
+          Com o addon, a nota de ajuste é gerada, confirmada e ligada à compra numa operação só, dentro do Sankhya; a TOP,
+          a série, o parceiro e o tipo de negociação passam a vir da tela Torre de Operação › Configuração no Sankhya (os
+          campos abaixo deixam de valer). Só ligue depois de instalar o addon e preencher essa configuração.
+        </span>
+        <label class="oq-cc__tolerancia-campo">
           <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" />
           Peso a maior: nota de entrada
         </label>

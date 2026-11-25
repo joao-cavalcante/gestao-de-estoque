@@ -889,7 +889,7 @@ export class FilaTarefasComponent implements OnInit, OnDestroy {
     // Conferência já cortada e aguardando liberação — o operador vai pra tela
     // de liberação de corte, não reabre a conferência.
     if (tarefa.status === 'aguardando_corte') {
-      this.router.navigate(['/liberacao-corte']);
+      this.router.navigate(['/liberacoes']);
       return;
     }
     this.router.navigate(['/conferencia', tarefa.numeroUnico], {

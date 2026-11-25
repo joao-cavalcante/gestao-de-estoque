@@ -47,11 +47,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./entrada/entrada-lista.component').then((m) => m.EntradaListaComponent),
   },
-  {
-    path: 'entrada/:nunota',
-    canActivate: [authGuard],
-    loadComponent: () => import('./entrada/entrada-mesa.component').then((m) => m.EntradaMesaComponent),
-  },
+  // Liberações (19/11/2026): corte e recebimento numa tela só (LiberacaoCorteComponent); links antigos continuam valendo.
+  { path: 'entrada/:nunota', redirectTo: 'liberacoes/recebimento/:nunota' },
+  { path: 'liberacao-recebimento', redirectTo: 'liberacoes' },
+  { path: 'liberacao-recebimento/:nunota', redirectTo: 'liberacoes/recebimento/:nunota' },
+  { path: 'liberacoes/recebimento/:nunota', component: LiberacaoCorteComponent, canActivate: [authGuard] },
   // TV de acompanhamento da conferência (painel de parede) — perfil TV ou admin.
   { path: 'tv', component: TvComponent, canActivate: [tvGuard] },
   // TV exclusiva de Ordens de Carga (conferência + carregamento por OC). Antes de 'tv/:movimento'.
@@ -65,10 +65,13 @@ export const routes: Routes = [
   { path: 'inventarios', component: InventariosDesktopComponent, canActivate: [authGuard] },
   { path: 'inventarios/:id', component: InventarioDetalheComponent, canActivate: [authGuard] },
   { path: 'config-conferencia', component: ConfigConferenciaComponent, canActivate: [adminGuard] },
-  { path: 'liberacao-corte', component: LiberacaoCorteComponent, canActivate: [authGuard] },
+  { path: 'liberacoes', component: LiberacaoCorteComponent, canActivate: [authGuard] },
+  { path: 'liberacao-corte', redirectTo: 'liberacoes' },
   { path: 'pendencias-integracao', component: PendenciasIntegracaoComponent, canActivate: [authGuard] },
   { path: 'impressao-etiquetas', component: ImpressaoEtiquetasComponent, canActivate: [authGuard] },
   { path: 'impressao-oc', component: ImpressaoOcComponent, canActivate: [authGuard] },
+  // Painel da expedição — carregado só ao abrir (ECharts fica fora do bundle inicial).
+  { path: 'cargas', loadComponent: () => import('./cargas/cargas.component').then((m) => m.CargasComponent), canActivate: [authGuard] },
   { path: 'carregamento', component: CarregamentoComponent, canActivate: [authGuard] },
   { path: 'carregamento/:sessaoId', component: CarregamentoComponent, canActivate: [authGuard] },
   { path: 'mapa-separacao', component: MapaSeparacaoComponent, canActivate: [authGuard] },

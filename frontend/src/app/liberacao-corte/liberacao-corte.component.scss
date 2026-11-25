@@ -726,3 +726,71 @@
     color: var(--oq-brand-text);
   }
 }
+
+// ─── Lista única: corte + recebimento (19/11/2026) ─────────────────────────────────────────────────────────
+.lc-tipos {
+  display: flex;
+  margin: 0 16px 10px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-block);
+  overflow: hidden;
+}
+
+.lc-tipo {
+  flex: 1;
+  padding: 6px 8px;
+  border: 0;
+  border-right: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+  font-family: var(--oq-font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:last-child { border-right: 0; }
+  &:hover:not(.lc-tipo--ativo) { color: var(--oq-text-primary); }
+
+  span { margin-left: 2px; font-weight: 500; font-variant-numeric: tabular-nums; }
+}
+
+.lc-tipo--ativo { background: var(--oq-text-primary); color: var(--oq-surface); }
+
+.lc-tag {
+  margin-right: 4px;
+  font-weight: 600;
+  color: var(--oq-warning-foreground);
+}
+
+.lc-tag--corte { color: var(--oq-critical-foreground); }
+
+.lc-t--falta { color: var(--oq-critical-foreground); font-weight: 600; }
+.lc-t--sobra { color: var(--oq-warning-foreground); font-weight: 600; }
+
+.lc-pedido--liberado:not(.lc-pedido--sel) {
+  opacity: 0.7;
+
+  .lc-tag { color: var(--oq-concluido-foreground); }
+}
+
+.lc-grupo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--oq-border);
+  background: var(--oq-surface-2);
+  font-family: var(--oq-font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+
+  &:hover { color: var(--oq-text-primary); }
+
+  oq-icon { transition: transform .15s ease; }
+}
+
+.lc-grupo__seta--aberta { transform: rotate(90deg); }

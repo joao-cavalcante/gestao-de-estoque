@@ -43,20 +43,31 @@ object EntradaSituacao {
             return
         }
         val novo = HashMap<Long, Situacao>()
-        for (lote in distintas.chunked(500)) {
-            SankhyaDbExplorerClient.executarQuery(tenantSlug, sql(lote)).forEach { r ->
-                val nunota = longo(r["NUNOTA"]) ?: return@forEach
-                novo[nunota] = Situacao(
-                    statusNota = r["STATUSNOTA"]?.trim()?.takeIf { it.isNotEmpty() },
-                    nuconfAtual = longo(r["NUCONFATUAL"])?.toInt(),
-                    statusConferencia = r["STATUS_CONF"]?.trim()?.takeIf { it.isNotEmpty() },
-                    devolucao = longo(r["NUNOTADEV"])?.let { NotaDerivadaDto(it, longo(r["NUMNOTA_DEV"]), r["STATUS_DEV"]?.trim() == "L") },
-                    complemento = longo(r["NUPEDCOMP"])?.let { NotaDerivadaDto(it, longo(r["NUMNOTA_COMP"]), r["STATUS_COMP"]?.trim() == "L") },
-                )
-            }
-        }
+        for (lote in distintas.chunked(500)) novo.putAll(ler(tenantSlug, lote))
         cache[tenantId] = novo
         lidoEm[tenantId] = Instant.now()
+    }
+
+    /** Relê uma compra só e troca só ela no cache (depois de aprovar pela mesa — a tela não espera o próximo ciclo). */
+    suspend fun atualizarUma(tenantSlug: String, tenantId: UUID, nunota: Long): Situacao? {
+        val lida = ler(tenantSlug, listOf(nunota))[nunota]
+        cache.compute(tenantId) { _, atual -> (atual.orEmpty() + (lida?.let { mapOf(nunota to it) } ?: emptyMap())) }
+        return lida
+    }
+
+    private suspend fun ler(tenantSlug: String, lote: List<Long>): Map<Long, Situacao> {
+        val r = HashMap<Long, Situacao>()
+        SankhyaDbExplorerClient.executarQuery(tenantSlug, sql(lote)).forEach { l ->
+            val nunota = longo(l["NUNOTA"]) ?: return@forEach
+            r[nunota] = Situacao(
+                statusNota = l["STATUSNOTA"]?.trim()?.takeIf { it.isNotEmpty() },
+                nuconfAtual = longo(l["NUCONFATUAL"])?.toInt(),
+                statusConferencia = l["STATUS_CONF"]?.trim()?.takeIf { it.isNotEmpty() },
+                devolucao = longo(l["NUNOTADEV"])?.let { NotaDerivadaDto(it, longo(l["NUMNOTA_DEV"]), l["STATUS_DEV"]?.trim() == "L") },
+                complemento = longo(l["NUPEDCOMP"])?.let { NotaDerivadaDto(it, longo(l["NUMNOTA_COMP"]), l["STATUS_COMP"]?.trim() == "L") },
+            )
+        }
+        return r
     }
 
     internal fun sql(nunotas: List<Long>): String =

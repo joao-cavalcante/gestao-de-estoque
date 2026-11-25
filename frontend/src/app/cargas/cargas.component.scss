@@ -1,0 +1,390 @@
+// Cargas — painel da expedição (24/11/2026). Referências: quadros de doca/pátio (YardView, Infor, DataDocks) e
+// painéis de expedição (Flexe, Klipfolio): faixa de indicadores, andamento por caminhão com legenda única de etapas,
+// exceções em destaque, realizado × programado no dia, detalhe a um clique. Tela única (a página não rola);
+// superfícies neutras, cor só para estado (com legenda/texto). Tokens --oq-* (claro/escuro).
+
+:host { display: block; height: 100%; }
+
+.pn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  box-sizing: border-box;
+  font-family: var(--oq-font-body);
+  color: var(--oq-text-primary);
+
+  --pn-pronta: var(--oq-concluido);
+  --pn-pendente: var(--oq-attention);
+  --pn-ruim: var(--oq-critical);
+
+  @media (max-width: 1023px) { overflow-y: auto; }
+}
+
+.ruim { color: var(--oq-critical-foreground) !important; font-weight: 600; }
+
+// ─── Cabeçalho ───────────────────────────────────────────────────────────────────────────────────────────
+.pn-topo { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+.pn-topo__titulo {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+
+  h1 { margin: 0; font-family: var(--oq-font-display); font-size: 21px; font-weight: 700; letter-spacing: -0.01em; }
+  span { font-size: 13px; color: var(--oq-text-secondary); }
+  span::first-letter { text-transform: uppercase; }
+}
+
+.pn-filtro {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--oq-surface-2);
+
+  button {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--oq-text-secondary);
+    cursor: pointer;
+
+    small { margin-left: 4px; font-weight: 500; opacity: .75; font-variant-numeric: tabular-nums; }
+    &:hover:not(.ativo) { color: var(--oq-text-primary); }
+    &.ativo { background: var(--oq-surface); color: var(--oq-text-primary); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); }
+    &:focus-visible { outline: 2px solid var(--oq-brand-accent); outline-offset: 1px; }
+  }
+}
+
+// ─── Indicadores ─────────────────────────────────────────────────────────────────────────────────────────
+.pn-kpis {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(4, 1fr);
+  border: 1px solid var(--oq-border);
+  border-radius: 10px;
+  background: var(--oq-surface);
+
+  @media (max-width: 1023px) { grid-template-columns: repeat(2, 1fr); }
+}
+
+.pn-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 14px 18px;
+  border-left: 1px solid var(--oq-border);
+
+  &:first-child { border-left: none; }
+
+  &[data-tom='pronta'] { --tom: var(--pn-pronta); }
+  &[data-tom='pendente'] { --tom: var(--pn-pendente); }
+  &[data-tom='ruim'] { --tom: var(--pn-ruim); .pn-kpi__val { color: var(--oq-critical-foreground); } }
+  &[data-tom='ok'] { --tom: var(--pn-pronta); }
+}
+
+.pn-kpi__rot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+
+  i { width: 8px; height: 8px; border-radius: 2px; background: var(--tom, transparent); flex: none; }
+}
+
+.pn-kpi__val {
+  font-family: var(--oq-font-display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  small { font-size: 17px; font-weight: 600; color: var(--oq-text-secondary); }
+}
+
+.pn-kpi__sub { font-size: 12px; color: var(--oq-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pn-kpi__barra {
+  display: block;
+  height: 6px;
+  margin: 3px 0 1px;
+  border-radius: 3px;
+  background: var(--oq-surface-2);
+  overflow: hidden;
+
+  span { display: block; height: 100%; border-radius: 3px; background: var(--pn-pronta); transition: width .4s ease; }
+}
+
+// ─── Corpo ───────────────────────────────────────────────────────────────────────────────────────────────
+.pn-corpo {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
+  gap: 12px;
+  min-height: 0;
+
+  @media (max-width: 1023px) { grid-template-columns: 1fr; flex: none; }
+}
+
+.pn-painel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--oq-border);
+  border-radius: 10px;
+  background: var(--oq-surface);
+}
+
+.pn-painel__cab {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-bottom: 8px;
+
+  h2 { margin: 0; font-family: var(--oq-font-display); font-size: 15px; font-weight: 700; }
+  span { font-size: 12px; color: var(--oq-text-secondary); }
+}
+
+.pn-painel--andamento { @media (max-width: 1023px) { height: 480px; } }
+
+.pn-grafico { flex: 1; min-height: 0; width: 100%; }
+
+// Andamento: o gráfico cresce com o número de caminhões e rola dentro do painel (a página não rola).
+.pn-rolagem {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  .pn-grafico { flex: none; min-height: 100%; }
+}
+
+// Lista equivalente ao gráfico, só para teclado/leitor de tela (aparece ao receber foco).
+.pn-sr {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  li:focus-within { position: static; width: auto; height: auto; clip: auto; margin-top: 6px; }
+  button { font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid var(--oq-border); border-radius: 4px; background: var(--oq-surface); color: var(--oq-text-primary); }
+}
+
+// Dados velhos (sync com o Sankhya atrasado ou servidor fora).
+.pn-aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--oq-attention) 45%, var(--oq-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--oq-attention) 10%, var(--oq-surface));
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-warning-foreground);
+}
+.pn-grafico--oculto { visibility: hidden; flex: 0; }
+.pn-grafico--saidas { min-height: 100px; }
+
+.pn-lado {
+  display: grid;
+  grid-template-rows: auto minmax(150px, 0.85fr) minmax(150px, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.pn-vazio, .pn-ok { margin: 0; padding: 6px 0; font-size: 13px; color: var(--oq-text-secondary); }
+.pn-ok { display: flex; align-items: center; gap: 6px; color: var(--oq-concluido-foreground); font-weight: 600; }
+
+// Ocorrências
+.pn-painel--ocorrencias { max-height: 190px; }
+
+.pn-ocorrencias {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 7px 0 7px 12px;
+    border-top: 1px solid var(--oq-border);
+    box-shadow: inset 3px 0 0 var(--oq-attention);
+    &:first-child { border-top: none; }
+    &.grave { box-shadow: inset 3px 0 0 var(--oq-critical); }
+  }
+}
+
+.pn-ocorrencias__texto { font-size: 13.5px; font-weight: 600; }
+.grave .pn-ocorrencias__texto { color: var(--oq-critical-foreground); }
+
+.pn-ocorrencias__ocs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+
+  button {
+    padding: 1px 7px;
+    border: 1px solid var(--oq-border);
+    border-radius: 4px;
+    background: var(--oq-surface);
+    font-family: var(--oq-font-mono);
+    font-size: 11.5px;
+    color: var(--oq-text-primary);
+    cursor: pointer;
+    &:hover { border-color: var(--oq-text-secondary); }
+  }
+}
+
+// Últimas saídas
+.pn-saidas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+
+  li + li { border-top: 1px solid var(--oq-border); }
+
+  button {
+    display: grid;
+    grid-template-columns: 44px 72px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 2px;
+    border: none;
+    background: transparent;
+    font-family: var(--oq-font-body);
+    font-size: 13px;
+    color: var(--oq-text-primary);
+    text-align: left;
+    cursor: pointer;
+    &:hover { background: var(--oq-surface-2); }
+  }
+}
+
+.pn-saidas__hora { font-family: var(--oq-font-mono); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pn-saidas__oc { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pn-saidas__quem {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  small { margin-left: 4px; font-family: var(--oq-font-mono); font-size: 11.5px; color: var(--oq-text-secondary); }
+}
+.pn-saidas__notas { font-size: 12px; color: var(--oq-concluido-foreground); white-space: nowrap; }
+
+// ─── Detalhe do caminhão (painel lateral) ────────────────────────────────────────────────────────────────
+.pn-fundo { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .28); }
+
+.pn-detalhe {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(560px, 100vw);
+  padding: 20px 22px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: var(--oq-surface);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, .18);
+  font-family: var(--oq-font-body);
+  color: var(--oq-text-primary);
+}
+
+.pn-detalhe__cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  h2 { margin: 0; font-family: var(--oq-font-display); font-size: 22px; font-weight: 700; }
+  h2 small { margin-left: 6px; font-family: var(--oq-font-mono); font-size: 15px; font-weight: 600; color: var(--oq-text-secondary); }
+  span { font-size: 13px; color: var(--oq-text-secondary); }
+}
+
+.pn-detalhe__nota { margin: -4px 0 0; font-size: 12px; color: var(--oq-text-secondary); }
+
+.pn-fechar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--oq-border);
+  border-radius: 6px;
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  cursor: pointer;
+}
+
+.pn-detalhe__sit {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  &[data-tom='pendente'] { color: var(--oq-warning-foreground); }
+  &[data-tom='pronta'] { color: var(--oq-concluido-foreground); }
+  &[data-tom='saiu'] { color: var(--oq-text-secondary); }
+}
+
+.pn-detalhe__dados {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--oq-border);
+  border-bottom: 1px solid var(--oq-border);
+
+  dt { font-size: 12px; color: var(--oq-text-secondary); }
+  dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; small { font-weight: 400; } }
+}
+
+.pn-pedidos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th { padding: 6px 8px; text-align: left; font-size: 12px; font-weight: 600; color: var(--oq-text-secondary); border-bottom: 1px solid var(--oq-border); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--oq-border); vertical-align: top; }
+  .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .n-esq { color: var(--oq-text-secondary); font-variant-numeric: tabular-nums; }
+}
+
+.pn-ped {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--oq-text-secondary);
+  &[data-situacao='corte'] { color: var(--oq-critical-foreground); }
+  &[data-situacao='em_conferencia'], &[data-situacao='a_conferir'], &[data-situacao='a_carregar'] { color: var(--oq-warning-foreground); }
+  &[data-situacao='carregado'], &[data-situacao='com_nota'] { color: var(--oq-concluido-foreground); }
+  &[data-nfe='R'], &[data-nfe='D'], &[data-nfe='V'] { color: var(--oq-critical-foreground); }
+}
+
+.pn-carregando { padding: 8px 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-kpi__barra span { transition: none; }
+}

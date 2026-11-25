@@ -101,6 +101,7 @@ object EntradaService {
             conferenciaFim = conf?.fim,
             recontagem = conf?.recontagem ?: false,
             situacaoLidaEm = EntradaSituacao.lidoEm(tenantId)?.toString(),
+            aprovacaoDisponivel = EntradaAprovacao.disponivel(tenantId),
         )
     }
 

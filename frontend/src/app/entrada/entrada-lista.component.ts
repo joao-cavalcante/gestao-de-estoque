@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component';
@@ -16,28 +16,29 @@ import {
   rotuloAjuste,
 } from './entrada.service';
 
-type Filtro = 'aberto' | 'liberacao' | 'liberadas' | 'todos';
+/** Atividades da Entrada (19/11/2026): Recebimento agora; Armazenagem chega na etapa 4 (endereçamento). */
+type Atividade = 'recebimento' | 'armazenagem';
 
 const EM_ABERTO: SituacaoRecebimento[] = ['aguardando_conferencia', 'em_conferencia', 'divergencia'];
 
 /** Prioridade na lista: o que trava alguém primeiro. */
 const ORDEM: Record<SituacaoRecebimento, number> = {
   divergencia: 0,
-  aguardando_liberacao: 1,
-  em_conferencia: 2,
-  aguardando_conferencia: 3,
+  em_conferencia: 1,
+  aguardando_conferencia: 2,
+  aguardando_liberacao: 3,
   liberada: 4,
 };
 
 /**
- * Entrada — recebimentos de compra (19/11/2026, proposta "Entrada com endereçamento", etapa 2, primeira entrega).
- * A compra saiu da Fila de Conferência e fica só aqui. Conferir abre a mesma tela de conferência; a conferida vai
- * para a mesa de liberação. Só leitura: a confirmação da compra continua no Sankhya.
+ * Entrada — atividades do chão na entrada de mercadoria (19/11/2026): Recebimento (conferir e pesar a compra) e
+ * Armazenagem (etapa 4). A compra saiu da Fila de Conferência e fica só aqui; conferida, sai daqui e vai para a tela
+ * Liberação de Recebimento (pedido do usuário: "na entrada a gente mantém o foco na atividade").
  */
 @Component({
   selector: 'app-entrada-lista',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSkeletonComponent],
+  imports: [FormsModule, RouterLink, OqIconComponent, OqSkeletonComponent],
   templateUrl: './entrada-lista.component.html',
   styleUrl: './entrada.scss',
 })
@@ -57,42 +58,19 @@ export class EntradaListaComponent implements OnInit, OnDestroy {
   readonly recebimentos = signal<Recebimento[]>([]);
   readonly carregando = signal(true);
   readonly erro = signal<string | null>(null);
-  readonly filtro = signal<Filtro>('aberto');
+  readonly atividade = signal<Atividade>('recebimento');
   readonly busca = signal('');
 
-  readonly contagens = computed(() => {
-    const l = this.recebimentos();
-    return {
-      aberto: l.filter((r) => EM_ABERTO.includes(r.situacao)).length,
-      liberacao: l.filter((r) => r.situacao === 'aguardando_liberacao').length,
-      liberadas: l.filter((r) => r.situacao === 'liberada').length,
-      todos: l.length,
-    };
-  });
+  readonly aReceber = computed(() => this.recebimentos().filter((r) => EM_ABERTO.includes(r.situacao)));
+  readonly aguardandoLiberacao = computed(() => this.recebimentos().filter((r) => r.situacao === 'aguardando_liberacao').length);
 
   readonly visiveis = computed(() => {
-    const f = this.filtro();
     const termo = this.busca().trim().toLowerCase();
-    return this.recebimentos()
-      .filter((r) =>
-        f === 'todos' ? true
-        : f === 'aberto' ? EM_ABERTO.includes(r.situacao)
-        : f === 'liberacao' ? r.situacao === 'aguardando_liberacao'
-        : r.situacao === 'liberada',
-      )
+    return this.aReceber()
       .filter((r) => !termo || [r.nunota, r.numeroNota, r.fornecedor, r.codigoParceiro]
         .some((v) => v != null && String(v).toLowerCase().includes(termo)))
       .sort((a, b) => ORDEM[a.situacao] - ORDEM[b.situacao] || b.nunota - a.nunota);
   });
-
-  readonly filtros: { id: Filtro; label: string }[] = [
-    { id: 'aberto', label: 'Em aberto' },
-    { id: 'liberacao', label: 'Aguardando liberação' },
-    { id: 'liberadas', label: 'Liberadas' },
-    { id: 'todos', label: 'Todos' },
-  ];
-
-  readonly rotuloFiltro = computed(() => this.filtros.find((f) => f.id === this.filtro())?.label ?? '');
 
   ngOnInit(): void {
     this.carregar();
@@ -142,17 +120,16 @@ export class EntradaListaComponent implements OnInit, OnDestroy {
       case 'divergencia':
         return { texto: 'Liberação de corte', forte: true };
       case 'aguardando_liberacao':
-        return { texto: 'Abrir mesa', forte: true };
       case 'liberada':
-        return { texto: 'Ver mesa', forte: false };
+        return { texto: 'Ver na liberação', forte: false };
     }
   }
 
   agir(r: Recebimento): void {
     if (r.situacao === 'divergencia') {
-      this.router.navigate(['/liberacao-corte']);
+      this.router.navigate(['/liberacoes']);
     } else if (r.situacao === 'aguardando_liberacao' || r.situacao === 'liberada') {
-      this.router.navigate(['/entrada', r.nunota]);
+      this.router.navigate(['/liberacoes/recebimento', r.nunota]);
     } else {
       this.router.navigate(['/conferencia', r.nunota], {
         state: {
@@ -163,8 +140,7 @@ export class EntradaListaComponent implements OnInit, OnDestroy {
     }
   }
 
-  limparFiltros(): void {
-    this.filtro.set('todos');
+  limparBusca(): void {
     this.busca.set('');
   }
 }

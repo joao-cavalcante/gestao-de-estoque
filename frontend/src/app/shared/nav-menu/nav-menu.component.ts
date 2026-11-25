@@ -37,11 +37,14 @@ const SECOES: SecaoMenu[] = [
   {
     titulo: 'Operação',
     itens: [
-      { rota: '/fila-tarefas', label: 'Fila de Conferência', icone: 'list-check' },
-      // Recebimentos de compra (19/11/2026) — a compra saiu da Fila de Conferência.
-      { rota: '/entrada', label: 'Entrada', icone: 'recebimento' },
+      { rota: '/fila-tarefas', label: 'Expedição', icone: 'list-check' },
+      // Expedição (Fila de Conferência) e Recebimento (tela Entrada, compras) — nomes do menu pedidos em 19/11/2026.
+      { rota: '/entrada', label: 'Recebimento', icone: 'recebimento' },
       { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
-      { rota: '/liberacao-corte', label: 'Liberação de Corte', icone: 'ajuste' },
+      // Cargas (24/11/2026): OCs pendentes, prontas para sair e as que saíram (Fechar OC).
+      { rota: '/cargas', label: 'Cargas', icone: 'entrega' },
+      // Liberações (19/11/2026): corte e recebimento numa tela só.
+      { rota: '/liberacoes', label: 'Liberações', icone: 'ajuste' },
     ],
   },
   {

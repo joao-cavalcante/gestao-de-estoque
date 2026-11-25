@@ -89,6 +89,19 @@ data class MesaLiberacaoDto(
     val recontagem: Boolean = false,
     /** Quando a situação da nota foi lida do Sankhya (ISO-8601) — null = ainda não lida. */
     val situacaoLidaEm: String? = null,
-    /** Aprovar pela Torre só existe com o addon (etapa 1); hoje a confirmação é no Sankhya. */
+    /** Aprovar pela Torre: só com o addon TOR ligado no cliente (parâmetro ajustePesoCompra.viaAddon, etapa 2). */
     val aprovacaoDisponivel: Boolean = false,
+)
+
+/** Aprovar o recebimento na mesa (etapa 2, 23/11/2026): usuário e senha do liberador no Sankhya, como no corte. */
+@Serializable
+data class AprovarRecebimentoRequest(val usuario: String, val senha: String)
+
+@Serializable
+data class AprovarRecebimentoResponse(
+    /** APROVADO | LIBERACAO_PENDENTE */
+    val situacao: String,
+    val jaExistia: Boolean = false,
+    /** Liberações que o Sankhya pediu na confirmação (nota continua aberta até liberar e aprovar de novo). */
+    val liberacoes: List<String> = emptyList(),
 )

@@ -73,7 +73,13 @@ export interface MesaLiberacao {
   aprovacaoDisponivel: boolean;
 }
 
-/** Tela Entrada (recebimentos de compra) e mesa de liberação — só leitura (19/11/2026). */
+export interface AprovacaoRecebimento {
+  situacao: 'APROVADO' | 'LIBERACAO_PENDENTE';
+  jaExistia: boolean;
+  liberacoes: string[];
+}
+
+/** Tela Entrada (recebimentos de compra) e mesa de liberação; "Aprovar" pelo addon TOR desde 23/11/2026. */
 @Injectable({ providedIn: 'root' })
 export class EntradaService {
   private readonly http = inject(HttpClient);
@@ -84,6 +90,11 @@ export class EntradaService {
 
   mesa(nunota: number): Observable<MesaLiberacao> {
     return this.http.get<MesaLiberacao>(`/api/entrada/${nunota}/mesa`);
+  }
+
+  /** Aprovar o recebimento (etapa 2): o addon TOR confirma a compra em nome do liberador. */
+  aprovar(nunota: number, usuario: string, senha: string): Observable<AprovacaoRecebimento> {
+    return this.http.post<AprovacaoRecebimento>(`/api/entrada/${nunota}/aprovar`, { usuario, senha });
   }
 }
 

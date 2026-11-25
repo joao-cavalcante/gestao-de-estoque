@@ -4,8 +4,8 @@
   <!-- 1) Login do liberador — sempre que a tela abre (o operador entrega o tablet ao supervisor). -->
   <div class="lc-portao">
     <form class="lc-login" (ngSubmit)="entrar()" autocomplete="off">
-      <h1 class="lc-login__titulo">Liberação de corte</h1>
-      <p class="lc-login__texto">Entre com o usuário e a senha do <b>liberador no Sankhya</b> para ver e liberar os cortes.</p>
+      <h1 class="lc-login__titulo">Liberações</h1>
+      <p class="lc-login__texto">Entre com o usuário e a senha do <b>liberador no Sankhya</b> para ver e liberar cortes e recebimentos.</p>
 
       <label class="lc-campo">
         <span>Usuário</span>
@@ -31,12 +31,12 @@
     </form>
   </div>
 } @else {
-  <div class="lc-mesa" [class.lc-mesa--aberta]="!!selecionada()">
+  <div class="lc-mesa" [class.lc-mesa--aberta]="!!selecionada() || recebimentoAberto() != null">
     <!-- 2) Fila de corte -->
-    <aside class="lc-fila" aria-label="Pedidos aguardando liberação de corte">
+    <aside class="lc-fila" aria-label="Aguardando liberação: cortes e recebimentos">
       <header class="lc-fila__topo">
         <div class="lc-fila__titulo">
-          Aguardando liberação <span class="lc-fila__qtd">{{ lista().length }}</span>
+          Aguardando liberação <span class="lc-fila__qtd">{{ qtdAguardando() }}</span>
         </div>
         <button type="button" class="lc-icone-btn" (click)="carregar()" [disabled]="carregando()" title="Atualizar a fila" aria-label="Atualizar a fila">
           <oq-icon name="sync" [size]="15" />
@@ -44,20 +44,25 @@
       </header>
       <label class="lc-busca">
         <oq-icon name="search" [size]="14" />
-        <input type="text" placeholder="Nº único, cliente ou NF" aria-label="Buscar nº único, cliente ou NF" [ngModel]="buscaTermo()" (ngModelChange)="buscaTermo.set($event)" />
+        <input type="text" placeholder="Nº único, NF, cliente ou fornecedor" aria-label="Buscar nº único, NF, cliente ou fornecedor" [ngModel]="buscaTermo()" (ngModelChange)="buscaTermo.set($event)" />
       </label>
+      <!-- Lista única (19/11/2026): corte (expedição e compra) e recebimento (compra conferida aguardando liberação). -->
+      <div class="lc-tipos" role="tablist" aria-label="Tipo de liberação">
+        <button type="button" role="tab" class="lc-tipo" [class.lc-tipo--ativo]="tipo() === 'todos'" [attr.aria-selected]="tipo() === 'todos'" (click)="tipo.set('todos')">Todos</button>
+        <button type="button" role="tab" class="lc-tipo" [class.lc-tipo--ativo]="tipo() === 'corte'" [attr.aria-selected]="tipo() === 'corte'" (click)="tipo.set('corte')">Corte <span>{{ lista().length }}</span></button>
+        <button type="button" role="tab" class="lc-tipo" [class.lc-tipo--ativo]="tipo() === 'recebimento'" [attr.aria-selected]="tipo() === 'recebimento'" (click)="tipo.set('recebimento')">Recebimento <span>{{ qtdRecebimento() }}</span></button>
+      </div>
 
       <div class="lc-fila__lista">
         @if (erro()) {
           <p class="lc-erro">{{ erro() }}</p>
         }
-        @if (carregando() && lista().length === 0) {
+        @if (carregando() && qtdAguardando() === 0) {
           <p class="lc-vazio"><oq-spinner [size]="14" /> Consultando o Sankhya…</p>
-        } @else if (lista().length === 0) {
-          <p class="lc-vazio">Nenhum pedido aguardando liberação de corte.</p>
-        } @else if (listaFiltrada().length === 0) {
-          <p class="lc-vazio">Nenhum pedido com essa busca.</p>
+        } @else if (vazioTexto()) {
+          <p class="lc-vazio">{{ vazioTexto() }}</p>
         }
+        @if (tipo() !== 'recebimento') {
         @for (item of listaFiltrada(); track item.nunota) {
           <button
             type="button"
@@ -71,8 +76,23 @@
               <span class="lc-pedido__data">{{ item.dataMovimento ?? '' }}</span>
             </span>
             <span class="lc-pedido__cliente">{{ item.nomeParceiro ?? '—' }}</span>
-            <span class="lc-pedido__tipo">{{ item.descricaoTipoOperacao ?? '' }}</span>
+            <span class="lc-pedido__tipo"><b class="lc-tag lc-tag--corte">Corte</b> {{ item.descricaoTipoOperacao ?? '' }}</span>
           </button>
+        }
+        }
+        @if (tipo() !== 'corte') {
+          @for (r of recebimentosAguardando(); track r.nunota) {
+            <ng-container *ngTemplateOutlet="itemRecebimento; context: { $implicit: r }" />
+          }
+          <button type="button" class="lc-grupo" [attr.aria-expanded]="mostrarLiberadas()" (click)="mostrarLiberadas.set(!mostrarLiberadas())">
+            <oq-icon name="chevron-right" [size]="13" [class.lc-grupo__seta--aberta]="mostrarLiberadas()" />
+            Recebimentos liberados <span class="lc-fila__qtd">{{ recebimentosLiberados().length }}</span>
+          </button>
+          @if (mostrarLiberadas()) {
+            @for (r of recebimentosLiberados(); track r.nunota) {
+              <ng-container *ngTemplateOutlet="itemRecebimento; context: { $implicit: r }" />
+            }
+          }
         }
       </div>
 
@@ -179,8 +199,10 @@
             </button>
           </footer>
         }
+      } @else if (recebimentoAberto() != null) {
+        <oq-mesa-recebimento [nunota]="recebimentoAberto()!" [usuario]="usuario" [senha]="senha" (fechar)="fecharRecebimento()" />
       } @else {
-        <p class="lc-corte__vazio">Escolha um pedido na fila para ver o que vai ser cortado.</p>
+        <p class="lc-corte__vazio">Escolha um corte ou um recebimento na lista.</p>
       }
     </section>
   </div>
@@ -190,3 +212,29 @@
     <oq-fechamento-oc-modal [nunota]="nunota" (fechado)="encerrarFaturamento()" />
   }
 }
+
+<!-- Item de recebimento na lista única (19/11/2026). -->
+<ng-template #itemRecebimento let-r>
+  <button
+    type="button"
+    class="lc-pedido"
+    [class.lc-pedido--sel]="recebimentoAberto() === r.nunota"
+    [class.lc-pedido--liberado]="r.situacao === 'liberada'"
+    [attr.aria-current]="recebimentoAberto() === r.nunota ? 'true' : null"
+    (click)="abrirRecebimento(r)"
+  >
+    <span class="lc-pedido__linha">
+      <span class="lc-pedido__num">{{ r.nunota }}</span>
+      <span class="lc-pedido__data">{{ ddmm(r.dataMovimento) }}</span>
+    </span>
+    <span class="lc-pedido__cliente">{{ r.fornecedor ?? '—' }}</span>
+    <span class="lc-pedido__tipo">
+      <b class="lc-tag">{{ r.situacao === 'liberada' ? 'Liberado' : 'Recebimento' }}</b>
+      @if (r.numeroNota) { NF {{ r.numeroNota }} }
+      @if (r.devolucao) { · <b class="lc-t--falta">devolução</b> }
+      @if (r.complemento) { · <b class="lc-t--sobra">complemento</b> }
+      @if (r.ajustesPeso?.length) { · ajuste de peso }
+      @if (r.statusConferencia.endsWith('divergente')) { · <b class="lc-t--falta">divergente</b> }
+    </span>
+  </button>
+</ng-template>

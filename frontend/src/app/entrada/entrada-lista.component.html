@@ -1,6 +1,22 @@
 <div class="oq-page">
   <header class="oq-page__header">
     <div class="en-topo">
+      <!-- Uma aba por atividade da entrada (19/11/2026). Armazenagem chega com o endereçamento (etapa 4). -->
+      <div class="en-filtros" role="tablist" aria-label="Atividade">
+        <button
+          type="button"
+          role="tab"
+          class="en-filtro"
+          [class.en-filtro--ativo]="atividade() === 'recebimento'"
+          [attr.aria-selected]="atividade() === 'recebimento'"
+          (click)="atividade.set('recebimento')"
+        >
+          Recebimento <span class="en-filtro__qtd">{{ aReceber().length }}</span>
+        </button>
+        <button type="button" role="tab" class="en-filtro" disabled aria-selected="false" title="Guardar o pallet da doca no endereço — chega com o endereçamento (etapa 4)">
+          Armazenagem <span class="en-filtro__breve">etapa 4</span>
+        </button>
+      </div>
       <label class="en-busca">
         <oq-icon name="search" [size]="14" />
         <input
@@ -12,21 +28,12 @@
           (ngModelChange)="busca.set($event)"
         />
       </label>
-      <div class="en-filtros" role="tablist" aria-label="Situação">
-        @for (f of filtros; track f.id) {
-          <button
-            type="button"
-            role="tab"
-            class="en-filtro"
-            [class.en-filtro--ativo]="filtro() === f.id"
-            [class.en-filtro--alerta]="f.id === 'liberacao' && contagens().liberacao > 0"
-            [attr.aria-selected]="filtro() === f.id"
-            (click)="filtro.set(f.id)"
-          >
-            {{ f.label }} <span class="en-filtro__qtd">{{ contagens()[f.id] }}</span>
-          </button>
-        }
-      </div>
+      @if (aguardandoLiberacao() > 0) {
+        <a class="en-link-liberacao" routerLink="/liberacoes">
+          {{ aguardandoLiberacao() }} {{ aguardandoLiberacao() === 1 ? 'conferida aguardando' : 'conferidas aguardando' }} liberação
+          <oq-icon name="chevron-right" [size]="13" />
+        </a>
+      }
     </div>
   </header>
 
@@ -42,17 +49,17 @@
       </div>
     } @else if (visiveis().length === 0) {
       <div class="oq-page__status">
-        @if (busca() || filtro() !== 'todos') {
-          Nenhum recebimento em "{{ rotuloFiltro() }}"{{ busca() ? ' com "' + busca() + '"' : '' }}.
-          <button type="button" (click)="limparFiltros()">Limpar filtros</button>
+        @if (busca()) {
+          Nenhuma compra a receber com "{{ busca() }}".
+          <button type="button" (click)="limparBusca()">Limpar busca</button>
         } @else {
-          Nenhuma compra para receber.
+          Nenhuma compra para receber agora.
         }
       </div>
     } @else {
       <div class="oq-page__grid">
         @for (r of visiveis(); track r.nunota) {
-          <article class="oq-card en-card" [class.en-card--fraco]="r.situacao === 'liberada'">
+          <article class="oq-card en-card">
             <div class="en-card__topo">
               <span class="en-card__nunota">{{ r.nunota }}</span>
               @if (r.numeroNota) {

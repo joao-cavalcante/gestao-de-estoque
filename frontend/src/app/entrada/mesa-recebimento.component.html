@@ -1,0 +1,212 @@
+<!-- Mesa do recebimento (19/11/2026): usada pela tela Liberação de Recebimento, no painel da direita. -->
+@if (erro()) {
+  <p class="en-bloco__vazio en-t--falta">{{ erro() }}</p>
+} @else if (carregando() && !mesa()) {
+  <oq-skeleton variant="detail-block" [count]="3" />
+} @else {
+  @if (mesa(); as m) {
+  <header class="en-mesa-topo">
+    <button type="button" class="en-voltar en-mesa-topo__voltar" (click)="fechar.emit()" aria-label="Voltar para a lista">
+      <oq-icon name="arrow-left" [size]="16" />
+    </button>
+    <div class="en-mesa-topo__id">
+      <span class="en-card__nunota">{{ m.recebimento.nunota }}</span>
+      @if (m.recebimento.numeroNota) { <span class="en-card__nf">NF {{ m.recebimento.numeroNota }}</span> }
+    </div>
+    <span class="en-mesa-topo__fornecedor">{{ m.recebimento.fornecedor ?? '—' }}</span>
+  </header>
+  <div class="en-mesa__corpo">
+    <!-- 1. Decisão: situação + aprovar (addon TOR, etapa 2) -->
+    <section class="en-decisao" [attr.data-situacao]="m.recebimento.situacao">
+      <div class="en-decisao__estado">
+        <span class="en-status en-status--grande" [attr.data-situacao]="m.recebimento.situacao">
+          <oq-icon [name]="icone[m.recebimento.situacao]" [size]="18" />
+          {{ rotulo[m.recebimento.situacao] }}
+        </span>
+        <span class="en-decisao__texto">
+          @switch (m.recebimento.situacao) {
+            @case ('aguardando_liberacao') {
+              @if (m.aprovacaoDisponivel) {
+                Conferência concluída. Confira os pontos abaixo e aprove: a compra é confirmada no Sankhya com o seu
+                usuário. O ajuste de peso sai em seguida.
+              } @else {
+                Conferência concluída. A compra ainda não foi confirmada no Sankhya — confira os pontos abaixo e confirme
+                a nota pela Central de Notas. A mesa muda para "Liberada" em até 1 minuto.
+              }
+            }
+            @case ('liberada') { Nota confirmada no Sankhya — o estoque já entrou. }
+            @case ('divergencia') { A conferência está aguardando liberação de corte. }
+            @default { A conferência ainda não foi concluída. }
+          }
+        </span>
+      </div>
+      @if (m.recebimento.situacao === 'aguardando_liberacao') {
+      <div class="en-decisao__acoes">
+        @if (!m.aprovacaoDisponivel) {
+          <button type="button" class="en-btn en-btn--forte" disabled
+            title="Aprovar pela Torre depende do addon TOR ligado para este cliente. Por enquanto, confirme a nota no Sankhya.">
+            Aprovar
+          </button>
+          <span class="en-decisao__dica">Aprovar pela Torre depende do addon TOR no Sankhya.</span>
+        } @else if (confirmandoAprovacao()) {
+          <button type="button" class="en-btn en-btn--forte" [disabled]="!podeAprovar" (click)="aprovar()">
+            {{ aprovando() ? 'Aprovando…' : 'Confirmar aprovação' }}
+          </button>
+          <button type="button" class="en-btn" [disabled]="aprovando()" (click)="confirmandoAprovacao.set(false)">Cancelar</button>
+          <span class="en-decisao__dica">A nota {{ m.recebimento.numeroNota ?? m.recebimento.nunota }} será confirmada no Sankhya como {{ usuario }}.</span>
+        } @else {
+          <button type="button" class="en-btn en-btn--forte" [disabled]="!podeAprovar" (click)="confirmandoAprovacao.set(true)">Aprovar</button>
+        }
+        <button type="button" class="en-btn" disabled
+          title="O Sankhya não aceita recontagem de conferência já finalizada. Em definição.">Devolver para recontagem</button>
+      </div>
+      }
+      @if (erroAprovacao(); as e) {
+        <p class="en-decisao__erro" role="alert">{{ e }}</p>
+      }
+      @if (resultadoAprovacao(); as r) {
+        @if (r.situacao === 'APROVADO') {
+          <p class="en-decisao__ok" role="status">{{ r.jaExistia ? 'Este recebimento já estava aprovado.' : 'Recebimento aprovado: compra confirmada no Sankhya.' }}</p>
+        } @else {
+          <div class="en-decisao__erro" role="alert">
+            O Sankhya pediu liberação para confirmar a nota — ela continua aberta. Depois de liberado, aprove de novo.
+            <ul>@for (l of r.liberacoes; track l) { <li>{{ l }}</li> }</ul>
+          </div>
+        }
+      }
+    </section>
+
+    <!-- 2. Resumo do recebimento -->
+    <section class="en-resumo">
+      <div><small>Fornecedor</small>{{ m.recebimento.fornecedor ?? '—' }}</div>
+      <div><small>Empresa</small>{{ m.recebimento.nomeEmpresa ?? m.recebimento.codigoEmpresa ?? '—' }}</div>
+      <div><small>TOP</small>{{ m.recebimento.codigoTipoOperacao ?? '—' }}{{ m.recebimento.tipoOperacao ? ' · ' + m.recebimento.tipoOperacao : '' }}</div>
+      <div><small>Data</small>{{ ddmm(m.recebimento.dataMovimento) }}</div>
+      <div><small>Peso da nota</small>{{ pesoTexto(m.recebimento.pesoBruto) }}</div>
+      <div>
+        <small>Conferência</small>
+        @if (m.conferenciaNaTorre) {
+          @if (m.conferente) { {{ m.conferente }} · }
+          @if (m.conferenciaInicio) { {{ m.conferenciaInicio | date: 'dd/MM HH:mm' }} }
+          @if (m.conferenciaFim) { → {{ m.conferenciaFim | date: 'HH:mm' }} }
+          @if (m.recontagem) { · com recontagem }
+        } @else {
+          Não feita pela Torre
+        }
+      </div>
+    </section>
+
+    <!-- 3. Ocorrências: devolução, complemento, ajustes de peso -->
+    <section class="en-bloco">
+      <h2 class="en-bloco__titulo">Ocorrências</h2>
+      @if (!m.recebimento.devolucao && !m.recebimento.complemento && !(m.recebimento.ajustesPeso?.length)) {
+        <p class="en-bloco__vazio">
+          Nenhuma devolução, complemento ou ajuste de peso.
+          @if (m.situacaoLidaEm === null || m.situacaoLidaEm === undefined) {
+            (A situação no Sankhya ainda não foi lida — aguarde o próximo ciclo.)
+          }
+        </p>
+      } @else {
+        <ul class="en-ocorrencias en-ocorrencias--mesa">
+          @if (m.recebimento.devolucao; as d) {
+            <li class="en-ocorrencia en-ocorrencia--falta">
+              <oq-icon name="triangle" [size]="14" />
+              <span>
+                <b>Devolução</b> {{ d.numero ? 'NF ' + d.numero : '' }} · nº único {{ d.nunota }} ·
+                {{ d.confirmada ? 'confirmada' : 'não confirmada' }}
+                <small>Falta na conferência — o Sankhya gerou a devolução ao fornecedor.</small>
+              </span>
+            </li>
+          }
+          @if (m.recebimento.complemento; as c) {
+            <li class="en-ocorrencia en-ocorrencia--sobra">
+              <oq-icon name="receipt" [size]="14" />
+              <span>
+                <b>Complemento</b> {{ c.numero ? 'nº ' + c.numero : '' }} · nº único {{ c.nunota }} ·
+                {{ c.confirmada ? 'confirmado' : 'aguardando' }}
+                <small>Sobra na conferência — só entra no estoque quando o complemento for confirmado.</small>
+              </span>
+            </li>
+          }
+          @for (a of m.recebimento.ajustesPeso ?? []; track a.sentido) {
+            <li class="en-ocorrencia" [class.en-ocorrencia--erro]="a.status === 'erro'">
+              <oq-icon name="scale" [size]="14" />
+              <span>
+                <b>{{ rotuloAjuste(a) }}</b>
+                @if (a.erro) { <small>{{ a.erro }}</small> }
+                @if (a.status === 'erro') {
+                  <small><a routerLink="/pendencias-integracao">Tratar em Pendências de Integração</a></small>
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- 4. Itens: nota × conferido -->
+    <section class="en-bloco">
+      <div class="en-bloco__cabeca">
+        <h2 class="en-bloco__titulo">Itens</h2>
+        @if (m.conferenciaNaTorre) {
+          <span class="en-contagem">
+            {{ resumo().total }} {{ resumo().total === 1 ? 'item' : 'itens' }} · <b class="en-t--ok">{{ resumo().ok }} conferem</b>
+            @if (resumo().falta) { · <b class="en-t--falta">{{ resumo().falta }} com falta</b> }
+            @if (resumo().sobra) { · <b class="en-t--sobra">{{ resumo().sobra }} com sobra</b> }
+            @if (resumo().ajuste) { · <b>{{ resumo().ajuste }} com ajuste de peso</b> }
+          </span>
+          <label class="en-check">
+            <input type="checkbox" [checked]="soDivergencias()" (change)="soDivergencias.set(!soDivergencias())" />
+            Só o que não confere
+          </label>
+        }
+      </div>
+      @if (!m.conferenciaNaTorre) {
+        <p class="en-bloco__vazio">Esta compra não foi conferida pela Torre — não há itens para comparar.</p>
+      } @else if (itensVisiveis().length === 0) {
+        <p class="en-bloco__vazio">Todos os itens conferem com a nota.</p>
+      } @else {
+        <div class="en-tabela-rolagem">
+          <table class="en-tabela">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th class="en-num">Nota</th>
+                <th class="en-num">Conferido</th>
+                <th class="en-num">Diferença</th>
+                <th>Situação</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of itensVisiveis(); track i.sequencia + '-' + i.tipo) {
+                <tr [attr.data-tipo]="i.tipo">
+                  <td>
+                    <span class="en-produto">{{ i.produto }}</span>
+                    <small>
+                      {{ i.codprod }}{{ i.controle ? ' · lote ' + i.controle : '' }}{{ i.pesavel ? ' · pesável' : '' }}
+                    </small>
+                  </td>
+                  <td class="en-num">{{ qtd(i.qtdNota) }} <small>{{ i.unidade }}</small></td>
+                  <td class="en-num">{{ qtd(i.qtdConferida) }} <small>{{ i.unidade }}</small></td>
+                  <td class="en-num">
+                    {{ diferencaTexto(i) }}
+                    @if (percentual(i)) { <small>{{ percentual(i) }}</small> }
+                  </td>
+                  <td>
+                    <span class="en-tipo" [attr.data-tipo]="i.tipo">
+                      {{ rotuloTipo[i.tipo] }}
+                      @if (i.tipo === 'ajuste' && i.ajustePeso != null) {
+                        ({{ i.ajustePeso > 0 ? '+' : '−' }}{{ qtd(i.ajustePeso > 0 ? i.ajustePeso : -i.ajustePeso) }})
+                      }
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  </div>
+  }
+}

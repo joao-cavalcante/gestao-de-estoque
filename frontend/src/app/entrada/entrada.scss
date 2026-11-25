@@ -104,6 +104,29 @@
 }
 
 .en-filtro--ativo { background: var(--oq-text-primary); color: var(--oq-surface); }
+.en-filtro:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.en-filtro__breve {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.en-link-liberacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-warning-foreground);
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+
+  @media (max-width: 639px) { margin-left: 0; }
+}
 .en-filtro--alerta:not(.en-filtro--ativo) .en-filtro__qtd { background: var(--oq-attention); color: #fff; }
 
 .en-filtro__qtd {
@@ -297,17 +320,36 @@
   &:hover:not(:disabled) { background: var(--oq-critical-foreground); }
 }
 
-// ─── Mesa ────────────────────────────────────────────────────────────────────────────────────────────────
-.en-mesa { gap: 0; }
+// ─── Mesa (painel da Liberação de Recebimento) ───────────────────────────────────────────────────────────
+.en-mesa-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 14px;
+}
 
-.en-mesa__rolagem {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+.en-mesa-topo__id { display: flex; align-items: baseline; gap: 10px; }
+
+.en-mesa-topo__fornecedor {
+  font-family: var(--oq-font-body);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+}
+
+// Voltar para a lista: só quando lista e mesa não cabem lado a lado (mesmo corte da Liberação de Corte).
+.en-mesa-topo__voltar {
+  display: none;
+  align-self: center;
+
+  @media (max-width: 899px) { display: inline-flex; }
+}
+
+.en-mesa__corpo {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-bottom: 8px;
 }
 
 .en-decisao {
@@ -356,6 +398,29 @@
   font-family: var(--oq-font-body);
   font-size: 12px;
   color: var(--oq-text-secondary);
+}
+
+.en-decisao__erro,
+.en-decisao__ok {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  line-height: 1.45;
+
+  ul { margin: 6px 0 0; padding-left: 18px; }
+}
+
+.en-decisao__erro {
+  background: var(--oq-critical-soft);
+  color: var(--oq-critical-foreground);
+}
+
+.en-decisao__ok {
+  background: var(--oq-success-soft);
+  color: var(--oq-success-foreground);
 }
 
 .en-resumo {

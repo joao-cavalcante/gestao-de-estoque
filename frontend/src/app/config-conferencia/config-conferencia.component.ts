@@ -102,6 +102,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     serieSaida: null,
     codTipVenda: null,
     codParc: null,
+    viaAddon: false,
   };
   readonly ajusteSalvando = signal(false);
   readonly ajusteMensagem = signal<string | null>(null);
@@ -127,6 +128,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
       serieSaida: serie(this.ajuste.serieSaida),
       codTipVenda: num(this.ajuste.codTipVenda),
       codParc: num(this.ajuste.codParc),
+      viaAddon: !!this.ajuste.viaAddon,
     };
     if (a.codParc !== null && (!Number.isInteger(a.codParc) || a.codParc <= 0)) {
       this.ajusteMensagem.set('Informe o código do parceiro (número inteiro) ou deixe vazio.');

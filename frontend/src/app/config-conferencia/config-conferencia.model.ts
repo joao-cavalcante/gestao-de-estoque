@@ -71,6 +71,8 @@ export interface AjustePesoCompra {
   codTipVenda: number | null;
   /** Parceiro das notas de ajuste; null = o fornecedor da compra. */
   codParc: number | null;
+  /** Gerar pelo addon TOR no Sankhya (uma transação); TOP/série/parceiro/tipo vêm da TORCFG (19/11/2026). */
+  viaAddon?: boolean;
 }
 
 export interface ToleranciaPeso {
