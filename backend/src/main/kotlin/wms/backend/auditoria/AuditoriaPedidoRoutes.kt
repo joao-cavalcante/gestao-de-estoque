@@ -17,7 +17,12 @@ fun Route.auditoriaPedidoRoutes() {
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
-                call.respond(AuditoriaPedidoService.auditar(slug, claims.tenantId, numero))
+                val a = AuditoriaPedidoService.auditar(slug, claims.tenantId, numero)
+                // Acesso por empresa (V80): pedido de outra empresa responde como não encontrado.
+                if (!wms.backend.permissoes.EmpresasAcesso.permite(claims, a.cabecalho.codemp)) {
+                    return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Pedido $numero não encontrado"))
+                }
+                call.respond(a)
             } catch (e: AuditoriaPedidoService.PedidoNaoEncontradoException) {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to e.message))
             } catch (e: Exception) {

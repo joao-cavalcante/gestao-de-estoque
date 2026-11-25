@@ -197,7 +197,9 @@ private fun comTransporte(slug: String, tenantId: UUID, tarefas: List<TarefaApiD
     }
 }
 
-private fun filtrarPorTop(claims: ClaimsToken, tenantId: UUID, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+private fun filtrarPorTop(claims: ClaimsToken, tenantId: UUID, todas: List<TarefaApiDto>): List<TarefaApiDto> {
+    // Acesso por empresa (V80): antes da TOP — o usuário só vê notas da(s) empresa(s) dele.
+    val tarefas = wms.backend.permissoes.EmpresasAcesso.filtrar(claims, todas) { wms.backend.permissoes.EmpresasAcesso.codemp(it.codigoEmpresa) }
     if (PermissoesRecurso.acessoTotal(claims)) return tarefas
     val restritas = PermissoesRecurso.topsRestritas(tenantId)
     if (restritas.isEmpty()) return tarefas

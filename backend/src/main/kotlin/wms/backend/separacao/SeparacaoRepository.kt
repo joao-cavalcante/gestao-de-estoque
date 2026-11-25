@@ -1463,6 +1463,8 @@ object SeparacaoRepository {
         numnota: Long?,
         page: Int,
         perPage: Int,
+        /** Acesso por empresa (V80): null = todas; senão só estes números únicos. */
+        nunotasPermitidas: Set<Long>? = null,
     ): ConferenciasFinalizadasResponse = TenantTx.run(tenantId) {
         // Conferência por etapa: a etiqueta de uma etapa CONCLUÍDA não espera a nota inteira — sessão ainda
         // aberta (PRONTA) com etapa 'C' também entra, marcada como parcial (imprime só as etapas prontas).
@@ -1493,6 +1495,7 @@ object SeparacaoRepository {
             // momento da finalização. Antes era criado_em (abertura da sessão) — uma
             // conferência aberta dias atrás e finalizada agora caía numa página lá do fim.
             .toList()
+            .filter { nunotasPermitidas == null || it[SeparacaoSessoesTable.nunota].toLong() in nunotasPermitidas }
             .sortedByDescending { row ->
                 val atualizado = row[SeparacaoSessoesTable.atualizadoEm]
                 ultimaEtapaPorSessao[row[SeparacaoSessoesTable.id]]?.takeIf { it > atualizado } ?: atualizado

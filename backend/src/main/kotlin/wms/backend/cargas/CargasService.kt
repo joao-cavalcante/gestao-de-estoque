@@ -56,6 +56,7 @@ object CargasService {
         val hoje = LocalDate.now(ZONA)
         val ocAtual = NotasFiscaisPedido.ocAtualDoCache(tenantId)
         val restritas = if (PermissoesRecurso.acessoTotal(claims)) emptyMap() else PermissoesRecurso.topsRestritas(tenantId)
+        val empresas = wms.backend.permissoes.EmpresasAcesso.permitidas(claims)
 
         val linhas = TenantTx.run(tenantId) {
             TarefasTable.selectAll().where { TarefasTable.tenantId eq tenantId }.map { r ->
@@ -70,6 +71,7 @@ object CargasService {
             val oc = ocAtual[nunota]?.takeIf { it > 0 } ?: if (ocAtual.containsKey(nunota)) null else TarefasRepository.normalizarOrdemCarga(campo("ORDEMCARGA"))
             if (oc == null) return@mapNotNull null
             if (restritas.isNotEmpty() && !PermissoesRecurso.podeUsarTop(claims, restritas, campo("CODTIPOPER")?.toIntOrNull())) return@mapNotNull null
+            if (!wms.backend.permissoes.EmpresasAcesso.permite(empresas, wms.backend.permissoes.EmpresasAcesso.codemp(campo("CODEMP")))) return@mapNotNull null
             CargasRegras.Pedido(
                 nunota = nunota,
                 ordemCarga = oc,

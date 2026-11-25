@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UsuarioService } from '../usuario.service';
-import { Usuario } from '../usuario.model';
+import { Usuario, Empresa } from '../usuario.model';
 import { OqPanelSectionComponent } from '../../conferencia/oq-panel-section/oq-panel-section.component';
 import { OqStatusChipComponent } from '../../conferencia/oq-status-chip/oq-status-chip.component';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
@@ -22,10 +22,12 @@ interface FormUsuario {
   turno: string;
   /** CODUSU do Sankhya — '' = sem vínculo. */
   codusuSankhya: string;
+  /** V80 — empresas que o usuário vê; vazio = todas. */
+  empresas: number[];
 }
 
 function formVazio(): FormUsuario {
-  return { nome: '', email: '', senha: '', perfil: 'OPERADOR', crachaoCodigo: '', turno: '', codusuSankhya: '' };
+  return { nome: '', email: '', senha: '', perfil: 'OPERADOR', crachaoCodigo: '', turno: '', codusuSankhya: '', empresas: [] };
 }
 
 @Component({
@@ -68,8 +70,25 @@ export class UsuarioListComponent implements OnInit {
   /** Seleção pra impressão em lote (só quem tem crachá). */
   readonly selecionados = signal<ReadonlySet<string>>(new Set());
 
+  // ─── Acesso por empresa (V80) ───
+  readonly empresasSankhya = signal<Empresa[]>([]);
+
+  alternarEmpresa(codemp: number, marcada: boolean): void {
+    const atual = new Set(this.form.empresas);
+    if (marcada) atual.add(codemp);
+    else atual.delete(codemp);
+    this.form.empresas = [...atual].sort((a, b) => a - b);
+  }
+
+  nomesEmpresas(u: Usuario): string {
+    if (!u.empresas?.length) return '';
+    const nomes = new Map(this.empresasSankhya().map((e) => [e.codemp, e.nome]));
+    return u.empresas.map((c) => nomes.get(c) ?? `Empresa ${c}`).join(', ');
+  }
+
   ngOnInit(): void {
     this.carregar();
+    this.service.empresas().subscribe({ next: (l) => this.empresasSankhya.set(l), error: () => this.empresasSankhya.set([]) });
     this.logoService.obter().then((l) => this.crachaLogo.set(l));
   }
 
@@ -171,6 +190,7 @@ export class UsuarioListComponent implements OnInit {
       crachaoCodigo: usuario.crachaoCodigo ?? '',
       turno: usuario.turno ?? '',
       codusuSankhya: usuario.codusuSankhya != null ? String(usuario.codusuSankhya) : '',
+      empresas: [...(usuario.empresas ?? [])],
     };
     this.modalErro.set(null);
     this.modalAberto.set(true);
@@ -194,6 +214,7 @@ export class UsuarioListComponent implements OnInit {
           perfil: this.form.perfil,
           turno: this.form.turno || null,
           codusuSankhya: this.codusuDoForm(),
+          empresas: this.form.empresas,
         })
         .subscribe({
           next: (criado) => this.salvarCracha(criado.id, 'Usuário criado, mas falha ao atribuir o crachá.'),
@@ -213,6 +234,7 @@ export class UsuarioListComponent implements OnInit {
         turno: this.form.turno || null,
         alterarCodusuSankhya: true,
         codusuSankhya: this.codusuDoForm(),
+        empresas: this.form.empresas,
       })
       .subscribe({
       next: () => {

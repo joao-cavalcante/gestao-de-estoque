@@ -31,7 +31,7 @@ fun Route.galpaoRoutes() {
 
         get("/plantas") {
             val claims = call.exigirGalpao() ?: return@get
-            call.respond(GalpaoRepository.listarPlantas(claims.tenantId))
+            call.respond(wms.backend.permissoes.EmpresasAcesso.filtrar(claims, GalpaoRepository.listarPlantas(claims.tenantId)) { it.codemp })
         }
 
         post("/plantas") {
@@ -284,6 +284,15 @@ internal suspend fun ApplicationCall.exigirGalpao(admin: Boolean = false): Claim
     if (admin && claims.perfil != "ADMINISTRADOR") {
         respond(HttpStatusCode.Forbidden, mapOf("erro" to "requer perfil ADMINISTRADOR"))
         return null
+    }
+    // Acesso por empresa (V80): planta de outra empresa não existe para o usuário (toda rota /plantas/{id}/… passa aqui).
+    val plantaId = uuid("id")
+    if (plantaId != null && wms.backend.permissoes.EmpresasAcesso.permitidas(claims) != null) {
+        val planta = GalpaoRepository.buscarPlanta(claims.tenantId, plantaId)
+        if (planta != null && !wms.backend.permissoes.EmpresasAcesso.permite(claims, planta.codemp)) {
+            respond(HttpStatusCode.NotFound, mapOf("erro" to "Planta não encontrada"))
+            return null
+        }
     }
     return claims
 }

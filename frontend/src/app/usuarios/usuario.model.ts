@@ -9,6 +9,13 @@ export interface Usuario {
   turno: string | null;
   /** TSIUSU.CODUSU no Sankhya — vira o conferente (TGFCON2.CODUSUCONF) ao finalizar. */
   codusuSankhya?: number | null;
+  /** V80 — empresas (CODEMP) que o usuário vê; vazio = todas. */
+  empresas?: number[];
+}
+
+export interface Empresa {
+  codemp: number;
+  nome: string;
 }
 
 export interface CriarUsuarioRequest {
@@ -18,4 +25,5 @@ export interface CriarUsuarioRequest {
   perfil: string;
   turno?: string | null;
   codusuSankhya?: number | null;
+  empresas?: number[];
 }

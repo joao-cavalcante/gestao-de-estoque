@@ -1,12 +1,17 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CriarUsuarioRequest, Usuario } from './usuario.model';
+import { CriarUsuarioRequest, Usuario, Empresa } from './usuario.model';
 
 @Injectable({ providedIn: 'root' })
 export class UsuarioService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = '/api/usuarios';
+
+  /** Empresas do Sankhya para o campo "Empresas" (V80). */
+  empresas(): Observable<Empresa[]> {
+    return this.http.get<Empresa[]>(`${this.baseUrl}/empresas`);
+  }
 
   listar(): Observable<Usuario[]> {
     return this.http.get<Usuario[]>(this.baseUrl);
@@ -16,7 +21,7 @@ export class UsuarioService {
     return this.http.post<Usuario>(this.baseUrl, req);
   }
 
-  atualizar(id: string, req: Partial<Pick<Usuario, 'nome' | 'perfil' | 'ativo' | 'turno' | 'codusuSankhya'>> & { alterarCodusuSankhya?: boolean }): Observable<unknown> {
+  atualizar(id: string, req: Partial<Pick<Usuario, 'nome' | 'perfil' | 'ativo' | 'turno' | 'codusuSankhya' | 'empresas'>> & { alterarCodusuSankhya?: boolean }): Observable<unknown> {
     return this.http.patch(`${this.baseUrl}/${id}`, req);
   }
 

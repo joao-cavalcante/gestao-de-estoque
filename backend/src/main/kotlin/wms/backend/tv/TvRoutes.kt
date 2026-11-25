@@ -15,7 +15,7 @@ fun Route.tvRoutes() {
                 return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "sem permissão para a TV de conferência"))
             }
             // ?movimento=saida (vendas) | entrada (compras) | ausente = todos
-            call.respond(TvService.resumo(claims.tenantId, call.request.queryParameters["movimento"]))
+            call.respond(TvService.resumo(claims.tenantId, call.request.queryParameters["movimento"], wms.backend.permissoes.EmpresasAcesso.permitidas(claims)))
         }
         /** TV exclusiva de Ordens de Carga (/tv/carga). */
         get("/carga") {
@@ -24,7 +24,7 @@ fun Route.tvRoutes() {
                 return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "sem permissão para a TV de conferência"))
             }
             val slug = wms.backend.tenancy.TenantRepository.buscarPorId(claims.tenantId)?.slug
-            call.respond(TvService.carga(claims.tenantId, slug))
+            call.respond(TvService.carga(claims.tenantId, slug, wms.backend.permissoes.EmpresasAcesso.permitidas(claims)))
         }
     }
 }

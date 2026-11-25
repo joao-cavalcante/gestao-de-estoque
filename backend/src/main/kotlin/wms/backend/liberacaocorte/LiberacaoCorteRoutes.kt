@@ -28,13 +28,13 @@ fun Route.liberacaoCorteRoutes() {
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
             try {
                 if (slug == null) {
-                    call.respond(LiberacaoCorteRepository.listarAguardandoCorte(claims.tenantId))
+                    call.respond(wms.backend.permissoes.EmpresasAcesso.filtrar(claims, LiberacaoCorteRepository.listarAguardandoCorte(claims.tenantId)) { codempNota(claims, it.nunota) })
                 } else {
-                    call.respond(LiberacaoCorteService.listarRevalidando(slug, claims.tenantId))
+                    call.respond(wms.backend.permissoes.EmpresasAcesso.filtrar(claims, LiberacaoCorteService.listarRevalidando(slug, claims.tenantId)) { codempNota(claims, it.nunota) })
                 }
             } catch (e: Exception) {
                 // Falha ao revalidar (Sankhya fora) — devolve a lista local crua, sem travar a tela.
-                call.respond(LiberacaoCorteRepository.listarAguardandoCorte(claims.tenantId))
+                call.respond(wms.backend.permissoes.EmpresasAcesso.filtrar(claims, LiberacaoCorteRepository.listarAguardandoCorte(claims.tenantId)) { codempNota(claims, it.nunota) })
             }
         }
 
@@ -43,6 +43,9 @@ fun Route.liberacaoCorteRoutes() {
             val claims = call.exigirAuth() ?: return@get
             val nuconf = call.request.queryParameters["nuconf"]?.toIntOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'nuconf' precisa ser um número"))
+            if (!conferenciaPermitida(claims, nuconf)) {
+                return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "Esta conferência é de uma empresa que o seu usuário não acessa."))
+            }
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
@@ -74,6 +77,9 @@ fun Route.liberacaoCorteRoutes() {
         post("/liberar") {
             val claims = call.exigirAuth() ?: return@post
             val body = call.receive<LiberarCorteRequest>()
+            if (!conferenciaPermitida(claims, body.nuconf)) {
+                return@post call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "Esta conferência é de uma empresa que o seu usuário não acessa."))
+            }
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
@@ -96,4 +102,15 @@ fun Route.liberacaoCorteRoutes() {
             }
         }
     }
+}
+
+/** CODEMP da nota pela base local (acesso por empresa, V80). */
+private fun codempNota(claims: wms.backend.auth.ClaimsToken, nunota: Long): Int? =
+    wms.backend.permissoes.EmpresasAcesso.codempPorNunota(claims.tenantId, listOf(nunota))[nunota]
+
+/** A conferência (NUCONF) é de uma nota que o usuário vê? Sem nota local: só quem não tem restrição. */
+private fun conferenciaPermitida(claims: wms.backend.auth.ClaimsToken, nuconf: Int): Boolean {
+    val nunota = wms.backend.separacao.SeparacaoRepository.buscarNunotaPorNuconf(claims.tenantId, nuconf)
+        ?: return wms.backend.permissoes.EmpresasAcesso.permitidas(claims) == null
+    return wms.backend.permissoes.EmpresasAcesso.podeVerNota(claims, nunota)
 }

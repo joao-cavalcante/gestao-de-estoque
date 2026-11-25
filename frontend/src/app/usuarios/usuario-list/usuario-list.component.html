@@ -32,7 +32,7 @@
             <span class="oq-admin-row__avatar">{{ iniciais(u.nome) }}</span>
             <div class="oq-admin-row__main">
               <span class="oq-admin-row__titulo">{{ u.nome }}</span>
-              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã 08–18h' : 'Noite 22–07h') : '' }}{{ u.codusuSankhya ? '' : ' · sem usuário Sankhya' }}</span>
+              <span class="oq-admin-row__sub">{{ u.email }} · {{ u.perfil }}{{ u.turno ? ' · ' + (u.turno === 'MANHA' ? 'Manhã 08–18h' : 'Noite 22–07h') : '' }}{{ u.codusuSankhya ? '' : ' · sem usuário Sankhya' }}{{ u.empresas?.length ? ' · ' + nomesEmpresas(u) : '' }}</span>
             </div>
             <oq-status-chip [tone]="u.ativo ? 'success' : 'neutral'">{{ u.ativo ? 'ATIVO' : 'INATIVO' }}</oq-status-chip>
             @if (u.codusuSankhya) {
@@ -127,6 +127,24 @@
               </button>
             }
           </div>
+        </div>
+        <div class="oq-form-field">
+          <span class="oq-form-field__label">Empresas que o usuário vê</span>
+          @if (form.perfil === 'ADMINISTRADOR') {
+            <span class="oq-form-hint">Administrador vê todas as empresas.</span>
+          } @else if (empresasSankhya().length === 0) {
+            <span class="oq-form-hint">Não foi possível ler as empresas do Sankhya.</span>
+          } @else {
+            <div style="display: flex; flex-wrap: wrap; gap: 6px 16px;">
+              @for (e of empresasSankhya(); track e.codemp) {
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+                  <input type="checkbox" [checked]="form.empresas.includes(e.codemp)" (change)="alternarEmpresa(e.codemp, $any($event.target).checked)" />
+                  {{ e.codemp }} · {{ e.nome }}
+                </label>
+              }
+            </div>
+            <span class="oq-form-hint">Nenhuma marcada = vê todas. Marcadas = só as notas, cargas e estoque dessas empresas.</span>
+          }
         </div>
         <div class="oq-form-field">
           <span class="oq-form-field__label">Turno</span>

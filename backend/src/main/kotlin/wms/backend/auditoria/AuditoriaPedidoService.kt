@@ -175,7 +175,7 @@ object AuditoriaPedidoService {
 
     private suspend fun buscarCabecalho(tenantSlug: String, numero: Long): AuditoriaCabecalhoDto? {
         val sql = """
-            SELECT C.NUNOTA, C.NUMNOTA, C.CODTIPOPER, T.DESCROPER, C.TIPMOV, C.STATUSNOTA, C.ORDEMCARGA, C.CODPARC,
+            SELECT C.NUNOTA, C.NUMNOTA, C.CODEMP, C.CODTIPOPER, T.DESCROPER, C.TIPMOV, C.STATUSNOTA, C.ORDEMCARGA, C.CODPARC,
                    P.NOMEPARC, C.CODVEND, V.APELIDO, C.VLRNOTA, C.DTMOV, C.HRMOV, C.DTALTER, C.NUCONFATUAL,
                    (SELECT U.NOMEUSU FROM TSIUSU U WHERE U.CODUSU = C.CODUSU) AS ALTERADO_POR
             FROM TGFCAB C
@@ -192,6 +192,7 @@ object AuditoriaPedidoService {
         return AuditoriaCabecalhoDto(
             nunota = linha["NUNOTA"]!!.toBigDecimal().toLong(),
             numnota = linha["NUMNOTA"].long(),
+            codemp = linha["CODEMP"].int(),
             codtipoper = linha["CODTIPOPER"].int(),
             top = linha["DESCROPER"],
             tipmov = linha["TIPMOV"],

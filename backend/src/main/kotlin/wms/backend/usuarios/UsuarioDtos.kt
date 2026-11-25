@@ -14,6 +14,8 @@ data class UsuarioDto(
     val turno: String? = null,
     /** TSIUSU.CODUSU do usuário no Sankhya (app.users.codigo_erp) — vira TGFCON2.CODUSUCONF ao finalizar. */
     val codusuSankhya: Int? = null,
+    /** V80 — empresas (CODEMP) que o usuário vê; vazio = todas. */
+    val empresas: List<Int> = emptyList(),
 )
 
 @Serializable
@@ -24,6 +26,7 @@ data class CriarUsuarioRequest(
     val perfil: String = "OPERADOR",
     val turno: String? = null,
     val codusuSankhya: Int? = null,
+    val empresas: List<Int> = emptyList(),
 )
 
 @Serializable
@@ -36,7 +39,12 @@ data class AtualizarUsuarioRequest(
     /** true = grava [codusuSankhya] (inclusive null, pra limpar o vínculo); false = não mexe. */
     val alterarCodusuSankhya: Boolean = false,
     val codusuSankhya: Int? = null,
+    /** null = não mexe; lista (inclusive vazia = todas) substitui as empresas do usuário. */
+    val empresas: List<Int>? = null,
 )
+
+@Serializable
+data class EmpresaDto(val codemp: Int, val nome: String)
 
 @Serializable
 data class AlterarSenhaRequest(

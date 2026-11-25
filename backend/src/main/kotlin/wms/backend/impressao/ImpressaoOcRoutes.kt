@@ -66,7 +66,10 @@ fun Route.impressaoOcRoutes() {
     get("/api/impressao/painel") {
         val claims = call.exigirAuth() ?: return@get
         val horas = call.request.queryParameters["horas"]?.toLongOrNull()?.coerceIn(1, 168) ?: 24
-        call.respond(PainelImpressaoDto(AgentesImpressao.listar(claims.tenantId), ImpressaoOcRepository.recentes(claims.tenantId, horas, 200)))
+        // Acesso por empresa (V80): só jobs das OCs que o usuário vê.
+        val ocsVistas = wms.backend.permissoes.EmpresasAcesso.ocsPermitidas(claims)
+        val jobs = ImpressaoOcRepository.recentes(claims.tenantId, horas, 200).filter { ocsVistas == null || it.ordemCarga in ocsVistas }
+        call.respond(PainelImpressaoDto(AgentesImpressao.listar(claims.tenantId), jobs))
     }
 
     /** Tela (card da OC na Fila): situação, reimpressão e visualização do PDF. */
@@ -74,12 +77,16 @@ fun Route.impressaoOcRoutes() {
         get {
             val claims = call.exigirAuth() ?: return@get
             val ocs = call.request.queryParameters["ocs"]?.split(',')?.mapNotNull { it.trim().toLongOrNull() } ?: emptyList()
-            call.respond(ImpressaoOcRepository.ultimosPorOc(claims.tenantId, ocs.take(500)).values.toList())
+            val ocsVistas = wms.backend.permissoes.EmpresasAcesso.ocsPermitidas(claims)
+            call.respond(ImpressaoOcRepository.ultimosPorOc(claims.tenantId, ocs.filter { ocsVistas == null || it in ocsVistas }.take(500)).values.toList())
         }
         post("/{oc}/reimprimir") {
             val claims = call.exigirAuth() ?: return@post
             val oc = call.parameters["oc"]?.toLongOrNull()
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "OC inválida"))
+            if (wms.backend.permissoes.EmpresasAcesso.ocsPermitidas(claims)?.contains(oc) == false) {
+                return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "OC $oc não encontrada"))
+            }
             // OC ainda aberta: a impressão sai sozinha quando fechar — imprimir antes duplicava (e saía sem as notas
             // que ainda iam ser faturadas). 21/10/2026: OC 709/711 pedidas no meio do fechamento.
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug

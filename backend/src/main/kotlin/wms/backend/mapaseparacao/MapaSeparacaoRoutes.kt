@@ -21,7 +21,8 @@ fun Route.mapaSeparacaoRoutes() {
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
-                call.respond(MapaSeparacaoService.listarAbertas(slug, claims.tenantId))
+                val ocs = wms.backend.permissoes.EmpresasAcesso.ocsPermitidas(claims)
+                call.respond(MapaSeparacaoService.listarAbertas(slug, claims.tenantId).filter { ocs == null || it.ordemCarga in ocs })
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao consultar o Sankhya")))
             }
@@ -44,13 +45,15 @@ fun Route.mapaSeparacaoRoutes() {
             if (nunotas.isEmpty()) return@get call.respond(emptyList<PedidoVendaDto>())
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
-            call.respond(PedidoVendaService.buscar(slug, nunotas))
+            call.respond(PedidoVendaService.buscar(slug, wms.backend.permissoes.EmpresasAcesso.nunotasPermitidas(claims, nunotas)))
         }
 
         /** Pedidos SEM Ordem de Carga (mirror local) — painel do filtro "S/ Ordem de Carga". */
         get("/sem-ordem-carga") {
             val claims = call.exigirAuth() ?: return@get
-            call.respond(MapaSeparacaoService.listarSemOrdemCarga(claims.tenantId))
+            val lista = MapaSeparacaoService.listarSemOrdemCarga(claims.tenantId)
+            val permitidos = wms.backend.permissoes.EmpresasAcesso.nunotasPermitidas(claims, lista.map { it.nunota }).toSet()
+            call.respond(lista.filter { it.nunota in permitidos })
         }
 
         /** Mapa S/ Ordem de Carga de UM pedido — um mapa por Número Único, nunca consolidado com outro. */
@@ -58,6 +61,9 @@ fun Route.mapaSeparacaoRoutes() {
             val claims = call.exigirAuth() ?: return@get
             val nunota = call.parameters["nunota"]?.toLongOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "Número Único precisa ser um número"))
+            if (!wms.backend.permissoes.EmpresasAcesso.podeVerNota(claims, nunota)) {
+                return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Pedido não encontrado"))
+            }
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             try {
@@ -73,6 +79,9 @@ fun Route.mapaSeparacaoRoutes() {
             val claims = call.exigirAuth() ?: return@get
             val ordemCarga = call.parameters["ordemCarga"]?.toLongOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "Ordem de Carga precisa ser um número"))
+            if (wms.backend.permissoes.EmpresasAcesso.ocsPermitidas(claims)?.contains(ordemCarga) == false) {
+                return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Ordem de Carga não encontrada"))
+            }
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
 

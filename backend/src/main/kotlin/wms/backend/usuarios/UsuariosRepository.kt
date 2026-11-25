@@ -163,9 +163,13 @@ object UsuariosRepository {
     private val ORDEM_PERFIL = listOf("ADMINISTRADOR", "ESTACAO", "TV", "OPERADOR")
 
     fun listar(tenantId: UUID): List<UsuarioDto> = TenantTx.run(tenantId) {
+        // V80: empresas de cada usuário.
+        val empresas = wms.backend.permissoes.UsuarioEmpresasTable.selectAll()
+            .where { wms.backend.permissoes.UsuarioEmpresasTable.tenantId eq tenantId }
+            .groupBy({ it[wms.backend.permissoes.UsuarioEmpresasTable.usuarioId] }, { it[wms.backend.permissoes.UsuarioEmpresasTable.codemp] })
         UsersTable.selectAll()
             .where { UsersTable.tenantId eq tenantId }
-            .map { it.toDto() }
+            .map { r -> r.toDto().copy(empresas = empresas[r[UsersTable.id]].orEmpty().sorted()) }
     }.sortedWith(
         compareBy(
             { usuario -> ORDEM_PERFIL.indexOf(usuario.perfil).let { if (it < 0) ORDEM_PERFIL.size else it } },

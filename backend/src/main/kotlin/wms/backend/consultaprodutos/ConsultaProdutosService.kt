@@ -64,7 +64,8 @@ object ConsultaProdutosService {
     /** Tenants em que a leitura com os campos ligados foi recusada — passam a ler só os códigos. */
     private val semNomes = ConcurrentHashMap.newKeySet<String>()
 
-    suspend fun consultar(tenantSlug: String, tenantId: UUID, forcar: Boolean): ConsultaProdutosRespostaDto {
+    /** [empresas]: acesso por empresa (V80) — null = todas; senão o saldo soma só os locais dessas empresas. */
+    suspend fun consultar(tenantSlug: String, tenantId: UUID, forcar: Boolean, empresas: Set<Int>? = null): ConsultaProdutosRespostaDto {
         val (catalogo, barras) = withContext(Dispatchers.IO) {
             ConsultaProdutosRepository.listarTodos(tenantId) to ConsultaProdutosRepository.codigosBarraPorProduto(tenantId)
         }
@@ -77,7 +78,9 @@ object ConsultaProdutosService {
             // Sankhya fora: devolve a última leitura boa, se houver, junto com o aviso.
             cache[tenantId] to (e.message ?: "falha ao consultar o estoque no Sankhya")
         }
-        val porProduto = leitura?.linhas.orEmpty().groupBy { it.codprod }
+        val porProduto = leitura?.linhas.orEmpty()
+            .filter { wms.backend.permissoes.EmpresasAcesso.permite(empresas, it.codemp) }
+            .groupBy { it.codprod }
 
         return ConsultaProdutosRespostaDto(
             produtos = catalogo.map { p ->

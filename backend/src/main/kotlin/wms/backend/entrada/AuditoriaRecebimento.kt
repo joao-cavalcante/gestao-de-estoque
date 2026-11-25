@@ -3,6 +3,7 @@ package wms.backend.entrada
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.javatime.timestamp
@@ -25,6 +26,8 @@ object RecebimentoAuditoriaTable : Table("app.recebimento_auditoria") {
     val numeroNota = long("numero_nota").nullable()
     val fornecedor = text("fornecedor").nullable()
     val empresa = text("empresa").nullable()
+    /** V80 — acesso por empresa. */
+    val codemp = integer("codemp").nullable()
     val tipoOperacao = text("tipo_operacao").nullable()
     val dataMovimento = text("data_movimento").nullable()
     val conferente = text("conferente").nullable()
@@ -154,6 +157,16 @@ object AuditoriaRecebimento {
         val tarefas = TarefasRepository.listar(tenantId)
             .filter { EntradaService.ehEntrada(it.tipMov) && EntradaService.conferenciaConcluida(it.statusOperacional) }
         if (tarefas.isEmpty()) return
+        // V80: CODEMP das linhas antigas (ainda na Entrada) para o filtro por empresa.
+        TenantTx.run(tenantId) {
+            for (t in tarefas) {
+                val emp = wms.backend.permissoes.EmpresasAcesso.codemp(t.codigoEmpresa) ?: continue
+                RecebimentoAuditoriaTable.update({
+                    (RecebimentoAuditoriaTable.tenantId eq tenantId) and (RecebimentoAuditoriaTable.nunota eq t.nunota.toInt()) and
+                        RecebimentoAuditoriaTable.codemp.isNull()
+                }) { it[codemp] = emp }
+            }
+        }
         val existentes = TenantTx.run(tenantId) {
             RecebimentoAuditoriaTable.selectAll()
                 .where { (RecebimentoAuditoriaTable.tenantId eq tenantId) and (RecebimentoAuditoriaTable.nunota inList tarefas.map { it.nunota.toInt() }) }
@@ -172,6 +185,7 @@ object AuditoriaRecebimento {
                     it[numeroNota] = t.numeroNota
                     it[fornecedor] = t.nomeParceiro
                     it[empresa] = t.nomeEmpresa ?: t.codigoEmpresa
+                    it[codemp] = wms.backend.permissoes.EmpresasAcesso.codemp(t.codigoEmpresa)
                     it[tipoOperacao] = listOfNotNull(t.codigoTipoOperacao, t.descricaoTipoOperacao).joinToString(" · ").ifBlank { null }
                     it[dataMovimento] = t.dataMovimento
                     it[conferente] = conf.conferente
@@ -215,10 +229,12 @@ object AuditoriaRecebimento {
 
     // ─── Leitura (tela) ──────────────────────────────────────────────────────────────────────────────
 
-    fun listar(tenantId: UUID): List<RecebimentoAuditoriaDto> {
+    fun listar(claims: wms.backend.auth.ClaimsToken): List<RecebimentoAuditoriaDto> {
+        val tenantId = claims.tenantId
+        val empresas = wms.backend.permissoes.EmpresasAcesso.permitidas(claims)
         val linhas = TenantTx.run(tenantId) {
             RecebimentoAuditoriaTable.selectAll().where { RecebimentoAuditoriaTable.tenantId eq tenantId }.toList()
-        }
+        }.filter { wms.backend.permissoes.EmpresasAcesso.permite(empresas, it[RecebimentoAuditoriaTable.codemp]) }
         val ajustes = runCatching { AjustePesoCompra.situacaoPorNota(tenantId, linhas.map { it[RecebimentoAuditoriaTable.nunota].toLong() }) }
             .getOrElse { emptyMap() }
         val viaAddon = runCatching { AjustePesoCompra.parametros(tenantId).viaAddon }.getOrDefault(false)
@@ -227,9 +243,9 @@ object AuditoriaRecebimento {
             .sortedWith(compareByDescending<RecebimentoAuditoriaDto> { it.alertas.isNotEmpty() }.thenByDescending { it.nunota })
     }
 
-    fun detalhe(tenantId: UUID, nunota: Long): AuditoriaRecebimentoDetalheDto? {
-        val r = listar(tenantId).firstOrNull { it.nunota == nunota } ?: return null
-        val conf = EntradaService.conferenciaResumo(tenantId, nunota)
+    fun detalhe(claims: wms.backend.auth.ClaimsToken, nunota: Long): AuditoriaRecebimentoDetalheDto? {
+        val r = listar(claims).firstOrNull { it.nunota == nunota } ?: return null
+        val conf = EntradaService.conferenciaResumo(claims.tenantId, nunota)
         return AuditoriaRecebimentoDetalheDto(r, conf?.itens.orEmpty(), conf?.recontagem ?: false)
     }
 

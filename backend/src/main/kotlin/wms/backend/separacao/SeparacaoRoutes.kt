@@ -45,6 +45,10 @@ fun Route.separacaoRoutes() {
             if (!PermissoesRecurso.podeUsarTop(claims, codtopNota)) {
                 return@post responderTopNaoAutorizada(call)
             }
+            // Acesso por empresa (V80): nota de outra empresa não abre.
+            if (!wms.backend.permissoes.EmpresasAcesso.podeVerNota(claims, body.nunota)) {
+                return@post responderEmpresaNaoAutorizada(call)
+            }
             // Pedido de entrega só pode ser conferido com Ordem de Carga vinculada (regra da Negri).
             if (TarefasRepository.entregaSemOrdemCarga(tenantId, body.nunota)) {
                 return@post call.respond(
@@ -939,7 +943,7 @@ fun Route.separacaoRoutes() {
             val numnota = call.request.queryParameters["numnota"]?.toLongOrNull()
             val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0
             val perPage = call.request.queryParameters["perPage"]?.toIntOrNull()?.coerceIn(1, 100) ?: 15
-            call.respond(SeparacaoRepository.listarConferenciasFinalizadas(tenantId, nunota, numnota, page, perPage))
+            call.respond(SeparacaoRepository.listarConferenciasFinalizadas(tenantId, nunota, numnota, page, perPage, wms.backend.permissoes.EmpresasAcesso.nunotasDasEmpresas(claims)))
         }
 
         /** Reimpressão por número da nota (fora da tela de conferência). */
@@ -955,6 +959,9 @@ fun Route.separacaoRoutes() {
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant '$slug' não encontrado"))
             if (tenantId != claims.tenantId) {
                 return@get call.respond(HttpStatusCode.Forbidden, mapOf("erro" to "token não pertence a este tenant"))
+            }
+            if (!wms.backend.permissoes.EmpresasAcesso.podeVerNota(claims, nunota)) {
+                return@get responderEmpresaNaoAutorizada(call)
             }
             try {
                 call.respond(SeparacaoService.dadosEtiquetaPorNota(slug, tenantId, nunota))
@@ -1052,10 +1059,21 @@ private suspend fun exigirTopPermitida(call: io.ktor.server.application.Applicat
     val claims = call.exigirAuth() ?: return false
     if (PermissoesRecurso.acessoTotal(claims)) return true
     val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId) ?: return true
+    if (!wms.backend.permissoes.EmpresasAcesso.podeVerNota(claims, sessao.nunota.toLong())) {
+        responderEmpresaNaoAutorizada(call)
+        return false
+    }
     val codtop = TarefasRepository.codTipOperPorNunota(tenantId, listOf(sessao.nunota))[sessao.nunota]
     if (PermissoesRecurso.podeUsarTop(claims, codtop)) return true
     responderTopNaoAutorizada(call)
     return false
+}
+
+private suspend fun responderEmpresaNaoAutorizada(call: io.ktor.server.application.ApplicationCall) {
+    call.respond(
+        HttpStatusCode.Forbidden,
+        mapOf("codigo" to "EMPRESA_NAO_AUTORIZADA", "erro" to "Esta nota é de uma empresa que o seu usuário não acessa."),
+    )
 }
 
 private suspend fun responderTopNaoAutorizada(call: io.ktor.server.application.ApplicationCall) {

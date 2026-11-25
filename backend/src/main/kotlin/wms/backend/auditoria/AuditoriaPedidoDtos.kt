@@ -6,6 +6,8 @@ import kotlinx.serialization.Serializable
 data class AuditoriaCabecalhoDto(
     val nunota: Long,
     val numnota: Long? = null,
+    /** V80 — acesso por empresa. */
+    val codemp: Int? = null,
     val codtipoper: Int? = null,
     val top: String? = null,
     val tipmov: String? = null,

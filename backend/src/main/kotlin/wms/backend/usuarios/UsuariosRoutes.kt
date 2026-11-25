@@ -16,12 +16,31 @@ fun Route.usuariosRoutes() {
             call.respond(UsuariosRepository.listar(claims.tenantId))
         }
 
+        /** Empresas do Sankhya (TSIEMP) para o seletor "Empresas" do usuário (V80). */
+        get("/empresas") {
+            val claims = call.exigirAdmin() ?: return@get
+            val slug = wms.backend.tenancy.TenantRepository.buscarPorId(claims.tenantId)?.slug
+                ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+            try {
+                val linhas = wms.backend.erp.SankhyaDbExplorerClient.executarQuery(slug, "SELECT CODEMP, NOMEFANTASIA FROM TSIEMP ORDER BY CODEMP")
+                call.respond(linhas.mapNotNull { l ->
+                    val cod = wms.backend.permissoes.EmpresasAcesso.codemp(l["CODEMP"]) ?: return@mapNotNull null
+                    EmpresaDto(cod, l["NOMEFANTASIA"]?.trim()?.takeIf { it.isNotEmpty() } ?: "Empresa $cod")
+                })
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadGateway, mapOf("erro" to (e.message ?: "falha ao ler as empresas no Sankhya")))
+            }
+        }
+
         post {
             val claims = call.exigirAdmin() ?: return@post
             val req = call.receive<CriarUsuarioRequest>()
             try {
                 val criado = UsuariosRepository.criar(claims.tenantId, req)
-                call.respond(HttpStatusCode.Created, criado)
+                if (req.empresas.isNotEmpty()) {
+                    wms.backend.permissoes.EmpresasAcesso.definir(claims.tenantId, UUID.fromString(criado.id), req.empresas)
+                }
+                call.respond(HttpStatusCode.Created, criado.copy(empresas = req.empresas.distinct().sorted()))
             } catch (e: EmailJaExisteException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to e.message))
             }
@@ -38,6 +57,7 @@ fun Route.usuariosRoutes() {
                 call.respond(HttpStatusCode.NotFound, mapOf("erro" to "usuário não encontrado"))
                 return@patch
             }
+            req.empresas?.let { wms.backend.permissoes.EmpresasAcesso.definir(claims.tenantId, userId, it) }
             call.respond(mapOf("ok" to true))
         }
 

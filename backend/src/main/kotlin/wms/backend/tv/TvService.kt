@@ -102,7 +102,8 @@ object TvService {
     )
 
     /** [movimento]: "saida" | "entrada" | qualquer outro = todos. Filtra TODAS as contagens da TV pelo TIPMOV. */
-    fun resumo(tenantId: UUID, movimento: String? = null): TvResumoDto {
+    /** [empresas]: acesso por empresa (V80) — null = todas. */
+    fun resumo(tenantId: UUID, movimento: String? = null, empresas: Set<Int>? = null): TvResumoDto {
         val filtro = when (movimento?.lowercase()) {
             "saida" -> "SAIDA"
             "entrada" -> "ENTRADA"
@@ -129,6 +130,7 @@ object TvService {
             // Entrada (compra) x saída (venda): o filtro vale pra TUDO abaixo (contadores, cartões, etapas, médias).
             // Pedido de entrega sem Ordem de Carga não conta na TV (TarefasRepository.entregaSemOrdemCarga).
             val visiveis = todasNotas.filterNot { TarefasRepository.entregaSemOrdemCarga(it.dados) }
+                .filter { wms.backend.permissoes.EmpresasAcesso.permite(empresas, wms.backend.permissoes.EmpresasAcesso.codemp(it.campo("CODEMP"))) }
             val notas = if (filtro == null) visiveis else visiveis.filter { it.movimento == filtro }
             val nunotasFiltradas = notas.map { it.nunota }.toSet()
             val emConf = notas.filter { it.status in EM_CONFERENCIA }
@@ -382,7 +384,7 @@ object TvService {
      * carregado (checklist do carregamento, ver ReconferenciaService.resumoCarregamento). OC com tudo
      * conferido e carregado sai da lista (entra em "carregadas hoje"). Motorista/placa só do cache.
      */
-    fun carga(tenantId: UUID, tenantSlug: String?): TvCargaDto {
+    fun carga(tenantId: UUID, tenantSlug: String?, empresas: Set<Int>? = null): TvCargaDto {
         val agora = Instant.now()
         val inicioDoDia = LocalDate.now(ZONA).atStartOfDay(ZONA).toInstant()
         val notas = TenantTx.run(tenantId) {
@@ -394,7 +396,7 @@ object TvService {
                     concluidoEm = r[TarefasTable.concluidoEm],
                 )
             }
-        }.filter { it.movimento == "SAIDA" }
+        }.filter { it.movimento == "SAIDA" && wms.backend.permissoes.EmpresasAcesso.permite(empresas, wms.backend.permissoes.EmpresasAcesso.codemp(it.campo("CODEMP"))) }
             .mapNotNull { n -> TarefasRepository.normalizarOrdemCarga(n.campo("ORDEMCARGA"))?.let { it to n } }
 
         val pendentes = setOf(DISPONIVEL, EM_CONFERENCIA, AGUARDANDO_LIBERACAO).flatten().toSet()

@@ -22,14 +22,14 @@ fun Route.entradaRoutes() {
         /** Auditoria de Recebimento (25/11/2026): todas as compras conferidas pela Torre, de qualquer data, com alertas. */
         get("/auditoria") {
             val claims = call.exigirAuth() ?: return@get
-            call.respond(AuditoriaRecebimento.listar(claims.tenantId))
+            call.respond(AuditoriaRecebimento.listar(claims))
         }
 
         get("/auditoria/{nunota}") {
             val claims = call.exigirAuth() ?: return@get
             val nunota = call.parameters["nunota"]?.toLongOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
-            val d = AuditoriaRecebimento.detalhe(claims.tenantId, nunota)
+            val d = AuditoriaRecebimento.detalhe(claims, nunota)
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Compra $nunota não está na auditoria"))
             call.respond(d)
         }
@@ -41,8 +41,11 @@ fun Route.entradaRoutes() {
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
+            if (AuditoriaRecebimento.detalhe(claims, nunota) == null) {
+                return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Compra $nunota não está na auditoria"))
+            }
             wms.backend.separacao.AjustePesoCompra.reprocessar(slug, claims.tenantId, nunota)
-            val d = AuditoriaRecebimento.detalhe(claims.tenantId, nunota)
+            val d = AuditoriaRecebimento.detalhe(claims, nunota)
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Compra $nunota não está na auditoria"))
             call.respond(d)
         }

@@ -146,7 +146,9 @@ object EntradaService {
         return !data.isBefore(hoje.minusDays(dias))
     }
 
-    private fun filtrarPorTop(claims: ClaimsToken, tarefas: List<TarefaApiDto>): List<TarefaApiDto> {
+    private fun filtrarPorTop(claims: ClaimsToken, todas: List<TarefaApiDto>): List<TarefaApiDto> {
+        // Acesso por empresa (V80).
+        val tarefas = wms.backend.permissoes.EmpresasAcesso.filtrar(claims, todas) { wms.backend.permissoes.EmpresasAcesso.codemp(it.codigoEmpresa) }
         if (PermissoesRecurso.acessoTotal(claims)) return tarefas
         val restritas = PermissoesRecurso.topsRestritas(claims.tenantId)
         if (restritas.isEmpty()) return tarefas

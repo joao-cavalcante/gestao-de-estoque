@@ -15,7 +15,7 @@ fun Route.consultaProdutosRoutes() {
             val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug
                 ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("erro" to "tenant não encontrado"))
             val forcar = call.request.queryParameters["atualizar"] == "true"
-            call.respond(ConsultaProdutosService.consultar(slug, claims.tenantId, forcar))
+            call.respond(ConsultaProdutosService.consultar(slug, claims.tenantId, forcar, wms.backend.permissoes.EmpresasAcesso.permitidas(claims)))
         }
     }
 }
