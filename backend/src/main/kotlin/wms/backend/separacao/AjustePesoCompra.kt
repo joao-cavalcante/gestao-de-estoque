@@ -88,6 +88,9 @@ object AjustePesoCompra {
     const val ENTRADA = "E"
     const val SAIDA = "S"
     private const val MAX_TENTATIVAS = 5
+
+    /** Quantidade para o addon: 3 casas (o dicionário da TORPPV recusa mais — compra 73629, 25/11/2026: "QTDBALANCA (10 > 3)"). */
+    internal fun qtd3(v: BigDecimal): String = v.setScale(3, java.math.RoundingMode.HALF_UP).toPlainString()
     /** Marca na observação do ajuste — acha a nota de novo se a resposta do incluir se perdeu. */
     internal fun marcador(sessaoId: UUID, sentido: String) = "[TO-AJPESO $sessaoId $sentido]"
 
@@ -402,9 +405,9 @@ object AjustePesoCompra {
                     add(buildJsonObject {
                         put("CODPROD", i.codprod.toString())
                         put("CONTROLE", i.controle.trim())
-                        put("QTDNOTA", i.qtdNota.toPlainString())
-                        put("QTDBALANCA", i.qtdBalanca.toPlainString())
-                        put("QTDDIF", i.diferenca.toPlainString())
+                        put("QTDNOTA", qtd3(i.qtdNota))
+                        put("QTDBALANCA", qtd3(i.qtdBalanca))
+                        put("QTDDIF", qtd3(i.diferenca))
                     })
                 }
             }

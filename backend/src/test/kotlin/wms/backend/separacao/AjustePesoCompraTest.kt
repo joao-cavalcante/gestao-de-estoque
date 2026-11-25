@@ -165,6 +165,12 @@ class AjustePesoCompraTest {
         assertTrue(soMaior.habilitado && soMaior.ajusteEntrada && !soMaior.ajusteSaida)
     }
 
+    @Test
+    fun `quantidade para o addon sai com 3 casas`() {
+        assertEquals("110.000", AjustePesoCompra.qtd3(BigDecimal("110.000000000000000")))
+        assertEquals("12.959", AjustePesoCompra.qtd3(BigDecimal("12.95851")))
+    }
+
     // ─── Payloads ────────────────────────────────────────────────────────
 
     @Test
