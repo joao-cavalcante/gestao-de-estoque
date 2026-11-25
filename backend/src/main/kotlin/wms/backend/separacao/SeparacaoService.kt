@@ -1348,7 +1348,7 @@ object SeparacaoService {
         val conf = SankhyaDbExplorerClient.executarQuery(
             tenantSlug,
             "SELECT (SELECT F.STATUS FROM TGFCON2 F WHERE F.NUCONF = C.NUCONFATUAL) AS STATUS_CONF, " +
-                "(SELECT COUNT(*) FROM TSILIB L WHERE L.NUCHAVE = C.NUCONFATUAL AND L.TABELA = 'TGFCOI2' " +
+                "(SELECT COUNT(*) FROM TSILIB L WHERE L.NUCHAVE = C.NUCONFATUAL AND L.TABELA IN ('TGFCOI2', 'TGFCON2') " +
                 "AND L.EVENTO = 64 AND L.DHLIB IS NULL) AS QTD " +
                 "FROM TGFCAB C WHERE C.NUNOTA = $nunota",
         ).firstOrNull()

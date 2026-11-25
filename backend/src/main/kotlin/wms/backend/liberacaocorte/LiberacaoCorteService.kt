@@ -551,6 +551,18 @@ object LiberacaoCorteService {
         }
 
         return pendentes.map { linha ->
+            if (linha["TABELA"]?.trim() == "TGFCON2") {
+                // Liberação da conferência inteira (sem item): uma linha só, com o texto do Sankhya.
+                return@map LiberacaoPendenteDto(
+                    sequencia = linha["SEQUENCIA"]?.toIntOrNull() ?: 0,
+                    produto = listOfNotNull("Conferência inteira", linha["OBSERVACAO"]?.trim()?.takeIf { it.isNotEmpty() }).joinToString(" — "),
+                    qtdPedido = null,
+                    unidadePedido = null,
+                    qtdConferida = null,
+                    unidadeConferida = null,
+                    diferenca = null,
+                )
+            }
             val obs = parseObservacaoLiberacao(linha["OBSERVACAO"])
             val itemPesavel = itemPorSeq[linha["SEQUENCIA"]?.toIntOrNull()]?.takeIf { it.usaConfPeso }
 
@@ -789,7 +801,9 @@ object LiberacaoCorteService {
             putJsonObject("criteria") {
                 put(
                     "expression",
-                    "this.NUCHAVE = $nuconf AND this.TABELA = 'TGFCOI2' " +
+                    // TGFCON2 (sequência 0): o Sankhya também pede a liberação pela conferência inteira — visto na
+                    // compra 73629 da sandbox, divergência a maior (25/11/2026). Antes só TGFCOI2 → pop-up vazio.
+                    "this.NUCHAVE = $nuconf AND this.TABELA IN ('TGFCOI2', 'TGFCON2') " +
                         "AND this.EVENTO = $EVENTO_LIBERACAO_CORTE AND this.CODUSULIB = 0",
                 )
             }
