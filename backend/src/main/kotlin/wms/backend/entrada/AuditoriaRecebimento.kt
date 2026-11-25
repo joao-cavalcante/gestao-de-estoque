@@ -112,7 +112,6 @@ object AuditoriaRecebimento {
         val situacoes = HashMap<Long, EntradaSituacao.Situacao>()
         for (lote in abertas.keys.chunked(500)) situacoes.putAll(EntradaSituacao.lerSituacoes(tenantSlug, lote))
         val confirmacoes = runCatching { lerTorrec(tenantSlug, abertas.keys.toList()) }.getOrElse { emptyMap() }
-        val viaAddon = AjustePesoCompra.parametros(tenantId).viaAddon
         val ajustes = AjustePesoCompra.situacaoPorNota(tenantId, abertas.keys)
         val agora = Instant.now()
         TenantTx.run(tenantId) {
@@ -124,8 +123,7 @@ object AuditoriaRecebimento {
                 val encerrar = statusNota == "X" || (
                     statusNota == "L" && !ajustePendente &&
                         (s?.devolucao == null || s.devolucao.confirmada) &&
-                        (s?.complemento == null || s.complemento.confirmada) &&
-                        (!viaAddon || c?.situacao == "AP")
+                        (s?.complemento == null || s.complemento.confirmada)
                     )
                 RecebimentoAuditoriaTable.update({ (RecebimentoAuditoriaTable.tenantId eq tenantId) and (RecebimentoAuditoriaTable.nunota eq nunota.toInt()) }) {
                     it[RecebimentoAuditoriaTable.statusNota] = statusNota
@@ -255,7 +253,8 @@ object AuditoriaRecebimento {
                     (pendentes.isNotEmpty() && agora.epochSecond - desde.epochSecond >= AJUSTE_ATRASADO_SEG)
                 if (atrasado) add(AlertaAuditoriaDto("ajuste", "Ajuste de peso não emitido" + (pendentes.firstNotNullOfOrNull { it.erro }?.let { ": $it" } ?: "")))
             }
-            if (viaAddon && statusNota != "X" && !row[T.registradoAddon]) {
+            // Só antes da confirmação: depois dela não há o que fazer (e compras antigas nunca passaram pelo addon).
+            if (viaAddon && statusNota == "A" && !row[T.registradoAddon]) {
                 add(AlertaAuditoriaDto("addon", "Conferência não registrada no addon — se confirmada pela Central, não fica registrado quem confirmou"))
             }
             if (devolucao != null && !devolucao.confirmada) add(AlertaAuditoriaDto("devolucao", "Devolução ${devolucao.numero ?: devolucao.nunota} não confirmada"))
