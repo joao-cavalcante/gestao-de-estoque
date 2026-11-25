@@ -81,115 +81,56 @@
         <header class="cc-topo">
           <button type="button" class="cc-voltar" (click)="voltar()" aria-label="Voltar para a lista"><oq-icon name="arrow-left" [size]="16" /></button>
           <h1 class="cc-topo__nome">Diferença de peso na compra</h1>
-          <p class="cc-topo__meta"><span>Vale para todas as conferências de compra, em qualquer configuração</span></p>
+          <p class="cc-topo__meta"><span>Todas as conferências de compra</span><span>gerada pelo addon TOR no Sankhya</span></p>
         </header>
 
         <section class="cc-bloco">
           <div class="cc-linha">
             <div class="cc-linha__rotulo">
               Ajuste da diferença de peso
-              <small>Desligado: regra anterior — só o peso a maior dentro da tolerância vai com o peso da nota.</small>
+              <small>Ligado: a diferença dentro da tolerância vira nota de ajuste, gerada e confirmada pelo addon TOR no Sankhya. Desligado: regra anterior — só o peso a maior dentro da tolerância vai com o peso da nota.</small>
             </div>
             <label class="cc-check">
               <input type="checkbox" [(ngModel)]="ajuste.habilitado" />
               {{ ajuste.habilitado ? 'Ligado' : 'Desligado' }}
             </label>
           </div>
-
-          <div class="cc-linha">
+          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
             <div class="cc-linha__rotulo">
-              Quem gera as notas de ajuste
-              <small>
-                @if (ajuste.viaAddon) {
-                  O addon gera, confirma e liga a nota de ajuste à compra numa operação só, dentro do Sankhya. TOP, série,
-                  parceiro e tipo de negociação vêm da tela Torre de Operação › Configuração no Sankhya.
-                } @else {
-                  A Torre gera a nota de ajuste depois que a compra é confirmada, com a TOP e a série informadas abaixo.
-                }
-              </small>
+              Peso a maior
+              <small>Ajusta = nota de entrada com a diferença. Desmarcado = vai para divergência e liberação.</small>
             </div>
-            <div class="cc-segmento" role="radiogroup" aria-label="Quem gera as notas de ajuste">
-              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!ajuste.viaAddon" [attr.aria-checked]="!ajuste.viaAddon" (click)="ajuste.viaAddon = false">
-                Pela Torre
-              </button>
-              <button type="button" role="radio" class="cc-segmento__opcao" [class.cc-segmento__opcao--ativa]="!!ajuste.viaAddon" [attr.aria-checked]="!!ajuste.viaAddon" (click)="ajuste.viaAddon = true">
-                Pelo addon TOR no Sankhya
-              </button>
+            <label class="cc-check">
+              <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" [disabled]="!ajuste.habilitado" />
+              {{ ajuste.ajusteEntrada ? 'Ajusta' : 'Não ajusta' }}
+            </label>
+          </div>
+          <div class="cc-linha" [class.cc-linha--inativa]="!ajuste.habilitado">
+            <div class="cc-linha__rotulo">
+              Peso a menor
+              <small>Ajusta = nota de saída com a diferença. Desmarcado = vai para divergência e liberação.</small>
             </div>
+            <label class="cc-check">
+              <input type="checkbox" [(ngModel)]="ajuste.ajusteSaida" [disabled]="!ajuste.habilitado" />
+              {{ ajuste.ajusteSaida ? 'Ajusta' : 'Não ajusta' }}
+            </label>
           </div>
         </section>
 
         <section class="cc-bloco">
-          <h2 class="cc-bloco__titulo">Sentidos</h2>
-          @if (ajuste.viaAddon) {
-            <p class="cc-bloco__sub">Com o addon, a TOP e a série usadas são as da configuração no Sankhya; as daqui ficam para o modo pela Torre.</p>
-          }
-          <div class="cc-sentidos">
-            <fieldset class="cc-sentido">
-              <legend>
-                <label class="cc-check">
-                  <input type="checkbox" [(ngModel)]="ajuste.ajusteEntrada" />
-                  Peso a maior → nota de entrada
-                </label>
-              </legend>
-              <div class="cc-sentido__campos" [class.cc-sentido__campos--reserva]="ajuste.viaAddon">
-                <label class="cc-campo">
-                  <span>TOP de entrada</span>
-                  <input type="text" inputmode="numeric" placeholder="ex.: 1203" [(ngModel)]="ajuste.topEntrada" />
-                </label>
-                <label class="cc-campo cc-campo--curto">
-                  <span>Série</span>
-                  <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieEntrada" />
-                </label>
-              </div>
-            </fieldset>
-            <fieldset class="cc-sentido">
-              <legend>
-                <label class="cc-check">
-                  <input type="checkbox" [(ngModel)]="ajuste.ajusteSaida" />
-                  Peso a menor → nota de saída
-                </label>
-              </legend>
-              <div class="cc-sentido__campos" [class.cc-sentido__campos--reserva]="ajuste.viaAddon">
-                <label class="cc-campo">
-                  <span>TOP de saída</span>
-                  <input type="text" inputmode="numeric" placeholder="ex.: 1200" [(ngModel)]="ajuste.topSaida" />
-                </label>
-                <label class="cc-campo cc-campo--curto">
-                  <span>Série</span>
-                  <input type="text" maxlength="3" placeholder="da TOP" [(ngModel)]="ajuste.serieSaida" />
-                </label>
-              </div>
-            </fieldset>
-          </div>
+          <h2 class="cc-bloco__titulo">Notas de ajuste</h2>
+          <p class="cc-bloco__sub">
+            TOP, série, parceiro e tipo de negociação das notas de ajuste ficam no Sankhya, na tela
+            <b>Torre de Operação › Configuração</b> (por empresa) — junto com quem pode aprovar o recebimento.
+          </p>
         </section>
-
-        @if (!ajuste.viaAddon) {
-          <section class="cc-bloco">
-            <h2 class="cc-bloco__titulo">Parceiro e negociação das notas de ajuste</h2>
-            <div class="cc-linha">
-              <div class="cc-linha__rotulo">
-                Parceiro
-                <small>Vazio = o fornecedor da compra. A TOP de saída precisa aceitar fornecedor (devolução de compra, TIPMOV E); uma TOP de venda exige parceiro cliente.</small>
-              </div>
-              <input class="cc-entrada" type="text" inputmode="numeric" placeholder="o fornecedor" [(ngModel)]="ajuste.codParc" aria-label="Parceiro" />
-            </div>
-            <div class="cc-linha">
-              <div class="cc-linha__rotulo">
-                Tipo de negociação
-                <small>Vazio = o da compra.</small>
-              </div>
-              <input class="cc-entrada" type="text" inputmode="numeric" placeholder="o da compra" [(ngModel)]="ajuste.codTipVenda" aria-label="Tipo de negociação" />
-            </div>
-          </section>
-        }
 
         <section class="cc-bloco">
           <h2 class="cc-bloco__titulo">Como a diferença é tratada</h2>
           <dl class="cc-faixas">
             <dt>Dentro da tolerância</dt>
-            <dd>A nota do fornecedor fica igual ao XML e a diferença entra por nota de ajuste, gerada e confirmada depois que a compra é confirmada.</dd>
-            <dt>Acima da tolerância, ou sentido desligado</dt>
+            <dd>A nota do fornecedor fica igual ao XML e a diferença entra por nota de ajuste, gerada depois que a compra é confirmada.</dd>
+            <dt>Acima da tolerância, ou sentido não ajustado</dt>
             <dd>Vai o peso lido; a conferência segue para divergência e liberação, conforme a Divergência a maior/a menor da configuração.</dd>
           </dl>
           <p class="cc-bloco__sub">A tolerância é a do produto; sem ela, a da configuração da conferência.</p>

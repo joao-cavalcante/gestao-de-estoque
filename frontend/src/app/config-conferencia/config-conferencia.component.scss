@@ -9,7 +9,7 @@
 
 .cc-mesa {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) 1fr;
+  grid-template-columns: minmax(240px, 290px) 1fr;
   height: 100%;
   min-height: 0;
 }
@@ -24,7 +24,7 @@
 }
 
 .cc-lista__topo {
-  padding: 14px 16px 10px;
+  padding: 12px 14px 9px;
 }
 
 .cc-lista__titulo {
@@ -41,8 +41,8 @@
 }
 
 .cc-grupo {
-  padding: 14px 16px 6px;
-  font-size: 12px;
+  padding: 10px 14px 4px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--oq-text-secondary);
 }
@@ -56,9 +56,9 @@
 .cc-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   width: 100%;
-  padding: 11px 16px;
+  padding: 7px 14px;
   border: 0;
   border-bottom: 1px solid var(--oq-border);
   background: transparent;
@@ -84,13 +84,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.35;
   color: var(--oq-text-primary);
 }
 
 .cc-item__meta {
-  font-size: 12px;
+  font-size: 11.5px;
+  line-height: 1.35;
   color: var(--oq-text-secondary);
 }
 
@@ -115,8 +117,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding: 10px 16px 12px;
+  gap: 2px;
+  padding: 8px 14px 10px;
   border-top: 1px solid var(--oq-border);
 }
 
@@ -124,7 +126,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 30px;
+  min-height: 26px;
   padding: 0;
   border: 0;
   background: none;
@@ -380,8 +382,7 @@
   color: var(--oq-text-secondary);
 }
 
-.cc-campo input,
-.cc-entrada {
+.cc-campo input {
   width: 130px;
   height: 36px;
   padding: 0 10px;
@@ -405,10 +406,6 @@
   }
 }
 
-.cc-entrada {
-  justify-self: end;
-}
-
 .cc-campo--curto input {
   width: 92px;
 }
@@ -426,81 +423,6 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--oq-text-secondary);
-}
-
-// Seletor de duas opções (mesmo desenho do filtro Todos · Corte · Recebimento da Liberações).
-.cc-segmento {
-  display: inline-flex;
-  justify-self: end;
-  border: 1px solid var(--oq-border-strong);
-  border-radius: var(--oq-radius-block);
-  overflow: hidden;
-}
-
-.cc-segmento__opcao {
-  padding: 8px 14px;
-  border: 0;
-  border-right: 1px solid var(--oq-border-strong);
-  background: var(--oq-surface);
-  font-family: var(--oq-font-body);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--oq-text-secondary);
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:last-child {
-    border-right: 0;
-  }
-
-  &:hover:not(.cc-segmento__opcao--ativa) {
-    color: var(--oq-text-primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--oq-brand-accent);
-    outline-offset: -2px;
-  }
-}
-
-.cc-segmento__opcao--ativa {
-  background: var(--oq-text-primary);
-  color: var(--oq-surface);
-}
-
-// Sentidos do ajuste: duas colunas (a maior → entrada | a menor → saída).
-.cc-sentidos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.cc-sentido {
-  min-width: 0;
-  margin: 0;
-  padding: 12px 14px 14px;
-  border: 1px solid var(--oq-border);
-  background: var(--oq-surface);
-
-  legend {
-    float: left;
-    width: 100%;
-    margin-bottom: 10px;
-    padding: 0;
-  }
-}
-
-.cc-sentido__campos {
-  display: flex;
-  clear: both;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-// Com o addon, TOP/série daqui ficam de reserva (o backend ainda exige a TOP com o sentido ligado).
-.cc-sentido__campos--reserva {
-  opacity: 0.6;
 }
 
 .cc-faixas {
@@ -669,9 +591,7 @@
   }
 
   .cc-linha > .cc-check,
-  .cc-entrada,
-  .cc-pct,
-  .cc-segmento {
+  .cc-pct {
     justify-self: start;
   }
 
@@ -680,12 +600,7 @@
     text-align: left;
   }
 
-  .cc-sentidos,
   .cc-faixas {
     grid-template-columns: 1fr;
-  }
-
-  .cc-segmento__opcao {
-    white-space: normal;
   }
 }

@@ -31,7 +31,8 @@ const AJUSTE_VAZIO: AjustePesoCompra = {
 
 /**
  * Configuração de Conferência (redesenho de 25/11/2026, no padrão da mesa da Liberações):
- * - lista à esquerda: "Diferença de peso na compra" (configuração do cliente) + as CCOs sincronizadas do Sankhya;
+ * - lista à esquerda: "Diferença de peso na compra" (configuração do cliente; só pelo addon TOR desde 25/11/2026)
+ *   + as CCOs sincronizadas do Sankhya;
  * - detalhe à direita, com UM Salvar por item (barra presa no rodapé);
  * - campos da TGFCCO só leitura: a sincronização (`upsertDoSankhya`) apaga e regrava tudo, então a edição local
  *   que existia antes se perdia sem aviso.
@@ -293,14 +294,14 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
   readonly resumoAjuste = computed(() => {
     const a = this.ajusteSalvo();
     if (!a.habilitado) return 'Desligada';
-    return a.viaAddon ? 'Ligada · pelo addon TOR' : 'Ligada · pela Torre';
+    return a.viaAddon ? 'Ligada · pelo addon TOR' : 'Ligada · pela Torre (salve para passar ao addon)';
   });
 
   private carregarAjuste(): void {
     this.service.ajustePesoCompra().subscribe({
       next: (a) => {
         this.ajusteSalvo.set({ ...a });
-        this.ajuste = { ...a };
+        this.ajuste = { ...a, viaAddon: true };
       },
       error: () => this.ajusteMensagem.set({ texto: 'Não foi possível carregar a configuração da diferença de peso na compra.', erro: true }),
     });
@@ -335,7 +336,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
   }
 
   descartarAjuste(): void {
-    this.ajuste = { ...this.ajusteSalvo() };
+    this.ajuste = { ...this.ajusteSalvo(), viaAddon: true };
     this.ajusteMensagem.set(null);
   }
 
@@ -343,17 +344,9 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
     if (this.ajusteSalvando()) return;
     const a = this.normalizarAjuste(this.ajuste);
     const falha = (texto: string) => this.ajusteMensagem.set({ texto, erro: true });
-    if (a.codParc !== null && (!Number.isInteger(a.codParc) || a.codParc <= 0)) {
-      return falha('Informe o código do parceiro (número inteiro) ou deixe vazio.');
-    }
-    if (a.codTipVenda !== null && (!Number.isInteger(a.codTipVenda) || a.codTipVenda <= 0)) {
-      return falha('Informe o código do tipo de negociação (número inteiro) ou deixe vazio.');
-    }
-    if ([a.topEntrada, a.topSaida].some((v) => v !== null && (!Number.isInteger(v) || v <= 0))) {
-      return falha('Informe o código da TOP (número inteiro).');
-    }
-    if (a.ajusteEntrada && a.topEntrada === null) return falha('Peso a maior ligado: informe a TOP de entrada.');
-    if (a.ajusteSaida && a.topSaida === null) return falha('Peso a menor ligado: informe a TOP de saída.');
+    // Só pelo addon (usuário, 25/11/2026): TOP, série, parceiro e tipo de negociação vêm da TORCFG no Sankhya; os
+    // valores antigos gravados aqui seguem como estão (o backend não exige TOP com viaAddon).
+    a.viaAddon = true;
 
     this.ajusteSalvando.set(true);
     this.ajusteMensagem.set(null);
@@ -361,7 +354,7 @@ export class ConfigConferenciaComponent implements OnInit, OnDestroy {
       next: (salvo) => {
         this.ajusteSalvando.set(false);
         this.ajusteSalvo.set({ ...salvo });
-        this.ajuste = { ...salvo };
+        this.ajuste = { ...salvo, viaAddon: true };
         this.ajusteMensagem.set({
           texto: salvo.habilitado
             ? 'Salvo — ligado: vale para as próximas conferências de compra.'

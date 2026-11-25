@@ -150,8 +150,9 @@ data class ParametrosAjustePesoCompra(
         if ((codTipVenda ?: 1) <= 0) add("ajustePesoCompra: tipo de negociação inválido")
         if ((codParc ?: 1) <= 0) add("ajustePesoCompra: parceiro inválido")
         if (topEntrada != null && topEntrada == topSaida) add("ajustePesoCompra: TOP de entrada e de saída iguais")
-        if (ajusteEntrada && topEntrada == null) add("ajustePesoCompra: ajuste do peso a maior ligado sem TOP de entrada")
-        if (ajusteSaida && topSaida == null) add("ajustePesoCompra: ajuste do peso a menor ligado sem TOP de saída")
+        // Com o addon (25/11/2026: a compra passa a ser só pelo addon) a TOP vem da TORCFG no Sankhya — não exige aqui.
+        if (!viaAddon && ajusteEntrada && topEntrada == null) add("ajustePesoCompra: ajuste do peso a maior ligado sem TOP de entrada")
+        if (!viaAddon && ajusteSaida && topSaida == null) add("ajustePesoCompra: ajuste do peso a menor ligado sem TOP de saída")
     }
 }
 

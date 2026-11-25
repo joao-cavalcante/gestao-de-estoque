@@ -147,6 +147,12 @@ class AjustePesoCompraTest {
         assertTrue(ajuste.copy(serieEntrada = "ABCD").validar().isNotEmpty())
     }
 
+    @Test
+    fun `parametros - pelo addon os sentidos dispensam a TOP (vem da TORCFG)`() {
+        assertTrue(ParametrosAjustePesoCompra(habilitado = true, ajusteEntrada = true, ajusteSaida = true, viaAddon = true).validar().isEmpty())
+        assertTrue(ParametrosAjustePesoCompra(habilitado = true, ajusteEntrada = true, viaAddon = false).validar().isNotEmpty())
+    }
+
     // ─── Payloads ────────────────────────────────────────────────────────
 
     @Test
