@@ -292,6 +292,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   // ─── Fluxo pós-finalização ───────────────────────────────────────────────
   /** Modal de liberação de corte (quando o cortar deixou a conferência em STATUS='C'). */
   readonly mostrarModalLiberacaoCorte = signal(false);
+  /** Compra finalizada com divergência: o painel final avisa que a aprovação é na Liberações. */
+  readonly divergenciaNaLiberacoes = signal(false);
   nuconfLiberacao: number | null = null;
   /** Modal de faturamento (CCO FATAOCONCLUIR='S'). */
   readonly mostrarModalFaturamento = signal(false);
@@ -1617,6 +1619,14 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     }
     // Corte automático/silencioso (pesável na tolerância) é decidido no backend e
     // chega aqui como finalização normal — nenhum alerta extra por regra operacional.
+    // Compra (27/11/2026): sem pop-up de corte no tablet — a divergência vai para Liberações, onde o liberador entra
+    // uma vez só e aprova o recebimento (antes pedia o login aqui e de novo na Liberações).
+    if (res.aguardandoCorte && res.nuconf != null && this.ehCompra()) {
+      this.feedback.trigger('DIVERGENCIA');
+      this.divergenciaNaLiberacoes.set(true);
+      this.mostrarPainelFinalizada.set(true);
+      return;
+    }
     if (res.aguardandoCorte && res.nuconf != null) {
       this.feedback.trigger('DIVERGENCIA'); // precisa de liberação manual de corte
       this.nuconfLiberacao = res.nuconf;
@@ -1674,6 +1684,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   faturarDoPainel(): void {
     this.mostrarPainelFinalizada.set(false);
+    this.divergenciaNaLiberacoes.set(false);
     this.abrirModalFaturamento();
   }
 

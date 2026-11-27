@@ -15,6 +15,9 @@
       <span class="oq-header__unit-sep" aria-hidden="true"></span>
       <span class="oq-header__unit-title">{{ contexto.unidade().nome }}</span>
       <span class="oq-header__unit-turno">· {{ contexto.unidade().turno }}</span>
+      @if (contexto.rotuloEmpresas()) {
+        <span class="oq-header__unit-empresa" [title]="contexto.dicaEmpresas()">· {{ contexto.rotuloEmpresas() }}</span>
+      }
     </span>
   </div>
 

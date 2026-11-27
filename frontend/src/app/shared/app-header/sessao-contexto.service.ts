@@ -1,4 +1,5 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../auth/auth.service';
 import { VERSAO } from './versao.gerada';
 
@@ -49,9 +50,43 @@ function detalheVersao(): string {
   return partes.join(' · ') || 'Versão de desenvolvimento';
 }
 
+/** Empresas do usuário logado (V80): "todas" = sem restrição. */
+export interface EmpresasSessao {
+  todas: boolean;
+  empresas: { codemp: number; nome: string }[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class SessaoContextoService {
   private readonly auth = inject(AuthService);
+  private readonly http = inject(HttpClient);
+
+  /** 27/11/2026 — empresa(s) no cabeçalho para quem tem acesso restrito; null = ainda não lido / sem restrição. */
+  readonly empresas = signal<EmpresasSessao | null>(null);
+
+  /** "Empresa 2 · FILIAL SP" ou "Empresas 1, 2" — vazio sem restrição. */
+  readonly rotuloEmpresas = computed(() => {
+    const e = this.empresas();
+    if (!e || e.todas || e.empresas.length === 0) return '';
+    if (e.empresas.length === 1) return `Empresa ${e.empresas[0].codemp} · ${e.empresas[0].nome}`;
+    return 'Empresas ' + e.empresas.map((x) => x.codemp).join(', ');
+  });
+
+  readonly dicaEmpresas = computed(() => (this.empresas()?.empresas ?? []).map((x) => `${x.codemp} · ${x.nome}`).join(' | '));
+
+  constructor() {
+    effect(() => {
+      const u = this.auth.usuario();
+      if (!u) {
+        this.empresas.set(null);
+        return;
+      }
+      this.http.get<EmpresasSessao>('/api/auth/empresas').subscribe({
+        next: (e) => this.empresas.set(e),
+        error: () => this.empresas.set(null),
+      });
+    });
+  }
 
   readonly operador = computed<OperadorInfo>(() => {
     const u = this.auth.usuario();

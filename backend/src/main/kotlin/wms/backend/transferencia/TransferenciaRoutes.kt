@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import wms.backend.auth.exigirAuth
+import wms.backend.permissoes.exigirAuthDoModulo
 import wms.backend.tenancy.TenantTx
 import wms.backend.usuarios.UsersTable
 import java.util.UUID
@@ -47,7 +48,7 @@ fun Route.transferenciaRoutes() {
         }
 
         get("/locais/{codigo}") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAuthDoModulo("transferencia_locais") ?: return@get
             val codigo = call.parameters["codigo"] ?: return@get call.respond(HttpStatusCode.BadRequest)
 
             val local = LocaisProdutosRepository.validarLocal(claims.tenantId, codigo)
@@ -59,7 +60,7 @@ fun Route.transferenciaRoutes() {
         }
 
         get("/produtos/{codigo}") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAuthDoModulo("transferencia_locais") ?: return@get
             val codigo = call.parameters["codigo"] ?: return@get call.respond(HttpStatusCode.BadRequest)
             val local = call.request.queryParameters["local"]
 
@@ -71,7 +72,7 @@ fun Route.transferenciaRoutes() {
         }
 
         post("/transferencias") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAuthDoModulo("transferencia_locais") ?: return@post
             val body = call.receive<CriarTransferenciaRequest>()
 
             if (ModelosNotaRepository.buscarPorTipo(claims.tenantId, TIPO_TRANSFERENCIA_LOCAIS) == null) {
@@ -104,7 +105,7 @@ fun Route.transferenciaRoutes() {
         }
 
         post("/transferencias/{id}/itens") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAuthDoModulo("transferencia_locais") ?: return@post
             val transferenciaId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@post call.respond(HttpStatusCode.BadRequest)
             val body = call.receive<AdicionarItemRequest>()
@@ -145,7 +146,7 @@ fun Route.transferenciaRoutes() {
         }
 
         delete("/transferencias/{id}/itens/{itemId}") {
-            val claims = call.exigirAuth() ?: return@delete
+            val claims = call.exigirAuthDoModulo("transferencia_locais") ?: return@delete
             val transferenciaId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@delete call.respond(HttpStatusCode.BadRequest)
             val itemId = call.parameters["itemId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
@@ -160,7 +161,7 @@ fun Route.transferenciaRoutes() {
         }
 
         post("/transferencias/{id}/confirmar") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAuthDoModulo("transferencia_locais") ?: return@post
             val transferenciaId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@post call.respond(HttpStatusCode.BadRequest)
 
@@ -179,7 +180,7 @@ fun Route.transferenciaRoutes() {
         }
 
         get("/transferencias") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAuthDoModulo("transferencia_locais") ?: return@get
             val canal = call.request.queryParameters["canal"]
             val status = call.request.queryParameters["status"]
             val busca = call.request.queryParameters["busca"]

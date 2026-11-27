@@ -75,6 +75,17 @@
   color: var(--oq-text-secondary);
 }
 
+// Empresa do usuário com acesso restrito (27/11/2026): fica visível também no tablet/coletor.
+.oq-header__unit-empresa {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
 .oq-header__right {
   display: flex;
   align-items: center;

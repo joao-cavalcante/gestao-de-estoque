@@ -121,6 +121,7 @@ fun Application.module() {
         tvRoutes()
         reconferenciaRoutes()
         authRoutes()
+        wms.backend.permissoes.minhasEmpresasRoutes()
         usuariosRoutes()
         balancasRoutes()
         downloadsRoutes()

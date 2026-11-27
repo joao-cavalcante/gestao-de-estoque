@@ -507,6 +507,11 @@
         <div class="oq-modal__body">
           <oq-icon name="check" [size]="36" />
           <span class="oq-form-hint">A conferência foi concluída no Sankhya.</span>
+          @if (divergenciaNaLiberacoes()) {
+            <div class="oq-modal-erro oq-modal-erro--aviso">
+              <strong>Próximo passo:</strong> a divergência foi para <strong>Liberações</strong> — o liberador aprova o recebimento lá.
+            </div>
+          }
           @switch (proximoPasso()) {
             @case ('carregar') {
               <div class="oq-modal-erro oq-modal-erro--aviso">

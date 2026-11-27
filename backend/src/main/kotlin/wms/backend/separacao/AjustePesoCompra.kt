@@ -181,6 +181,21 @@ object AjustePesoCompra {
     fun parametros(tenantId: UUID, nucco: Int?): ParametrosAjustePesoCompra =
         combinar(parametros(tenantId), runCatching { wms.backend.configconferencia.ConferenciaOpcoesRepository.buscar(tenantId, nucco) }.getOrNull())
 
+    /**
+     * Compra cujo parceiro é o parceiro de uma empresa do grupo (TSIEMP.CODPARC) = entrada de transferência entre
+     * filiais (addon Transferência Entre Filiais; regras-descobertas 1.22). Falha de leitura = false (segue a config).
+     */
+    suspend fun ehTransferenciaEntreEmpresas(tenantSlug: String, nunota: Long): Boolean =
+        runCatching {
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(
+                tenantSlug,
+                "SELECT COUNT(*) AS N FROM TGFCAB C JOIN TSIEMP E ON E.CODPARC = C.CODPARC WHERE C.NUNOTA = $nunota AND C.CODPARC > 0",
+            ).firstOrNull()?.get("N")?.trim()?.toDoubleOrNull()?.let { it > 0 } ?: false
+        }.getOrElse {
+            println("AVISO: não deu para ver se a compra $nunota é transferência entre empresas: ${it.message}")
+            false
+        }
+
     fun combinar(cliente: ParametrosAjustePesoCompra, nucco: wms.backend.configconferencia.OpcoesConferenciaDto?): ParametrosAjustePesoCompra =
         if (nucco == null) cliente
         else cliente.copy(

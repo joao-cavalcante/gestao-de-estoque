@@ -497,9 +497,15 @@ object SeparacaoService {
         if (tipMov != "C") return grupos
         val sessao = withContext(Dispatchers.IO) { SeparacaoRepository.buscarSessao(tenantId, sessaoId) }
         // V78: ligado/sentidos da configuração de conferência da nota (vazio = o do cliente).
-        val paramAjuste = withContext(Dispatchers.IO) {
+        val paramNucco = withContext(Dispatchers.IO) {
             AjustePesoCompra.parametros(tenantId, TarefasRepository.buscarNuccoLocal(tenantId, nunota))
         }
+        // 27/11/2026 — entrada de transferência entre filiais (parceiro da compra = parceiro de uma empresa do grupo,
+        // TSIEMP.CODPARC): nunca gera nota de ajuste de peso, qualquer que seja a configuração de conferência.
+        val paramAjuste = if (paramNucco.habilitado && AjustePesoCompra.ehTransferenciaEntreEmpresas(tenantSlug, nunota)) {
+            println("INFO: compra nunota=$nunota é entrada de transferência entre empresas — ajuste de peso desligado")
+            paramNucco.copy(habilitado = false)
+        } else paramNucco
         val diferencas = mutableListOf<Triple<SeparacaoRepository.GrupoConferido, java.math.BigDecimal, java.math.BigDecimal>>()
         val pesaveis = grupos.filter { g -> itensPorProduto[g.codprod].orEmpty().any { it.usaConfPeso } }.map { it.codprod }
         // Tolerância do produto tem prioridade sobre a do NUCCO (05/11/2026) — ver AjustePesoCompra.toleranciaEfetiva.

@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import wms.backend.auth.exigirAuth
+import wms.backend.permissoes.exigirAuthDoModulo
 import wms.backend.tenancy.TenantTx
 import wms.backend.transferencia.ModelosNotaRepository
 import wms.backend.usuarios.UsersTable
@@ -28,7 +29,7 @@ fun Route.inventarioRoutes() {
     route("/api/inventarios") {
 
         post {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@post
             val body = call.receive<AbrirInventarioRequest>()
 
             if (body.escopoValores.isEmpty()) {
@@ -42,7 +43,7 @@ fun Route.inventarioRoutes() {
         }
 
         get {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@get
             val status = call.request.queryParameters["status"]
             val busca = call.request.queryParameters["busca"]
             val pagina = call.request.queryParameters["pagina"]?.toIntOrNull() ?: 1
@@ -59,7 +60,7 @@ fun Route.inventarioRoutes() {
         }
 
         get("/{id}") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@get
             val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@get call.respond(HttpStatusCode.BadRequest)
 
@@ -72,7 +73,7 @@ fun Route.inventarioRoutes() {
         }
 
         patch("/{id}/status") {
-            val claims = call.exigirAuth() ?: return@patch
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@patch
             val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@patch call.respond(HttpStatusCode.BadRequest)
             val body = call.receive<MudarStatusRequest>()
@@ -86,7 +87,7 @@ fun Route.inventarioRoutes() {
         }
 
         post("/{id}/contagem") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@post
             val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@post call.respond(HttpStatusCode.BadRequest)
             val body = call.receive<RegistrarContagemRequest>()
@@ -103,14 +104,14 @@ fun Route.inventarioRoutes() {
         }
 
         get("/{id}/divergencias") {
-            val claims = call.exigirAuth() ?: return@get
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@get
             val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@get call.respond(HttpStatusCode.BadRequest)
             call.respond(InventarioRepository.divergencias(claims.tenantId, id))
         }
 
         post("/{id}/aprovar") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@post
             val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@post call.respond(HttpStatusCode.BadRequest)
 
@@ -131,7 +132,7 @@ fun Route.inventarioRoutes() {
         }
 
         post("/{id}/cancelar") {
-            val claims = call.exigirAuth() ?: return@post
+            val claims = call.exigirAuthDoModulo(TIPO_AJUSTE_INVENTARIO) ?: return@post
             val id = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@post call.respond(HttpStatusCode.BadRequest)
 
