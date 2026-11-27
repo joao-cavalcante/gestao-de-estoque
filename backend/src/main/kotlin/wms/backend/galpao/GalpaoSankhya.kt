@@ -28,12 +28,18 @@ object GalpaoSankhya {
 
     suspend fun enviarEnderecos(tenantId: UUID, plantaId: UUID): Envio {
         val slug = TenantRepository.buscarPorId(tenantId)?.slug ?: return Envio(false, "Cliente não encontrado.")
-        val (planta, enderecos) = TenantTx.run(tenantId) {
+        val (planta, enderecos, tiposSetor) = TenantTx.run(tenantId) {
             val p = GalpaoPlantasTable.selectAll().where { GalpaoPlantasTable.id eq plantaId }.singleOrNull()
             val e = GalpaoEnderecosTable.selectAll()
                 .where { (GalpaoEnderecosTable.plantaId eq plantaId) and (GalpaoEnderecosTable.ativo eq true) }
                 .toList()
-            p to e
+            // Tipo de separação de cada setor (1 Seco, 2 Refrigerado, 3 Congelado), da versão publicada — a sugestão do addon
+            // só manda o produto para endereço do setor dele (revisão de 27/11/2026).
+            val geo = p?.get(GalpaoPlantasTable.versaoPublicadaId)?.let { v ->
+                GalpaoVersoesTable.selectAll().where { GalpaoVersoesTable.id eq v }.singleOrNull()?.get(GalpaoVersoesTable.geometria)
+            }
+            val tipos = geo?.let { runCatching { GeometriaJson.ler(it).setores.associate { s -> s.codigo to s.tipoSeparacao } }.getOrNull() } ?: emptyMap()
+            Triple(p, e, tipos)
         }
         planta ?: return Envio(false, "Planta não encontrada.")
         val codemp = planta[GalpaoPlantasTable.codemp]
@@ -56,6 +62,7 @@ object GalpaoSankhya {
                             e[GalpaoEnderecosTable.capQtd]?.let { put("CAPQTD", it.stripTrailingZeros().toPlainString()) }
                             e[GalpaoEnderecosTable.capPeso]?.let { put("CAPPESO", it.stripTrailingZeros().toPlainString()) }
                             put("BLOQUEADO", if (e[GalpaoEnderecosTable.bloqueado]) "S" else "N")
+                            tiposSetor[e[GalpaoEnderecosTable.setor]]?.let { put("TIPOSEP", it.toString()) }
                         })
                     }
                 }

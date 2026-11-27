@@ -47,6 +47,7 @@ public class EnderecamentoController {
                 p.capQtd = tresCasas(Corpo.numero(e.get("CAPQTD")));
                 p.capPeso = tresCasas(Corpo.numero(e.get("CAPPESO")));
                 p.bloqueado = "S".equals(texto(e.get("BLOQUEADO")));
+                p.tipoSep = Corpo.numero(e.get("TIPOSEP"));
                 lista.add(p);
             }
             BigDecimal codemp = Corpo.numero(req.get("CODEMP"));

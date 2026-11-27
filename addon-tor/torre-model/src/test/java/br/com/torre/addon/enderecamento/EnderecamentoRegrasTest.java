@@ -93,4 +93,55 @@ class EnderecamentoRegrasTest {
         assertEquals(0, d("30").compareTo(EnderecamentoRegras.falta(d("100"), d("70"))));
         assertEquals(0, BigDecimal.ZERO.compareTo(EnderecamentoRegras.falta(d("100"), d("120"))));
     }
+
+    @Test
+    void primeiraEntradaVaiParaPickingVazioDoSetor() {
+        String k = EnderecamentoRegras.chave("10", "");
+        List<EnderecamentoRegras.Endereco> l = new ArrayList<EnderecamentoRegras.Endereco>();
+        EnderecamentoRegras.Endereco pkSeco = e(1, "R01-M01-N01", "PICKING", "500");
+        pkSeco.tipoSep = 1;
+        EnderecamentoRegras.Endereco pkCong = e(2, "R11-M01-N01", "PICKING", "500");
+        pkCong.tipoSep = 3;
+        EnderecamentoRegras.Endereco pulCong = e(3, "R11-M01-N02", "PULMAO", "1000");
+        pulCong.tipoSep = 3;
+        l.add(pkSeco);
+        l.add(pkCong);
+        l.add(pulCong);
+        // congelado sem picking ainda: picking vazio do setor congelado (não o seco, que vem antes no código)
+        assertEquals("R11-M01-N01", EnderecamentoRegras.sugerir(l, k, d("100"), 3).codigo);
+        // já tem picking em outro lugar: vai para o pulmão
+        pkSeco.produtos.add(k);
+        pkSeco.ocupado = d("500"); // cheio
+        assertEquals("R11-M01-N02", EnderecamentoRegras.sugerir(l, k, d("100"), 3).codigo);
+        // não cabe no picking vazio: pulmão
+        pkSeco.produtos.clear();
+        pkSeco.ocupado = BigDecimal.ZERO;
+        assertEquals("R11-M01-N02", EnderecamentoRegras.sugerir(l, k, d("800"), 3).codigo);
+    }
+
+    @Test
+    void setorDiferenteNuncaESugerido() {
+        String k = EnderecamentoRegras.chave("10", "");
+        List<EnderecamentoRegras.Endereco> l = new ArrayList<EnderecamentoRegras.Endereco>();
+        EnderecamentoRegras.Endereco seco = e(1, "R01-M01-N02", "PULMAO", null);
+        seco.tipoSep = 1;
+        l.add(seco);
+        assertNull(EnderecamentoRegras.sugerir(l, k, d("10"), 2));
+        assertEquals("R01-M01-N02", EnderecamentoRegras.sugerir(l, k, d("10"), 1).codigo);
+        assertEquals("R01-M01-N02", EnderecamentoRegras.sugerir(l, k, d("10"), null).codigo); // produto sem tipo
+    }
+
+    @Test
+    void reservaDeOutraTarefaOcupaOPulmao() {
+        String a = EnderecamentoRegras.chave("10", "");
+        String b = EnderecamentoRegras.chave("20", "");
+        List<EnderecamentoRegras.Endereco> l = new ArrayList<EnderecamentoRegras.Endereco>();
+        EnderecamentoRegras.Endereco p1 = e(1, "R01-M01-N03", "PULMAO", "1000");
+        EnderecamentoRegras.Endereco p2 = e(2, "R01-M01-N04", "PULMAO", "1000");
+        l.add(p1);
+        l.add(p2);
+        EnderecamentoRegras.reservar(EnderecamentoRegras.sugerir(l, a, d("200")), a, d("200"));
+        assertEquals("R01-M01-N04", EnderecamentoRegras.sugerir(l, b, d("180")).codigo); // não vai para o reservado
+        assertEquals("R01-M01-N03", EnderecamentoRegras.sugerir(l, a, d("50")).codigo); // mesmo produto pode completar
+    }
 }

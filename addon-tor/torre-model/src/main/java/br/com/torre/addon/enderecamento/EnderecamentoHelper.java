@@ -72,12 +72,30 @@ public final class EnderecamentoHelper {
     // ─── Endereços com ocupação (para a sugestão) ────────────────────────────────────────────────────
 
     List<EnderecamentoRegras.Endereco> enderecos(BigDecimal codemp, BigDecimal codlocal) throws Exception {
+        return enderecos(codemp, codlocal, null);
+    }
+
+    /**
+     * Endereços da empresa/local com a ocupação: saldo (TOREST) + o que está RESERVADO para as tarefas abertas
+     * (sugestão de AB/EX, menos a tarefa [excetoNutar]) — sem isso várias tarefas recebiam o mesmo pulmão vazio
+     * (1ª simulação, 27/11/2026).
+     */
+    List<EnderecamentoRegras.Endereco> enderecos(BigDecimal codemp, BigDecimal codlocal, BigDecimal excetoNutar) throws Exception {
         Map<Long, EnderecamentoRegras.Endereco> por = new LinkedHashMap<Long, EnderecamentoRegras.Endereco>();
-        for (Map<String, Object> r : Db.lista("SELECT CODEND, CODIGO, TIPO, CAPQTD, BLOQUEADO, ATIVO FROM TOREND "
+        for (Map<String, Object> r : Db.lista("SELECT CODEND, CODIGO, TIPO, CAPQTD, BLOQUEADO, ATIVO, TIPOSEP FROM TOREND "
             + "WHERE CODEMP = :E AND CODLOCAL = :L", Db.p("E", codemp, "L", codlocal))) {
             long cod = Db.dec0(r.get("CODEND")).longValue();
-            por.put(cod, new EnderecamentoRegras.Endereco(cod, Db.txt(r.get("CODIGO")), Db.txt(r.get("TIPO")), Db.dec(r.get("CAPQTD")),
-                "S".equals(Db.txt(r.get("BLOQUEADO"))), !"N".equals(Db.txt(r.get("ATIVO")))));
+            EnderecamentoRegras.Endereco e = new EnderecamentoRegras.Endereco(cod, Db.txt(r.get("CODIGO")), Db.txt(r.get("TIPO")),
+                Db.dec(r.get("CAPQTD")), "S".equals(Db.txt(r.get("BLOQUEADO"))), !"N".equals(Db.txt(r.get("ATIVO"))));
+            BigDecimal ts = Db.dec(r.get("TIPOSEP"));
+            e.tipoSep = ts == null || ts.signum() <= 0 ? null : Integer.valueOf(ts.intValue());
+            por.put(cod, e);
+        }
+        for (Map<String, Object> r : Db.lista("SELECT T.CODENDSUG, T.CODPROD, T.CONTROLE, T.QTD - NVL(T.QTDFEITA, 0) AS RESTA FROM TORTAR T "
+            + "WHERE T.CODEMP = :E AND T.CODLOCAL = :L AND T.SITUACAO IN ('AB', 'EX') AND T.CODENDSUG IS NOT NULL AND T.NUTAR <> :T",
+            Db.p("E", codemp, "L", codlocal, "T", excetoNutar == null ? BigDecimal.valueOf(-1) : excetoNutar))) {
+            EnderecamentoRegras.reservar(por.get(Db.dec0(r.get("CODENDSUG")).longValue()),
+                EnderecamentoRegras.chave(Db.dec0(r.get("CODPROD")).toPlainString(), Db.txt(r.get("CONTROLE"))), Db.dec0(r.get("RESTA")));
         }
         for (Map<String, Object> r : Db.lista("SELECT S.CODEND, S.CODPROD, S.CONTROLE, S.QTD FROM TOREST S JOIN TOREND E ON E.CODEND = S.CODEND "
             + "WHERE E.CODEMP = :E AND E.CODLOCAL = :L AND S.QTD > 0", Db.p("E", codemp, "L", codlocal))) {
@@ -87,6 +105,23 @@ public final class EnderecamentoHelper {
             e.produtos.add(EnderecamentoRegras.chave(Db.dec0(r.get("CODPROD")).toPlainString(), Db.txt(r.get("CONTROLE"))));
         }
         return new ArrayList<EnderecamentoRegras.Endereco>(por.values());
+    }
+
+    private static Boolean temTipoSep;
+
+    /**
+     * Tipo de separação do produto (TGFPRO.AD_TIPOSEPARACAO — campo da Negri: 1 Seco, 2 Refrigerado, 3 Congelado);
+     * base sem o campo = null (sugestão sem setor).
+     */
+    static Integer tipoSeparacao(BigDecimal codprod) throws Exception {
+        if (temTipoSep == null) {
+            Map<String, Object> c = Db.um("SELECT COUNT(*) AS N FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'TGFPRO' AND COLUMN_NAME = 'AD_TIPOSEPARACAO'", null);
+            temTipoSep = Boolean.valueOf(c != null && Db.dec0(c.get("N")).signum() > 0);
+        }
+        if (!temTipoSep.booleanValue() || codprod == null) return null;
+        Map<String, Object> r = Db.um("SELECT AD_TIPOSEPARACAO AS T FROM TGFPRO WHERE CODPROD = :P", Db.p("P", codprod));
+        BigDecimal t = r == null ? null : Db.dec(r.get("T"));
+        return t == null || t.signum() <= 0 ? null : Integer.valueOf(t.intValue());
     }
 
     // ─── Tarefas da compra ───────────────────────────────────────────────────────────────────────────
@@ -139,7 +174,8 @@ public final class EnderecamentoHelper {
                 ends = enderecos(codemp, codlocal);
                 porLocal.put(k, ends);
             }
-            EnderecamentoRegras.Endereco sug = EnderecamentoRegras.sugerir(ends, EnderecamentoRegras.chave(codprod.toPlainString(), ctl), qtd);
+            EnderecamentoRegras.Endereco sug = EnderecamentoRegras.sugerir(ends, EnderecamentoRegras.chave(codprod.toPlainString(), ctl), qtd,
+                tipoSeparacao(codprod));
             BigDecimal nutar = JapeFactory.dao(I_TAR).create()
                 .set("TIPO", "ARM").set("NUNOTA", nunota).set("NUCONF", nuconf).set("CODEMP", codemp).set("CODLOCAL", codlocal)
                 .set("CODPROD", codprod).set("CONTROLE", ctl == null || ctl.isEmpty() ? " " : ctl).set("CODVOL", Db.txt(l.get("CODVOL")))
@@ -149,10 +185,7 @@ public final class EnderecamentoHelper {
                 .save().asBigDecimal("NUTAR");
             movimento("ENT", nutar, nunota, codprod, ctl, qtd, null, doca, null, codusu);
             // A sugestão seguinte já considera esta (o mesmo pulmão vazio não vai para dois produtos).
-            if (sug != null) {
-                sug.ocupado = sug.ocupado.add(qtd);
-                sug.produtos.add(EnderecamentoRegras.chave(codprod.toPlainString(), ctl));
-            }
+            EnderecamentoRegras.reservar(sug, EnderecamentoRegras.chave(codprod.toPlainString(), ctl), qtd);
             criadas++;
         }
         Db.executar("UPDATE TORREC SET ENDSIT = 'GE', ENDERRO = NULL, DHENDER = SYSDATE WHERE NUREC = :R", Db.p("R", rec.get("NUREC")));
@@ -196,12 +229,18 @@ public final class EnderecamentoHelper {
         return t;
     }
 
+    /** Sugestão para o que falta da tarefa [t], com o setor do produto e as reservas das OUTRAS tarefas abertas. */
+    private EnderecamentoRegras.Endereco sugestao(Map<String, Object> t, BigDecimal nutar, BigDecimal falta) throws Exception {
+        BigDecimal codprod = Db.dec0(t.get("CODPROD"));
+        return EnderecamentoRegras.sugerir(enderecos(Db.dec(t.get("CODEMP")), Db.dec(t.get("CODLOCAL")), nutar),
+            EnderecamentoRegras.chave(codprod.toPlainString(), Db.txt(t.get("CONTROLE"))), falta, tipoSeparacao(codprod));
+    }
+
     /** Operador começa a tarefa: marca EX e recalcula a sugestão (o galpão mudou desde a criação). */
     public Map<String, Object> iniciar(BigDecimal nutar, BigDecimal codusu) throws Exception {
         Map<String, Object> t = travarTarefa(nutar);
         BigDecimal falta = EnderecamentoRegras.falta(Db.dec(t.get("QTD")), Db.dec(t.get("QTDFEITA")));
-        EnderecamentoRegras.Endereco sug = EnderecamentoRegras.sugerir(enderecos(Db.dec(t.get("CODEMP")), Db.dec(t.get("CODLOCAL"))),
-            EnderecamentoRegras.chave(Db.dec0(t.get("CODPROD")).toPlainString(), Db.txt(t.get("CONTROLE"))), falta);
+        EnderecamentoRegras.Endereco sug = sugestao(t, nutar, falta);
         Db.executar("UPDATE TORTAR SET SITUACAO = 'EX', CODUSU = NVL(:U, CODUSU), DHINICIO = NVL(DHINICIO, SYSDATE), CODENDSUG = :S WHERE NUTAR = :T",
             Db.p("U", codusu, "S", sug == null ? null : BigDecimal.valueOf(sug.codend), "T", nutar));
         return tarefa(nutar);
@@ -244,6 +283,12 @@ public final class EnderecamentoHelper {
             + "DHCONCLUSAO = :D WHERE NUTAR = :T",
             Db.p("F", feita, "S", fim ? EnderecamentoRegras.CONCLUIDA : EnderecamentoRegras.EM_EXECUCAO, "U", codusu,
                 "D", fim ? TimeUtils.getNow() : null, "T", nutar));
+        if (!fim) {
+            // Guardou parte: o resto ganha sugestão nova (o endereço usado pode ter enchido).
+            EnderecamentoRegras.Endereco prox = sugestao(t, nutar, EnderecamentoRegras.falta(Db.dec(t.get("QTD")), feita));
+            Db.executar("UPDATE TORTAR SET CODENDSUG = :S WHERE NUTAR = :T",
+                Db.p("S", prox == null ? null : BigDecimal.valueOf(prox.codend), "T", nutar));
+        }
         return tarefa(nutar);
     }
 
@@ -299,6 +344,8 @@ public final class EnderecamentoHelper {
         public BigDecimal capQtd;
         public BigDecimal capPeso;
         public boolean bloqueado;
+        /** Tipo de separação do setor na Planta (1 Seco, 2 Refrigerado, 3 Congelado); null = qualquer. */
+        public BigDecimal tipoSep;
     }
 
     /**
@@ -322,13 +369,13 @@ public final class EnderecamentoHelper {
             if (cod == null) {
                 dao.create().set("CODEMP", codemp).set("CODLOCAL", codlocal).set("IDTORRE", e.id).set("CODIGO", e.codigo.trim())
                     .set("TIPO", tipo).set("SETOR", e.setor).set("ESTRUTURA", e.estrutura).set("MODULO", e.modulo).set("NIVEL", e.nivel)
-                    .set("CAPQTD", e.capQtd).set("CAPPESO", e.capPeso).set("BLOQUEADO", e.bloqueado ? "S" : "N").set("ATIVO", "S")
+                    .set("CAPQTD", e.capQtd).set("CAPPESO", e.capPeso).set("BLOQUEADO", e.bloqueado ? "S" : "N").set("ATIVO", "S").set("TIPOSEP", e.tipoSep)
                     .set("DHALTER", TimeUtils.getNow()).save();
                 novos++;
             } else {
                 dao.prepareToUpdate(dao.findByPK(cod)).set("CODIGO", e.codigo.trim()).set("TIPO", tipo).set("SETOR", e.setor)
                     .set("ESTRUTURA", e.estrutura).set("MODULO", e.modulo).set("NIVEL", e.nivel).set("CAPQTD", e.capQtd)
-                    .set("CAPPESO", e.capPeso).set("BLOQUEADO", e.bloqueado ? "S" : "N").set("ATIVO", "S")
+                    .set("CAPPESO", e.capPeso).set("BLOQUEADO", e.bloqueado ? "S" : "N").set("ATIVO", "S").set("TIPOSEP", e.tipoSep)
                     .set("DHALTER", TimeUtils.getNow()).update();
                 alterados++;
             }

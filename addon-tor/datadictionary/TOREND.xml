@@ -53,6 +53,9 @@
             <field name="ATIVO" dataType="CHECKBOX" allowSearch="S" visibleOnSearch="S">
                 <description>Ativo</description>
             </field>
+            <field name="TIPOSEP" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Tipo de Separa&#231;&#227;o do Setor</description>
+            </field>
             <field name="IDTORRE" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
                 <description>Id na Planta da Torre</description>
             </field>
