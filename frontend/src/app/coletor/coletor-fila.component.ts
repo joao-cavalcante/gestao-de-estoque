@@ -235,7 +235,7 @@ export class ColetorFilaComponent implements OnInit, OnDestroy {
     this.feedback.trigger('PRODUTO_CORRETO');
     this.estado.set({ tipo: 'encontrado', titulo: `${t.numeroUnico} · ${t.cliente}`, mensagem: 'Documento encontrado. Abrindo a conferência…' });
     // Mesmo caminho da Fila da Torre (onConferir): a tela de conferência valida sessão, crachá, etapa e trava.
-    this.router.navigate(['/conferencia', t.numeroUnico], { state: { tarefa: t } }).finally(() => {
+    this.router.navigate(['/conferencia', t.numeroUnico], { state: { tarefa: t, origem: 'coletor' } }).finally(() => {
       this.abrindo = false;
     });
   }

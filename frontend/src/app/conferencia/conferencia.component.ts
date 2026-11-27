@@ -780,6 +780,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     this.etapaParam = Number.isFinite(etapaRaw) && etapaRaw >= 1 && etapaRaw <= 5 ? etapaRaw : null; // 1–3 temperatura, 4–5 Não pesáveis/Pesáveis
     // Aberta pela tela Entrada (compra): os botões de voltar levam para a Entrada, não para a Fila (19/11/2026).
     if (history.state?.origem === 'entrada') this.rotaVolta = '/entrada';
+    // Aberta pela fila do COLETOR (27/11/2026): ao finalizar/voltar, fica no coletor (fila com o filtro que o operador usava).
+    else if (history.state?.origem === 'coletor') this.rotaVolta = '/coletor';
     const tarefa = history.state?.tarefa as Tarefa | undefined;
     if (tarefa) {
       this.nf = tarefa.nf;
@@ -1768,7 +1770,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
 
   /** Pop-up final: "✓ Já carregado" — um toque dá baixa no carregamento do pedido inteiro. */
   private voltarAoPainelFinal = false;
-  /** Para onde os botões de voltar levam: Fila (padrão) ou Entrada (compra aberta pela tela Entrada). */
+  /** Para onde os botões de voltar levam: Fila (padrão), Entrada (aberta pela tela Entrada) ou fila do coletor. */
   private rotaVolta = '/fila-tarefas';
   readonly carregadoFinal = signal<'nao' | 'salvando' | 'ok'>('nao');
   irParaCarregamento(): void {
