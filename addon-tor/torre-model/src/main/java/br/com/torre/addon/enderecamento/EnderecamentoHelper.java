@@ -165,12 +165,17 @@ public final class EnderecamentoHelper {
             Db.p("M", erro, "N", nunota, "C", nuconf));
     }
 
-    /** Compras aprovadas com endereçamento ligado na empresa e sem tarefas (ou com erro há mais de 30 min). */
+    /**
+     * Compras aprovadas com endereçamento ligado na empresa e sem tarefas (ou com erro há mais de 30 min). Só as
+     * aprovadas a partir de TORCFG.DHINIEND (vazio = de hoje): estoque antigo fica "a localizar" (decisão 27/11/2026).
+     * A mesma consulta está na Torre (Armazenagem.gerarPendentes), reserva do job.
+     */
     public static List<BigDecimal[]> aGerar(int limite) throws Exception {
         List<BigDecimal[]> r = new ArrayList<BigDecimal[]>();
         for (Map<String, Object> l : Db.lista("SELECT NUNOTA, NUCONF FROM (SELECT R.NUNOTA, R.NUCONF FROM TORREC R "
             + "JOIN TGFCAB C ON C.NUNOTA = R.NUNOTA JOIN TORCFG G ON G.CODEMP = C.CODEMP "
             + "WHERE R.SITUACAO = 'AP' AND NVL(G.ENDATIVO, 'N') = 'S' AND C.STATUSNOTA = 'L' "
+            + "AND R.DHAPROV >= NVL(G.DHINIEND, TRUNC(SYSDATE)) "
             + "AND (R.ENDSIT IS NULL OR (R.ENDSIT = 'ER' AND R.DHENDER < SYSDATE - 30 / 1440)) "
             + "AND NOT EXISTS (SELECT 1 FROM TORPPV A WHERE A.NUNOTA = R.NUNOTA AND A.NUCONF = R.NUCONF AND A.STATUS IN ('P', 'A', 'E')) "
             + "ORDER BY R.DHAPROV) WHERE ROWNUM <= " + limite, null)) {

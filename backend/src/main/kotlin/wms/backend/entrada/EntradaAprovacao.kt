@@ -54,6 +54,8 @@ object EntradaAprovacao {
         if (r.situacao == "APROVADO") {
             runCatching { wms.backend.separacao.AjustePesoCompra.processarPendentes(tenantSlug, tenantId) }
                 .onFailure { println("AVISO: ajuste de peso logo após aprovar $nunota falhou (o ciclo tenta de novo): ${it.message}") }
+            runCatching { wms.backend.armazenagem.Armazenagem.gerarPendentes(tenantSlug, tenantId) }
+                .onFailure { println("AVISO: tarefas de armazenagem logo após aprovar $nunota falharam (o ciclo tenta de novo): ${it.message}") }
         }
         return r
     }

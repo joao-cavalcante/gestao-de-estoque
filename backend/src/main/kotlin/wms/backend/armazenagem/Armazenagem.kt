@@ -116,6 +116,41 @@ object Armazenagem {
     private fun tarefaDaResposta(r: JsonObject): TarefaArmazenagemDto =
         tarefa(objetos(body(r)["TAREFA"]).firstOrNull() ?: throw ArmazenagemException("Tarefa não encontrada no Sankhya."))
 
+    // ─── Reserva do job do addon (27/11/2026) ────────────────────────────────────────────────────────────────────
+    // O EnderecamentoJob do addon não foi visto rodando na sandbox (o AjustePesoJob também nunca foi — a Torre sempre
+    // gerou antes). A Torre pede as tarefas no ciclo e logo depois de aprovar; o addon é idempotente (ENDSIT 'GE').
+
+    private fun sqlPendentes(comCorte: String) = "SELECT NUNOTA, NUCONF FROM (SELECT R.NUNOTA, R.NUCONF FROM TORREC R " +
+        "JOIN TGFCAB C ON C.NUNOTA = R.NUNOTA JOIN TORCFG G ON G.CODEMP = C.CODEMP " +
+        "WHERE R.SITUACAO = 'AP' AND NVL(G.ENDATIVO, 'N') = 'S' AND C.STATUSNOTA = 'L' AND R.DHAPROV >= $comCorte " +
+        "AND (R.ENDSIT IS NULL OR (R.ENDSIT = 'ER' AND R.DHENDER < SYSDATE - 30 / 1440)) " +
+        "AND NOT EXISTS (SELECT 1 FROM TORPPV A WHERE A.NUNOTA = R.NUNOTA AND A.NUCONF = R.NUCONF AND A.STATUS IN ('P', 'A', 'E')) " +
+        "ORDER BY R.DHAPROV) WHERE ROWNUM <= 10"
+
+    suspend fun gerarPendentes(tenantSlug: String, tenantId: java.util.UUID) {
+        if (!disponivel(tenantId)) return
+        val linhas = runCatching {
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(tenantSlug, sqlPendentes("NVL(G.DHINIEND, TRUNC(SYSDATE))"))
+        }.recoverCatching {
+            // Addon anterior ao 0.5.2 (sem TORCFG.DHINIEND, ou sem as tabelas do endereçamento): corte = hoje.
+            if (it.message?.contains("ORA-00942") == true) return
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(tenantSlug, sqlPendentes("TRUNC(SYSDATE)"))
+        }.getOrElse {
+            println("AVISO: compras a endereçar (tenant $tenantSlug) não lidas: ${it.message}")
+            return
+        }
+        for (l in linhas) {
+            val nunota = l["NUNOTA"]?.trim()?.substringBefore('.') ?: continue
+            val nuconf = l["NUCONF"]?.trim()?.substringBefore('.') ?: continue
+            runCatching {
+                val r = SankhyaSpClient.chamarRaw(tenantSlug, "EnderecamentoSP.gerarTarefas", MODULO_ADDON,
+                    corpo("NUNOTA" to nunota, "NUCONF" to nuconf), retentar = false)
+                val n = (body(r)["CRIADAS"] as? JsonPrimitive)?.contentOrNull
+                println("INFO: tarefas de armazenagem da compra $nunota (conferência $nuconf): ${n ?: "?"} criada(s)")
+            }.onFailure { println("AVISO: tarefas de armazenagem da compra $nunota falharam: ${it.message}") }
+        }
+    }
+
     // ─── Leitura da resposta do addon (o Studio devolve lista de 1 item às vezes como objeto) ───────────────────────
 
     internal fun objetos(v: JsonElement?): List<JsonObject> = when (v) {

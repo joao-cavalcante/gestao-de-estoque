@@ -44,8 +44,8 @@ public class EnderecamentoController {
                 p.estrutura = texto(e.get("ESTRUTURA"));
                 p.modulo = Corpo.numero(e.get("MODULO"));
                 p.nivel = Corpo.numero(e.get("NIVEL"));
-                p.capQtd = Corpo.numero(e.get("CAPQTD"));
-                p.capPeso = Corpo.numero(e.get("CAPPESO"));
+                p.capQtd = tresCasas(Corpo.numero(e.get("CAPQTD")));
+                p.capPeso = tresCasas(Corpo.numero(e.get("CAPPESO")));
                 p.bloqueado = "S".equals(texto(e.get("BLOQUEADO")));
                 lista.add(p);
             }
@@ -147,6 +147,11 @@ public class EnderecamentoController {
         Map<String, Object> r = new LinkedHashMap<String, Object>();
         r.put("CONTRATO", Versao.CONTRATO);
         return r;
+    }
+
+    /** TOREND.CAPQTD/CAPPESO têm 3 casas; a Torre manda numeric(15,5) ("800.00000") — o Sankhya recusaria a lista. */
+    private static BigDecimal tresCasas(BigDecimal v) {
+        return v == null ? null : v.setScale(3, java.math.RoundingMode.HALF_UP);
     }
 
     private static String texto(Object v) {

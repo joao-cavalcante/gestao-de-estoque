@@ -53,8 +53,8 @@ object GalpaoSankhya {
                             put("ESTRUTURA", e[GalpaoEnderecosTable.estrutura])
                             put("MODULO", e[GalpaoEnderecosTable.modulo].toString())
                             put("NIVEL", e[GalpaoEnderecosTable.nivel].toString())
-                            e[GalpaoEnderecosTable.capQtd]?.let { put("CAPQTD", it.toPlainString()) }
-                            e[GalpaoEnderecosTable.capPeso]?.let { put("CAPPESO", it.toPlainString()) }
+                            e[GalpaoEnderecosTable.capQtd]?.let { put("CAPQTD", it.stripTrailingZeros().toPlainString()) }
+                            e[GalpaoEnderecosTable.capPeso]?.let { put("CAPPESO", it.stripTrailingZeros().toPlainString()) }
                             put("BLOQUEADO", if (e[GalpaoEnderecosTable.bloqueado]) "S" else "N")
                         })
                     }

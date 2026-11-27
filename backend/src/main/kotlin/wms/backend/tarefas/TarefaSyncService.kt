@@ -150,6 +150,12 @@ object TarefaSyncService {
                 .onFailure { println("AVISO: ajuste de peso da compra (tenant $tenantSlug) falhou: ${it.message}") }
         }
 
+        // Endereçamento (27/11/2026): tarefas de armazenagem das compras aprovadas com o ajuste já gerado (addon TOR).
+        medirEtapa(tenantSlug, "armazenagem") {
+            runCatching { wms.backend.armazenagem.Armazenagem.gerarPendentes(tenantSlug, tenantId) }
+                .onFailure { println("AVISO: tarefas de armazenagem (tenant $tenantSlug) falharam: ${it.message}") }
+        }
+
 
         // As três leituras abaixo são independentes — rodam juntas (10/11/2026: em sequência somavam o tempo de cada
         // uma e o sync inteiro, inclusive o resync pós liberação de corte, levava ~4,5 s).

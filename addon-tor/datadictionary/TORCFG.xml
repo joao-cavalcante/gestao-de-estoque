@@ -45,6 +45,9 @@
             <field name="ENDATIVO" dataType="CHECKBOX" allowSearch="S" visibleOnSearch="S">
                 <description>Endere&#231;amento Ativo</description>
             </field>
+            <field name="DHINIEND" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Endere&#231;ar Compras Aprovadas a Partir de</description>
+            </field>
         </fields>
     </table>
 </metadados>
