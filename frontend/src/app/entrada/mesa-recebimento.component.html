@@ -16,6 +16,9 @@
     <span class="en-mesa-topo__fornecedor">{{ m.recebimento.fornecedor ?? '—' }}</span>
   </header>
   <div class="en-mesa__corpo">
+    @if (esperandoCorte()) {
+      <p class="en-mesa-corte" role="status"><oq-icon name="sync" [size]="14" /> Corte liberado. Atualizando a compra no Sankhya para aprovar…</p>
+    }
     <!-- 1. Decisão: situação + aprovar (addon TOR, etapa 2) -->
     <section class="en-decisao" [attr.data-situacao]="m.recebimento.situacao">
       <div class="en-decisao__estado">

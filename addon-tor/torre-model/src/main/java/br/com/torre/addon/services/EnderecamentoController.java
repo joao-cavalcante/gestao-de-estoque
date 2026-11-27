@@ -22,7 +22,8 @@ import java.util.Map;
  *  - iniciar {NUTAR, CODUSU, EXCLUIR?: "R01-M01-N01,..."} — operador começou (ou achou o sugerido cheio); recalcula a
  *    sugestão sem os EXCLUIR. Resposta: TAREFA.
  *  - armazenar {NUTAR, ENDERECO, QTD, MOTIVO, CODUSU} — doca → endereço, numa transação. Resposta: TAREFA.
- *  - gerarTarefas {NUNOTA, NUCONF} — reserva do job (botão "gerar agora"). Resposta: CRIADAS.
+ *  - gerarTarefas {NUNOTA, NUCONF, COMPLEMENTO?: "S"} — reserva do job; COMPLEMENTO = tarefas da sobra (pedido
+ *    complementar confirmado). Resposta: CRIADAS.
  *  - situacaoCompras {NUNOTAS: "1,2"} — aba Armazenagem. Resposta: COMPRAS.
  *  - saldos {CODEMP, CODLOCAL} — saldo por endereço (Planta). Resposta: SALDOS.
  * Uma transação por chamada (Required): falhou, o Sankhya desfaz tudo.
@@ -111,7 +112,10 @@ public class EnderecamentoController {
         try {
             Map<String, Object> req = Corpo.desembrulhar(request, "NUNOTA");
             BigDecimal nunota = Corpo.numero(req.get("NUNOTA"));
-            int n = new EnderecamentoHelper().gerarTarefas(nunota, Corpo.numero(req.get("NUCONF")), Corpo.numero(req.get("CODUSU")));
+            // COMPLEMENTO = 'S': tarefas da sobra (pedido complementar confirmado) desta compra/conferência.
+            int n = "S".equals(String.valueOf(req.get("COMPLEMENTO")).trim())
+                ? new EnderecamentoHelper().gerarTarefasComplemento(nunota, Corpo.numero(req.get("NUCONF")), Corpo.numero(req.get("CODUSU")))
+                : new EnderecamentoHelper().gerarTarefas(nunota, Corpo.numero(req.get("NUCONF")), Corpo.numero(req.get("CODUSU")));
             if (n > 0) TorreLog.registrar("EnderecamentoSP.gerarTarefas", nunota, true, n + " tarefa(s)");
             Map<String, Object> r = resposta();
             r.put("CRIADAS", n);

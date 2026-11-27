@@ -321,6 +321,17 @@
 }
 
 // ─── Mesa (painel da Liberação de Recebimento) ───────────────────────────────────────────────────────────
+.en-mesa-corte {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oq-aguardando-foreground);
+}
+
 .en-mesa-topo {
   display: flex;
   flex-wrap: wrap;

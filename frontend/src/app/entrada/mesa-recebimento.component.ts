@@ -51,6 +51,14 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
   /** Liberador que entrou na tela Liberações (só memória; a senha nunca é exibida). */
   @Input() usuario = '';
   @Input() senha = '';
+  /**
+   * Aberta logo depois de liberar o corte desta compra (27/11/2026: "ao liberar, abrir a mesa"): a situação ainda vem
+   * do ciclo de sincronização — relê a cada 2 s (até ~30 s) até a compra ficar "aguardando liberação" e o Aprovar valer.
+   */
+  @Input() aposCorte = false;
+  readonly esperandoCorte = signal(false);
+  private tentativasCorte = 0;
+  private timerCorte?: ReturnType<typeof setTimeout>;
   /** Celular/tablet em pé: volta para a lista. */
   @Output() readonly fechar = new EventEmitter<void>();
 
@@ -100,6 +108,8 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
     this.etapaAprovacao.set(null);
     this.erroAprovacao.set(null);
     this.resultadoAprovacao.set(null);
+    this.tentativasCorte = 0;
+    this.esperandoCorte.set(this.aposCorte);
     this.carregar();
   }
 
@@ -184,6 +194,7 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.syncSub?.unsubscribe();
     this.req?.unsubscribe();
+    clearTimeout(this.timerCorte);
   }
 
   carregar(): void {
@@ -197,6 +208,14 @@ export class MesaRecebimentoComponent implements OnInit, OnChanges, OnDestroy {
         this.mesa.set(m);
         this.erro.set(null);
         this.carregando.set(false);
+        if (this.esperandoCorte()) {
+          const pronta = m.recebimento.situacao === 'aguardando_liberacao' || m.recebimento.situacao === 'liberada';
+          if (pronta || ++this.tentativasCorte > 15) this.esperandoCorte.set(false);
+          else {
+            clearTimeout(this.timerCorte);
+            this.timerCorte = setTimeout(() => this.carregar(), 2000);
+          }
+        }
       },
       error: (e) => {
         if (!this.mesa()) this.erro.set(e?.error?.erro ?? 'Não foi possível abrir a mesa.');

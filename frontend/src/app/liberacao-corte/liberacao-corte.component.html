@@ -195,7 +195,7 @@
           </footer>
         }
       } @else if (recebimentoAberto() != null) {
-        <oq-mesa-recebimento [nunota]="recebimentoAberto()!" [usuario]="usuario" [senha]="senha" (fechar)="fecharRecebimento()" />
+        <oq-mesa-recebimento [nunota]="recebimentoAberto()!" [usuario]="usuario" [senha]="senha" [aposCorte]="mesaAposCorte()" (fechar)="fecharRecebimento()" />
       } @else {
         <p class="lc-corte__vazio">Escolha um corte ou um recebimento na lista.</p>
       }

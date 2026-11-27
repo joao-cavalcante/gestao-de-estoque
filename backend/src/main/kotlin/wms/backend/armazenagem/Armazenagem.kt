@@ -169,6 +169,7 @@ object Armazenagem {
             println("AVISO: compras a endereçar (tenant $tenantSlug) não lidas: ${it.message}")
             return
         }
+        gerarComplementos(tenantSlug)
         for (l in linhas) {
             val nunota = l["NUNOTA"]?.trim()?.substringBefore('.') ?: continue
             val nuconf = l["NUCONF"]?.trim()?.substringBefore('.') ?: continue
@@ -178,6 +179,28 @@ object Armazenagem {
                 val n = (body(r)["CRIADAS"] as? JsonPrimitive)?.contentOrNull
                 println("INFO: tarefas de armazenagem da compra $nunota (conferência $nuconf): ${n ?: "?"} criada(s)")
             }.onFailure { println("AVISO: tarefas de armazenagem da compra $nunota falharam: ${it.message}") }
+        }
+    }
+
+    /**
+     * Sobra que virou pedido complementar: confirmado o complemento, pede ao addon as tarefas dela (a sobra está na doca).
+     * Só complementos de compras com tarefas já geradas (ENDSIT 'GE') e que ainda não têm tarefa.
+     */
+    private suspend fun gerarComplementos(tenantSlug: String) {
+        val linhas = runCatching {
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(tenantSlug,
+                "SELECT * FROM (SELECT R.NUNOTA, R.NUCONF, CO.NUPEDCOMP FROM TORREC R JOIN TGFCON2 CO ON CO.NUCONF = R.NUCONF " +
+                    "JOIN TGFCAB P ON P.NUNOTA = CO.NUPEDCOMP WHERE R.ENDSIT = 'GE' AND NVL(CO.NUPEDCOMP, 0) > 0 AND P.STATUSNOTA = 'L' " +
+                    "AND NOT EXISTS (SELECT 1 FROM TORTAR T WHERE T.NUNOTA = CO.NUPEDCOMP) ORDER BY R.NUNOTA) WHERE ROWNUM <= 10")
+        }.getOrElse { return }
+        for (l in linhas) {
+            val nunota = l["NUNOTA"]?.trim()?.substringBefore('.') ?: continue
+            val nuconf = l["NUCONF"]?.trim()?.substringBefore('.') ?: continue
+            runCatching {
+                val r = SankhyaSpClient.chamarRaw(tenantSlug, "EnderecamentoSP.gerarTarefas", MODULO_ADDON,
+                    corpo("NUNOTA" to nunota, "NUCONF" to nuconf, "COMPLEMENTO" to "S"), retentar = false)
+                println("INFO: tarefas da sobra da compra $nunota (complemento ${l["NUPEDCOMP"]}): ${(body(r)["CRIADAS"] as? JsonPrimitive)?.contentOrNull ?: "?"}")
+            }.onFailure { println("AVISO: tarefas da sobra da compra $nunota falharam: ${it.message}") }
         }
     }
 

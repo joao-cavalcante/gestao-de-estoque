@@ -72,6 +72,11 @@ public class RecebimentoHelper {
             }
         }
 
+        // Documentos da conferência (pedido complementar / devolução) com a CCO mandando "vir confirmado": a tela nativa
+        // confirma em CACHelper.confirmarDocumentosAuxiliares; o ConfirmacaoNotaHelper direto (nosso caminho) pulava
+        // esse passo (CONFIRMADO no mgecom-model 5.26.6, 27/11/2026: complemento 73709 ficou 'A' com PEDCOMPLCONFIRMADO 'S').
+        List<String> auxiliares = confirmarDocumentosAuxiliares(nunota, codusu);
+
         // A confirmação dispara o evento (ConfirmacaoCompraListener), que já pode ter marcado o recebimento 'PE' -> 'AP'.
         // O Aprovar registra o aprovador e a origem Torre por cima.
         DynamicVO atual = recebimento(nunota, nuconf);
@@ -82,7 +87,7 @@ public class RecebimentoHelper {
                 .set("DHAPROV", TimeUtils.getNow())
                 .set("ORIGEM", RecebimentoRegras.ORIGEM_TORRE)
                 .update();
-            return new Aprovacao("APROVADO", false, atual.asBigDecimal("NUREC"), new ArrayList<String>());
+            return new Aprovacao("APROVADO", false, atual.asBigDecimal("NUREC"), auxiliares);
         }
         DynamicVO novo = JapeFactory.dao("RecebimentoTorre").create()
             .set("CODEMP", compra.asBigDecimal("CODEMP"))
@@ -93,7 +98,39 @@ public class RecebimentoHelper {
             .set("DHAPROV", TimeUtils.getNow())
             .set("ORIGEM", RecebimentoRegras.ORIGEM_TORRE)
             .save();
-        return new Aprovacao("APROVADO", false, novo.asBigDecimal("NUREC"), new ArrayList<String>());
+        return new Aprovacao("APROVADO", false, novo.asBigDecimal("NUREC"), auxiliares);
+    }
+
+    /**
+     * Igual ao nativo (mgecom CACHelper.confirmarDocumentosAuxiliares): compra confirmada ('L') → confirma o pedido
+     * complementar (TGFCON2.NUPEDCOMP) se a CCO da TOP tem PEDCOMPLCONFIRMADO 'S' e a nota de devolução (NUNOTADEV) se
+     * NOTADEVCONFIRMADA 'S'. Confirma como o aprovador; liberação pedida na confirmação volta no texto (nota fica 'A',
+     * como na tela nativa). Erro = falha a aprovação inteira, como no nativo (CORE_E04181 / CORE_E04182).
+     */
+    List<String> confirmarDocumentosAuxiliares(BigDecimal nunota, BigDecimal codusu) throws Exception {
+        List<String> r = new ArrayList<String>();
+        DynamicVO cab = (DynamicVO) dwf.findEntityByPrimaryKeyAsVO("CabecalhoNota", new Object[]{nunota});
+        if (cab == null || !"L".equals(cab.asString("STATUSNOTA"))) return r;
+        DynamicVO top = cab.asDymamicVO("TipoOperacao");
+        DynamicVO cco = top == null ? null : top.asDymamicVO("ConfiguracaoConferencia");
+        DynamicVO conf = cab.asDymamicVO("CabecalhoConferencia");
+        if (cco == null || conf == null) return r;
+        auxiliar(r, conf.asBigDecimalOrZero("NUPEDCOMP"), "S".equals(cco.asString("PEDCOMPLCONFIRMADO")), "Pedido complementar", codusu);
+        auxiliar(r, conf.asBigDecimalOrZero("NUNOTADEV"), "S".equals(cco.asString("NOTADEVCONFIRMADA")), "Nota de devolução", codusu);
+        return r;
+    }
+
+    private void auxiliar(List<String> r, BigDecimal nu, boolean confirmar, String nome, BigDecimal codusu) throws Exception {
+        if (!confirmar || nu == null || nu.signum() == 0) return;
+        if ("L".equals(umValor("SELECT STATUSNOTA FROM TGFCAB WHERE NUNOTA = :P", nu))) return;
+        try {
+            List<String> libs = confirmarComo(nu, codusu);
+            if (!"L".equals(umValor("SELECT STATUSNOTA FROM TGFCAB WHERE NUNOTA = :P", nu))) {
+                r.add(nome + " " + nu + " não foi confirmado" + (libs.isEmpty() ? "." : ": " + libs));
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Erro ao confirmar o " + nome.toLowerCase() + " " + nu + ": " + e.getMessage(), e);
+        }
     }
 
     /**

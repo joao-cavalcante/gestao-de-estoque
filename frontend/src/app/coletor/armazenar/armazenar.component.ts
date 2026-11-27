@@ -41,7 +41,8 @@ const MOTIVO_CHEIO = MOTIVOS_TROCA[0];
  * Armazenar no coletor (endereçamento). Visual unificado com a fila do coletor (27/11/2026).
  * 3ª revisão (usuário, 27/11/2026), no padrão de putaway por RF do mercado (Oracle WMS Cloud, Infor, SAP EWM):
  *  - BIPAR O ENDEREÇO É A CONFIRMAÇÃO: guarda a quantidade toda na hora (sem botão "Guardar" — luva/dedo grande);
- *  - "Parcial" é a exceção: informa a quantidade ANTES de bipar o endereço (com Cancelar);
+ *  - CAIXA "Quantidade a guardar" (4ª revisão, 27/11/2026 — putaway por item, como o Infor): já vem com tudo o que
+ *    falta, na unidade da compra; − / + de 1 em 1 caixa e toque no número para digitar. Bipar guarda o que está na caixa;
  *  - "Endereço cheio" pede ao addon a PRÓXIMA sugestão, pulando o cheio (antes só pedia para bipar outro);
  *  - quantidade na unidade em que a compra veio ("30 FD", com "180 GF" de apoio).
  */
@@ -309,20 +310,56 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     this.focar();
   }
 
+  /** Toque no número da caixa: digita a quantidade (na unidade da caixa). */
   abrirParcial(): void {
     const t = this.atual();
     if (!t) return;
-    this.qtdDigitada = '';
+    this.qtdDigitada = qtdTexto(this.caixa()?.valor ?? 0);
     this.aviso.set(null);
     this.passo.set('parcial');
     setTimeout(() => document.getElementById('arm-qtd')?.focus());
   }
 
-  /** Unidade em que o operador digita o parcial: a da compra (FD, CX), convertida para a padrão antes de gravar. */
+  /**
+   * Unidade da caixa de quantidade: a da compra (FD, CX) quando o que falta fecha embalagem inteira; senão a padrão
+   * (pesável: 1.142 KG não é caixa inteira). O Sankhya movimenta na padrão (× fator).
+   */
   unidadeParcial(t: TarefaArmazenagem): { unidade: string; fator: number } {
-    return t.unidadeCompra && t.fatorCompra && t.fatorCompra > 0 && t.unidadeCompra !== t.unidade
-      ? { unidade: t.unidadeCompra, fator: t.fatorCompra }
+    const f = t.fatorCompra ?? 0;
+    const alt = f > 0 ? falta(t) / f : 0;
+    return t.unidadeCompra && f > 0 && t.unidadeCompra !== t.unidade && Math.abs(alt - Math.round(alt)) < 0.001
+      ? { unidade: t.unidadeCompra, fator: f }
       : { unidade: t.unidade ?? '', fator: 1 };
+  }
+
+  /** Caixa "Quantidade a guardar": valor e máximo na unidade da caixa. */
+  readonly caixa = computed(() => {
+    const t = this.atual();
+    if (!t) return null;
+    const u = this.unidadeParcial(t);
+    const max = Math.round((falta(t) / u.fator) * 1000) / 1000;
+    const valor = Math.round(((this.qtdParcial() ?? falta(t)) / u.fator) * 1000) / 1000;
+    return { unidade: u.unidade, fator: u.fator, max, valor, parcial: this.qtdParcial() != null };
+  });
+
+  private definirCaixa(valor: number): void {
+    const c = this.caixa();
+    if (!c) return;
+    const v = Math.min(Math.max(valor, 0), c.max);
+    if (v <= 0) return;
+    this.qtdParcial.set(v >= c.max ? null : Math.round(v * c.fator * 1000) / 1000);
+  }
+
+  mais(): void {
+    const c = this.caixa();
+    if (c) this.definirCaixa(c.valor + 1);
+    this.focar();
+  }
+
+  menos(): void {
+    const c = this.caixa();
+    if (c && c.valor - 1 > 0) this.definirCaixa(c.valor - 1);
+    this.focar();
   }
 
   /** Quantidade digitada na unidade da compra; o Sankhya movimenta na padrão (× fator). */
@@ -335,12 +372,12 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
       this.aviso.set({ tom: 'erro', titulo: 'Quantidade inválida', mensagem: 'Digite quanto vai guardar neste endereço.' });
       return;
     }
-    if (q >= falta(t)) {
-      this.aviso.set({ tom: 'erro', titulo: 'Isso é tudo', mensagem: `Falta ${qtdOperador(t, falta(t)).principal}: cancele e bipe o endereço.` });
+    if (q > falta(t)) {
+      this.aviso.set({ tom: 'erro', titulo: 'Mais que o que falta', mensagem: `Falta ${qtdOperador(t, falta(t)).principal}.` });
       return;
     }
-    this.qtdParcial.set(q);
-    this.aviso.set({ tom: 'atencao', titulo: `Parcial: ${qtdOperador(t, q).principal}`, mensagem: 'Bipe o endereço para guardar esta parte.' });
+    this.qtdParcial.set(q >= falta(t) ? null : q);
+    this.aviso.set(null);
     this.passo.set('endereco');
     this.focar();
   }

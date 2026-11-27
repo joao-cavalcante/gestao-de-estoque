@@ -192,6 +192,57 @@ public final class EnderecamentoHelper {
         return criadas;
     }
 
+    /**
+     * Sobra da compra que virou PEDIDO COMPLEMENTAR (TGFCON2.NUPEDCOMP da conferência [nuconf]): ela ficou fisicamente
+     * na doca (a tarefa da compra é limitada ao que entrou — decisão de 27/11/2026). Confirmado o complemento, gera as
+     * tarefas dele: saldo na doca + uma tarefa por produto/controle/local, NUNOTA = complemento. Idempotente: complemento
+     * que já tem tarefa devolve 0. Devolve quantas criou.
+     */
+    public int gerarTarefasComplemento(BigDecimal nunota, BigDecimal nuconf, BigDecimal codusu) throws Exception {
+        Map<String, Object> rec = Db.um("SELECT R.NUREC, R.SITUACAO, CO.NUPEDCOMP FROM TORREC R JOIN TGFCON2 CO ON CO.NUCONF = R.NUCONF "
+            + "WHERE R.NUNOTA = :N AND R.NUCONF = :C FOR UPDATE OF R.NUREC", Db.p("N", nunota, "C", nuconf));
+        if (rec == null) throw new IllegalStateException("Compra " + nunota + " (conferência " + nuconf + ") não foi registrada pela Torre.");
+        BigDecimal comp = Db.dec(rec.get("NUPEDCOMP"));
+        if (comp == null || comp.signum() == 0) return 0;
+        Map<String, Object> ja = Db.um("SELECT COUNT(*) AS N FROM TORTAR WHERE NUNOTA = :P", Db.p("P", comp));
+        if (Db.dec0(ja.get("N")).signum() > 0) return 0;
+        Map<String, Object> cab = Db.um("SELECT CODEMP, STATUSNOTA FROM TGFCAB WHERE NUNOTA = :P", Db.p("P", comp));
+        if (cab == null || !"L".equals(Db.txt(cab.get("STATUSNOTA")))) throw new IllegalStateException("O pedido complementar " + comp + " não está confirmado.");
+        BigDecimal codemp = Db.dec(cab.get("CODEMP"));
+        int criadas = 0;
+        Map<String, List<EnderecamentoRegras.Endereco>> porLocal = new LinkedHashMap<String, List<EnderecamentoRegras.Endereco>>();
+        for (Map<String, Object> l : Db.lista("SELECT I.CODPROD, NVL(I.CONTROLE, ' ') AS CONTROLE, I.CODLOCALORIG AS CODLOCAL, P.CODVOL, SUM(I.QTDNEG) AS QTD "
+            + "FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD WHERE I.NUNOTA = :P AND I.SEQUENCIA > 0 AND NVL(I.ATUALESTOQUE, 0) <> 0 "
+            + "GROUP BY I.CODPROD, NVL(I.CONTROLE, ' '), I.CODLOCALORIG, P.CODVOL ORDER BY I.CODPROD", Db.p("P", comp))) {
+            BigDecimal codprod = Db.dec(l.get("CODPROD"));
+            String ctl = Db.txt(l.get("CONTROLE"));
+            BigDecimal codlocal = Db.dec(l.get("CODLOCAL"));
+            BigDecimal qtd = Db.dec0(l.get("QTD"));
+            if (qtd.signum() <= 0 || codlocal == null) continue;
+            BigDecimal doca = doca(codemp, codlocal);
+            somar(doca, codprod, ctl, qtd);
+            String k = codemp.toPlainString() + "|" + codlocal.toPlainString();
+            List<EnderecamentoRegras.Endereco> ends = porLocal.get(k);
+            if (ends == null) {
+                ends = enderecos(codemp, codlocal);
+                porLocal.put(k, ends);
+            }
+            EnderecamentoRegras.Endereco sug = EnderecamentoRegras.sugerir(ends, EnderecamentoRegras.chave(codprod.toPlainString(), ctl), qtd,
+                tipoSeparacao(codprod));
+            BigDecimal nutar = JapeFactory.dao(I_TAR).create()
+                .set("TIPO", "ARM").set("NUNOTA", comp).set("NUCONF", nuconf).set("CODEMP", codemp).set("CODLOCAL", codlocal)
+                .set("CODPROD", codprod).set("CONTROLE", ctl == null || ctl.isEmpty() ? " " : ctl).set("CODVOL", Db.txt(l.get("CODVOL")))
+                .set("QTD", qtd).set("QTDFEITA", BigDecimal.ZERO).set("CODENDORIG", doca)
+                .set("CODENDSUG", sug == null ? null : BigDecimal.valueOf(sug.codend))
+                .set("SITUACAO", EnderecamentoRegras.ABERTA).set("DHCRIACAO", TimeUtils.getNow())
+                .save().asBigDecimal("NUTAR");
+            movimento("ENT", nutar, comp, codprod, ctl, qtd, null, doca, "Sobra da compra " + nunota + " (pedido complementar)", codusu);
+            EnderecamentoRegras.reservar(sug, EnderecamentoRegras.chave(codprod.toPlainString(), ctl), qtd);
+            criadas++;
+        }
+        return criadas;
+    }
+
     /** Falha na geração: TORREC fica 'ER' com o motivo (o job tenta de novo em 30 min). */
     public static void registrarFalha(BigDecimal nunota, BigDecimal nuconf, String erro) throws Exception {
         Db.executar("UPDATE TORREC SET ENDSIT = 'ER', ENDERRO = SUBSTR(:M, 1, 400), DHENDER = SYSDATE WHERE NUNOTA = :N AND NUCONF = :C",

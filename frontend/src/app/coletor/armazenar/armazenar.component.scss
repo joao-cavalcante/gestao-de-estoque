@@ -197,3 +197,49 @@
 .cl-rodape__mais.ar-grande { width: 60px; height: 60px; }
 
 .ar-motivo-btn { padding: 0 16px; }
+
+// 4ª revisão (27/11/2026): caixa "Quantidade a guardar" — padrão putaway por item (Infor): já preenchida, − / + grandes.
+.ar-caixa {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 2px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+}
+
+.ar-caixa--parcial { border-color: #f2b705; }
+
+.ar-caixa__linha {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  gap: 8px;
+}
+
+.ar-caixa__btn {
+  min-height: 64px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface-2);
+  color: var(--oq-text-primary);
+  font-size: 30px;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:disabled { opacity: 0.35; cursor: default; }
+}
+
+.ar-caixa__valor {
+  min-height: 64px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+  font-size: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+
+  small { font-size: 16px; font-weight: 700; color: var(--oq-text-secondary); }
+}

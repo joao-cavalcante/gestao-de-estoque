@@ -113,7 +113,11 @@ export class LiberacaoCorteComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** A mesa foi aberta pelo "liberar corte" de uma compra: ela relê até a compra ficar pronta para aprovar. */
+  readonly mesaAposCorte = signal(false);
+
   abrirRecebimento(r: Recebimento): void {
+    this.mesaAposCorte.set(false);
     this.fecharCorte();
     this.recebimentoAberto.set(r.nunota);
     this.router.navigate(['/liberacoes/recebimento', r.nunota], { replaceUrl: true });
@@ -346,7 +350,17 @@ export class LiberacaoCorteComponent implements OnInit, OnDestroy {
           this.obs = '';
           if (this.pendentes().length === 0) {
             // Só liberar fecha a conferência; negar manda para recontagem — nada a faturar (mesma regra do pop-up).
-            if (liberar === 'S' && res.fatAoConcluir === 'S') this.faturarOferta.set(item.nunota);
+            const ehCompra = this.recebimentos().some((r) => r.nunota === item.nunota);
+            if (liberar === 'S' && ehCompra) {
+              // 27/11/2026 ("ao liberar, abrir a mesa"): compra com corte liberado segue direto para a mesa dela, com o
+              // mesmo liberador — aprova no mesmo fluxo, sem voltar à lista.
+              this.lista.update((l) => l.filter((c) => c.nunota !== item.nunota));
+              this.fecharCorte();
+              this.mesaAposCorte.set(true);
+              this.recebimentoAberto.set(item.nunota);
+              this.router.navigate(['/liberacoes/recebimento', item.nunota], { replaceUrl: true });
+              setTimeout(() => this.carregar(), 1500);
+            } else if (liberar === 'S' && res.fatAoConcluir === 'S') this.faturarOferta.set(item.nunota);
             else this.removerDaFila(item.nunota);
           }
         },

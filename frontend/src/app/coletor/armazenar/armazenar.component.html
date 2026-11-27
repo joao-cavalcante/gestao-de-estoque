@@ -93,19 +93,32 @@
               <span class="cl-doc__l1">
                 <b class="cl-doc__num">{{ t.codprod }}</b>
                 <span class="ar-traco">-</span>
-                @if (aGuardar(); as q) {
-                  <span class="ar-qtd">{{ q.principal }}</span>
-                  @if (q.apoio) { <span class="ar-apoio">{{ q.apoio }}</span> }
-                }
+                <span class="ar-qtd">{{ qtd(t, falta(t)).principal }}</span>
+                @if (qtd(t, falta(t)).apoio; as ap) { <span class="ar-apoio">{{ ap }}</span> }
               </span>
               <span class="cl-doc__cliente">{{ t.descricao }}</span>
               <span class="cl-doc__l3">
                 <span>Compra {{ t.numnota ?? t.nunota }}</span>
                 @if (t.controle) { <span>Lote {{ t.controle }}</span> }
-                @if (qtdParcial() != null) { <span class="ar-parcial">Parcial de {{ qtd(t, falta(t)).principal }}</span> }
-                @else if (t.qtdFeita > 0) { <span>{{ qtd(t, t.qtdFeita).principal }} já guardado</span> }
+                @if (t.qtdFeita > 0) { <span>{{ qtd(t, t.qtdFeita).principal }} já guardado</span> }
               </span>
             </section>
+
+            <!-- Caixa "Quantidade a guardar": tudo o que falta; − / + de 1 em 1; toque no número para digitar -->
+            @if (passo() === 'endereco' || passo() === 'troca') {
+              @if (caixa(); as c) {
+                <section class="ar-caixa" [class.ar-caixa--parcial]="c.parcial" aria-label="Quantidade a guardar">
+                  <span class="ar-rotulo">Quantidade a guardar @if (c.parcial) { <b class="ar-parcial">· parcial de {{ qtdTexto(c.max) }}</b> }</span>
+                  <div class="ar-caixa__linha">
+                    <button type="button" class="ar-caixa__btn" aria-label="Menos uma" [disabled]="ocupado() || c.valor <= 1" (click)="menos()">−</button>
+                    <button type="button" class="ar-caixa__valor" aria-label="Digitar a quantidade" [disabled]="ocupado()" (click)="abrirParcial()">
+                      {{ qtdTexto(c.valor) }} <small>{{ c.unidade }}</small>
+                    </button>
+                    <button type="button" class="ar-caixa__btn" aria-label="Mais uma" [disabled]="ocupado() || c.valor >= c.max" (click)="mais()">+</button>
+                  </div>
+                </section>
+              }
+            }
 
             <ol class="ar-passos" aria-label="Passos">
               <li [attr.data-e]="passo() === 'produto' ? 'atual' : 'feito'">Produto</li>
@@ -154,9 +167,7 @@
         @if (atual()?.sugerido) {
           <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="enderecoCheio()">Endereço cheio</button>
         }
-        @if (qtdParcial() == null) {
-          <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="abrirParcial()">Parcial</button>
-        } @else {
+        @if (qtdParcial() != null) {
           <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="cancelarParcial()">Guardar tudo</button>
         }
       }
