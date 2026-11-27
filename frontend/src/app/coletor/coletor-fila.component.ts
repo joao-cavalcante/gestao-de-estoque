@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { ConferenciasService } from '../fila-tarefas/conferencias.service';
-import { Tarefa, jaENota } from '../fila-tarefas/tarefa.model';
+import { Tarefa, ehEntrada, jaENota } from '../fila-tarefas/tarefa.model';
 import { ActionFeedbackService } from '../shared/action-feedback/action-feedback.service';
 import { OqIconComponent } from '../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../shared/icons/oq-spinner.component';
@@ -37,6 +37,15 @@ type EstadoLeitura =
 const TAMANHO_PAGINA = 15;
 const CHAVE_ORDEM = 'wms_coletor_ordem';
 const CHAVE_TECLADO = 'wms_coletor_teclado';
+const CHAVE_TIPO = 'wms_coletor_tipo';
+
+/** Entrada (compra) × saída (venda/pedido) na fila do coletor — pedido do usuário em 27/11/2026. */
+type TipoFila = 'todos' | 'entrada' | 'saida';
+const TIPOS_FILA: { id: TipoFila; rotulo: string }[] = [
+  { id: 'todos', rotulo: 'Todos' },
+  { id: 'entrada', rotulo: 'Entrada' },
+  { id: 'saida', rotulo: 'Saída' },
+];
 /** Mesma leitura repetida dentro desta janela (gatilho duplo, Enter duplicado) é ignorada. */
 const JANELA_DUPLICADA_MS = 1500;
 /** Atualização automática da fila enquanto a tela está visível. */
@@ -65,6 +74,8 @@ export class ColetorFilaComponent implements OnInit, OnDestroy {
   @ViewChild('campo') campo?: ElementRef<HTMLInputElement>;
 
   readonly ordens = ORDENS_COLETOR;
+  readonly tipos = TIPOS_FILA;
+  readonly tipo = signal<TipoFila>(lerTipo());
   readonly operador = computed(() => this.auth.usuario()?.nome ?? '');
 
   /** TODA a fila da API (para explicar bloqueio/concluído na busca); a lista mostra só o que é para conferir. */
@@ -81,7 +92,17 @@ export class ColetorFilaComponent implements OnInit, OnDestroy {
   codigo = '';
   tecladoAberto = lerTeclado();
 
-  readonly fila = computed(() => ordenarFila(filaDoColetor(this.tarefas() ?? []), this.ordem()));
+  private readonly todosDaFila = computed(() => filaDoColetor(this.tarefas() ?? []));
+  readonly contagem = computed(() => {
+    const l = this.todosDaFila();
+    const ent = l.filter((t) => ehEntrada(t.tipMov)).length;
+    return { todos: l.length, entrada: ent, saida: l.length - ent } as Record<TipoFila, number>;
+  });
+  readonly fila = computed(() => {
+    const tipo = this.tipo();
+    const l = this.todosDaFila().filter((t) => tipo === 'todos' || (tipo === 'entrada') === ehEntrada(t.tipMov));
+    return ordenarFila(l, this.ordem());
+  });
   readonly paginaAtual = computed(() => paginar(this.fila(), this.pagina(), TAMANHO_PAGINA));
   readonly variasEmpresas = computed(() => new Set((this.tarefas() ?? []).map((t) => t.codigoEmpresa ?? '')).size > 1);
 
@@ -241,6 +262,20 @@ export class ColetorFilaComponent implements OnInit, OnDestroy {
     }
   }
 
+  trocarTipo(t: TipoFila): void {
+    this.tipo.set(t);
+    this.pagina.set(1);
+    try {
+      localStorage.setItem(CHAVE_TIPO, t);
+    } catch {
+      /* ignora */
+    }
+  }
+
+  entrada(t: Tarefa): boolean {
+    return ehEntrada(t.tipMov);
+  }
+
   irPagina(delta: number): void {
     this.pagina.set(this.paginaAtual().pagina + delta);
   }
@@ -335,6 +370,16 @@ function lerOrdem(): OrdemColetor {
     /* ignora */
   }
   return 'antigos';
+}
+
+function lerTipo(): TipoFila {
+  try {
+    const v = localStorage.getItem(CHAVE_TIPO);
+    if (v === 'todos' || v === 'entrada' || v === 'saida') return v;
+  } catch {
+    /* ignora */
+  }
+  return 'todos';
 }
 
 function lerTeclado(): boolean {

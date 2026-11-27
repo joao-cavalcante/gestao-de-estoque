@@ -1,4 +1,5 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -36,15 +37,15 @@ const MOTIVO_CHEIO = MOTIVOS_TROCA[0];
  * Armazenar no coletor — redesenho de 27/11/2026 no padrão de mercado de putaway dirigido (Oracle WMS Cloud, Infor,
  * SAP EWM): o sistema entrega a próxima tarefa; o DESTINO é o elemento principal (rua · módulo · nível em blocos);
  * bipar outro endereço vira a exceção "trocar destino" com motivo na mesma tela; "Endereço cheio" já registra o motivo.
- * Visual da conferência no coletor: faixa de cabeçalho, sinaleiro (verde #12A150 · amarelo #F2B705 · vermelho
- * #E0261B), leitura e ação principal embaixo, ao alcance do polegar. Regras de negócio inalteradas (addon TOR).
+ * Visual UNIFICADO com a fila do coletor (2ª revisão, 27/11/2026): mesmo cabeçalho, leitura no topo, tarja do
+ * sinaleiro, linhas da lista e rodapé com ⚙; sem fundo preto. Regras de negócio inalteradas (addon TOR).
  */
 @Component({
   selector: 'app-armazenar',
   standalone: true,
-  imports: [FormsModule, OqIconComponent, OqSpinnerComponent],
+  imports: [FormsModule, NgTemplateOutlet, OqIconComponent, OqSpinnerComponent],
   templateUrl: './armazenar.component.html',
-  styleUrl: './armazenar.component.scss',
+  styleUrls: ['../coletor-fila.component.scss', './armazenar.component.scss'],
 })
 export class ArmazenarComponent implements OnInit, OnDestroy {
   private readonly api = inject(ArmazenarService);

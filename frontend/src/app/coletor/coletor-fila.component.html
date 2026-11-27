@@ -90,7 +90,13 @@
 
   <!-- Fila: documentos para conferir -->
   <div class="cl-fila-topo">
-    <span class="cl-fila-topo__total"><b>{{ fila().length }}</b> para conferir</span>
+    <div class="cl-tipo" role="tablist" aria-label="Tipo de documento">
+      @for (o of tipos; track o.id) {
+        <button type="button" role="tab" class="cl-tipo__btn" [class.cl-tipo__btn--ativo]="tipo() === o.id" [attr.aria-selected]="tipo() === o.id" (click)="trocarTipo(o.id)">
+          {{ o.rotulo }} <b>{{ contagem()[o.id] }}</b>
+        </button>
+      }
+    </div>
     <select class="cl-ordem" aria-label="Ordenação da fila" [ngModel]="ordem()" (ngModelChange)="trocarOrdem($event)" name="ordem">
       @for (o of ordens; track o.id) { <option [value]="o.id">{{ o.rotulo }}</option> }
     </select>
@@ -100,7 +106,7 @@
     @if (tarefas() === null && carregando()) {
       <div class="cl-vazio"><oq-spinner [size]="18" /> Carregando a fila…</div>
     } @else if (fila().length === 0) {
-      <div class="cl-vazio">{{ tarefas() === null ? 'A fila não foi carregada.' : 'Nenhum documento para conferir agora.' }}</div>
+      <div class="cl-vazio">{{ tarefas() === null ? 'A fila não foi carregada.' : tipo() === 'entrada' ? 'Nenhuma entrada para conferir agora.' : tipo() === 'saida' ? 'Nenhuma saída para conferir agora.' : 'Nenhum documento para conferir agora.' }}</div>
     } @else {
       <ul class="cl-lista">
         @for (t of paginaAtual().itens; track t.numeroUnico) {
@@ -133,8 +139,7 @@
   @if (menuAberto()) {
     <div class="cl-menu-fundo" (click)="menuAberto.set(false)"></div>
     <nav class="cl-menu" aria-label="Mais opções do coletor">
-      <button type="button" class="cl-menu__item" (click)="abrirArmazenar()"><oq-icon name="box" [size]="18" /> Armazenar (endereçamento)</button>
-      <button type="button" class="cl-menu__item" (click)="atualizar()"><oq-icon name="sync" [size]="18" /> Atualizar fila</button>
+      <button type="button" class="cl-menu__item" (click)="abrirArmazenar()"><oq-icon name="box" [size]="18" /> Armazenar</button>
       <button type="button" class="cl-menu__item" (click)="alternarTema()">
         <oq-icon [name]="tema.tema() === 'dark' ? 'sun' : 'moon'" [size]="18" /> {{ tema.tema() === 'dark' ? 'Tema claro' : 'Tema escuro' }}
       </button>
@@ -150,6 +155,7 @@
     <b class="cl-doc__num">{{ t.numeroUnico }}</b>
     @if (mostraNf(t)) { <span class="cl-doc__nf">NF {{ t.nf }}</span> }
     <span class="cl-doc__tags">
+      <span class="cl-tag" [class.cl-tag--entrada]="entrada(t)" [class.cl-tag--saida]="!entrada(t)">{{ entrada(t) ? 'ENTRADA' : 'SAÍDA' }}</span>
       @if (t.express) { <span class="cl-tag cl-tag--express">EXPRESS</span> }
       @if (t.retira) { <span class="cl-tag cl-tag--retira">RETIRA</span> }
     </span>

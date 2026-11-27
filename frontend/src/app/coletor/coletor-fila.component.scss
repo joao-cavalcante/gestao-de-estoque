@@ -322,6 +322,55 @@
   letter-spacing: 0.02em;
 }
 
+// Entrada × saída: contorno (não compete com o sinaleiro, que é de estado) — 27/11/2026.
+.cl-tag--entrada,
+.cl-tag--saida {
+  padding: 1px 5px;
+  border: 1.5px solid currentColor;
+  background: none;
+}
+
+.cl-tag--entrada { color: var(--oq-brand-text, #4b3f8f); }
+.cl-tag--saida { color: var(--oq-text-secondary); }
+
+.cl-fila-topo:has(.cl-tipo) { flex-wrap: wrap; }
+
+.cl-fila-topo:has(.cl-tipo) .cl-ordem { flex: 1; max-width: none; }
+
+.cl-tipo {
+  display: flex;
+  flex: 1 1 100%;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+  overflow: hidden;
+}
+
+.cl-tipo__btn {
+  flex: 1;
+  white-space: nowrap;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+  color: var(--oq-text-secondary);
+  font-family: var(--oq-font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:last-child { border-right: 0; }
+
+  b { margin-left: 2px; color: var(--oq-text-primary); font-variant-numeric: tabular-nums; }
+}
+
+.cl-tipo__btn--ativo {
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+
+  b { color: inherit; }
+}
+
 .cl-tag--express {
   background: #E0261B;
   color: #fff;
