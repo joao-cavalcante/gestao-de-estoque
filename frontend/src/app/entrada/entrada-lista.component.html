@@ -1,7 +1,7 @@
 <div class="oq-page">
   <header class="oq-page__header">
     <div class="en-topo">
-      <!-- Uma aba por atividade da entrada (19/11/2026). Armazenagem chega com o endereçamento (etapa 4). -->
+      <!-- Uma aba por atividade da entrada (19/11/2026). Armazenagem = endereçamento (27/11/2026). -->
       <div class="en-filtros" role="tablist" aria-label="Atividade">
         <button
           type="button"
@@ -13,8 +13,15 @@
         >
           Recebimento <span class="en-filtro__qtd">{{ aReceber().length }}</span>
         </button>
-        <button type="button" role="tab" class="en-filtro" disabled aria-selected="false" title="Guardar o pallet da doca no endereço — chega com o endereçamento (etapa 4)">
-          Armazenagem <span class="en-filtro__breve">etapa 4</span>
+        <button
+          type="button"
+          role="tab"
+          class="en-filtro"
+          [class.en-filtro--ativo]="atividade() === 'armazenagem'"
+          [attr.aria-selected]="atividade() === 'armazenagem'"
+          (click)="atividade.set('armazenagem'); carregarArmazenagem()"
+        >
+          Armazenagem <span class="en-filtro__qtd">{{ pendentesArmazenagem() }}</span>
         </button>
       </div>
       <label class="en-busca">
@@ -38,7 +45,88 @@
   </header>
 
   <div class="oq-page__content">
-    @if (erro()) {
+    @if (atividade() === 'armazenagem') {
+      @if (erroArmazenagem() && armazenagem() === null) {
+        <div class="oq-page__status oq-page__status--erro">
+          {{ erroArmazenagem() }}
+          <button type="button" (click)="carregarArmazenagem()">Tentar de novo</button>
+        </div>
+      } @else if (armazenagem() === null) {
+        <div class="oq-page__grid" aria-busy="true">
+          <oq-skeleton variant="task-card" [count]="3" />
+        </div>
+      } @else if (armazenagemVisivel().length === 0) {
+        <div class="oq-page__status">
+          @if (busca()) {
+            Nenhuma compra na armazenagem com "{{ busca() }}".
+            <button type="button" (click)="limparBusca()">Limpar busca</button>
+          } @else {
+            Nada para guardar agora. As compras aparecem aqui quando são aprovadas.
+          }
+        </div>
+      } @else {
+        <div class="oq-page__grid">
+          @for (c of armazenagemVisivel(); track c.nunota) {
+            <article class="oq-card en-card" [class.en-card--fraco]="c.situacao === 'guardado'">
+              <div class="en-card__topo">
+                <span class="en-card__nunota">{{ c.nunota }}</span>
+                @if (c.numnota) { <span class="en-card__nf">NF {{ c.numnota }}</span> }
+                <span class="en-card__data" title="Aprovada em">{{ quando(c.aprovadaEm) }}</span>
+              </div>
+              <span class="en-card__fornecedor" [title]="c.fornecedor ?? ''">{{ c.fornecedor ?? '—' }}</span>
+
+              <span class="en-status" [attr.data-arm]="c.situacao">
+                <oq-icon [name]="c.situacao === 'guardado' ? 'check' : c.situacao === 'erro' ? 'circle-alert' : c.situacao === 'aguardando' ? 'clock' : 'box'" [size]="14" />
+                {{ rotuloArm[c.situacao] }}
+                @if (c.itens.length) { <span class="en-status__extra">· {{ guardados(c) }} de {{ c.itens.length }} {{ c.itens.length === 1 ? 'item' : 'itens' }}</span> }
+              </span>
+
+              @if (c.itens.length) {
+                <div class="en-andamento">
+                  {{ operadores(c) || 'Ninguém começou ainda' }}
+                  <span class="en-andamento__barra" aria-hidden="true">
+                    <span [style.width.%]="(guardados(c) * 100) / c.itens.length"></span>
+                  </span>
+                </div>
+              }
+              @if (c.erro) { <p class="en-arm-erro">{{ c.erro }}</p> }
+              @if (c.situacao === 'aguardando') { <p class="en-arm-nota">As tarefas saem depois do ajuste de peso.</p> }
+
+              @if (abertas().has(c.nunota)) {
+                <ul class="en-arm-itens">
+                  @for (i of c.itens; track i.nutar) {
+                    <li class="en-arm-item" [attr.data-sit]="i.situacao">
+                      <div class="en-arm-item__l1">
+                        <b>{{ i.codprod }}</b> <span>{{ i.descricao }}</span>
+                        <span class="en-arm-item__qtd">{{ qtdTexto(i.qtd) }} {{ i.unidade }}</span>
+                      </div>
+                      <div class="en-arm-item__rota">
+                        <span>{{ i.origem ?? 'Doca' }}</span>
+                        <oq-icon name="chevron-right" [size]="12" />
+                        @if (i.guardadoEm) { <b>{{ i.guardadoEm }}</b> } @else { <span>{{ i.sugerido ?? 'sem sugestão' }}</span> }
+                        <span class="en-arm-item__sit">{{ rotuloItem(i) }}</span>
+                      </div>
+                      @if (i.operador || i.concluidaEm) {
+                        <div class="en-arm-item__quem">{{ i.operador }}@if (i.concluidaEm) { · {{ quando(i.concluidaEm) }} }</div>
+                      }
+                      @if (i.motivo) { <div class="en-arm-item__motivo">Troca do sugerido ({{ i.sugerido }}): {{ i.motivo }}</div> }
+                    </li>
+                  }
+                </ul>
+              }
+
+              @if (c.itens.length) {
+                <div class="oq-card__actions">
+                  <button type="button" class="en-btn" [attr.aria-expanded]="abertas().has(c.nunota)" (click)="alternar(c)">
+                    {{ abertas().has(c.nunota) ? 'Fechar itens' : 'Ver itens' }}
+                  </button>
+                </div>
+              }
+            </article>
+          }
+        </div>
+      }
+    } @else if (erro()) {
       <div class="oq-page__status oq-page__status--erro">
         {{ erro() }}
         <button type="button" (click)="carregar()">Tentar de novo</button>

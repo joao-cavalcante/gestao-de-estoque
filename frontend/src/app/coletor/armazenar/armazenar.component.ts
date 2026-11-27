@@ -16,28 +16,35 @@ import {
   normalizar,
   ordenarTarefas,
   qtdTexto,
+  segmentos,
   tarefaPorProduto,
 } from './armazenar.logic';
 import { ArmazenarService } from './armazenar.service';
 
-type Passo = 'lista' | 'produto' | 'endereco' | 'motivo' | 'quantidade';
+/**
+ * inicio: "Iniciar armazenagem (N na doca)" · lista: todas as tarefas · produto/endereco: leitura ·
+ * troca: bipou outro endereço → motivo na mesma tela · confirmar: Guardar (ou Guardar menos).
+ */
+type Passo = 'inicio' | 'lista' | 'produto' | 'endereco' | 'troca' | 'confirmar';
 type Aviso = { tom: 'ok' | 'erro' | 'atencao'; titulo: string; mensagem?: string } | null;
 
 const INTERVALO_ATUALIZACAO_MS = 60_000;
 const JANELA_DUPLICADA_MS = 1500;
+const MOTIVO_CHEIO = MOTIVOS_TROCA[0];
 
 /**
- * Armazenar no coletor (endereçamento, etapa 3b — 27/11/2026). Mesmo visual e leitura da fila do coletor
- * (campo único sempre pronto para o gatilho). Passos: tarefa → confere o produto → bipa o endereço (sugerido em
- * destaque; outro exige motivo) → confirma a quantidade → o addon move doca → endereço numa transação.
- * Guardar parte da quantidade é permitido: a tarefa continua em execução com o que falta.
+ * Armazenar no coletor — redesenho de 27/11/2026 no padrão de mercado de putaway dirigido (Oracle WMS Cloud, Infor,
+ * SAP EWM): o sistema entrega a próxima tarefa; o DESTINO é o elemento principal (rua · módulo · nível em blocos);
+ * bipar outro endereço vira a exceção "trocar destino" com motivo na mesma tela; "Endereço cheio" já registra o motivo.
+ * Visual da conferência no coletor: faixa de cabeçalho, sinaleiro (verde #12A150 · amarelo #F2B705 · vermelho
+ * #E0261B), leitura e ação principal embaixo, ao alcance do polegar. Regras de negócio inalteradas (addon TOR).
  */
 @Component({
   selector: 'app-armazenar',
   standalone: true,
   imports: [FormsModule, OqIconComponent, OqSpinnerComponent],
   templateUrl: './armazenar.component.html',
-  styleUrls: ['../coletor-fila.component.scss', './armazenar.component.scss'],
+  styleUrl: './armazenar.component.scss',
 })
 export class ArmazenarComponent implements OnInit, OnDestroy {
   private readonly api = inject(ArmazenarService);
@@ -55,15 +62,31 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   readonly tarefas = signal<TarefaArmazenagem[] | null>(null);
   readonly carregando = signal(false);
   readonly erroCarga = signal<string | null>(null);
-  readonly passo = signal<Passo>('lista');
+  readonly passo = signal<Passo>('inicio');
   readonly atual = signal<TarefaArmazenagem | null>(null);
   readonly destino = signal<string | null>(null);
   readonly motivo = signal<string | null>(null);
   readonly ocupado = signal(false);
   readonly aviso = signal<Aviso>(null);
   readonly escolha = signal<TarefaArmazenagem[] | null>(null);
+  readonly menos = signal(false);
+  readonly menuAberto = signal(false);
+  /** "Endereço cheio" já deu o motivo: o próximo endereço bipado vai direto para o Guardar. */
+  private trocaAutorizada = false;
 
   readonly lista = computed(() => ordenarTarefas(this.tarefas() ?? []));
+  readonly proxima = computed(() => this.lista().find((t) => t.nutar !== this.atual()?.nutar) ?? null);
+  readonly posicao = computed(() => {
+    const t = this.atual();
+    const l = this.lista();
+    const i = t ? l.findIndex((x) => x.nutar === t.nutar) : -1;
+    return { atual: i >= 0 ? i + 1 : 1, total: Math.max(l.length, 1) };
+  });
+  readonly destinoMostrado = computed(() => {
+    const p = this.passo();
+    return (p === 'troca' || p === 'confirmar') && this.destino() ? this.destino() : this.atual()?.sugerido ?? null;
+  });
+  readonly blocos = computed(() => segmentos(this.destinoMostrado()));
   readonly trocou = computed(() => {
     const t = this.atual();
     const d = this.destino();
@@ -80,7 +103,8 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.carregar();
     this.timer = setInterval(() => {
-      if (document.visibilityState === 'visible' && this.passo() === 'lista' && !this.ocupado()) this.carregar();
+      const p = this.passo();
+      if (document.visibilityState === 'visible' && (p === 'inicio' || p === 'lista') && !this.ocupado()) this.carregar();
     }, INTERVALO_ATUALIZACAO_MS);
     this.focar();
   }
@@ -112,14 +136,15 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
 
   rotuloLeitura(): string {
     switch (this.passo()) {
-      case 'lista':
-        return 'Bipe o produto ou toque numa tarefa';
       case 'produto':
-        return 'Bipe o produto para conferir';
+        return 'Bipe o produto';
       case 'endereco':
-        return 'Bipe a etiqueta do endereço';
+        return this.trocaAutorizada ? 'Bipe o novo endereço' : 'Bipe a etiqueta do endereço';
+      case 'troca':
+      case 'confirmar':
+        return 'Bipe outro endereço para trocar';
       default:
-        return '';
+        return 'Bipe um produto para começar por ele';
     }
   }
 
@@ -133,9 +158,9 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     this.feedback.trigger('ITEM_LIDO');
 
     const p = this.passo();
-    if (p === 'lista') this.lerNaLista(codigo);
+    if (p === 'inicio' || p === 'lista') this.lerNaLista(codigo);
     else if (p === 'produto') this.lerProduto(codigo);
-    else if (p === 'endereco') this.lerEndereco(codigo);
+    else this.lerEndereco(codigo);
     this.focar();
   }
 
@@ -149,6 +174,7 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     if (achadas.length > 1) {
       this.feedback.trigger('CONTROLE_NECESSARIO');
       this.escolha.set(achadas);
+      this.passo.set('lista');
       this.aviso.set({ tom: 'atencao', titulo: 'Mais de uma tarefa deste produto', mensagem: 'Escolha a compra.' });
       return;
     }
@@ -173,30 +199,43 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     if (!t) return;
     if (t.origem && normalizar(t.origem) === codigo) {
       this.feedback.trigger('OPERACAO_NAO_PERMITIDA');
-      this.aviso.set({ tom: 'erro', titulo: 'Essa é a doca', mensagem: 'Bipe o endereço onde o produto vai ser guardado.' });
+      this.aviso.set({ tom: 'erro', titulo: 'Essa é a doca', mensagem: 'Bipe o endereço onde o produto vai ficar.' });
       return;
     }
     this.destino.set(codigo);
+    this.menos.set(false);
     this.qtdDigitada = qtdTexto(falta(t));
     if (ehOSugerido(codigo, t)) {
       this.feedback.trigger('PRODUTO_CORRETO');
       this.motivo.set(null);
+      this.trocaAutorizada = false;
       this.aviso.set(null);
-      this.passo.set('quantidade');
+      this.passo.set('confirmar');
+    } else if (this.trocaAutorizada && this.motivo()) {
+      this.feedback.trigger('PRODUTO_CORRETO');
+      this.aviso.set(null);
+      this.passo.set('confirmar');
     } else {
       this.feedback.trigger('CONTROLE_NECESSARIO');
-      this.aviso.set({
-        tom: 'atencao',
-        titulo: t.sugerido ? `${codigo} não é o sugerido (${t.sugerido})` : `Sem sugestão: guardar em ${codigo}`,
-        mensagem: 'Informe o motivo da escolha.',
-      });
       this.motivo.set(null);
       this.motivoOutro = '';
-      this.passo.set('motivo');
+      this.aviso.set(null);
+      this.passo.set('troca');
     }
   }
 
   // ─── Passos ─────────────────────────────────────────────────────────────────────────────────────────────
+
+  /** Sistema entrega a próxima: em execução primeiro, depois a mais antiga. */
+  iniciar(): void {
+    const t = this.lista()[0];
+    if (t) this.abrir(t);
+  }
+
+  verTodas(): void {
+    this.aviso.set(null);
+    this.passo.set('lista');
+  }
 
   escolher(t: TarefaArmazenagem): void {
     this.escolha.set(null);
@@ -207,7 +246,6 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   abrir(t: TarefaArmazenagem, produtoConferido = false): void {
     if (this.ocupado()) return;
     this.ocupado.set(true);
-    this.aviso.set(null);
     this.escolha.set(null);
     this.api.iniciar(t.nutar).subscribe({
       next: (nova) => {
@@ -215,6 +253,9 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
         this.atual.set(nova);
         this.destino.set(null);
         this.motivo.set(null);
+        this.trocaAutorizada = false;
+        this.menos.set(false);
+        if (this.aviso()?.tom !== 'ok') this.aviso.set(null);
         this.passo.set(produtoConferido ? 'endereco' : 'produto');
         if (produtoConferido) this.feedback.trigger('PRODUTO_CORRETO');
         this.focar();
@@ -229,11 +270,21 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Exceção mais comum do mercado: o sugerido está cheio → motivo já registrado, operador bipa outro. */
+  enderecoCheio(): void {
+    this.motivo.set(MOTIVO_CHEIO);
+    this.trocaAutorizada = true;
+    this.destino.set(null);
+    this.passo.set('endereco');
+    this.feedback.trigger('CONTROLE_NECESSARIO');
+    this.aviso.set({ tom: 'atencao', titulo: 'Endereço cheio registrado', mensagem: 'Bipe o endereço onde o produto vai ficar.' });
+    this.focar();
+  }
+
   escolherMotivo(m: string): void {
     this.motivo.set(m);
-    this.aviso.set(null);
-    this.passo.set('quantidade');
-    this.focarQtd();
+    this.passo.set('confirmar');
+    this.focar();
   }
 
   confirmarMotivoOutro(): void {
@@ -242,28 +293,38 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
       this.aviso.set({ tom: 'erro', titulo: 'Escreva o motivo', mensagem: 'Pelo menos 3 letras.' });
       return;
     }
+    this.aviso.set(null);
     this.escolherMotivo(m);
   }
 
-  rebiparEndereco(): void {
+  manterSugerido(): void {
     this.destino.set(null);
     this.motivo.set(null);
-    this.aviso.set(null);
+    this.trocaAutorizada = false;
     this.passo.set('endereco');
     this.focar();
+  }
+
+  guardarMenos(): void {
+    this.menos.set(true);
+    setTimeout(() => {
+      const el = document.getElementById('arm-qtd') as HTMLInputElement | null;
+      el?.focus();
+      el?.select();
+    });
   }
 
   guardar(): void {
     const t = this.atual();
     const d = this.destino();
     if (!t || !d || this.ocupado()) return;
-    const q = lerQtd(this.qtdDigitada);
-    if (q == null) {
+    const q = this.menos() ? lerQtd(this.qtdDigitada) : falta(t);
+    if (q == null || q <= 0) {
       this.aviso.set({ tom: 'erro', titulo: 'Quantidade inválida', mensagem: 'Digite quanto foi guardado neste endereço.' });
       return;
     }
     if (q > falta(t)) {
-      this.aviso.set({ tom: 'erro', titulo: 'Quantidade maior que a tarefa', mensagem: `Falta guardar ${qtdTexto(falta(t))} ${t.unidade ?? ''}.` });
+      this.aviso.set({ tom: 'erro', titulo: 'Mais que a tarefa', mensagem: `Falta guardar ${qtdTexto(falta(t))} ${t.unidade ?? ''}.` });
       return;
     }
     this.ocupado.set(true);
@@ -271,15 +332,21 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
       next: (nova) => {
         this.ocupado.set(false);
         const resto = falta(nova);
+        this.trocaAutorizada = false;
         if (nova.situacao === 'CO' || resto <= 0) {
           this.feedback.trigger('SUCESSO_SANKHYA');
-          this.aviso.set({ tom: 'ok', titulo: `Guardado em ${d}`, mensagem: `${qtdTexto(q)} ${t.unidade ?? ''} · ${t.descricao}. Tarefa concluída.` });
-          this.voltar(false);
+          this.aviso.set({ tom: 'ok', titulo: `Guardado em ${d}`, mensagem: `${qtdTexto(q)} ${t.unidade ?? ''} · ${t.descricao}` });
+          this.atual.set(null);
+          this.destino.set(null);
+          this.motivo.set(null);
+          this.passo.set('inicio');
+          this.carregar();
         } else {
           this.feedback.trigger('PRODUTO_CORRETO');
           this.atual.set(nova);
           this.destino.set(null);
           this.motivo.set(null);
+          this.menos.set(false);
           this.passo.set('endereco');
           this.aviso.set({ tom: 'ok', titulo: `${qtdTexto(q)} guardado em ${d}`, mensagem: `Faltam ${qtdTexto(resto)} ${t.unidade ?? ''}: bipe o próximo endereço.` });
         }
@@ -291,41 +358,49 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
         this.aviso.set({ tom: 'erro', titulo: 'Não guardou', mensagem: erro(e, 'Confira a rede e tente de novo.') });
         // Resposta perdida pode ter gravado: relê a tarefa antes de deixar tentar de novo.
         this.api.iniciar(t.nutar).subscribe({ next: (r) => this.atual.set(r), error: () => undefined });
-        this.focarQtd();
+        this.focar();
       },
     });
   }
 
-  /** Volta para a lista (a tarefa continua em execução no Sankhya, com o que já foi guardado). */
-  voltar(limparAviso = true): void {
-    this.passo.set('lista');
+  /** Volta ao início (a tarefa segue em execução no Sankhya com o que já foi guardado). */
+  voltar(): void {
+    this.passo.set('inicio');
     this.atual.set(null);
     this.destino.set(null);
     this.motivo.set(null);
-    if (limparAviso) this.aviso.set(null);
+    this.trocaAutorizada = false;
+    this.escolha.set(null);
+    this.aviso.set(null);
     this.carregar();
     this.focar();
   }
 
   irConferencia(): void {
+    this.menuAberto.set(false);
     this.router.navigate(['/coletor']);
   }
 
-  progresso(t: TarefaArmazenagem): number {
-    return t.qtd > 0 ? Math.min(100, Math.round((t.qtdFeita / t.qtd) * 100)) : 0;
+  sair(): void {
+    this.menuAberto.set(false);
+    this.auth.logout();
+  }
+
+  textoGuardar(): string {
+    const t = this.atual();
+    return t ? `${qtdTexto(falta(t))} ${t.unidade ?? ''}`.trim() : '';
+  }
+
+  emTarefa(): boolean {
+    const p = this.passo();
+    return p !== 'inicio' && p !== 'lista';
   }
 
   // ─── Foco / leitor com foco fora do campo ───────────────────────────────────────────────────────────────
 
   private focar(): void {
-    setTimeout(() => this.campo?.nativeElement.focus({ preventScroll: true }));
-  }
-
-  private focarQtd(): void {
     setTimeout(() => {
-      const el = document.getElementById('arm-qtd') as HTMLInputElement | null;
-      el?.focus();
-      el?.select();
+      if (!this.menos() && !this.menuAberto()) this.campo?.nativeElement.focus({ preventScroll: true });
     });
   }
 
@@ -337,7 +412,6 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     const alvo = ev.target as HTMLElement | null;
     if (alvo?.tagName === 'INPUT' || alvo?.tagName === 'TEXTAREA' || alvo?.tagName === 'SELECT') return;
     if (ev.ctrlKey || ev.altKey || ev.metaKey) return;
-    if (!['lista', 'produto', 'endereco'].includes(this.passo())) return;
     const agora = Date.now();
     const rapido = agora - this.ultimaTecla < 100;
     this.ultimaTecla = agora;
@@ -351,6 +425,11 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
       return;
     }
     if (ev.key.length === 1) this.buffer = rapido ? this.buffer + ev.key : ev.key;
+  }
+
+  @HostListener('document:keydown.escape')
+  fechar(): void {
+    if (this.menuAberto()) this.menuAberto.set(false);
   }
 }
 

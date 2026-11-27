@@ -642,3 +642,75 @@
     margin-top: 0;
   }
 }
+
+// ─── Armazenagem (endereçamento, 27/11/2026) ─────────────────────────────────────────────────────────────
+.en-status[data-arm='guardando'] { color: var(--oq-aguardando-foreground); }
+.en-status[data-arm='erro'] { color: var(--oq-critical-foreground); }
+.en-status[data-arm='aguardando'] { color: var(--oq-warning-foreground); }
+.en-status[data-arm='guardado'] { color: var(--oq-concluido-foreground); }
+
+.en-arm-erro,
+.en-arm-nota {
+  margin: 8px 0 0;
+  font-family: var(--oq-font-body);
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.en-arm-erro { color: var(--oq-critical-foreground); }
+
+.en-arm-itens {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px dashed var(--oq-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.en-arm-item {
+  font-family: var(--oq-font-body);
+  font-size: 13px;
+  color: var(--oq-text-primary);
+}
+
+.en-arm-item__l1 {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+
+  span:not(.en-arm-item__qtd) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.en-arm-item__qtd {
+  margin-left: auto;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.en-arm-item__rota {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+
+  b { color: var(--oq-text-primary); font-variant-numeric: tabular-nums; }
+}
+
+.en-arm-item__sit { margin-left: auto; font-weight: 600; }
+.en-arm-item[data-sit='CO'] .en-arm-item__sit { color: var(--oq-concluido-foreground); }
+.en-arm-item[data-sit='EX'] .en-arm-item__sit { color: var(--oq-aguardando-foreground); }
+
+.en-arm-item__quem,
+.en-arm-item__motivo {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--oq-text-secondary);
+}
+
+.en-arm-item__motivo { color: var(--oq-warning-foreground); }

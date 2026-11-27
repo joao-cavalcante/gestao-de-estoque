@@ -81,3 +81,15 @@ export function lerQtd(texto: string): number | null {
   const n = Number(s);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
+
+/** Partes do endereço para o destino em blocos: "R07-M01-N02" → Rua R07 · Módulo 01 · Nível 02. */
+export function segmentos(codigo: string | null): { rotulo: string; valor: string }[] {
+  if (!codigo) return [];
+  const partes = codigo.split('-').filter((p) => p);
+  if (partes.length < 2) return [{ rotulo: 'Endereço', valor: codigo }];
+  return partes.map((p, i) => {
+    if (i > 0 && /^M\d+$/i.test(p)) return { rotulo: 'Módulo', valor: p.slice(1) };
+    if (i > 0 && /^N\d+$/i.test(p)) return { rotulo: 'Nível', valor: p.slice(1) };
+    return { rotulo: i === 0 ? 'Rua' : 'Posição', valor: p };
+  });
+}

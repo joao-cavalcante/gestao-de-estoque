@@ -1,4 +1,4 @@
-import { TarefaArmazenagem, ehDoProduto, ehOSugerido, falta, lerQtd, ordenarTarefas, tarefaPorProduto } from './armazenar.logic';
+import { TarefaArmazenagem, segmentos, ehDoProduto, ehOSugerido, falta, lerQtd, ordenarTarefas, tarefaPorProduto } from './armazenar.logic';
 
 function t(p: Partial<TarefaArmazenagem>): TarefaArmazenagem {
   return {
@@ -43,5 +43,13 @@ describe('armazenar.logic', () => {
     const l = [t({ nutar: 1 }), t({ nutar: 2, situacao: 'EX', codprod: 20 }), t({ nutar: 3, codprod: 20 })];
     expect(ordenarTarefas(l).map((x) => x.nutar)).toEqual([2, 1, 3]);
     expect(tarefaPorProduto('20', l).map((x) => x.nutar)).toEqual([2, 3]);
+  });
+
+  it('quebra o endereço em rua, módulo e nível', () => {
+    expect(segmentos('R07-M01-N02')).toEqual([
+      { rotulo: 'Rua', valor: 'R07' }, { rotulo: 'Módulo', valor: '01' }, { rotulo: 'Nível', valor: '02' },
+    ]);
+    expect(segmentos('DOCA')).toEqual([{ rotulo: 'Endereço', valor: 'DOCA' }]);
+    expect(segmentos(null)).toEqual([]);
   });
 });

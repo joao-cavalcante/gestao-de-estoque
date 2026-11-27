@@ -195,6 +195,16 @@ object Armazenagem {
 private fun mensagem(e: Throwable): String = (e.message ?: "falha no Sankhya").substringAfterLast("Exception:").trim()
 
 fun Route.armazenagemRoutes() {
+    /** Aba Armazenagem do Recebimento: andamento por compra (só leitura no Sankhya). */
+    get("/api/armazenagem/compras") {
+        val claims = call.exigirAuth() ?: return@get
+        try {
+            call.respond(ArmazenagemCompras.listar(claims))
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.BadGateway, mapOf("erro" to mensagem(e)))
+        }
+    }
+
     route("/api/armazenagem/tarefas") {
         get {
             val claims = call.exigirAuth() ?: return@get

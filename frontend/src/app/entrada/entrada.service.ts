@@ -81,10 +81,52 @@ export interface AprovacaoRecebimento {
   liberacoes: string[];
 }
 
+export type SituacaoArmazenagem = 'aguardando' | 'erro' | 'na_doca' | 'guardando' | 'guardado';
+
+export interface ItemArmazenagem {
+  nutar: number;
+  codprod: number;
+  descricao: string;
+  unidade: string | null;
+  qtd: number;
+  qtdFeita: number;
+  situacao: string;
+  origem: string | null;
+  sugerido: string | null;
+  guardadoEm: string | null;
+  motivo: string | null;
+  operador: string | null;
+  concluidaEm: string | null;
+}
+
+export interface CompraArmazenagem {
+  nunota: number;
+  numnota: number | null;
+  fornecedor: string | null;
+  codemp: number | null;
+  aprovadaEm: string | null;
+  situacao: SituacaoArmazenagem;
+  erro: string | null;
+  itens: ItemArmazenagem[];
+}
+
+export const ROTULO_ARMAZENAGEM: Record<SituacaoArmazenagem, string> = {
+  aguardando: 'Aguardando as tarefas',
+  erro: 'Erro ao gerar as tarefas',
+  na_doca: 'Na doca',
+  guardando: 'Guardando',
+  guardado: 'Guardado',
+};
+
 /** Tela Entrada (recebimentos de compra) e mesa de liberação; "Aprovar" pelo addon TOR desde 23/11/2026. */
 @Injectable({ providedIn: 'root' })
 export class EntradaService {
   private readonly http = inject(HttpClient);
+
+  /** Aba Armazenagem (27/11/2026): andamento da armazenagem por compra (addon TOR, só leitura). */
+  listarArmazenagem(): Observable<CompraArmazenagem[]> {
+    return this.http.get<CompraArmazenagem[]>('/api/armazenagem/compras');
+  }
 
   listar(): Observable<Recebimento[]> {
     return this.http.get<Recebimento[]>('/api/entrada');
