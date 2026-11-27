@@ -37,6 +37,7 @@ import wms.backend.separacao.separacaoRoutes
 import wms.backend.tarefas.SyncWorkerPool
 import wms.backend.tarefas.tarefasRoutes
 import wms.backend.entrada.entradaRoutes
+import wms.backend.armazenagem.armazenagemRoutes
 import wms.backend.tv.tvRoutes
 import wms.backend.reconferencia.reconferenciaRoutes
 import wms.backend.produtos.produtoRessincronizacaoRoutes
@@ -119,6 +120,7 @@ fun Application.module() {
         masterRoutes()
         tarefasRoutes()
         entradaRoutes()
+        armazenagemRoutes()
         tvRoutes()
         reconferenciaRoutes()
         authRoutes()

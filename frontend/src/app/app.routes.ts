@@ -34,6 +34,7 @@ import { AuditoriaPedidoComponent } from './auditoria-pedido/auditoria-pedido.co
 import { AuditoriaRecebimentoComponent } from './auditoria-recebimento/auditoria-recebimento.component';
 import { ColetorFilaComponent } from './coletor/coletor-fila.component';
 import { coletorRedirectGuard } from './coletor/coletor-modo';
+import { ArmazenarComponent } from './coletor/armazenar/armazenar.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -41,6 +42,7 @@ export const routes: Routes = [
   // Coletor (18/11/2026): aparelho de toque até 639px vai para a fila própria; computador/tablet seguem na Torre.
   { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard, coletorRedirectGuard] },
   { path: 'coletor', component: ColetorFilaComponent, canActivate: [authGuard] },
+  { path: 'coletor/armazenar', component: ArmazenarComponent, canActivate: [authGuard] },
   // Entrada (19/11/2026): recebimentos de compra (saíram da Fila) e mesa de liberação — só leitura.
   {
     path: 'entrada',

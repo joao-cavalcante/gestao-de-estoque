@@ -267,6 +267,11 @@ export class ColetorFilaComponent implements OnInit, OnDestroy {
     setTimeout(() => el?.focus({ preventScroll: true }), 30);
   }
 
+  abrirArmazenar(): void {
+    this.menuAberto.set(false);
+    this.router.navigate(['/coletor/armazenar']);
+  }
+
   abrirTorre(): void {
     this.menuAberto.set(false);
     definirPreferenciaTorre(true);

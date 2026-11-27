@@ -1,0 +1,168 @@
+<div class="cl">
+  <header class="cl-topo">
+    @if (passo() !== 'lista') {
+      <button type="button" class="cl-icone" aria-label="Voltar para as tarefas" title="Voltar para as tarefas" [disabled]="ocupado()" (click)="voltar()">
+        <oq-icon name="arrow-left" [size]="20" />
+      </button>
+    }
+    <div class="cl-topo__titulo">
+      <span class="cl-topo__nome">Armazenar</span>
+      @if (operador()) { <span class="cl-topo__operador">{{ operador() }}</span> }
+    </div>
+    @if (passo() === 'lista') {
+      <button type="button" class="cl-icone" aria-label="Atualizar tarefas" title="Atualizar tarefas" [disabled]="carregando()" (click)="carregar()">
+        @if (carregando()) { <oq-spinner [size]="18" /> } @else { <oq-icon name="sync" [size]="20" /> }
+      </button>
+    }
+  </header>
+
+  @if (passo() === 'lista' || passo() === 'produto' || passo() === 'endereco') {
+    <form class="cl-leitura" (ngSubmit)="onLer()">
+      <label class="cl-leitura__rotulo" for="arm-campo">{{ rotuloLeitura() }}</label>
+      <div class="cl-leitura__campo">
+        <input
+          #campo
+          id="arm-campo"
+          name="codigo"
+          class="cl-leitura__input"
+          [(ngModel)]="codigo"
+          inputmode="none"
+          enterkeyhint="go"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          placeholder="Aguardando leitura"
+          [disabled]="ocupado()"
+        />
+      </div>
+    </form>
+  }
+
+  @if (aviso(); as a) {
+    <div class="cl-estado" [class.cl-estado--encontrado]="a.tom === 'ok'" [class.cl-estado--erro]="a.tom === 'erro'"
+         [class.cl-estado--bloqueado]="a.tom === 'atencao'" [attr.role]="a.tom === 'ok' ? 'status' : 'alert'">
+      <oq-icon [name]="a.tom === 'ok' ? 'check' : 'circle-alert'" [size]="18" />
+      <div><b>{{ a.titulo }}</b>@if (a.mensagem) { <span>{{ a.mensagem }}</span> }</div>
+    </div>
+  }
+
+  <main class="cl-corpo">
+    @switch (passo()) {
+      @case ('lista') {
+        @if (escolha(); as esc) {
+          <ul class="cl-lista">
+            @for (t of esc; track t.nutar) {
+              <li><button type="button" class="cl-doc" (click)="escolher(t)">
+                <span class="cl-doc__l1"><b class="cl-doc__num">{{ t.numnota ?? t.nunota }}</b><span class="cl-doc__nf">{{ t.fornecedor }}</span></span>
+                <span class="cl-doc__l3"><span>Falta {{ qtdTexto(falta(t)) }} {{ t.unidade }}</span>@if (t.sugerido) { <span>→ {{ t.sugerido }}</span> }</span>
+              </button></li>
+            }
+          </ul>
+          <button type="button" class="cl-botao cl-botao--contorno arm-largo" (click)="escolha.set(null)">Cancelar</button>
+        } @else if (tarefas() === null && carregando()) {
+          <div class="cl-vazio"><oq-spinner [size]="18" /> Carregando as tarefas…</div>
+        } @else if (erroCarga() && tarefas() === null) {
+          <div class="cl-vazio">{{ erroCarga() }}</div>
+        } @else if (lista().length === 0) {
+          <div class="cl-vazio">Nenhum produto esperando na doca.</div>
+        } @else {
+          <div class="cl-fila-topo"><span class="cl-fila-topo__total"><b>{{ lista().length }}</b> para guardar</span></div>
+          <ul class="cl-lista">
+            @for (t of lista(); track t.nutar) {
+              <li>
+                <button type="button" class="cl-doc" [disabled]="ocupado()" (click)="abrir(t)">
+                  <span class="cl-doc__l1">
+                    <b class="cl-doc__num">{{ t.codprod }}</b>
+                    <span class="cl-doc__nf">{{ qtdTexto(falta(t)) }} {{ t.unidade }}</span>
+                  </span>
+                  <span class="cl-doc__cliente">{{ t.descricao }}</span>
+                  <span class="cl-doc__l3">
+                    <span>{{ t.origem }}</span>
+                    <span class="arm-seta">→ {{ t.sugerido ?? 'sem endereço sugerido' }}</span>
+                  </span>
+                  <span class="cl-doc__status" [class.cl-doc__status--andamento]="t.situacao === 'EX'" [class.cl-doc__status--neutro]="t.situacao !== 'EX'">
+                    {{ t.situacao === 'EX' ? 'Em andamento · ' + progresso(t) + '%' : 'Compra ' + (t.numnota ?? t.nunota) }}
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      }
+
+      @default {
+        @if (atual(); as t) {
+          <section class="arm-cartao">
+            <div class="arm-produto">
+              <span class="arm-produto__cod">{{ t.codprod }}@if (t.referencia) { · {{ t.referencia }} }</span>
+              <b class="arm-produto__nome">{{ t.descricao }}</b>
+              <span class="arm-produto__info">Compra {{ t.numnota ?? t.nunota }}@if (t.fornecedor) { · {{ t.fornecedor }} }@if (t.controle) { · Lote {{ t.controle }} }</span>
+            </div>
+            <div class="arm-qtd">
+              <span>Falta guardar</span>
+              <b>{{ qtdTexto(falta(t)) }} <small>{{ t.unidade }}</small></b>
+              @if (t.qtdFeita > 0) { <span>{{ qtdTexto(t.qtdFeita) }} de {{ qtdTexto(t.qtd) }} já guardado</span> }
+            </div>
+          </section>
+
+          <ol class="arm-passos" aria-label="Passos">
+            <li [class.arm-passos--feito]="passo() !== 'produto'" [class.arm-passos--atual]="passo() === 'produto'">Produto</li>
+            <li [class.arm-passos--feito]="passo() === 'motivo' || passo() === 'quantidade'" [class.arm-passos--atual]="passo() === 'endereco'">Endereço</li>
+            <li [class.arm-passos--atual]="passo() === 'motivo' || passo() === 'quantidade'">Quantidade</li>
+          </ol>
+
+          @if (passo() === 'produto') {
+            <p class="arm-dica">Bipe o código de barras da caixa ou digite o código do produto ({{ t.codprod }}).</p>
+          }
+
+          @if (passo() === 'endereco') {
+            <div class="arm-destino" [class.arm-destino--sem]="!t.sugerido">
+              <span>{{ t.sugerido ? 'Leve para' : 'Sem endereço sugerido' }}</span>
+              <b>{{ t.sugerido ?? 'Escolha um endereço livre' }}</b>
+              @if (t.tipoSugerido) { <span>{{ t.tipoSugerido === 'PICKING' ? 'Picking' : 'Pulmão' }}</span> }
+            </div>
+            <p class="arm-dica">Bipe a etiqueta do endereço. Outro endereço pede o motivo.</p>
+          }
+
+          @if (passo() === 'motivo') {
+            <div class="arm-motivos" role="group" aria-label="Motivo da troca do endereço">
+              @for (m of motivos; track m) {
+                <button type="button" class="cl-botao cl-botao--contorno" (click)="escolherMotivo(m)">{{ m }}</button>
+              }
+              <div class="arm-outro">
+                <input class="cl-leitura__input" name="motivoOutro" [(ngModel)]="motivoOutro" placeholder="Outro motivo" maxlength="200" (keydown.enter)="confirmarMotivoOutro()" />
+                <button type="button" class="cl-botao cl-botao--contorno" (click)="confirmarMotivoOutro()">OK</button>
+              </div>
+              <button type="button" class="cl-botao cl-botao--contorno arm-largo" (click)="rebiparEndereco()">Bipar outro endereço</button>
+            </div>
+          }
+
+          @if (passo() === 'quantidade') {
+            <div class="arm-destino arm-destino--ok">
+              <span>Guardar em</span>
+              <b>{{ destino() }}</b>
+              @if (trocou()) { <span>Motivo: {{ motivo() }}</span> }
+            </div>
+            <form class="arm-confirma" (ngSubmit)="guardar()">
+              <label for="arm-qtd">Quantidade guardada neste endereço ({{ t.unidade }})</label>
+              <input id="arm-qtd" name="qtd" class="cl-leitura__input" [(ngModel)]="qtdDigitada" inputmode="decimal" autocomplete="off" [disabled]="ocupado()" />
+              <button type="submit" class="cl-botao arm-guardar" [disabled]="ocupado()">
+                @if (ocupado()) { <oq-spinner [size]="16" /> Guardando… } @else { Guardar }
+              </button>
+              <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="rebiparEndereco()">Trocar endereço</button>
+            </form>
+          }
+        }
+      }
+    }
+  </main>
+
+  @if (passo() === 'lista') {
+    <footer class="cl-rodape">
+      <button type="button" class="cl-botao cl-botao--contorno arm-largo" (click)="irConferencia()">
+        <oq-icon name="list-check" [size]="18" /> Ir para a conferência
+      </button>
+    </footer>
+  }
+</div>
