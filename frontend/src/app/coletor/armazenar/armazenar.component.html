@@ -19,7 +19,7 @@
     }
   </header>
 
-  @if (passo() !== 'troca' && !menos()) {
+  @if (passo() !== 'troca' && passo() !== 'parcial') {
     <form class="cl-leitura" (ngSubmit)="onLer()">
       <label class="cl-leitura__rotulo" for="arm-campo">{{ rotuloLeitura() }}</label>
       <div class="cl-leitura__campo">
@@ -44,12 +44,16 @@
   }
 
   <!-- Tarja do sinaleiro (mesma da fila): verde ok · amarelo atenção · vermelho erro -->
-  @if (aviso(); as a) {
+  @if (ocupado() && emTarefa()) {
+    <div class="cl-estado cl-estado--processando" role="status"><oq-spinner [size]="16" /> <b>Gravando no Sankhya…</b></div>
+  } @else {
+    @if (aviso(); as a) {
     <div class="cl-estado" [class.cl-estado--encontrado]="a.tom === 'ok'" [class.cl-estado--erro]="a.tom === 'erro'"
          [class.cl-estado--bloqueado]="a.tom === 'atencao'" [attr.role]="a.tom === 'ok' ? 'status' : 'alert'">
       <oq-icon [name]="a.tom === 'ok' ? 'check' : 'circle-alert'" [size]="18" />
       <div><b>{{ a.titulo }}</b>@if (a.mensagem) { <span>{{ a.mensagem }}</span> }</div>
     </div>
+    }
   }
 
   @if (passo() === 'inicio' || passo() === 'lista') {
@@ -66,17 +70,11 @@
       @default {
         @if (atual(); as t) {
           <div class="ar-tarefa">
-            <!-- DESTINO: rua · módulo · nível em blocos -->
-            <section class="ar-destino" [attr.data-modo]="passo() === 'troca' ? 'troca' : passo() === 'confirmar' ? 'ok' : (t.sugerido ? 'sugerido' : 'sem')">
+            <!-- DESTINO: rua · módulo · nível em blocos (o mesmo texto da etiqueta) -->
+            <section class="ar-destino" [attr.data-modo]="passo() === 'troca' ? 'troca' : (t.sugerido ? 'sugerido' : 'sem')">
               <div class="ar-destino__topo">
-                <span class="ar-rotulo">
-                  @switch (passo()) {
-                    @case ('troca') { Trocar para }
-                    @case ('confirmar') { Guardar em }
-                    @default { {{ t.sugerido ? 'Leve para' : 'Sem endereço sugerido' }} }
-                  }
-                </span>
-                @if (!trocou() && t.tipoSugerido) { <span class="ar-destino__tipo">{{ t.tipoSugerido === 'PICKING' ? 'Picking' : 'Pulmão' }}</span> }
+                <span class="ar-rotulo">{{ passo() === 'troca' ? 'Trocar para' : t.sugerido ? 'Leve para' : 'Sem endereço sugerido' }}</span>
+                @if (passo() !== 'troca' && t.tipoSugerido) { <span class="ar-destino__tipo">{{ t.tipoSugerido === 'PICKING' ? 'Picking' : 'Pulmão' }}</span> }
               </div>
               @if (blocos().length) {
                 <div class="ar-blocos">
@@ -87,52 +85,51 @@
               } @else {
                 <p class="ar-destino__sem">Escolha um endereço livre e bipe a etiqueta.</p>
               }
-              @if (destinoMostrado(); as d) { <span class="ar-destino__codigo">Etiqueta <b>{{ d }}</b></span> }
-              @if (trocou() && t.sugerido) { <span class="ar-destino__era">Sugerido era {{ t.sugerido }}</span> }
+              @if (passo() === 'troca' && t.sugerido) { <span class="ar-destino__era">Sugerido era {{ t.sugerido }}</span> }
             </section>
 
-            <!-- Produto: mesmo formato da linha da fila (número grande · descrição · informação) -->
+            <!-- Produto: código - quantidade na unidade da compra (padrão de apoio) -->
             <section class="ar-produto">
               <span class="cl-doc__l1">
                 <b class="cl-doc__num">{{ t.codprod }}</b>
-                <span class="ar-qtd">{{ qtdTexto(falta(t)) }} <small>{{ t.unidade }}</small></span>
+                <span class="ar-traco">-</span>
+                @if (aGuardar(); as q) {
+                  <span class="ar-qtd">{{ q.principal }}</span>
+                  @if (q.apoio) { <span class="ar-apoio">{{ q.apoio }}</span> }
+                }
               </span>
               <span class="cl-doc__cliente">{{ t.descricao }}</span>
               <span class="cl-doc__l3">
                 <span>Compra {{ t.numnota ?? t.nunota }}</span>
                 @if (t.controle) { <span>Lote {{ t.controle }}</span> }
-                @if (t.qtdFeita > 0) { <span>{{ qtdTexto(t.qtdFeita) }} de {{ qtdTexto(t.qtd) }} já guardado</span> }
+                @if (qtdParcial() != null) { <span class="ar-parcial">Parcial de {{ qtd(t, falta(t)).principal }}</span> }
+                @else if (t.qtdFeita > 0) { <span>{{ qtd(t, t.qtdFeita).principal }} já guardado</span> }
               </span>
             </section>
 
             <ol class="ar-passos" aria-label="Passos">
               <li [attr.data-e]="passo() === 'produto' ? 'atual' : 'feito'">Produto</li>
-              <li [attr.data-e]="passo() === 'endereco' ? 'atual' : passo() === 'produto' ? '' : 'feito'">Endereço</li>
-              <li [attr.data-e]="passo() === 'troca' || passo() === 'confirmar' ? 'atual' : ''">Guardar</li>
+              <li [attr.data-e]="passo() === 'produto' ? '' : 'atual'">Endereço</li>
             </ol>
 
             @if (passo() === 'troca') {
               <section class="ar-troca" role="group" aria-label="Motivo da troca">
-                <span class="ar-rotulo">Por que não {{ t.sugerido ?? 'o sugerido' }}?</span>
+                <span class="ar-rotulo">Por que não {{ t.sugerido ?? 'o sugerido' }}? (guarda ao escolher)</span>
                 @for (m of motivos; track m) {
-                  <button type="button" class="cl-botao cl-botao--contorno ar-motivo-btn" (click)="escolherMotivo(m)">{{ m }}</button>
+                  <button type="button" class="cl-botao cl-botao--contorno ar-grande ar-motivo-btn" [disabled]="ocupado()" (click)="escolherMotivo(m)">{{ m }}</button>
                 }
                 <div class="ar-troca__outro">
                   <input class="cl-leitura__input" name="motivoOutro" [(ngModel)]="motivoOutro" placeholder="Outro motivo" maxlength="200" (keydown.enter)="confirmarMotivoOutro()" />
-                  <button type="button" class="cl-botao cl-botao--contorno" (click)="confirmarMotivoOutro()">OK</button>
+                  <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="confirmarMotivoOutro()">OK</button>
                 </div>
-                <button type="button" class="cl-botao cl-botao--contorno" (click)="manterSugerido()">Manter o sugerido</button>
               </section>
             }
 
-            @if (passo() === 'confirmar') {
-              @if (trocou()) { <p class="ar-nota">Motivo: {{ motivo() }}</p> }
-              @if (menos()) {
-                <form class="ar-menos" (ngSubmit)="guardar()">
-                  <label for="arm-qtd">Quanto foi guardado neste endereço ({{ t.unidade }})</label>
-                  <input id="arm-qtd" name="qtd" class="cl-leitura__input ar-menos__qtd" [(ngModel)]="qtdDigitada" inputmode="decimal" autocomplete="off" [disabled]="ocupado()" />
-                </form>
-              }
+            @if (passo() === 'parcial') {
+              <form class="ar-menos" (ngSubmit)="confirmarParcial()">
+                <label for="arm-qtd">Quanto vai guardar neste endereço? (em {{ unidadeParcial(t).unidade }} · falta {{ qtd(t, falta(t)).principal }})</label>
+                <input id="arm-qtd" name="qtd" class="cl-leitura__input ar-menos__qtd" [(ngModel)]="qtdDigitada" inputmode="decimal" autocomplete="off" />
+              </form>
             }
           </div>
         }
@@ -141,35 +138,37 @@
   </main>
 
   <footer class="cl-rodape">
-    <button type="button" class="cl-icone cl-rodape__mais" aria-label="Mais opções" title="Mais opções" [attr.aria-expanded]="menuAberto()" (click)="menuAberto.set(!menuAberto())">
-      <oq-icon name="gear" [size]="20" />
+    <button type="button" class="cl-icone cl-rodape__mais ar-grande" aria-label="Mais opções" title="Mais opções" [attr.aria-expanded]="menuAberto()" (click)="menuAberto.set(!menuAberto())">
+      <oq-icon name="gear" [size]="22" />
     </button>
     @switch (passo()) {
       @case ('inicio') {
-        <button type="button" class="cl-botao ar-principal" [disabled]="ocupado() || lista().length === 0" (click)="iniciar()">
+        <button type="button" class="cl-botao ar-principal ar-grande" [disabled]="ocupado() || lista().length === 0" (click)="iniciar()">
           @if (ocupado()) { <oq-spinner [size]="16" /> } Iniciar armazenagem
         </button>
       }
       @case ('lista') {
-        <button type="button" class="cl-botao cl-botao--contorno" (click)="voltar()">Voltar</button>
+        <button type="button" class="cl-botao cl-botao--contorno ar-grande" (click)="voltar()">Voltar</button>
       }
       @case ('endereco') {
-        @if (atual()?.sugerido && !motivo()) {
-          <button type="button" class="cl-botao cl-botao--contorno" (click)="enderecoCheio()">Endereço cheio</button>
+        @if (atual()?.sugerido) {
+          <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="enderecoCheio()">Endereço cheio</button>
+        }
+        @if (qtdParcial() == null) {
+          <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="abrirParcial()">Parcial</button>
         } @else {
-          <span class="cl-rodape__info">Bipe o endereço</span>
+          <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="cancelarParcial()">Guardar tudo</button>
         }
       }
-      @case ('confirmar') {
-        @if (!menos()) {
-          <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="guardarMenos()">Guardar menos</button>
-        }
-        <button type="button" class="cl-botao ar-principal" [disabled]="ocupado()" (click)="guardar()">
-          @if (ocupado()) { <oq-spinner [size]="16" /> Guardando… } @else if (menos()) { Guardar } @else { Guardar {{ textoGuardar() }} }
-        </button>
+      @case ('troca') {
+        <button type="button" class="cl-botao cl-botao--contorno ar-grande" [disabled]="ocupado()" (click)="cancelarTroca()">Cancelar</button>
+      }
+      @case ('parcial') {
+        <button type="button" class="cl-botao cl-botao--contorno ar-grande" (click)="cancelarParcial()">Cancelar</button>
+        <button type="button" class="cl-botao ar-principal ar-grande" (click)="confirmarParcial()">OK</button>
       }
       @default {
-        <span class="cl-rodape__info">{{ passo() === 'produto' ? 'Bipe o produto' : 'Escolha o motivo' }}</span>
+        <span class="cl-rodape__info">Bipe o produto</span>
       }
     }
   </footer>
@@ -177,8 +176,8 @@
   @if (menuAberto()) {
     <div class="cl-menu-fundo" (click)="menuAberto.set(false)"></div>
     <nav class="cl-menu" aria-label="Mais opções do coletor">
-      <button type="button" class="cl-menu__item" [class.cl-menu__item--ativo]="false" [attr.aria-current]="false ? 'page' : null" (click)="irConferencia()"><oq-icon name="list-check" [size]="18" /> Conferência</button>
-      <button type="button" class="cl-menu__item" [class.cl-menu__item--ativo]="true" [attr.aria-current]="true ? 'page' : null" (click)="abrirArmazenar()"><oq-icon name="box" [size]="18" /> Armazenar</button>
+      <button type="button" class="cl-menu__item" (click)="irConferencia()"><oq-icon name="list-check" [size]="18" /> Conferência</button>
+      <button type="button" class="cl-menu__item cl-menu__item--ativo" aria-current="page" (click)="abrirArmazenar()"><oq-icon name="box" [size]="18" /> Armazenar</button>
       <button type="button" class="cl-menu__item cl-menu__item--grupo" (click)="alternarTema()">
         <oq-icon [name]="tema.tema() === 'dark' ? 'sun' : 'moon'" [size]="18" /> {{ tema.tema() === 'dark' ? 'Tema claro' : 'Tema escuro' }}
       </button>
@@ -188,7 +187,7 @@
   }
 </div>
 
-<!-- Lista de tarefas no formato da linha da fila: código grande · quantidade · descrição · destino · situação -->
+<!-- Lista de tarefas no formato da linha da fila: código - quantidade · descrição · destino · situação -->
 <ng-template #listaTarefas>
   @if (tarefas() === null && carregando()) {
     <div class="cl-vazio"><oq-spinner [size]="18" /> Carregando…</div>
@@ -203,7 +202,9 @@
           <button type="button" class="cl-doc" [disabled]="ocupado()" (click)="escolha() ? escolher(t) : abrir(t)">
             <span class="cl-doc__l1">
               <b class="cl-doc__num">{{ t.codprod }}</b>
-              <span class="ar-qtd">{{ qtdTexto(falta(t)) }} <small>{{ t.unidade }}</small></span>
+              <span class="ar-traco">-</span>
+              <span class="ar-qtd">{{ qtd(t, falta(t)).principal }}</span>
+              @if (qtd(t, falta(t)).apoio; as a) { <span class="ar-apoio">{{ a }}</span> }
               @if (i === 0 && !escolha()) { <span class="cl-doc__tags"><span class="cl-tag ar-tag-proxima">PRÓXIMA</span></span> }
             </span>
             <span class="cl-doc__cliente">{{ t.descricao }}</span>
@@ -212,7 +213,7 @@
               <span>Compra {{ t.numnota ?? t.nunota }}</span>
             </span>
             <span class="cl-doc__status" [class.cl-doc__status--andamento]="t.situacao === 'EX'" [class.cl-doc__status--neutro]="t.situacao !== 'EX'">
-              {{ t.situacao === 'EX' ? 'Em andamento · ' + qtdTexto(t.qtdFeita) + ' guardado' : 'Na doca' }}
+              {{ t.situacao === 'EX' ? 'Em andamento · ' + qtd(t, t.qtdFeita).principal + ' guardado' : 'Na doca' }}
             </span>
           </button>
         </li>

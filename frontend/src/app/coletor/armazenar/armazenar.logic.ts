@@ -24,6 +24,21 @@ export interface TarefaArmazenagem {
   codusu: number | null;
   criada: string | null;
   barras: string[];
+  /** Unidade em que a compra veio (CX, FD…) e quantas unidades padrão há em uma. */
+  unidadeCompra?: string | null;
+  fatorCompra?: number | null;
+}
+
+/**
+ * Quantidade para o operador: na unidade da compra ("30 FD"), com a padrão de apoio ("180 GF"). Pesável que não
+ * fecha caixa inteira mostra "≈ 114 CX". Sem unidade alternativa: só a padrão.
+ */
+export function qtdOperador(t: Pick<TarefaArmazenagem, 'unidade' | 'unidadeCompra' | 'fatorCompra'>, qtd: number): { principal: string; apoio: string | null } {
+  const padrao = `${qtdTexto(qtd)} ${t.unidade ?? ''}`.trim();
+  if (!t.unidadeCompra || !t.fatorCompra || t.fatorCompra <= 0 || t.unidadeCompra === t.unidade) return { principal: padrao, apoio: null };
+  const alt = qtd / t.fatorCompra;
+  const inteiro = Math.abs(alt - Math.round(alt)) < 0.001;
+  return { principal: `${inteiro ? '' : '≈ '}${qtdTexto(inteiro ? Math.round(alt) : Math.round(alt))} ${t.unidadeCompra}`, apoio: padrao };
 }
 
 /** Motivos de troca do endereço sugerido (o addon exige motivo quando o destino não é o sugerido). */

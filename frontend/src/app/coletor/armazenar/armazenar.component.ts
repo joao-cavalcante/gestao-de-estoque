@@ -19,6 +19,7 @@ import {
   lerQtd,
   normalizar,
   ordenarTarefas,
+  qtdOperador,
   qtdTexto,
   segmentos,
   tarefaPorProduto,
@@ -26,10 +27,10 @@ import {
 import { ArmazenarService } from './armazenar.service';
 
 /**
- * inicio: "Iniciar armazenagem (N na doca)" · lista: todas as tarefas · produto/endereco: leitura ·
- * troca: bipou outro endereço → motivo na mesma tela · confirmar: Guardar (ou Guardar menos).
+ * inicio: lista + "Iniciar armazenagem" · lista: escolha entre compras do mesmo produto · produto/endereco: leitura ·
+ * troca: bipou outro endereço → motivo · parcial: quantidade antes de bipar o endereço.
  */
-type Passo = 'inicio' | 'lista' | 'produto' | 'endereco' | 'troca' | 'confirmar';
+type Passo = 'inicio' | 'lista' | 'produto' | 'endereco' | 'troca' | 'parcial';
 type Aviso = { tom: 'ok' | 'erro' | 'atencao'; titulo: string; mensagem?: string } | null;
 
 const INTERVALO_ATUALIZACAO_MS = 60_000;
@@ -37,11 +38,12 @@ const JANELA_DUPLICADA_MS = 1500;
 const MOTIVO_CHEIO = MOTIVOS_TROCA[0];
 
 /**
- * Armazenar no coletor — redesenho de 27/11/2026 no padrão de mercado de putaway dirigido (Oracle WMS Cloud, Infor,
- * SAP EWM): o sistema entrega a próxima tarefa; o DESTINO é o elemento principal (rua · módulo · nível em blocos);
- * bipar outro endereço vira a exceção "trocar destino" com motivo na mesma tela; "Endereço cheio" já registra o motivo.
- * Visual UNIFICADO com a fila do coletor (2ª revisão, 27/11/2026): mesmo cabeçalho, leitura no topo, tarja do
- * sinaleiro, linhas da lista e rodapé com ⚙; sem fundo preto. Regras de negócio inalteradas (addon TOR).
+ * Armazenar no coletor (endereçamento). Visual unificado com a fila do coletor (27/11/2026).
+ * 3ª revisão (usuário, 27/11/2026), no padrão de putaway por RF do mercado (Oracle WMS Cloud, Infor, SAP EWM):
+ *  - BIPAR O ENDEREÇO É A CONFIRMAÇÃO: guarda a quantidade toda na hora (sem botão "Guardar" — luva/dedo grande);
+ *  - "Parcial" é a exceção: informa a quantidade ANTES de bipar o endereço (com Cancelar);
+ *  - "Endereço cheio" pede ao addon a PRÓXIMA sugestão, pulando o cheio (antes só pedia para bipar outro);
+ *  - quantidade na unidade em que a compra veio ("30 FD", com "180 GF" de apoio).
  */
 @Component({
   selector: 'app-armazenar',
@@ -69,33 +71,31 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   readonly erroCarga = signal<string | null>(null);
   readonly passo = signal<Passo>('inicio');
   readonly atual = signal<TarefaArmazenagem | null>(null);
+  /** Endereço bipado diferente do sugerido, esperando o motivo. */
   readonly destino = signal<string | null>(null);
-  readonly motivo = signal<string | null>(null);
   readonly ocupado = signal(false);
   readonly aviso = signal<Aviso>(null);
   readonly escolha = signal<TarefaArmazenagem[] | null>(null);
-  readonly menos = signal(false);
   readonly menuAberto = signal(false);
-  /** "Endereço cheio" já deu o motivo: o próximo endereço bipado vai direto para o Guardar. */
-  private trocaAutorizada = false;
+  /** Quantidade do "Parcial" (null = guarda tudo o que falta). */
+  readonly qtdParcial = signal<number | null>(null);
+  /** Endereços que o operador achou cheios nesta tarefa (a sugestão pula). */
+  private cheios: string[] = [];
 
   readonly lista = computed(() => ordenarTarefas(this.tarefas() ?? []));
-  readonly proxima = computed(() => this.lista().find((t) => t.nutar !== this.atual()?.nutar) ?? null);
   readonly posicao = computed(() => {
     const t = this.atual();
     const l = this.lista();
     const i = t ? l.findIndex((x) => x.nutar === t.nutar) : -1;
     return { atual: i >= 0 ? i + 1 : 1, total: Math.max(l.length, 1) };
   });
-  readonly destinoMostrado = computed(() => {
-    const p = this.passo();
-    return (p === 'troca' || p === 'confirmar') && this.destino() ? this.destino() : this.atual()?.sugerido ?? null;
-  });
+  readonly destinoMostrado = computed(() => (this.passo() === 'troca' && this.destino() ? this.destino() : this.atual()?.sugerido ?? null));
   readonly blocos = computed(() => segmentos(this.destinoMostrado()));
-  readonly trocou = computed(() => {
+  /** O que vai ser guardado agora (parcial ou tudo o que falta), na unidade do operador. */
+  readonly aGuardar = computed(() => {
     const t = this.atual();
-    const d = this.destino();
-    return !!t && !!d && !ehOSugerido(d, t);
+    if (!t) return null;
+    return qtdOperador(t, this.qtdParcial() ?? falta(t));
   });
 
   codigo = '';
@@ -116,6 +116,10 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     clearInterval(this.timer);
+  }
+
+  qtd(t: TarefaArmazenagem, q: number) {
+    return qtdOperador(t, q);
   }
 
   // ─── Carga ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -144,10 +148,7 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
       case 'produto':
         return 'Bipe o produto';
       case 'endereco':
-        return this.trocaAutorizada ? 'Bipe o novo endereço' : 'Bipe a etiqueta do endereço';
-      case 'troca':
-      case 'confirmar':
-        return 'Bipe outro endereço para trocar';
+        return this.qtdParcial() != null ? 'Bipe o endereço para guardar a parte' : 'Bipe o endereço para guardar';
       default:
         return 'Bipe um produto para começar por ele';
     }
@@ -165,7 +166,7 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     const p = this.passo();
     if (p === 'inicio' || p === 'lista') this.lerNaLista(codigo);
     else if (p === 'produto') this.lerProduto(codigo);
-    else this.lerEndereco(codigo);
+    else if (p === 'endereco') this.lerDestino(codigo);
     this.focar();
   }
 
@@ -191,7 +192,7 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     if (!t) return;
     if (!ehDoProduto(codigo, t)) {
       this.feedback.trigger('PRODUTO_NAO_ENCONTRADO');
-      this.aviso.set({ tom: 'erro', titulo: 'Produto errado', mensagem: `${codigo} não é ${t.codprod} · ${t.descricao}.` });
+      this.aviso.set({ tom: 'erro', titulo: 'Produto errado', mensagem: `${codigo} não é ${t.codprod} - ${t.descricao}.` });
       return;
     }
     this.feedback.trigger('PRODUTO_CORRETO');
@@ -199,7 +200,8 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     this.passo.set('endereco');
   }
 
-  private lerEndereco(lido: string): void {
+  /** Bipar o endereço confirma: o sugerido guarda na hora; outro pede o motivo e então guarda. */
+  private lerDestino(lido: string): void {
     const t = this.atual();
     if (!t) return;
     const codigo = lerEndereco(lido, t.sugerido);
@@ -208,26 +210,15 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
       this.aviso.set({ tom: 'erro', titulo: 'Essa é a doca', mensagem: 'Bipe o endereço onde o produto vai ficar.' });
       return;
     }
-    this.destino.set(codigo);
-    this.menos.set(false);
-    this.qtdDigitada = qtdTexto(falta(t));
     if (ehOSugerido(codigo, t)) {
-      this.feedback.trigger('PRODUTO_CORRETO');
-      this.motivo.set(null);
-      this.trocaAutorizada = false;
-      this.aviso.set(null);
-      this.passo.set('confirmar');
-    } else if (this.trocaAutorizada && this.motivo()) {
-      this.feedback.trigger('PRODUTO_CORRETO');
-      this.aviso.set(null);
-      this.passo.set('confirmar');
-    } else {
-      this.feedback.trigger('CONTROLE_NECESSARIO');
-      this.motivo.set(null);
-      this.motivoOutro = '';
-      this.aviso.set(null);
-      this.passo.set('troca');
+      this.guardar(codigo, null);
+      return;
     }
+    this.feedback.trigger('CONTROLE_NECESSARIO');
+    this.destino.set(codigo);
+    this.motivoOutro = '';
+    this.aviso.set(null);
+    this.passo.set('troca');
   }
 
   // ─── Passos ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -236,11 +227,6 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   iniciar(): void {
     const t = this.lista()[0];
     if (t) this.abrir(t);
-  }
-
-  verTodas(): void {
-    this.aviso.set(null);
-    this.passo.set('lista');
   }
 
   escolher(t: TarefaArmazenagem): void {
@@ -253,14 +239,13 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     if (this.ocupado()) return;
     this.ocupado.set(true);
     this.escolha.set(null);
+    this.cheios = [];
     this.api.iniciar(t.nutar).subscribe({
       next: (nova) => {
         this.ocupado.set(false);
         this.atual.set(nova);
         this.destino.set(null);
-        this.motivo.set(null);
-        this.trocaAutorizada = false;
-        this.menos.set(false);
+        this.qtdParcial.set(null);
         if (this.aviso()?.tom !== 'ok') this.aviso.set(null);
         this.passo.set(produtoConferido ? 'endereco' : 'produto');
         if (produtoConferido) this.feedback.trigger('PRODUTO_CORRETO');
@@ -276,21 +261,36 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Exceção mais comum do mercado: o sugerido está cheio → motivo já registrado, operador bipa outro. */
+  /** O sugerido está cheio: o addon devolve a próxima sugestão, pulando os que o operador já achou cheios. */
   enderecoCheio(): void {
-    this.motivo.set(MOTIVO_CHEIO);
-    this.trocaAutorizada = true;
-    this.destino.set(null);
-    this.passo.set('endereco');
-    this.feedback.trigger('CONTROLE_NECESSARIO');
-    this.aviso.set({ tom: 'atencao', titulo: 'Endereço cheio registrado', mensagem: 'Bipe o endereço onde o produto vai ficar.' });
-    this.focar();
+    const t = this.atual();
+    if (!t?.sugerido || this.ocupado()) return;
+    const cheio = t.sugerido;
+    this.cheios = [...new Set([...this.cheios, cheio])];
+    this.ocupado.set(true);
+    this.api.iniciar(t.nutar, this.cheios).subscribe({
+      next: (nova) => {
+        this.ocupado.set(false);
+        this.atual.set(nova);
+        this.feedback.trigger('CONTROLE_NECESSARIO');
+        this.aviso.set(
+          nova.sugerido
+            ? { tom: 'atencao', titulo: `${cheio} cheio`, mensagem: `Nova sugestão: ${nova.sugerido}.` }
+            : { tom: 'atencao', titulo: `${cheio} cheio`, mensagem: 'Não há outro endereço livre no setor: bipe onde vai guardar.' },
+        );
+        this.focar();
+      },
+      error: (e) => {
+        this.ocupado.set(false);
+        this.aviso.set({ tom: 'erro', titulo: 'Não buscou outro endereço', mensagem: erro(e, 'Tente de novo.') });
+        this.focar();
+      },
+    });
   }
 
   escolherMotivo(m: string): void {
-    this.motivo.set(m);
-    this.passo.set('confirmar');
-    this.focar();
+    const d = this.destino();
+    if (d) this.guardar(d, m);
   }
 
   confirmarMotivoOutro(): void {
@@ -299,71 +299,95 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
       this.aviso.set({ tom: 'erro', titulo: 'Escreva o motivo', mensagem: 'Pelo menos 3 letras.' });
       return;
     }
-    this.aviso.set(null);
     this.escolherMotivo(m);
   }
 
-  manterSugerido(): void {
+  cancelarTroca(): void {
     this.destino.set(null);
-    this.motivo.set(null);
-    this.trocaAutorizada = false;
+    this.aviso.set(null);
     this.passo.set('endereco');
     this.focar();
   }
 
-  guardarMenos(): void {
-    this.menos.set(true);
-    setTimeout(() => {
-      const el = document.getElementById('arm-qtd') as HTMLInputElement | null;
-      el?.focus();
-      el?.select();
-    });
+  abrirParcial(): void {
+    const t = this.atual();
+    if (!t) return;
+    this.qtdDigitada = '';
+    this.aviso.set(null);
+    this.passo.set('parcial');
+    setTimeout(() => document.getElementById('arm-qtd')?.focus());
   }
 
-  guardar(): void {
+  /** Unidade em que o operador digita o parcial: a da compra (FD, CX), convertida para a padrão antes de gravar. */
+  unidadeParcial(t: TarefaArmazenagem): { unidade: string; fator: number } {
+    return t.unidadeCompra && t.fatorCompra && t.fatorCompra > 0 && t.unidadeCompra !== t.unidade
+      ? { unidade: t.unidadeCompra, fator: t.fatorCompra }
+      : { unidade: t.unidade ?? '', fator: 1 };
+  }
+
+  /** Quantidade digitada na unidade da compra; o Sankhya movimenta na padrão (× fator). */
+  confirmarParcial(): void {
     const t = this.atual();
-    const d = this.destino();
-    if (!t || !d || this.ocupado()) return;
-    const q = this.menos() ? lerQtd(this.qtdDigitada) : falta(t);
+    if (!t) return;
+    const lida = lerQtd(this.qtdDigitada);
+    const q = lida == null ? null : Math.round(lida * this.unidadeParcial(t).fator * 1000) / 1000;
     if (q == null || q <= 0) {
-      this.aviso.set({ tom: 'erro', titulo: 'Quantidade inválida', mensagem: 'Digite quanto foi guardado neste endereço.' });
+      this.aviso.set({ tom: 'erro', titulo: 'Quantidade inválida', mensagem: 'Digite quanto vai guardar neste endereço.' });
       return;
     }
-    if (q > falta(t)) {
-      this.aviso.set({ tom: 'erro', titulo: 'Mais que a tarefa', mensagem: `Falta guardar ${qtdTexto(falta(t))} ${t.unidade ?? ''}.` });
+    if (q >= falta(t)) {
+      this.aviso.set({ tom: 'erro', titulo: 'Isso é tudo', mensagem: `Falta ${qtdOperador(t, falta(t)).principal}: cancele e bipe o endereço.` });
       return;
     }
+    this.qtdParcial.set(q);
+    this.aviso.set({ tom: 'atencao', titulo: `Parcial: ${qtdOperador(t, q).principal}`, mensagem: 'Bipe o endereço para guardar esta parte.' });
+    this.passo.set('endereco');
+    this.focar();
+  }
+
+  cancelarParcial(): void {
+    this.qtdParcial.set(null);
+    this.aviso.set(null);
+    this.passo.set('endereco');
+    this.focar();
+  }
+
+  private guardar(endereco: string, motivo: string | null): void {
+    const t = this.atual();
+    if (!t || this.ocupado()) return;
+    const q = this.qtdParcial() ?? falta(t);
+    const texto = qtdOperador(t, q).principal;
+    // "Endereço cheio" seguido de outro endereço: o motivo da troca já é o cheio.
+    const m = motivo ?? (this.cheios.length && !ehOSugerido(endereco, t) ? MOTIVO_CHEIO : null);
     this.ocupado.set(true);
-    this.api.armazenar(t.nutar, d, q, this.trocou() ? this.motivo() : null).subscribe({
+    this.api.armazenar(t.nutar, endereco, q, m).subscribe({
       next: (nova) => {
         this.ocupado.set(false);
+        this.qtdParcial.set(null);
+        this.destino.set(null);
         const resto = falta(nova);
-        this.trocaAutorizada = false;
         if (nova.situacao === 'CO' || resto <= 0) {
           this.feedback.trigger('SUCESSO_SANKHYA');
-          this.aviso.set({ tom: 'ok', titulo: `Guardado em ${d}`, mensagem: `${qtdTexto(q)} ${t.unidade ?? ''} · ${t.descricao}` });
+          this.aviso.set({ tom: 'ok', titulo: `Guardado em ${endereco}`, mensagem: `${t.codprod} - ${texto} · ${t.descricao}` });
           this.atual.set(null);
-          this.destino.set(null);
-          this.motivo.set(null);
           this.passo.set('inicio');
           this.carregar();
         } else {
           this.feedback.trigger('PRODUTO_CORRETO');
           this.atual.set(nova);
-          this.destino.set(null);
-          this.motivo.set(null);
-          this.menos.set(false);
           this.passo.set('endereco');
-          this.aviso.set({ tom: 'ok', titulo: `${qtdTexto(q)} guardado em ${d}`, mensagem: `Faltam ${qtdTexto(resto)} ${t.unidade ?? ''}: bipe o próximo endereço.` });
+          this.aviso.set({ tom: 'ok', titulo: `${texto} guardado em ${endereco}`, mensagem: `Falta ${qtdOperador(nova, resto).principal}: bipe o próximo endereço.` });
         }
         this.focar();
       },
       error: (e) => {
         this.ocupado.set(false);
         this.feedback.trigger('OPERACAO_NAO_PERMITIDA');
-        this.aviso.set({ tom: 'erro', titulo: 'Não guardou', mensagem: erro(e, 'Confira a rede e tente de novo.') });
+        this.passo.set('endereco');
+        this.destino.set(null);
+        this.aviso.set({ tom: 'erro', titulo: `Não guardou em ${endereco}`, mensagem: erro(e, 'Confira a rede e tente de novo.') });
         // Resposta perdida pode ter gravado: relê a tarefa antes de deixar tentar de novo.
-        this.api.iniciar(t.nutar).subscribe({ next: (r) => this.atual.set(r), error: () => undefined });
+        this.api.iniciar(t.nutar, this.cheios).subscribe({ next: (r) => this.atual.set(r), error: () => undefined });
         this.focar();
       },
     });
@@ -374,8 +398,8 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     this.passo.set('inicio');
     this.atual.set(null);
     this.destino.set(null);
-    this.motivo.set(null);
-    this.trocaAutorizada = false;
+    this.qtdParcial.set(null);
+    this.cheios = [];
     this.escolha.set(null);
     this.aviso.set(null);
     this.carregar();
@@ -407,11 +431,6 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     this.auth.logout();
   }
 
-  textoGuardar(): string {
-    const t = this.atual();
-    return t ? `${qtdTexto(falta(t))} ${t.unidade ?? ''}`.trim() : '';
-  }
-
   emTarefa(): boolean {
     const p = this.passo();
     return p !== 'inicio' && p !== 'lista';
@@ -421,7 +440,7 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
 
   private focar(): void {
     setTimeout(() => {
-      if (!this.menos() && !this.menuAberto()) this.campo?.nativeElement.focus({ preventScroll: true });
+      if (this.passo() !== 'parcial' && !this.menuAberto()) this.campo?.nativeElement.focus({ preventScroll: true });
     });
   }
 

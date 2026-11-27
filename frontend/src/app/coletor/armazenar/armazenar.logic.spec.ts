@@ -1,4 +1,4 @@
-import { TarefaArmazenagem, lerEndereco, segmentos, ehDoProduto, ehOSugerido, falta, lerQtd, ordenarTarefas, tarefaPorProduto } from './armazenar.logic';
+import { TarefaArmazenagem, lerEndereco, qtdOperador, segmentos, ehDoProduto, ehOSugerido, falta, lerQtd, ordenarTarefas, tarefaPorProduto } from './armazenar.logic';
 
 function t(p: Partial<TarefaArmazenagem>): TarefaArmazenagem {
   return {
@@ -60,5 +60,11 @@ describe('armazenar.logic', () => {
     expect(lerEndereco('R3-2-4', null)).toBe('R03-M02-N04');
     expect(lerEndereco('R04-M05-N02', 'R01-M01-N01')).toBe('R04-M05-N02');
     expect(lerEndereco('DOCA-1-101', 'R01-M01-N01')).toBe('DOCA-1-101');
+  });
+
+  it('mostra a quantidade na unidade da compra', () => {
+    expect(qtdOperador({ unidade: 'GF', unidadeCompra: 'FD', fatorCompra: 6 }, 180)).toEqual({ principal: '30 FD', apoio: '180 GF' });
+    expect(qtdOperador({ unidade: 'KG', unidadeCompra: 'CX', fatorCompra: 10 }, 1142)).toEqual({ principal: '≈ 114 CX', apoio: '1.142 KG' });
+    expect(qtdOperador({ unidade: 'PT', unidadeCompra: null, fatorCompra: null }, 80)).toEqual({ principal: '80 PT', apoio: null });
   });
 });

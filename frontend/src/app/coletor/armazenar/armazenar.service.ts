@@ -13,8 +13,9 @@ export class ArmazenarService {
     return this.http.get<TarefaArmazenagem[]>(this.base);
   }
 
-  iniciar(nutar: number): Observable<TarefaArmazenagem> {
-    return this.http.post<TarefaArmazenagem>(`${this.base}/${nutar}/iniciar`, {});
+  /** [excluir]: endereços que o operador achou cheios — a sugestão nova pula esses. */
+  iniciar(nutar: number, excluir: string[] = []): Observable<TarefaArmazenagem> {
+    return this.http.post<TarefaArmazenagem>(`${this.base}/${nutar}/iniciar`, { excluir });
   }
 
   armazenar(nutar: number, endereco: string, qtd: number, motivo: string | null): Observable<TarefaArmazenagem> {

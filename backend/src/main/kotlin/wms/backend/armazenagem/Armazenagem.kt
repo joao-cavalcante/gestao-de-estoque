@@ -47,7 +47,13 @@ data class TarefaArmazenagemDto(
     val codusu: Int?,
     val criada: String?,
     val barras: List<String>,
+    /** Unidade em que a compra veio (TGFITE.CODVOL, ex.: CX com 12 PT dentro) e quantas unidades padrão cabem em uma. */
+    val unidadeCompra: String? = null,
+    val fatorCompra: Double? = null,
 )
+
+@Serializable
+data class IniciarRequest(val excluir: List<String> = emptyList())
 
 @Serializable
 data class ArmazenarRequest(val endereco: String, val qtd: Double, val motivo: String? = null)
@@ -80,7 +86,30 @@ object Armazenagem {
         val empresas = EmpresasAcesso.permitidas(claims)
         if (empresas != null && empresas.isEmpty()) return emptyList()
         val r = SankhyaSpClient.chamarRaw(s, "EnderecamentoSP.tarefas", MODULO_ADDON, corpo("EMPRESAS" to empresas?.sorted()?.joinToString(",")))
-        return objetos(body(r)["TAREFAS"]).map(::tarefa)
+        return comUnidadeCompra(s, objetos(body(r)["TAREFAS"]).map(::tarefa))
+    }
+
+    /**
+     * Unidade da compra de cada tarefa (TGFITE.CODVOL + TGFVOA): a tarefa vem na unidade padrão (QTDNEG), mas o operador
+     * guarda o que recebeu — "30 FD" e não "180 GF". TGFVOA 'M' → 1 alternativa = QUANTIDADE padrão; 'D' → 1/QUANTIDADE.
+     */
+    private suspend fun comUnidadeCompra(slug: String, l: List<TarefaArmazenagemDto>): List<TarefaArmazenagemDto> {
+        val nunotas = l.mapNotNull { it.nunota }.distinct()
+        if (nunotas.isEmpty()) return l
+        val linhas = runCatching {
+            wms.backend.erp.SankhyaDbExplorerClient.executarQuery(slug,
+                "SELECT I.NUNOTA, I.CODPROD, MAX(I.CODVOL) AS CODVOL, MAX(V.QUANTIDADE) AS Q, MAX(V.DIVIDEMULTIPLICA) AS DM " +
+                    "FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD LEFT JOIN TGFVOA V ON V.CODPROD = I.CODPROD AND V.CODVOL = I.CODVOL " +
+                    "WHERE I.NUNOTA IN (${nunotas.joinToString(",")}) AND I.CODVOL <> P.CODVOL GROUP BY I.NUNOTA, I.CODPROD")
+        }.getOrElse { return l }
+        val por = linhas.mapNotNull { m ->
+            val n = m["NUNOTA"]?.trim()?.substringBefore('.')?.toLongOrNull() ?: return@mapNotNull null
+            val p = m["CODPROD"]?.trim()?.substringBefore('.')?.toIntOrNull() ?: return@mapNotNull null
+            val q = m["Q"]?.trim()?.replace(',', '.')?.toDoubleOrNull()?.takeIf { it > 0 } ?: return@mapNotNull null
+            val fator = if (m["DM"]?.trim() == "D") 1.0 / q else q
+            (n to p) to (m["CODVOL"]?.trim() to fator)
+        }.toMap()
+        return l.map { t -> por[(t.nunota ?: 0L) to t.codprod]?.let { (u, f) -> t.copy(unidadeCompra = u, fatorCompra = f) } ?: t }
     }
 
     /** Usuário com restrição de empresa só mexe em tarefa das empresas dele — conferido ANTES de gravar. */
@@ -89,12 +118,13 @@ object Armazenagem {
         if (tarefas(claims).none { it.nutar == nutar }) throw ArmazenagemException("Tarefa $nutar não está aberta para as empresas do seu usuário.")
     }
 
-    suspend fun iniciar(claims: ClaimsToken, nutar: Long): TarefaArmazenagemDto {
+    suspend fun iniciar(claims: ClaimsToken, nutar: Long, excluir: List<String> = emptyList()): TarefaArmazenagemDto {
         val s = slug(claims)
         garantirAcesso(claims, nutar)
         val r = SankhyaSpClient.chamarRaw(s, "EnderecamentoSP.iniciar", MODULO_ADDON,
-            corpo("NUTAR" to nutar.toString(), "CODUSU" to codusu(claims).toString()), retentar = false)
-        return tarefaDaResposta(r)
+            corpo("NUTAR" to nutar.toString(), "CODUSU" to codusu(claims).toString(),
+                "EXCLUIR" to excluir.map { it.trim().uppercase() }.filter { it.isNotEmpty() }.joinToString(",").ifEmpty { null }), retentar = false)
+        return comUnidadeCompra(s, listOf(tarefaDaResposta(r))).first()
     }
 
     /** Não repete sozinho: guardar move saldo. Resposta perdida → o coletor relê a tarefa (QTDFEITA diz o que entrou). */
@@ -110,7 +140,7 @@ object Armazenagem {
             "MOTIVO" to req.motivo?.trim()?.takeIf { it.isNotEmpty() },
             "CODUSU" to codusu(claims).toString(),
         ), retentar = false)
-        return tarefaDaResposta(r)
+        return comUnidadeCompra(s, listOf(tarefaDaResposta(r))).first()
     }
 
     private fun tarefaDaResposta(r: JsonObject): TarefaArmazenagemDto =
@@ -221,8 +251,9 @@ fun Route.armazenagemRoutes() {
             val claims = call.exigirAuth() ?: return@post
             val nutar = call.parameters["nutar"]?.toLongOrNull()
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "tarefa inválida"))
+            val excluir = runCatching { call.receive<IniciarRequest>().excluir }.getOrDefault(emptyList())
             try {
-                call.respond(Armazenagem.iniciar(claims, nutar))
+                call.respond(Armazenagem.iniciar(claims, nutar, excluir))
             } catch (e: ArmazenagemException) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to e.message))
             } catch (e: Exception) {

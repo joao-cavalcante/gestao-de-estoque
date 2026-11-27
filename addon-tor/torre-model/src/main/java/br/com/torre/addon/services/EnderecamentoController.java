@@ -19,7 +19,8 @@ import java.util.Map;
  *  - publicarEnderecos {CODEMP, CODLOCAL, ENDERECOS: [{ID, CODIGO, TIPO, SETOR, ESTRUTURA, MODULO, NIVEL, CAPQTD,
  *    CAPPESO, BLOQUEADO}]} — ao publicar a Planta. Resposta: NOVOS, ALTERADOS, DESATIVADOS, COMSALDO.
  *  - tarefas {EMPRESAS: "1,2"} — abertas/em execução. Resposta: TAREFAS.
- *  - iniciar {NUTAR, CODUSU} — operador começou; recalcula a sugestão. Resposta: TAREFA.
+ *  - iniciar {NUTAR, CODUSU, EXCLUIR?: "R01-M01-N01,..."} — operador começou (ou achou o sugerido cheio); recalcula a
+ *    sugestão sem os EXCLUIR. Resposta: TAREFA.
  *  - armazenar {NUTAR, ENDERECO, QTD, MOTIVO, CODUSU} — doca → endereço, numa transação. Resposta: TAREFA.
  *  - gerarTarefas {NUNOTA, NUCONF} — reserva do job (botão "gerar agora"). Resposta: CRIADAS.
  *  - situacaoCompras {NUNOTAS: "1,2"} — aba Armazenagem. Resposta: COMPRAS.
@@ -79,7 +80,9 @@ public class EnderecamentoController {
         try {
             Map<String, Object> req = Corpo.desembrulhar(request, "NUTAR");
             Map<String, Object> r = resposta();
-            r.put("TAREFA", new EnderecamentoHelper().iniciar(Corpo.numero(req.get("NUTAR")), Corpo.numero(req.get("CODUSU"))));
+            List<String> excluir = new ArrayList<String>();
+            if (req.get("EXCLUIR") != null) for (String x : req.get("EXCLUIR").toString().split("[,; ]+")) if (!x.trim().isEmpty()) excluir.add(x.trim());
+            r.put("TAREFA", new EnderecamentoHelper().iniciar(Corpo.numero(req.get("NUTAR")), Corpo.numero(req.get("CODUSU")), excluir));
             return r;
         } finally {
             JapeSession.close(hnd);

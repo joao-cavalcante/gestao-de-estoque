@@ -231,16 +231,36 @@ public final class EnderecamentoHelper {
 
     /** Sugestão para o que falta da tarefa [t], com o setor do produto e as reservas das OUTRAS tarefas abertas. */
     private EnderecamentoRegras.Endereco sugestao(Map<String, Object> t, BigDecimal nutar, BigDecimal falta) throws Exception {
+        return sugestao(t, nutar, falta, null);
+    }
+
+    /** Idem, sem os endereços de código em [excluir] (o operador achou cheios — "Endereço cheio" no coletor). */
+    private EnderecamentoRegras.Endereco sugestao(Map<String, Object> t, BigDecimal nutar, BigDecimal falta, List<String> excluir) throws Exception {
         BigDecimal codprod = Db.dec0(t.get("CODPROD"));
-        return EnderecamentoRegras.sugerir(enderecos(Db.dec(t.get("CODEMP")), Db.dec(t.get("CODLOCAL")), nutar),
-            EnderecamentoRegras.chave(codprod.toPlainString(), Db.txt(t.get("CONTROLE"))), falta, tipoSeparacao(codprod));
+        List<EnderecamentoRegras.Endereco> ends = enderecos(Db.dec(t.get("CODEMP")), Db.dec(t.get("CODLOCAL")), nutar);
+        if (excluir != null && !excluir.isEmpty()) {
+            List<EnderecamentoRegras.Endereco> f = new ArrayList<EnderecamentoRegras.Endereco>();
+            for (EnderecamentoRegras.Endereco e : ends) {
+                boolean fora = false;
+                for (String x : excluir) if (x != null && x.trim().equalsIgnoreCase(e.codigo)) fora = true;
+                if (!fora) f.add(e);
+            }
+            ends = f;
+        }
+        return EnderecamentoRegras.sugerir(ends, EnderecamentoRegras.chave(codprod.toPlainString(), Db.txt(t.get("CONTROLE"))), falta,
+            tipoSeparacao(codprod));
     }
 
     /** Operador começa a tarefa: marca EX e recalcula a sugestão (o galpão mudou desde a criação). */
     public Map<String, Object> iniciar(BigDecimal nutar, BigDecimal codusu) throws Exception {
+        return iniciar(nutar, codusu, null);
+    }
+
+    /** [excluir]: endereços que o operador encontrou cheios — a sugestão nova pula esses (padrão de mercado, 27/11/2026). */
+    public Map<String, Object> iniciar(BigDecimal nutar, BigDecimal codusu, List<String> excluir) throws Exception {
         Map<String, Object> t = travarTarefa(nutar);
         BigDecimal falta = EnderecamentoRegras.falta(Db.dec(t.get("QTD")), Db.dec(t.get("QTDFEITA")));
-        EnderecamentoRegras.Endereco sug = sugestao(t, nutar, falta);
+        EnderecamentoRegras.Endereco sug = sugestao(t, nutar, falta, excluir);
         Db.executar("UPDATE TORTAR SET SITUACAO = 'EX', CODUSU = NVL(:U, CODUSU), DHINICIO = NVL(DHINICIO, SYSDATE), CODENDSUG = :S WHERE NUTAR = :T",
             Db.p("U", codusu, "S", sug == null ? null : BigDecimal.valueOf(sug.codend), "T", nutar));
         return tarefa(nutar);
