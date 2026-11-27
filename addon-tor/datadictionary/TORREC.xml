@@ -31,8 +31,9 @@
             <field name="NUCONF" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
                 <description>N&#250;mero da Confer&#234;ncia</description>
             </field>
-            <field name="SITUACAO" dataType="TEXTO" size="2" allowSearch="S" visibleOnSearch="S" required="S">
+            <field name="SITUACAO" dataType="LISTA" size="2" allowSearch="S" visibleOnSearch="S" required="S">
                 <description>Situa&#231;&#227;o</description>
+                <fieldOptions><option value="PE">Pendente</option><option value="AP">Aprovado</option><option value="RC">Recontagem</option></fieldOptions>
             </field>
             <field name="CODUSUAPROV" dataType="PESQUISA" targetInstance="Usuario" targetField="CODUSU" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>Aprovado Por</description>
@@ -49,11 +50,13 @@
             <field name="MOTIVODEV" dataType="TEXTO" size="400" allowSearch="S" visibleOnSearch="S">
                 <description>Motivo da Devolu&#231;&#227;o</description>
             </field>
-            <field name="ORIGEM" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+            <field name="ORIGEM" dataType="LISTA" size="1" allowSearch="S" visibleOnSearch="S">
                 <description>Confirmado Por</description>
+                <fieldOptions><option value="T">Torre</option><option value="S">Sankhya</option></fieldOptions>
             </field>
-            <field name="ENDSIT" dataType="TEXTO" size="2" allowSearch="S" visibleOnSearch="S">
+            <field name="ENDSIT" dataType="LISTA" size="2" allowSearch="S" visibleOnSearch="S">
                 <description>Situa&#231;&#227;o do Endere&#231;amento</description>
+                <fieldOptions><option value="GE">Tarefas geradas</option><option value="ER">Erro</option></fieldOptions>
             </field>
             <field name="ENDERRO" dataType="TEXTO" size="400" allowSearch="S" visibleOnSearch="S">
                 <description>Erro do Endere&#231;amento</description>

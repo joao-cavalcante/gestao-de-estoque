@@ -16,8 +16,9 @@
             <field name="NUMOV" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
                 <description>Nro.</description>
             </field>
-            <field name="TIPO" dataType="TEXTO" size="10" allowSearch="S" visibleOnSearch="S">
+            <field name="TIPO" dataType="LISTA" size="10" allowSearch="S" visibleOnSearch="S">
                 <description>Tipo</description>
+                <fieldOptions><option value="ENT">Entrada na doca</option><option value="ARM">Armazenagem</option></fieldOptions>
             </field>
             <field name="NUTAR" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>Tarefa</description>

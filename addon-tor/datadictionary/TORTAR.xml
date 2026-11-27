@@ -16,8 +16,9 @@
             <field name="NUTAR" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
                 <description>Nro. Tarefa</description>
             </field>
-            <field name="TIPO" dataType="TEXTO" size="10" allowSearch="S" visibleOnSearch="S">
+            <field name="TIPO" dataType="LISTA" size="10" allowSearch="S" visibleOnSearch="S">
                 <description>Tipo</description>
+                <fieldOptions><option value="ARM">Armazenagem</option></fieldOptions>
             </field>
             <field name="NUNOTA" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>Nro. &#218;nico da Compra</description>
@@ -52,8 +53,9 @@
             <field name="CODENDSUG" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>Endere&#231;o Sugerido</description>
             </field>
-            <field name="SITUACAO" dataType="TEXTO" size="2" allowSearch="S" visibleOnSearch="S">
+            <field name="SITUACAO" dataType="LISTA" size="2" allowSearch="S" visibleOnSearch="S">
                 <description>Situa&#231;&#227;o</description>
+                <fieldOptions><option value="AB">Aberta</option><option value="EX">Em execu&#231;&#227;o</option><option value="CO">Conclu&#237;da</option><option value="CA">Cancelada</option></fieldOptions>
             </field>
             <field name="CODUSU" dataType="PESQUISA" targetInstance="Usuario" targetField="CODUSU" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>Usu&#225;rio</description>

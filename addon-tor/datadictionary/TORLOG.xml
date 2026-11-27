@@ -25,7 +25,7 @@
             <field name="NUNOTA" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>N&#250;mero &#218;nico</description>
             </field>
-            <field name="SUCESSO" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+            <field name="SUCESSO" dataType="CHECKBOX" allowSearch="S" visibleOnSearch="S">
                 <description>Sucesso</description>
             </field>
             <field name="MENSAGEM" dataType="CAIXA_TEXTO" allowSearch="S" visibleOnSearch="S">

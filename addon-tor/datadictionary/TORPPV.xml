@@ -48,8 +48,9 @@
             <field name="NUNOTAAJ" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>Nota de Ajuste Gerada</description>
             </field>
-            <field name="STATUS" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+            <field name="STATUS" dataType="LISTA" size="1" allowSearch="S" visibleOnSearch="S">
                 <description>Situa&#231;&#227;o</description>
+                <fieldOptions><option value="P">Pendente</option><option value="A">A gerar</option><option value="G">Gerado</option><option value="E">Erro</option></fieldOptions>
             </field>
             <field name="TENTATIVAS" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
                 <description>Tentativas</description>

@@ -25,8 +25,9 @@
             <field name="CODIGO" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
                 <description>Endere&#231;o (etiqueta)</description>
             </field>
-            <field name="TIPO" dataType="TEXTO" size="10" allowSearch="S" visibleOnSearch="S">
+            <field name="TIPO" dataType="LISTA" size="10" allowSearch="S" visibleOnSearch="S">
                 <description>Tipo</description>
+                <fieldOptions><option value="DOCA">Doca</option><option value="PICKING">Picking</option><option value="PULMAO">Pulm&#227;o</option></fieldOptions>
             </field>
             <field name="SETOR" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
                 <description>Setor</description>
@@ -46,10 +47,10 @@
             <field name="CAPPESO" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
                 <description>Capacidade (kg)</description>
             </field>
-            <field name="BLOQUEADO" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+            <field name="BLOQUEADO" dataType="CHECKBOX" allowSearch="S" visibleOnSearch="S">
                 <description>Bloqueado</description>
             </field>
-            <field name="ATIVO" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+            <field name="ATIVO" dataType="CHECKBOX" allowSearch="S" visibleOnSearch="S">
                 <description>Ativo</description>
             </field>
             <field name="IDTORRE" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
