@@ -154,6 +154,9 @@ export interface PublicacaoOk {
   versao: string;
   enderecosAtivos: string;
   enderecosDesativados: string;
+  /** Etapa 3a (27/11/2026): resultado do envio dos endereços ao Sankhya (addon TOR). */
+  sankhya?: string;
+  sankhyaOk?: string;
 }
 
 export const PADRAO_ENDERECO = '{estrutura}-M{modulo}-N{nivel}';

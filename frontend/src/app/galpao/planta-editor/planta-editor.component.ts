@@ -583,7 +583,8 @@ export class PlantaEditorComponent implements OnInit, OnDestroy {
         const desativados = Number(r.enderecosDesativados);
         this.aviso.set(
           `Versão ${r.versao} publicada — ${Number(r.enderecosAtivos).toLocaleString('pt-BR')} endereços ativos` +
-            (desativados ? `, ${desativados} desativado(s).` : '.'),
+            (desativados ? `, ${desativados} desativado(s).` : '.') +
+            (r.sankhya ? ` ${r.sankhya}` : ''),
         );
         this.carregarVersoes();
       },
@@ -591,6 +592,23 @@ export class PlantaEditorComponent implements OnInit, OnDestroy {
         this.publicando.set(false);
         const corpo = e?.error;
         this.erroPublicar.set([corpo?.erro ?? 'Não foi possível publicar.', ...(corpo?.detalhes ?? [])]);
+      },
+    });
+  }
+
+  readonly enviandoSankhya = signal(false);
+
+  /** Etapa 3a: reenvia os endereços publicados ao Sankhya (addon instalado depois, falha na publicação). */
+  enviarSankhya(): void {
+    this.enviandoSankhya.set(true);
+    this.service.enviarSankhya(this.plantaId).subscribe({
+      next: (r) => {
+        this.enviandoSankhya.set(false);
+        this.aviso.set(r.mensagem);
+      },
+      error: (e) => {
+        this.enviandoSankhya.set(false);
+        this.aviso.set(e?.error?.mensagem ?? e?.error?.erro ?? 'Não foi possível enviar ao Sankhya.');
       },
     });
   }

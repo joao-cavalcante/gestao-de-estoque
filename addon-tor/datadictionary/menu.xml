@@ -12,5 +12,13 @@
                      resourceId="br.com.torre.addon.recebimento"/>
         <dynamicForm id="torre_log" instance="LogTorre" description="Torre de Opera&#231;&#227;o - Log"
                      resourceId="br.com.torre.addon.log"/>
+        <dynamicForm id="torre_enderecos" instance="EnderecoTorre" description="Torre de Opera&#231;&#227;o - Endere&#231;os"
+                     resourceId="br.com.torre.addon.enderecos"/>
+        <dynamicForm id="torre_estoque_endereco" instance="EstoqueEnderecoTorre" description="Torre de Opera&#231;&#227;o - Estoque por Endere&#231;o"
+                     resourceId="br.com.torre.addon.estoqueendereco"/>
+        <dynamicForm id="torre_tarefas" instance="TarefaTorre" description="Torre de Opera&#231;&#227;o - Tarefas de Armazenagem"
+                     resourceId="br.com.torre.addon.tarefas"/>
+        <dynamicForm id="torre_movimentos" instance="MovimentoEnderecoTorre" description="Torre de Opera&#231;&#227;o - Movimentos de Endere&#231;o"
+                     resourceId="br.com.torre.addon.movimentos"/>
     </menu>
 </metadados>

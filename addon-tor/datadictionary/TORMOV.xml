@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- TORMOV - movimento entre enderecos (27/11/2026). TIPO: ENT entrada na doca | ARM armazenagem. -->
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+    <table name="TORMOV" sequenceType="A" sequenceField="NUMOV">
+        <description>Torre de Opera&#231;&#227;o - Movimentos de Endere&#231;o</description>
+        <primaryKey>
+            <field name="NUMOV"/>
+        </primaryKey>
+        <instances>
+            <instance name="MovimentoEnderecoTorre">
+                <description>Torre de Opera&#231;&#227;o - Movimentos de Endere&#231;o</description>
+            </instance>
+        </instances>
+        <fields>
+            <field name="NUMOV" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Nro.</description>
+            </field>
+            <field name="TIPO" dataType="TEXTO" size="10" allowSearch="S" visibleOnSearch="S">
+                <description>Tipo</description>
+            </field>
+            <field name="NUTAR" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Tarefa</description>
+            </field>
+            <field name="NUNOTA" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Nro. &#218;nico</description>
+            </field>
+            <field name="CODPROD" dataType="PESQUISA" targetInstance="Produto" targetField="CODPROD" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Produto</description>
+            </field>
+            <field name="CONTROLE" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
+                <description>Controle</description>
+            </field>
+            <field name="QTD" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Quantidade</description>
+            </field>
+            <field name="CODENDORIG" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Endere&#231;o de Origem</description>
+            </field>
+            <field name="CODENDDEST" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Endere&#231;o de Destino</description>
+            </field>
+            <field name="MOTIVO" dataType="TEXTO" size="200" allowSearch="S" visibleOnSearch="S">
+                <description>Motivo da Troca</description>
+            </field>
+            <field name="CODUSU" dataType="PESQUISA" targetInstance="Usuario" targetField="CODUSU" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Usu&#225;rio</description>
+            </field>
+            <field name="DHMOV" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Data/Hora</description>
+            </field>
+        </fields>
+    </table>
+</metadados>

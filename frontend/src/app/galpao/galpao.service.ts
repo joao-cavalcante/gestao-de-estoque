@@ -100,6 +100,11 @@ export class GalpaoService {
     return this.http.post<VersaoResumo>(`${this.base}/plantas/${id}/versoes/${versaoId}/restaurar`, {});
   }
 
+  /** Reenvia os endereços publicados ao Sankhya (addon TOR). */
+  enviarSankhya(id: string): Observable<{ mensagem: string }> {
+    return this.http.post<{ mensagem: string }>(`${this.base}/plantas/${id}/enviar-sankhya`, {});
+  }
+
   publicar(id: string, versaoId: string, confirmacao: string): Observable<PublicacaoOk> {
     return this.http.post<PublicacaoOk>(`${this.base}/plantas/${id}/versoes/${versaoId}/publicar`, { confirmacao });
   }

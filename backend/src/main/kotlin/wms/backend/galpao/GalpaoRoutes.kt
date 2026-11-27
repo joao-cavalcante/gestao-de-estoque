@@ -235,19 +235,33 @@ fun Route.galpaoRoutes() {
             call.respond(v)
         }
 
+        /** Reenvia os endereços publicados da planta ao Sankhya (addon instalado depois, falha na publicação). */
+        post("/plantas/{id}/enviar-sankhya") {
+            val claims = call.exigirGalpao(admin = true) ?: return@post
+            val id = call.uuid("id") ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val envio = GalpaoSankhya.enviarEnderecos(claims.tenantId, id)
+            call.respond(if (envio.ok) HttpStatusCode.OK else HttpStatusCode.BadGateway, mapOf("mensagem" to envio.mensagem))
+        }
+
         post("/plantas/{id}/versoes/{versaoId}/publicar") {
             val claims = call.exigirGalpao(admin = true) ?: return@post
             val id = call.uuid("id") ?: return@post call.respond(HttpStatusCode.BadRequest)
             val versaoId = call.uuid("versaoId") ?: return@post call.respond(HttpStatusCode.BadRequest)
             val body = call.receive<PublicarRequest>()
             when (val r = GalpaoRepository.publicar(claims.tenantId, id, versaoId, body.confirmacao, nomeUsuario(claims))) {
-                is ResultadoPublicacao.Ok -> call.respond(
-                    mapOf(
-                        "versao" to r.versao.numero.toString(),
-                        "enderecosAtivos" to r.enderecosAtivos.toString(),
-                        "enderecosDesativados" to r.enderecosDesativados.toString(),
-                    ),
-                )
+                is ResultadoPublicacao.Ok -> {
+                    // Etapa 3a (27/11/2026): os endereços publicados vão para o Sankhya (addon TOR). Falha não desfaz a publicação.
+                    val envio = GalpaoSankhya.enviarEnderecos(claims.tenantId, id)
+                    call.respond(
+                        mapOf(
+                            "versao" to r.versao.numero.toString(),
+                            "enderecosAtivos" to r.enderecosAtivos.toString(),
+                            "enderecosDesativados" to r.enderecosDesativados.toString(),
+                            "sankhya" to envio.mensagem,
+                            "sankhyaOk" to envio.ok.toString(),
+                        ),
+                    )
+                }
                 ResultadoPublicacao.NaoEncontrada -> call.respond(HttpStatusCode.NotFound, mapOf("erro" to "Versão não encontrada"))
                 ResultadoPublicacao.NaoERascunho -> call.respond(HttpStatusCode.Conflict, mapOf("erro" to "Só o rascunho pode ser publicado"))
                 ResultadoPublicacao.ConfirmacaoInvalida -> call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "Digite o nome da planta exatamente como cadastrado para confirmar"))

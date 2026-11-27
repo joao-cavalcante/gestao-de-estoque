@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- TOREST - quantidade por endereco (27/11/2026). A TGFEST continua a verdade; aqui so a distribuicao dela. -->
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+    <table name="TOREST" sequenceType="M">
+        <description>Torre de Opera&#231;&#227;o - Estoque por Endere&#231;o</description>
+        <primaryKey>
+            <field name="CODEND"/>
+            <field name="CODPROD"/>
+            <field name="CONTROLE"/>
+        </primaryKey>
+        <instances>
+            <instance name="EstoqueEnderecoTorre">
+                <description>Torre de Opera&#231;&#227;o - Estoque por Endere&#231;o</description>
+            </instance>
+        </instances>
+        <fields>
+            <field name="CODEND" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Endere&#231;o</description>
+            </field>
+            <field name="CODPROD" dataType="PESQUISA" targetInstance="Produto" targetField="CODPROD" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Produto</description>
+            </field>
+            <field name="CONTROLE" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Controle</description>
+            </field>
+            <field name="QTD" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Quantidade</description>
+            </field>
+            <field name="DHALTER" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Alterado Em</description>
+            </field>
+        </fields>
+    </table>
+</metadados>

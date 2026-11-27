@@ -42,6 +42,9 @@
             <field name="USUAPROVREC" dataType="TEXTO" size="400" allowSearch="S" visibleOnSearch="S">
                 <description>Usu&#225;rios que Aprovam o Recebimento</description>
             </field>
+            <field name="ENDATIVO" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+                <description>Endere&#231;amento Ativo</description>
+            </field>
         </fields>
     </table>
 </metadados>

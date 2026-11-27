@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- TOREND - enderecos do galpao (27/11/2026). Desenhados na Planta da Torre e publicados aqui (IDTORRE); a DOCA de cada empresa/local e criada pelo addon. TIPO: DOCA | PICKING | PULMAO. -->
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+    <table name="TOREND" sequenceType="A" sequenceField="CODEND">
+        <description>Torre de Opera&#231;&#227;o - Endere&#231;os</description>
+        <primaryKey>
+            <field name="CODEND"/>
+        </primaryKey>
+        <instances>
+            <instance name="EnderecoTorre">
+                <description>Torre de Opera&#231;&#227;o - Endere&#231;os</description>
+            </instance>
+        </instances>
+        <fields>
+            <field name="CODEND" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>C&#243;digo</description>
+            </field>
+            <field name="CODEMP" dataType="PESQUISA" targetInstance="Empresa" targetField="CODEMP" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Empresa</description>
+            </field>
+            <field name="CODLOCAL" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Local</description>
+            </field>
+            <field name="CODIGO" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
+                <description>Endere&#231;o (etiqueta)</description>
+            </field>
+            <field name="TIPO" dataType="TEXTO" size="10" allowSearch="S" visibleOnSearch="S">
+                <description>Tipo</description>
+            </field>
+            <field name="SETOR" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
+                <description>Setor</description>
+            </field>
+            <field name="ESTRUTURA" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
+                <description>Estrutura</description>
+            </field>
+            <field name="MODULO" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>M&#243;dulo</description>
+            </field>
+            <field name="NIVEL" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>N&#237;vel</description>
+            </field>
+            <field name="CAPQTD" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Capacidade (quantidade)</description>
+            </field>
+            <field name="CAPPESO" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Capacidade (kg)</description>
+            </field>
+            <field name="BLOQUEADO" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+                <description>Bloqueado</description>
+            </field>
+            <field name="ATIVO" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
+                <description>Ativo</description>
+            </field>
+            <field name="IDTORRE" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
+                <description>Id na Planta da Torre</description>
+            </field>
+            <field name="DHALTER" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Alterado Em</description>
+            </field>
+        </fields>
+    </table>
+</metadados>

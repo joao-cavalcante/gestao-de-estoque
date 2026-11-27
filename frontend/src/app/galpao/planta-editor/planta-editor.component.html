@@ -21,6 +21,10 @@
     <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="salvar()" [disabled]="salvando()" title="Ctrl+S">
       {{ salvando() ? 'Salvando…' : 'Salvar rascunho' }}
     </button>
+    <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="enviarSankhya()" [disabled]="enviandoSankhya()"
+            title="Reenvia ao Sankhya os endereços da versão publicada (endereçamento)">
+      {{ enviandoSankhya() ? 'Enviando…' : 'Enviar ao Sankhya' }}
+    </button>
     <button type="button" class="oq-admin-btn oq-admin-btn--primary" (click)="abrirPublicar()" [disabled]="salvando() || g().objetos.length === 0">
       Publicar
     </button>

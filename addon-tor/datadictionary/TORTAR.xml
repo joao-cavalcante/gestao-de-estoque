@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- TORTAR - tarefa de armazenagem (27/11/2026): da DOCA para o endereco. SITUACAO: AB aberta | EX em execucao | CO concluida | CA cancelada. -->
+<metadados xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:noNamespaceSchemaLocation="../.gradle/metadados.xsd">
+    <table name="TORTAR" sequenceType="A" sequenceField="NUTAR">
+        <description>Torre de Opera&#231;&#227;o - Tarefas de Armazenagem</description>
+        <primaryKey>
+            <field name="NUTAR"/>
+        </primaryKey>
+        <instances>
+            <instance name="TarefaTorre">
+                <description>Torre de Opera&#231;&#227;o - Tarefas de Armazenagem</description>
+            </instance>
+        </instances>
+        <fields>
+            <field name="NUTAR" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S" required="S">
+                <description>Nro. Tarefa</description>
+            </field>
+            <field name="TIPO" dataType="TEXTO" size="10" allowSearch="S" visibleOnSearch="S">
+                <description>Tipo</description>
+            </field>
+            <field name="NUNOTA" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Nro. &#218;nico da Compra</description>
+            </field>
+            <field name="NUCONF" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Confer&#234;ncia</description>
+            </field>
+            <field name="CODEMP" dataType="PESQUISA" targetInstance="Empresa" targetField="CODEMP" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Empresa</description>
+            </field>
+            <field name="CODLOCAL" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Local</description>
+            </field>
+            <field name="CODPROD" dataType="PESQUISA" targetInstance="Produto" targetField="CODPROD" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Produto</description>
+            </field>
+            <field name="CONTROLE" dataType="TEXTO" size="40" allowSearch="S" visibleOnSearch="S">
+                <description>Controle</description>
+            </field>
+            <field name="CODVOL" dataType="TEXTO" size="6" allowSearch="S" visibleOnSearch="S">
+                <description>Unidade</description>
+            </field>
+            <field name="QTD" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Quantidade</description>
+            </field>
+            <field name="QTDFEITA" dataType="DECIMAL" nuCasasDecimais="3" allowSearch="S" visibleOnSearch="S">
+                <description>Quantidade Armazenada</description>
+            </field>
+            <field name="CODENDORIG" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Endere&#231;o de Origem</description>
+            </field>
+            <field name="CODENDSUG" dataType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Endere&#231;o Sugerido</description>
+            </field>
+            <field name="SITUACAO" dataType="TEXTO" size="2" allowSearch="S" visibleOnSearch="S">
+                <description>Situa&#231;&#227;o</description>
+            </field>
+            <field name="CODUSU" dataType="PESQUISA" targetInstance="Usuario" targetField="CODUSU" targetType="INTEIRO" allowSearch="S" visibleOnSearch="S">
+                <description>Usu&#225;rio</description>
+            </field>
+            <field name="DHCRIACAO" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Criada Em</description>
+            </field>
+            <field name="DHINICIO" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Iniciada Em</description>
+            </field>
+            <field name="DHCONCLUSAO" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Conclu&#237;da Em</description>
+            </field>
+        </fields>
+    </table>
+</metadados>

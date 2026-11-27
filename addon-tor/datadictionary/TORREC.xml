@@ -52,6 +52,15 @@
             <field name="ORIGEM" dataType="TEXTO" size="1" allowSearch="S" visibleOnSearch="S">
                 <description>Confirmado Por</description>
             </field>
+            <field name="ENDSIT" dataType="TEXTO" size="2" allowSearch="S" visibleOnSearch="S">
+                <description>Situa&#231;&#227;o do Endere&#231;amento</description>
+            </field>
+            <field name="ENDERRO" dataType="TEXTO" size="400" allowSearch="S" visibleOnSearch="S">
+                <description>Erro do Endere&#231;amento</description>
+            </field>
+            <field name="DHENDER" dataType="DATA_HORA" allowSearch="S" visibleOnSearch="S">
+                <description>Tarefas Geradas Em</description>
+            </field>
         </fields>
     </table>
 </metadados>
