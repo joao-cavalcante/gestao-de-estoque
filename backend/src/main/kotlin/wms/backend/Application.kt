@@ -1,5 +1,6 @@
 package wms.backend
 
+import wms.backend.permissoes.minhasEmpresasRoutes
 import wms.backend.impressao.ImpressaoOcWorker
 import wms.backend.impressao.impressaoOcRoutes
 import wms.backend.cargas.cargasRoutes
@@ -121,7 +122,7 @@ fun Application.module() {
         tvRoutes()
         reconferenciaRoutes()
         authRoutes()
-        wms.backend.permissoes.minhasEmpresasRoutes()
+        minhasEmpresasRoutes()
         usuariosRoutes()
         balancasRoutes()
         downloadsRoutes()
