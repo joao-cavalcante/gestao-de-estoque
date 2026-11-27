@@ -15,6 +15,7 @@ import {
   ehDoProduto,
   ehOSugerido,
   falta,
+  lerEndereco,
   lerQtd,
   normalizar,
   ordenarTarefas,
@@ -198,9 +199,10 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
     this.passo.set('endereco');
   }
 
-  private lerEndereco(codigo: string): void {
+  private lerEndereco(lido: string): void {
     const t = this.atual();
     if (!t) return;
+    const codigo = lerEndereco(lido, t.sugerido);
     if (t.origem && normalizar(t.origem) === codigo) {
       this.feedback.trigger('OPERACAO_NAO_PERMITIDA');
       this.aviso.set({ tom: 'erro', titulo: 'Essa é a doca', mensagem: 'Bipe o endereço onde o produto vai ficar.' });

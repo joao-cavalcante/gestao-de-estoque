@@ -1,4 +1,4 @@
-import { TarefaArmazenagem, segmentos, ehDoProduto, ehOSugerido, falta, lerQtd, ordenarTarefas, tarefaPorProduto } from './armazenar.logic';
+import { TarefaArmazenagem, lerEndereco, segmentos, ehDoProduto, ehOSugerido, falta, lerQtd, ordenarTarefas, tarefaPorProduto } from './armazenar.logic';
 
 function t(p: Partial<TarefaArmazenagem>): TarefaArmazenagem {
   return {
@@ -47,9 +47,18 @@ describe('armazenar.logic', () => {
 
   it('quebra o endereço em rua, módulo e nível', () => {
     expect(segmentos('R07-M01-N02')).toEqual([
-      { rotulo: 'Rua', valor: 'R07' }, { rotulo: 'Módulo', valor: '01' }, { rotulo: 'Nível', valor: '02' },
+      { rotulo: 'Rua', valor: 'R07' }, { rotulo: 'Módulo', valor: 'M01' }, { rotulo: 'Nível', valor: 'N02' },
     ]);
     expect(segmentos('DOCA')).toEqual([{ rotulo: 'Endereço', valor: 'DOCA' }]);
     expect(segmentos(null)).toEqual([]);
+  });
+
+  it('lê o endereço digitado em formatos diferentes', () => {
+    expect(lerEndereco('R01-01-01', 'R01-M01-N01')).toBe('R01-M01-N01');
+    expect(lerEndereco('r01m01n01', 'R01-M01-N01')).toBe('R01-M01-N01');
+    expect(lerEndereco('R03 02 4', null)).toBe('R03-M02-N04');
+    expect(lerEndereco('R3-2-4', null)).toBe('R03-M02-N04');
+    expect(lerEndereco('R04-M05-N02', 'R01-M01-N01')).toBe('R04-M05-N02');
+    expect(lerEndereco('DOCA-1-101', 'R01-M01-N01')).toBe('DOCA-1-101');
   });
 });

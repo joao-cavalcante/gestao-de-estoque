@@ -87,6 +87,7 @@
               } @else {
                 <p class="ar-destino__sem">Escolha um endereço livre e bipe a etiqueta.</p>
               }
+              @if (destinoMostrado(); as d) { <span class="ar-destino__codigo">Etiqueta <b>{{ d }}</b></span> }
               @if (trocou() && t.sugerido) { <span class="ar-destino__era">Sugerido era {{ t.sugerido }}</span> }
             </section>
 

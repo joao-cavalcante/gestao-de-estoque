@@ -240,6 +240,7 @@ fun Route.armazenagemRoutes() {
             } catch (e: ArmazenagemException) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("erro" to e.message))
             } catch (e: Exception) {
+                println("AVISO: guardar tarefa $nutar em '${body.endereco}' (qtd ${body.qtd}) recusado: ${mensagem(e)}")
                 call.respond(HttpStatusCode.UnprocessableEntity, mapOf("erro" to mensagem(e)))
             }
         }
