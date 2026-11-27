@@ -522,6 +522,18 @@
   }
 }
 
+// Atividade atual: fundo + negrito (padrão do menu da Torre). Grupo de opções separado das atividades.
+.cl-menu__item--ativo {
+  background: var(--oq-surface-2);
+  font-weight: 700;
+}
+
+.cl-menu__item--grupo {
+  margin-top: 4px;
+  border-top: 1px solid var(--oq-border);
+  border-radius: 0;
+}
+
 .cl-menu__item--sair {
   margin-top: 4px;
   border-top: 1px solid var(--oq-border);

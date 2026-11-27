@@ -5,6 +5,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { ActionFeedbackService } from '../../shared/action-feedback/action-feedback.service';
+import { ThemeService } from '../../shared/theme/theme.service';
+import { definirPreferenciaTorre } from '../coletor-modo';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import {
@@ -52,6 +54,7 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly feedback = inject(ActionFeedbackService);
+  readonly tema = inject(ThemeService);
 
   @ViewChild('campo') campo?: ElementRef<HTMLInputElement>;
 
@@ -380,6 +383,21 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   irConferencia(): void {
     this.menuAberto.set(false);
     this.router.navigate(['/coletor']);
+  }
+
+  /** Menu único do coletor: aqui a atividade ativa é o Armazenar. */
+  abrirArmazenar(): void {
+    this.menuAberto.set(false);
+  }
+
+  alternarTema(): void {
+    this.tema.alternar();
+  }
+
+  abrirTorre(): void {
+    this.menuAberto.set(false);
+    definirPreferenciaTorre(true);
+    this.router.navigate(['/fila-tarefas']);
   }
 
   sair(): void {

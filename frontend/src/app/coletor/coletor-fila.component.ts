@@ -302,6 +302,11 @@ export class ColetorFilaComponent implements OnInit, OnDestroy {
     setTimeout(() => el?.focus({ preventScroll: true }), 30);
   }
 
+  /** Menu único do coletor (27/11/2026): Conferência e Armazenar são as atividades; aqui a ativa é a Conferência. */
+  irConferencia(): void {
+    this.menuAberto.set(false);
+  }
+
   abrirArmazenar(): void {
     this.menuAberto.set(false);
     this.router.navigate(['/coletor/armazenar']);

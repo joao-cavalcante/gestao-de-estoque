@@ -176,10 +176,12 @@
   @if (menuAberto()) {
     <div class="cl-menu-fundo" (click)="menuAberto.set(false)"></div>
     <nav class="cl-menu" aria-label="Mais opções do coletor">
-      @if (emTarefa()) {
-        <button type="button" class="cl-menu__item" (click)="menuAberto.set(false); voltar()"><oq-icon name="arrow-left" [size]="18" /> Deixar esta para depois</button>
-      }
-      <button type="button" class="cl-menu__item" (click)="irConferencia()"><oq-icon name="list-check" [size]="18" /> Conferência</button>
+      <button type="button" class="cl-menu__item" [class.cl-menu__item--ativo]="false" [attr.aria-current]="false ? 'page' : null" (click)="irConferencia()"><oq-icon name="list-check" [size]="18" /> Conferência</button>
+      <button type="button" class="cl-menu__item" [class.cl-menu__item--ativo]="true" [attr.aria-current]="true ? 'page' : null" (click)="abrirArmazenar()"><oq-icon name="box" [size]="18" /> Armazenar</button>
+      <button type="button" class="cl-menu__item cl-menu__item--grupo" (click)="alternarTema()">
+        <oq-icon [name]="tema.tema() === 'dark' ? 'sun' : 'moon'" [size]="18" /> {{ tema.tema() === 'dark' ? 'Tema claro' : 'Tema escuro' }}
+      </button>
+      <button type="button" class="cl-menu__item" (click)="abrirTorre()"><oq-icon name="grid" [size]="18" /> Abrir Torre completa</button>
       <button type="button" class="cl-menu__item cl-menu__item--sair" (click)="sair()"><oq-icon name="logout" [size]="18" /> Sair</button>
     </nav>
   }
