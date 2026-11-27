@@ -549,3 +549,27 @@
     }
   }
 }
+
+// Paletes do recebimento (27/11/2026): "Fechar palete" com o que está lido sem palete.
+.oq-cf-footer__palete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+
+  small {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--oq-text-secondary);
+  }
+}
+
+@media (max-width: 639px) {
+  .oq-cf-footer__palete {
+    flex: none;
+    min-height: 48px;
+    padding: 0 10px !important;
+
+    span { display: none; }
+  }
+}

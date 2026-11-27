@@ -31,6 +31,12 @@ export class OqConferenciaFooterComponent {
   /** Modo simplificado (sem dimensão) — só a quantidade de volumes do pedido, nativo do Sankhya. */
   @Input() volume = 0;
 
+  /** Paletes do recebimento (27/11/2026): botão "Fechar palete" só na compra; texto do que está lido sem palete. */
+  @Input() mostrarPalete = false;
+  @Input() paleteAberto: string | null = null;
+  @Input() fechandoPalete = false;
+  @Output() fecharPalete = new EventEmitter<void>();
+
   @Output() voltar = new EventEmitter<void>();
   @Output() confirmar = new EventEmitter<void>();
   @Output() volumeChange = new EventEmitter<number>();

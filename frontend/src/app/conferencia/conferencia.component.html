@@ -299,8 +299,30 @@
     (verConferidos)="abrirConferidos()"
     [sincronizando]="sincronizando()"
     (sincronizar)="onSincronizarSankhya()"
+    [mostrarPalete]="ehCompra() && !!sessaoIdAtual"
+    [paleteAberto]="paleteAberto()"
+    [fechandoPalete]="fechandoPalete()"
+    (fecharPalete)="fecharPalete()"
   />
   }
+  }
+
+  <!-- Paletes (27/11/2026): sem palete misto e vários produtos lidos — o operador escolhe o produto do palete -->
+  @if (escolhaPalete(); as esc) {
+    <div class="oq-modal-backdrop" (click)="escolhaPalete.set(null)">
+      <div class="oq-modal" (click)="$event.stopPropagation()" role="dialog" aria-label="Produto do palete">
+        <div class="oq-modal__header"><span class="oq-modal__titulo">Qual produto está neste palete?</span></div>
+        <div class="oq-modal__body cf-palete-escolha">
+          <p>O palete é de um produto só. Escolha o que você empilhou:</p>
+          @for (i of esc; track i.codprod + i.controle) {
+            <button type="button" class="cf-palete-escolha__item" (click)="fecharPalete([i])">
+              <b>{{ i.codprod }}</b> <span>{{ i.descricao }}</span> <b class="cf-palete-escolha__qtd">{{ qtdPalete(i) }}</b>
+            </button>
+          }
+        </div>
+        <div class="oq-modal__footer"><button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="escolhaPalete.set(null)">Cancelar</button></div>
+      </div>
+    </div>
   }
 
   @if (lockMensagem(); as lockMsg) {

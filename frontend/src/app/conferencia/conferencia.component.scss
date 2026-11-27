@@ -567,3 +567,32 @@
     font-size: 13px;
   }
 }
+
+// Paletes (27/11/2026): escolha do produto do palete (sem palete misto).
+.cf-palete-escolha {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  p { margin: 0 0 4px; color: var(--oq-text-secondary); }
+}
+
+.cf-palete-escolha__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 0 14px;
+  border: 1px solid var(--oq-border-strong);
+  border-radius: var(--oq-radius-input);
+  background: var(--oq-surface);
+  color: var(--oq-text-primary);
+  font-family: var(--oq-font-body);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+
+  span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.cf-palete-escolha__qtd { margin-left: auto; white-space: nowrap; }

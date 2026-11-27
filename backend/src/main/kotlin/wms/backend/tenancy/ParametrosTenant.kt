@@ -18,6 +18,7 @@ data class ParametrosTenant(
     val fuso: String? = null,
     val usuarioSankhya: ParametrosUsuarioSankhya = ParametrosUsuarioSankhya(),
     val ajustePesoCompra: ParametrosAjustePesoCompra = ParametrosAjustePesoCompra(),
+    val paletes: ParametrosPaletes = ParametrosPaletes(),
 ) {
     /** Erros de validação (vazio = válido). Conferido antes de gravar. */
     fun validar(): List<String> = liberacaoHerdada.validar() + toleranciaPesavel.validar() + usuarioSankhya.validar() +
@@ -178,3 +179,13 @@ data class ParametrosLiberacaoHerdada(
         if (eventos.distinct().size != eventos.size) add("liberacaoHerdada.eventos: evento repetido")
     }
 }
+
+/**
+ * Paletes do recebimento (27/11/2026, endereçamento etapa 4a). [permitirMisto]: o "Fechar palete" junta produtos
+ * diferentes num palete MISTO (o mercado chama de rainbow/mixed pallet); desligado (padrão, Negri) = palete NORMAL de
+ * um produto — com mais de um produto lido, o operador escolhe qual fecha.
+ */
+@Serializable
+data class ParametrosPaletes(
+    val permitirMisto: Boolean = false,
+)

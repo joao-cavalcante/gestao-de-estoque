@@ -1,0 +1,47 @@
+@if (carregando()) {
+  <p class="pl-msg"><oq-spinner [size]="13" /> Gerando etiqueta de palete…</p>
+} @else if (erro()) {
+  <p class="pl-msg pl-msg--erro">{{ erro() }}</p>
+} @else if (paletes().length === 0) {
+  <p class="pl-msg">Nenhum palete para imprimir.</p>
+} @else {
+  <div class="pl-toolbar">
+    <button type="button" class="pl-toolbar__print" (click)="imprimir()">Imprimir</button>
+    <span>{{ paletes().length }} etiqueta(s) de palete @if (reimpressao()) { — reimpressão, mesmo código de antes }</span>
+  </div>
+
+  <!-- Mesma família das etiquetas de volume/peso: cabeçalho | conteúdo | código do palete (barras) | compra -->
+  @for (p of paletes(); track p.id) {
+    <div class="pl">
+      <oq-et-cabecalho [data]="agora" [selo]="p.tipo === 'MISTO' ? 'PALETE MISTO' : 'PALETE'" />
+
+      @if (p.tipo === 'NORMAL' && p.itens[0]; as i) {
+        <section class="pl__produto">
+          <span class="pl__rotulo">PRODUTO {{ i.codprod }}@if (i.controle.trim()) { · LOTE {{ i.controle }} }</span>
+          <span [class]="'pl__produto-nome ' + classeTexto(i.descricao)">{{ i.descricao }}</span>
+        </section>
+        <section class="pl__qtd">
+          <span class="pl__rotulo">QUANTIDADE</span>
+          <span class="pl__qtd-valor">{{ qtd(i) }}</span>
+        </section>
+      } @else {
+        <section class="pl__lista">
+          <span class="pl__rotulo">{{ p.itens.length }} PRODUTOS</span>
+          @for (i of itensVisiveis(p); track i.codprod + i.controle) {
+            <span class="pl__linha"><b>{{ i.codprod }}</b> {{ i.descricao }} <b class="pl__linha-qtd">{{ qtd(i) }}</b></span>
+          }
+          @if (p.itens.length > 6) { <span class="pl__linha">+ {{ p.itens.length - 6 }} produtos</span> }
+        </section>
+      }
+
+      <section class="pl__barras">
+        <oq-et-barras [texto]="p.uma" [altura]="16" />
+      </section>
+
+      <section class="pl__rodape">
+        <div><span class="pl__rotulo">Nº ÚNICO</span><b>{{ p.nunota }}</b></div>
+        <div><span class="pl__rotulo">PALETE</span><b>{{ p.seq }}</b></div>
+      </section>
+    </div>
+  }
+}

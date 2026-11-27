@@ -32,6 +32,7 @@ import { OqSkeletonComponent } from '../shared/oq-skeleton/oq-skeleton.component
 import { OqConferidosChecklistComponent } from '../reconferencia/oq-conferidos-checklist.component';
 import { ReconferenciaDetalhe, ReconferenciaService } from '../reconferencia/reconferencia.service';
 import { ActionFeedbackService } from '../shared/action-feedback/action-feedback.service';
+import { PaleteItem, PaletesService, ResumoPaletes, qtdPalete } from '../paletes/paletes.service';
 import { OqFeedbackFlashDirective } from '../shared/action-feedback/oq-feedback-flash.directive';
 
 /**
@@ -299,6 +300,71 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   readonly mostrarModalFaturamento = signal(false);
   /** Painel "Conferência finalizada" (com botão de imprimir etiquetas). */
   readonly mostrarPainelFinalizada = signal(false);
+
+  // ─── Paletes do recebimento (endereçamento 4a, 27/11/2026) ─────────────────────────────────────────────
+  // Compra: "Fechar palete" junta o que foi lido sem palete num palete (LPN) e imprime a etiqueta na hora. Um produto
+  // = palete normal; vários = misto (só com o parâmetro do cliente); sem misto, o operador escolhe o produto.
+  private readonly paletesService = inject(PaletesService);
+  readonly resumoPaletes = signal<ResumoPaletes | null>(null);
+  readonly fechandoPalete = signal(false);
+  /** Sem palete misto e vários produtos lidos: o operador escolhe qual fecha. */
+  readonly escolhaPalete = signal<PaleteItem[] | null>(null);
+  readonly qtdPalete = qtdPalete;
+  private timerPaletes?: ReturnType<typeof setTimeout>;
+
+  paleteAberto(): string | null {
+    const p = this.resumoPaletes()?.pendentes ?? [];
+    if (p.length === 0) return null;
+    return p.length === 1 ? qtdPalete(p[0]) : `${p.length} produtos`;
+  }
+
+  private agendarResumoPaletes(): void {
+    if (!this.ehCompra() || !this.sessaoIdAtual) return;
+    clearTimeout(this.timerPaletes);
+    const sid = this.sessaoIdAtual;
+    this.timerPaletes = setTimeout(() => {
+      this.paletesService.resumo(sid).subscribe({ next: (r) => this.resumoPaletes.set(r), error: () => undefined });
+    }, 500);
+  }
+
+  fecharPalete(itens: PaleteItem[] = []): void {
+    if (!this.sessaoIdAtual || this.fechandoPalete()) return;
+    const sid = this.sessaoIdAtual;
+    this.fechandoPalete.set(true);
+    this.escolhaPalete.set(null);
+    this.paletesService.fechar(sid, itens.map((i) => ({ codprod: i.codprod, controle: i.controle }))).subscribe({
+      next: (criados) => {
+        this.fechandoPalete.set(false);
+        this.feedback.trigger('ETAPA_CONCLUIDA');
+        this.imprimirPaletes(criados.map((p) => p.id));
+        this.agendarResumoPaletes();
+      },
+      error: (e) => {
+        this.fechandoPalete.set(false);
+        if (e?.status === 409) {
+          this.feedback.trigger('CONTROLE_NECESSARIO');
+          this.escolhaPalete.set(this.resumoPaletes()?.pendentes ?? []);
+          return;
+        }
+        this.feedback.trigger('ERRO', { mensagem: e?.error?.erro ?? 'Não foi possível fechar o palete.' });
+      },
+    });
+  }
+
+  private imprimirPaletes(ids: string[]): void {
+    if (ids.length) window.open(`/etiquetas-palete?ids=${ids.join(',')}`, '_blank');
+  }
+
+  /** Conferência da compra finalizada: o que ficou sem palete fecha sozinho (um palete por produto sem misto). */
+  private fecharPaletesRestantes(): void {
+    if (!this.ehCompra() || !this.sessaoIdAtual) return;
+    const pend = this.resumoPaletes()?.pendentes ?? [];
+    if (pend.length === 0) return;
+    this.paletesService.fechar(this.sessaoIdAtual, [], true).subscribe({
+      next: (criados) => this.imprimirPaletes(criados.map((p) => p.id)),
+      error: () => undefined,
+    });
+  }
   /** Etiquetas da ETAPA recém-concluída (volumes acumulados + peso) — pop-up de fim de etapa e painel final. */
   readonly etapaImpressao = signal<{ tipo: number; rotulo: string; volumes: number; pesaveis: boolean } | null>(null);
   readonly mostrarPainelEtapaConcluida = signal(false);
@@ -969,6 +1035,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
             return;
           }
           this.sessaoIdAtual = sessaoId;
+          setTimeout(() => this.agendarResumoPaletes());
           this.obterQtdBalanca = sessao.obterQtdBalanca;
           this.conferenciaSegmentada = sessao.conferenciaSegmentada;
           this.fatAoConcluir = sessao.fatAoConcluir;
@@ -1217,6 +1284,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     // parcial — item parcial fica visível nos dois painéis ao mesmo tempo.
     if (scannedNovo > 0) this.upsertConferred(atualizado);
     this.lastScan.set(atualizado);
+    this.agendarResumoPaletes();
     // Som distinto quando zerou os pendentes (mesma ideia do projeto base).
     this.dispararResultadoItem(d, concluido && this.pendingCount() === 0);
   }
@@ -1614,6 +1682,7 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
    * se houver corte pendente, a nota aparece na tela de Liberação de Corte pelo sync.
    */
   private aposFinalizacao(res: Omit<FinalizarResultado, 'aguardandoCorte'> & { aguardandoCorte: boolean | null }): void {
+    this.fecharPaletesRestantes();
     if (res.aguardandoCorte == null) {
       this.feedback.trigger('FINALIZACAO');
       this.mostrarPainelFinalizada.set(true);

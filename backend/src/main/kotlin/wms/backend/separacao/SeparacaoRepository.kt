@@ -292,6 +292,7 @@ object SeparacaoRepository {
      */
     fun reiniciarContagem(tenantId: UUID, sessaoId: UUID): Unit = TenantTx.run(tenantId) {
         SeparacaoLeiturasTable.deleteWhere { (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) }
+        wms.backend.paletes.Paletes.cancelarNaTransacao(tenantId, sessaoId)
         SeparacaoItensTable.update({ (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) }) {
             it[qtdConferidaLocal] = BigDecimal.ZERO
         }
@@ -1051,6 +1052,8 @@ object SeparacaoRepository {
                 (SeparacaoLeiturasTable.codprod eq codprod) and
                 (SeparacaoLeiturasTable.controle eq controle)
         }
+        // Paletes do recebimento (V81): o palete com este produto deixa de valer — volta a ficar sem palete.
+        wms.backend.paletes.Paletes.cancelarNaTransacao(tenantId, sessaoId, codprod, controle)
 
         // Produto FORA DO PEDIDO só existe porque foi bipado — desfazer a
         // conferência dele = apagar a linha, não volta pra "pendentes" (nunca
@@ -1257,6 +1260,7 @@ object SeparacaoRepository {
                     (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) and
                         (SeparacaoLeiturasTable.codprod eq codprod) and (SeparacaoLeiturasTable.controle eq controle)
                 }
+                wms.backend.paletes.Paletes.cancelarNaTransacao(tenantId, sessaoId, codprod, controle)
                 if (lido > BigDecimal.ZERO) desfeitos[chave] = lido
             }
             SeparacaoItensTable.update({ doGrupo }) { it[enviadoSankhya] = false }

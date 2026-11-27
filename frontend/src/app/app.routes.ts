@@ -25,6 +25,7 @@ import { PendenciasIntegracaoComponent } from './pendencias-integracao/pendencia
 import { EtiquetasComponent } from './etiquetas/etiquetas.component';
 import { CrachasImpressaoComponent } from './crachas/crachas-impressao.component';
 import { EtiquetaPesoComponent } from './etiqueta-peso/etiqueta-peso.component';
+import { EtiquetaPaleteComponent } from './etiqueta-palete/etiqueta-palete.component';
 import { CarregamentoComponent } from './reconferencia/carregamento.component';
 import { ImpressaoEtiquetasComponent } from './impressao-etiquetas/impressao-etiquetas.component';
 import { ImpressaoOcComponent } from './impressao-oc/impressao-oc.component';
@@ -86,6 +87,9 @@ export const routes: Routes = [
   { path: 'etiquetas', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas/:sessaoId', component: EtiquetasComponent, canActivate: [authGuard] },
   { path: 'etiquetas-peso/:sessaoId', component: EtiquetaPesoComponent, canActivate: [authGuard] },
+  // Paletes do recebimento (27/11/2026): etiqueta do palete (LPN) — fechados agora (?ids=) ou reimpressão da compra.
+  { path: 'etiquetas-palete', component: EtiquetaPaleteComponent, canActivate: [authGuard] },
+  { path: 'etiquetas-palete/compra/:nunota', component: EtiquetaPaleteComponent, canActivate: [authGuard] },
   // 25/11/2026: Tipos de Operação entrou na tela Conferência (organizada pela configuração de conferência).
   { path: 'tipos-operacao', redirectTo: 'config-conferencia', pathMatch: 'full' },
   { path: 'usuarios', component: UsuarioListComponent, canActivate: [adminGuard] },

@@ -90,6 +90,20 @@
         <button type="button" class="oq-cf-footer__volume-btn" (click)="soPonteiro($event) && onVolumeMais()" aria-label="Aumentar volumes">+</button>
       </div>
 
+      @if (mostrarPalete) {
+        <button
+          type="button"
+          class="oq-cf-footer__btn oq-cf-footer__btn--outline oq-cf-footer__palete"
+          [disabled]="!paleteAberto || fechandoPalete"
+          [title]="paleteAberto ? 'Fechar o palete com o que foi lido e imprimir a etiqueta' : 'Bipe os produtos do palete'"
+          (click)="fecharPalete.emit()"
+        >
+          @if (fechandoPalete) { <oq-spinner [size]="13" /> } @else { <oq-icon name="box" [size]="15" /> }
+          <span>Fechar palete</span>
+          @if (paleteAberto) { <small>{{ paleteAberto }}</small> }
+        </button>
+      }
+
       @if (cega) {
         <!-- Às cegas: "x de y" entregaria quantos itens já bateram — só o que foi lido. -->
         <span class="oq-cf-footer__progress"><b>{{ conferredCount }}</b> lidos</span>
