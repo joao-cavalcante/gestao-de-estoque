@@ -895,7 +895,7 @@ object SeparacaoRepository {
     private fun compraLoteNoPalete(tenantId: UUID, sessaoId: UUID): Boolean {
         cacheCompraLote[sessaoId]?.takeIf { System.currentTimeMillis() - it.second < 60_000 }?.let { return it.first }
         val nunota = buscarSessao(tenantId, sessaoId)?.nunota ?: return false
-        val v = LoteCompra.ehCompra(tenantId, nunota) && LoteCompra.cooExplodeLote(tenantId, nunota)
+        val v = LoteCompra.ehCompra(tenantId, nunota)
         cacheCompraLote[sessaoId] = v to System.currentTimeMillis()
         return v
     }

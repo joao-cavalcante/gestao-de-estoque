@@ -20,7 +20,7 @@ buildscript {
 }
 
 group = 'br.com.torre.addon'
-version = "0.5.6"
+version = "0.5.7"
 description = "Torre de Operacao - entrada com enderecamento"
 
 apply(plugin: "br.com.sankhya.addonstudio")

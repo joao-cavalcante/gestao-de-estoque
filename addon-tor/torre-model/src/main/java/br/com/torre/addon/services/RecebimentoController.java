@@ -6,10 +6,13 @@ import br.com.sankhya.jape.core.JapeSession;
 import br.com.torre.addon.TorreLog;
 import br.com.torre.addon.Versao;
 import br.com.torre.addon.recebimento.DocaHelper;
+import br.com.torre.addon.recebimento.LoteNotaHelper;
 import br.com.torre.addon.recebimento.RecebimentoHelper;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -87,6 +90,44 @@ public class RecebimentoController {
             Map<String, Object> resposta = new LinkedHashMap<String, Object>();
             resposta.put("CONTRATO", Versao.CONTRATO);
             resposta.putAll(new DocaHelper().doca(Corpo.numero(req.get("NUNOTA"))));
+            return resposta;
+        } finally {
+            JapeSession.close(hnd);
+        }
+    }
+
+    /**
+     * {@code RecebimentoSP.dividirLotes} (contrato 5, 28/11/2026): corpo {"request": {"NUNOTA", "LOTES": [{"CODPROD",
+     * "LOTE", "QTD"}]}}. Divide o item da compra pendente pelos lotes da doca antes de a Torre enviar a conferência
+     * (ver LoteNotaHelper). Resposta: PRODUTOS [{CODPROD, SITUACAO DIVIDIDO | JA_DIVIDIDO, LOTES}].
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> dividirLotes(Map<String, Object> request) throws Exception {
+        JapeSession.SessionHandle hnd = JapeSession.open();
+        hnd.setFindersMaxRows(-1);
+        try {
+            Map<String, Object> req = Corpo.desembrulhar(request, "NUNOTA");
+            BigDecimal nunota = Corpo.numero(req.get("NUNOTA"));
+            Map<BigDecimal, List<LoteNotaHelper.Lote>> porProduto = new LinkedHashMap<BigDecimal, List<LoteNotaHelper.Lote>>();
+            Object lotes = req.get("LOTES");
+            if (lotes instanceof List) {
+                for (Object o : (List<Object>) lotes) {
+                    if (!(o instanceof Map)) continue;
+                    Map<String, Object> l = (Map<String, Object>) o;
+                    BigDecimal cod = Corpo.numero(l.get("CODPROD"));
+                    String lote = l.get("LOTE") == null ? "" : String.valueOf(l.get("LOTE")).trim();
+                    BigDecimal qtd = Corpo.numero(l.get("QTD"));
+                    if (cod == null || lote.isEmpty() || qtd == null || qtd.signum() <= 0) continue;
+                    List<LoteNotaHelper.Lote> ls = porProduto.get(cod);
+                    if (ls == null) porProduto.put(cod, ls = new ArrayList<LoteNotaHelper.Lote>());
+                    ls.add(new LoteNotaHelper.Lote(lote, qtd));
+                }
+            }
+            if (porProduto.isEmpty()) throw new Exception("Nenhum lote informado.");
+            Map<String, Object> resposta = new LinkedHashMap<String, Object>();
+            resposta.put("CONTRATO", Versao.CONTRATO);
+            resposta.putAll(new LoteNotaHelper().dividir(nunota, porProduto));
+            TorreLog.registrar("RecebimentoSP.dividirLotes", nunota, true, String.valueOf(resposta.get("PRODUTOS")));
             return resposta;
         } finally {
             JapeSession.close(hnd);

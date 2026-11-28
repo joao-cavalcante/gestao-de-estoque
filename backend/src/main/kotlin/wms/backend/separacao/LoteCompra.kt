@@ -151,12 +151,43 @@ object LoteCompra {
 
     /** Ponto único chamado na finalização: só divide quando compra + CCO EXPLODIRLOTE; senão devolve os grupos. */
     fun aplicar(tenantId: UUID, sessaoId: UUID, nunota: Long, grupos: List<SeparacaoRepository.GrupoConferido>): List<SeparacaoRepository.GrupoConferido> {
-        if (!ehCompra(tenantId, nunota) || !cooExplodeLote(tenantId, nunota)) return grupos
+        // 28/11/2026: EXPLODIRLOTE é proibido na conferência de entrada (COM_E00028) — o lote vai para a nota pelo addon
+        // (dividirNaNota) antes do envio; basta compra + produto com lote.
+        if (!ehCompra(tenantId, nunota)) return grupos
         val comLote = produtosComLote(tenantId, sessaoId)
         if (comLote.isEmpty() || grupos.none { it.codprod in comLote && branco(it.controle) }) return grupos
         val r = dividir(grupos, comLote, lotesDosPaletes(tenantId, sessaoId), lidoSemLote(tenantId, sessaoId))
         println("INFO: compra $nunota — lote dos paletes para o Sankhya: ${r.filter { it.controleOrigem != null }.joinToString { "${it.codprod}/${it.controle}=${it.qtdTotal.toPlainString()}" }}")
         return r
+    }
+
+    // ─── Opção A: divide o item da nota pelos lotes (addon) ─────────────────────────────────────────────
+
+    /** Corpo do RecebimentoSP.dividirLotes: lote e quantidade (unidade padrão) por produto, dos paletes. */
+    internal fun corpoDividir(nunota: Long, lotes: Map<Int, List<Pair<String?, LinhaLote>>>, produtos: Set<Int>): JsonObject = buildJsonObject {
+        putJsonObject("request") {
+            put("NUNOTA", nunota.toString())
+            put("LOTES", buildJsonArray {
+                lotes.filterKeys { it in produtos }.toSortedMap().forEach { (cod, ls) ->
+                    ls.groupBy { it.second.lote }.toSortedMap().forEach { (lote, v) ->
+                        add(buildJsonObject {
+                            put("CODPROD", cod.toString())
+                            put("LOTE", lote)
+                            put("QTD", v.fold(BigDecimal.ZERO) { a, l -> a + l.second.qtd }.toPlainString())
+                        })
+                    }
+                }
+            })
+        }
+    }
+
+    /** Pede ao addon a divisão do item da nota pelos lotes dos produtos que foram divididos para o envio. */
+    suspend fun dividirNaNota(tenantSlug: String, tenantId: UUID, sessaoId: UUID, nunota: Long, produtos: Set<Int>) {
+        if (produtos.isEmpty()) return
+        val corpo = corpoDividir(nunota, lotesDosPaletes(tenantId, sessaoId), produtos)
+        val r = SankhyaSpClient.chamarRaw(tenantSlug, "RecebimentoSP.dividirLotes", "torre", corpo, retentar = false)
+        println("INFO: compra $nunota — itens da nota divididos por lote: ${r.toString().take(400)}")
+        wms.backend.recebimentodoca.RecebimentoFiscal.marcarLotesDivididos(tenantId, nunota.toInt())
     }
 
     // ─── Depois da aprovação: validade e fabricação ─────────────────────────────────────────────────

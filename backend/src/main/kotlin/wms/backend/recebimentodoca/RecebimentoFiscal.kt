@@ -36,6 +36,8 @@ object RecebimentoDecisoesTable : Table("app.recebimento_decisoes") {
     val mdeEm = timestamp("mde_em").nullable()
     val mdeSituacao = text("mde_situacao").nullable()
     val mdeMensagem = text("mde_mensagem").nullable()
+    /** V86 — a Torre dividiu o item da nota por lote (addon RecebimentoSP.dividirLotes). */
+    val lotesDivididosEm = timestamp("lotes_divididos_em").nullable()
     override val primaryKey = PrimaryKey(tenantId, nunota)
 }
 
@@ -95,6 +97,14 @@ object RecebimentoFiscal {
             )
         } ?: base
     }
+
+    fun lotesDivididos(tenantId: UUID, nunota: Int): Boolean = TenantTx.run(tenantId) {
+        RecebimentoDecisoesTable.selectAll()
+            .where { (RecebimentoDecisoesTable.tenantId eq tenantId) and (RecebimentoDecisoesTable.nunota eq nunota) }
+            .singleOrNull()?.get(RecebimentoDecisoesTable.lotesDivididosEm) != null
+    }
+
+    fun marcarLotesDivididos(tenantId: UUID, nunota: Int) = gravar(tenantId, nunota) { it[RecebimentoDecisoesTable.lotesDivididosEm] = Instant.now() }
 
     private fun gravar(tenantId: UUID, nunota: Int, bloco: (org.jetbrains.exposed.sql.statements.UpdateBuilder<*>) -> Unit) = TenantTx.run(tenantId) {
         val existe = RecebimentoDecisoesTable.selectAll()

@@ -63,4 +63,18 @@ class LoteCompraTest {
         assertEquals(false, LoteCompra.temLote("""{"Produto.TIPCONTEST": "N"}"""))
         assertEquals(false, LoteCompra.temLote("lixo"))
     }
+
+    @Test
+    fun `corpo do dividirLotes soma o mesmo lote de varios paletes`() {
+        val lotes = mapOf(
+            3016 to listOf("P1" to LoteCompra.LinhaLote("A", d("120"), null, null), "P2" to LoteCompra.LinhaLote("A", d("40"), null, null),
+                "P2" to LoteCompra.LinhaLote("B", d("80"), null, null)),
+            347 to listOf("P3" to LoteCompra.LinhaLote("F1", d("200"), null, null)),
+        )
+        val c = LoteCompra.corpoDividir(73714, lotes, setOf(3016)).toString()
+        assertTrue(c.contains("\"NUNOTA\":\"73714\""))
+        assertTrue(c.contains("{\"CODPROD\":\"3016\",\"LOTE\":\"A\",\"QTD\":\"160\"}"))
+        assertTrue(c.contains("\"LOTE\":\"B\",\"QTD\":\"80\""))
+        assertTrue(!c.contains("F1"))
+    }
 }

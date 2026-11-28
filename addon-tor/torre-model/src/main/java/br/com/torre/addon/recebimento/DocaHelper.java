@@ -147,13 +147,18 @@ public final class DocaHelper {
 
     // ─── Apoio ───────────────────────────────────────────────────────────────────────────────────────
 
-    private static List<Map<String, Object>> lista(String sql, String nome, Object valor) throws Exception {
+    static List<Map<String, Object>> lista(String sql, String nome, Object valor) throws Exception {
+        return lista2(sql, nome, valor, null, null);
+    }
+
+    static List<Map<String, Object>> lista2(String sql, String nome, Object valor, String nome2, Object valor2) throws Exception {
         JdbcWrapper jdbc = EntityFacadeFactory.getDWFFacade().getJdbcWrapper();
         jdbc.openSession();
         ResultSet rs = null;
         try {
             NativeSql q = new NativeSql(jdbc);
             q.setNamedParameter(nome, valor);
+            if (nome2 != null) q.setNamedParameter(nome2, valor2);
             rs = q.executeQuery(sql);
             ResultSetMetaData md = rs.getMetaData();
             List<Map<String, Object>> r = new ArrayList<Map<String, Object>>();

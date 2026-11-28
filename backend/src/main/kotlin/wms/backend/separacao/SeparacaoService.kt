@@ -549,6 +549,16 @@ object SeparacaoService {
         } catch (e: LoteCompra.LoteFaltandoException) {
             throw FinalizarSeparacaoException(e.message ?: "lote pendente")
         }
+        // Opção A (28/11/2026): o item da nota é dividido pelos lotes ANTES de a conferência ir (a conferência de entrada
+        // só confere o lote que está no item). Falha = nada enviado, a finalização para com a mensagem do addon.
+        val produtosDivididos = grupos.filter { it.controleOrigem != null }.map { it.codprod }.toSet()
+        if (produtosDivididos.isNotEmpty()) {
+            try {
+                LoteCompra.dividirNaNota(tenantSlug, tenantId, sessaoId, nunota, produtosDivididos)
+            } catch (e: Exception) {
+                throw FinalizarSeparacaoException("Não dividiu a nota por lote: ${e.message}")
+            }
+        }
         grupos.forEach { g ->
             val it0 = itensPorProduto[g.codprod]?.firstOrNull()
             println(
@@ -726,7 +736,11 @@ object SeparacaoService {
         val nuconf = SeparacaoRepository.buscarNuconf(tenantId, sessaoId)
             ?: throw FinalizarSeparacaoException("sessão sem NUCONF — carregamento não terminou de verdade")
 
-        if (verificarPedido) verificarPedidoAtualizado(tenantSlug, tenantId, sessaoId, "finalizar")
+        // A nota que a própria Torre dividiu por lote (opção A) não é "pedido alterado no Sankhya".
+        val divididaPelaTorre = withContext(Dispatchers.IO) {
+            runCatching { wms.backend.recebimentodoca.RecebimentoFiscal.lotesDivididos(tenantId, sessao.nunota.toInt()) }.getOrDefault(false)
+        }
+        if (verificarPedido && !divididaPelaTorre) verificarPedidoAtualizado(tenantSlug, tenantId, sessaoId, "finalizar")
 
         // CCO.FORMACAOVOLUMES 'S'/'T'/'D' exige volume apontado — mesma checagem
         // que o frontend faz pra desabilitar o botão, repetida aqui porque quem
