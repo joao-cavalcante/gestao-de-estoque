@@ -1,5 +1,6 @@
 package wms.backend
 
+import wms.backend.pesagemfila.pesagemFilaRoutes
 import wms.backend.permissoes.minhasEmpresasRoutes
 import wms.backend.impressao.ImpressaoOcWorker
 import wms.backend.impressao.impressaoOcRoutes
@@ -125,6 +126,7 @@ fun Application.module() {
         armazenagemRoutes()
         paletesRoutes()
         recebimentoDocaRoutes()
+        pesagemFilaRoutes()
         tvRoutes()
         reconferenciaRoutes()
         authRoutes()

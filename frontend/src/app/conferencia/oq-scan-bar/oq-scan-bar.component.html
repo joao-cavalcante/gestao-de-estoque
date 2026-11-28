@@ -423,6 +423,17 @@
         }
       </div>
 
+      @if (filaBalanca) {
+        <!-- V84 (27/11/2026): compra na doca — o pesador pesa no computador da balança. -->
+        <div class="oq-peso-balanca">
+          <label>
+            Caixas no palete
+            <input type="text" inputmode="decimal" autocomplete="off" [(ngModel)]="caixasBalanca" name="caixasBalanca" placeholder="0" />
+          </label>
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="enviandoBalanca" (click)="enviarBalanca()">Mandar para a balança</button>
+        </div>
+      }
+
       <div class="oq-modal__footer oq-peso-modal__footer">
         <button type="button" class="oq-admin-btn oq-admin-btn--outline" (click)="fecharModalPeso()">Cancelar</button>
         <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="!peso.trim()" (click)="confirmarPeso()">Confirmar</button>

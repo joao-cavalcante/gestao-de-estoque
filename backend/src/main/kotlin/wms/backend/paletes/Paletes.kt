@@ -55,6 +55,8 @@ object RecebimentoPaletesTable : Table("app.recebimento_paletes") {
     val canceladoEm = timestamp("cancelado_em").nullable()
     /** V82 — temperatura medida no palete (frios/congelados), opcional. */
     val temperatura = decimal("temperatura", 6, 2).nullable()
+    /** V84 — conferente dono do palete (o que ele leu sai do bolso dele). */
+    val criadoPorUser = uuid("criado_por_user").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -196,6 +198,80 @@ object Paletes {
     )
 
     /** Lido − paletizado por produto (só o que é > 0). Precisa de transação aberta. */
+    /**
+     * V84 — o que está sem palete, por conferente. Cada leitura e cada palete têm dono; leituras antigas (sem dono)
+     * formam um bolso comum que todos enxergam. Palete de um conferente acima do que ele leu consome do bolso comum.
+     */
+    internal fun bolsos(
+        lidas: List<Triple<UUID?, Pair<Int, String>, BigDecimal>>,
+        paletizadas: List<Triple<UUID?, Pair<Int, String>, BigDecimal>>,
+    ): Pair<Map<UUID, Map<Pair<Int, String>, BigDecimal>>, Map<Pair<Int, String>, BigDecimal>> {
+        val lido = HashMap<UUID?, HashMap<Pair<Int, String>, BigDecimal>>()
+        for ((u, k, q) in lidas) lido.getOrPut(u) { HashMap() }.merge(k, q, BigDecimal::add)
+        val pal = HashMap<UUID?, HashMap<Pair<Int, String>, BigDecimal>>()
+        for ((u, k, q) in paletizadas) pal.getOrPut(u) { HashMap() }.merge(k, q, BigDecimal::add)
+        val comum = HashMap<Pair<Int, String>, BigDecimal>()
+        lido[null]?.forEach { (k, q) -> comum.merge(k, q, BigDecimal::add) }
+        pal[null]?.forEach { (k, q) -> comum.merge(k, q.negate(), BigDecimal::add) }
+        val donos = (lido.keys + pal.keys).filterNotNull().toSet()
+        val proprio = HashMap<UUID, Map<Pair<Int, String>, BigDecimal>>()
+        for (u in donos) {
+            val m = HashMap<Pair<Int, String>, BigDecimal>()
+            lido[u]?.forEach { (k, q) -> m.merge(k, q, BigDecimal::add) }
+            pal[u]?.forEach { (k, q) -> m.merge(k, q.negate(), BigDecimal::add) }
+            for ((k, q) in m) if (q.signum() < 0) comum.merge(k, q, BigDecimal::add)
+            proprio[u] = m.filterValues { it.signum() > 0 }
+        }
+        return proprio to comum.filterValues { it.signum() > 0 }
+    }
+
+    private fun bolsosDaSessao(tenantId: UUID, sessaoId: UUID): Pair<Map<UUID, Map<Pair<Int, String>, BigDecimal>>, Map<Pair<Int, String>, BigDecimal>> {
+        val lidas = SeparacaoLeiturasTable.selectAll()
+            .where { (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) }
+            .map { Triple(it[SeparacaoLeiturasTable.conferenteUserId], it[SeparacaoLeiturasTable.codprod] to c(it[SeparacaoLeiturasTable.controle]), it[SeparacaoLeiturasTable.qtd]) }
+        val donoPalete = RecebimentoPaletesTable.selectAll()
+            .where { (RecebimentoPaletesTable.tenantId eq tenantId) and (RecebimentoPaletesTable.sessaoId eq sessaoId) and (RecebimentoPaletesTable.canceladoEm.isNull()) }
+            .associate { it[RecebimentoPaletesTable.id] to it[RecebimentoPaletesTable.criadoPorUser] }
+        val paletizadas = if (donoPalete.isEmpty()) emptyList() else RecebimentoPaleteItensTable.selectAll()
+            .where { RecebimentoPaleteItensTable.tenantId eq tenantId }
+            .filter { it[RecebimentoPaleteItensTable.paleteId] in donoPalete.keys }
+            .map { Triple(donoPalete[it[RecebimentoPaleteItensTable.paleteId]], it[RecebimentoPaleteItensTable.codprod] to c(it[RecebimentoPaleteItensTable.controle]), it[RecebimentoPaleteItensTable.qtd]) }
+        return bolsos(lidas, paletizadas)
+    }
+
+    /** Sem palete para [userId]: o bolso dele + o comum. userId null = a sessão inteira (comportamento anterior). */
+    private fun pendentesDe(tenantId: UUID, sessaoId: UUID, userId: UUID?): Map<Pair<Int, String>, BigDecimal> {
+        if (userId == null) return pendentes(tenantId, sessaoId)
+        val (proprio, comum) = bolsosDaSessao(tenantId, sessaoId)
+        val r = HashMap<Pair<Int, String>, BigDecimal>(comum)
+        proprio[userId]?.forEach { (k, q) -> r.merge(k, q, BigDecimal::add) }
+        return r
+    }
+
+    /** Descrição do produto na conferência (null = não está nela). Usado pela fila de pesagem. */
+    fun descricao(tenantId: UUID, sessaoId: UUID, codprod: Int, controle: String): String? = TenantTx.run(tenantId) {
+        val m = metas(tenantId, sessaoId)
+        if ((codprod to c(controle)) !in m && m.keys.none { it.first == codprod }) null
+        else (m[codprod to c(controle)] ?: m.entries.first { it.key.first == codprod }.value).descricao ?: "Produto $codprod"
+    }
+
+    /** Para finalizar: outros conferentes com leitura fora de palete (nome → quantidade). */
+    fun semPaleteDeOutros(tenantId: UUID, sessaoId: UUID, eu: UUID): List<Pair<String, BigDecimal>> = TenantTx.run(tenantId) {
+        val temPalete = RecebimentoPaletesTable.selectAll()
+            .where { (RecebimentoPaletesTable.tenantId eq tenantId) and (RecebimentoPaletesTable.sessaoId eq sessaoId) and (RecebimentoPaletesTable.canceladoEm.isNull()) }
+            .any()
+        if (!temPalete) return@run emptyList()
+        val (proprio, _) = bolsosDaSessao(tenantId, sessaoId)
+        val nomes = SeparacaoLeiturasTable.selectAll()
+            .where { (SeparacaoLeiturasTable.tenantId eq tenantId) and (SeparacaoLeiturasTable.sessaoId eq sessaoId) }
+            .mapNotNull { r -> r[SeparacaoLeiturasTable.conferenteUserId]?.let { it to (r[SeparacaoLeiturasTable.conferenteNome] ?: "outro conferente") } }
+            .toMap()
+        proprio.filterKeys { it != eu }.mapNotNull { (u, m) ->
+            val t = m.values.fold(BigDecimal.ZERO, BigDecimal::add)
+            if (t.signum() > 0) (nomes[u] ?: "outro conferente") to t else null
+        }
+    }
+
     private fun pendentes(tenantId: UUID, sessaoId: UUID): Map<Pair<Int, String>, BigDecimal> {
         val lido = HashMap<Pair<Int, String>, BigDecimal>()
         SeparacaoLeiturasTable.selectAll()
@@ -262,20 +338,32 @@ object Paletes {
         SeparacaoSessoesTable.selectAll().where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }.singleOrNull()
             ?: throw PaleteException("Conferência não encontrada.", HttpStatusCode.NotFound)
 
-    fun resumo(tenantId: UUID, sessaoId: UUID): ResumoPaletesDto = TenantTx.run(tenantId) {
+    fun resumo(tenantId: UUID, sessaoId: UUID, userId: UUID? = null): ResumoPaletesDto = TenantTx.run(tenantId) {
         sessao(tenantId, sessaoId)
         val metas = metas(tenantId, sessaoId)
-        val pend = pendentes(tenantId, sessaoId).map { (k, q) -> item(k.first, k.second, q, metas[k]) }.sortedBy { it.codprod }
+        val pend = pendentesDe(tenantId, sessaoId, userId).map { (k, q) -> item(k.first, k.second, q, metas[k]) }.sortedBy { it.codprod }
         val todos = RecebimentoPaletesTable.selectAll()
             .where { (RecebimentoPaletesTable.tenantId eq tenantId) and (RecebimentoPaletesTable.sessaoId eq sessaoId) }.toList()
         ResumoPaletesDto(permitirMisto(tenantId), pend, paletesDto(tenantId, { it[RecebimentoPaletesTable.canceladoEm] == null }, todos))
     }
 
     /** Fecha palete(s) com o que está sem palete. Devolve os paletes criados (para imprimir). */
-    fun fechar(tenantId: UUID, sessaoId: UUID, req: FecharPaleteRequest, nomeUsuario: String): List<PaleteDto> = TenantTx.run(tenantId) {
+    fun fechar(
+        tenantId: UUID,
+        sessaoId: UUID,
+        req: FecharPaleteRequest,
+        nomeUsuario: String,
+        userId: UUID? = null,
+        /** V84 — pesagem: fecha exatamente esta quantidade (a da leitura pesada), não tudo o que estiver sem palete. */
+        qtdExata: Pair<Pair<Int, String>, BigDecimal>? = null,
+    ): List<PaleteDto> = TenantTx.run(tenantId) {
         val s = sessao(tenantId, sessaoId)
-        val pend = pendentes(tenantId, sessaoId)
-        val escolhidos = if (req.itens.isEmpty()) pend else req.itens.associate { (it.codprod to c(it.controle)) to (pend[it.codprod to c(it.controle)] ?: BigDecimal.ZERO) }.filterValues { it.signum() > 0 }
+        val pend = pendentesDe(tenantId, sessaoId, userId)
+        val escolhidos = if (qtdExata != null) {
+            val disp = pend[qtdExata.first] ?: BigDecimal.ZERO
+            if (disp < qtdExata.second) throw PaleteException("A quantidade pesada já está em outro palete.")
+            mapOf(qtdExata)
+        } else if (req.itens.isEmpty()) pend else req.itens.associate { (it.codprod to c(it.controle)) to (pend[it.codprod to c(it.controle)] ?: BigDecimal.ZERO) }.filterValues { it.signum() > 0 }
         if (escolhidos.isEmpty()) throw PaleteException("Nada lido sem palete: bipe os produtos antes de fechar o palete.")
         val misto = permitirMisto(tenantId)
         val grupos: List<Map<Pair<Int, String>, BigDecimal>> = when {
@@ -303,6 +391,7 @@ object Paletes {
                 it[tipo] = if (g.size == 1) "NORMAL" else "MISTO"
                 it[impresso] = false
                 it[criadoPorNome] = nomeUsuario
+                it[criadoPorUser] = userId
                 it[criadoEm] = Instant.now()
             }
             for ((k, q) in g) {
@@ -488,14 +577,14 @@ fun Route.paletesRoutes() {
             val claims = call.exigirAuth() ?: return@get
             val sessaoId = runCatching { UUID.fromString(call.parameters["sessaoId"]) }.getOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "sessão inválida"))
-            try { call.respond(Paletes.resumo(claims.tenantId, sessaoId)) } catch (e: Exception) { call.paleteErro(e) }
+            try { call.respond(Paletes.resumo(claims.tenantId, sessaoId, claims.userId)) } catch (e: Exception) { call.paleteErro(e) }
         }
         post("/sessao/{sessaoId}/fechar") {
             val claims = call.exigirAuth() ?: return@post
             val sessaoId = runCatching { UUID.fromString(call.parameters["sessaoId"]) }.getOrNull()
                 ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "sessão inválida"))
             val body = runCatching { call.receive<FecharPaleteRequest>() }.getOrDefault(FecharPaleteRequest())
-            try { call.respond(Paletes.fechar(claims.tenantId, sessaoId, body, nome(claims))) } catch (e: Exception) { call.paleteErro(e) }
+            try { call.respond(Paletes.fechar(claims.tenantId, sessaoId, body, nome(claims), claims.userId)) } catch (e: Exception) { call.paleteErro(e) }
         }
         get {
             val claims = call.exigirAuth() ?: return@get

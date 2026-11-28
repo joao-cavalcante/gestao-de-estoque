@@ -173,6 +173,9 @@ object SeparacaoLeiturasTable : Table("app.separacao_leituras") {
     val qtdUma = decimal("qtd_uma", 15, 5).nullable()
     /** V77 — "BALANCA" (capturado da balança) ou "MANUAL" (digitado); nula = sem peso ou pesagem anterior à V77. */
     val origemPeso = text("origem_peso").nullable()
+    /** V84 — conferente que bipou (compra com vários conferentes: "Fechar palete" pega só o que ele leu). */
+    val conferenteUserId = uuid("conferente_user_id").nullable()
+    val conferenteNome = text("conferente_nome").nullable()
     val criadoEm = timestamp("criado_em")
 
     override val primaryKey = PrimaryKey(id)

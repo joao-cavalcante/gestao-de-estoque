@@ -40,6 +40,8 @@ const SECOES: SecaoMenu[] = [
       { rota: '/fila-tarefas', label: 'Expedição', icone: 'list-check' },
       // Expedição (Fila de Conferência) e Recebimento (tela Entrada, compras) — nomes do menu pedidos em 19/11/2026.
       { rota: '/entrada', label: 'Recebimento', icone: 'recebimento' },
+      // Pesagem (27/11/2026): computador da balança da doca.
+      { rota: '/pesagem', label: 'Pesagem', icone: 'balanca' },
       { rota: '/mapa-separacao', label: 'Mapa de Separação', icone: 'box' },
       // Cargas (24/11/2026): OCs pendentes, prontas para sair e as que saíram (Fechar OC).
       { rota: '/cargas', label: 'Cargas', icone: 'entrega' },

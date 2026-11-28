@@ -1,3 +1,4 @@
+import { PesagemFilaService } from '../../pesagem/pesagem-fila.service';
 import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, Output, ViewChild, inject } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ConferenciaItem } from '../conferencia.model';
@@ -41,6 +42,7 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   private readonly balancaService = inject(BalancaService);
   private readonly localScale = inject(LocalScaleService);
   private readonly feedback = inject(ActionFeedbackService);
+  private readonly pesagemFila = inject(PesagemFilaService);
 
   @Input({ required: true }) tenant!: string;
   @Input({ required: true }) sessaoId!: string;
@@ -52,6 +54,11 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   @Input() etapa: number | null = null;
   /** Itens pendentes da sessão — usados só p/ mostrar "Esperado: X UN (Y CX)" no modal de peso (igual ao legado). */
   @Input() itensPendentes: ConferenciaItem[] = [];
+  /** V84 — compra: o pop-up de peso oferece "Mandar para a balança" (o pesador pesa no computador da balança). */
+  @Input() filaBalanca = false;
+  /** Caixas contadas no palete que vai para a balança. */
+  caixasBalanca = '';
+  enviandoBalanca = false;
 
   /** Item pendente correspondente ao produto identificado (p/ exibir unidade padrão + comercial no modal de peso). */
   get itemPendenteAtual(): ConferenciaItem | null {
@@ -105,6 +112,8 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
   @Output() identificado = new EventEmitter<ProdutoIdentificadoEvento>();
   /** Erro ao confirmar quantidade (ex.: excede o pendente e a CCO não permite) — mensagem já vem pronta do backend. */
   @Output() erroConferir = new EventEmitter<string>();
+  /** V84 — item mandado para a fila de pesagem (mensagem para a tela). */
+  @Output() enviadoBalanca = new EventEmitter<string>();
 
   @ViewChild('inputIdentificador') inputIdentificador?: ElementRef<HTMLInputElement>;
   @ViewChild('selectControle') selectControleRef?: ElementRef<HTMLSelectElement>;
@@ -662,6 +671,47 @@ export class OqScanBarComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.onQtdTab();
+  }
+
+  /**
+   * V84 — em vez de pesar no coletor, manda as caixas contadas para a fila da balança. A leitura entra na conferência
+   * quando o pesador pesar, no nome deste conferente (o palete sai fechado lá, com a etiqueta).
+   */
+  enviarBalanca(): void {
+    const caixas = Number(this.caixasBalanca.replace(',', '.'));
+    if (this.codprodAtual == null || this.enviandoBalanca) return;
+    if (!(caixas > 0)) {
+      this.erroTara = 'Informe quantas caixas vão para a balança.';
+      return;
+    }
+    this.enviandoBalanca = true;
+    const codprod = this.codprodAtual;
+    this.pesagemFila
+      .enviar({
+        sessaoId: this.sessaoId,
+        codprod,
+        controle: this.controle,
+        caixas,
+        unidadeComercial: this.itemPendenteAtual?.unidadeComercial ?? 'CX',
+        codvol: this.codvolEscanado,
+        codigoBarra: this.codigoBarraEscanado,
+      })
+      .subscribe({
+        next: (i) => {
+          this.enviandoBalanca = false;
+          this.caixasBalanca = '';
+          this.pararLeituraAoVivo();
+          this.mostrarModalPeso = false;
+          this.feedback.trigger('PRODUTO_CORRETO');
+          this.enviadoBalanca.emit(`${codprod} - ${i.descricao ?? ''}: ${caixas} ${i.unidadeComercial ?? 'CX'} na fila da balança`);
+          this.resetarTudo();
+          this.focarIdentificador();
+        },
+        error: (err) => {
+          this.enviandoBalanca = false;
+          this.erroTara = err?.error?.erro ?? 'Não mandou para a balança.';
+        },
+      });
   }
 
   /** Passo 4 (final): confirma a quantidade de verdade. */

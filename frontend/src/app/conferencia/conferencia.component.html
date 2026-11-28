@@ -183,6 +183,8 @@
       [pedirQtdComercial]="pedirQtdComercial"
       [etapa]="etapaAtual()"
       [itensPendentes]="pendingItems()"
+      [filaBalanca]="ehCompra()"
+      (enviadoBalanca)="onEnviadoBalanca($event)"
       (identificado)="onIdentificado($event)"
       (conferido)="onConferido($event)"
       (naoEncontrado)="onNaoEncontrado($event)"

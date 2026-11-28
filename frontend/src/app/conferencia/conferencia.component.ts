@@ -1361,6 +1361,19 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
   }
 
   /** Erro ao confirmar quantidade (ex.: excede o pendente e a CCO do NUCCO não permite — QTDAMAIOR != 'D'). */
+  /** V84 — pesável mandado para a fila da balança: só avisa (a leitura entra quando o pesador pesar). */
+  onEnviadoBalanca(mensagem: string): void {
+    this.lastScan.set({
+      seq: 0,
+      code: '—',
+      name: mensagem,
+      control: '—',
+      expected: 0,
+      scanned: 0,
+      status: 'ok',
+    });
+  }
+
   onErroConferir(mensagem: string): void {
     this.lastScan.set({
       seq: 0,

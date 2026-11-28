@@ -51,6 +51,12 @@ export const routes: Routes = [
   { path: 'coletor/recebimento', component: RecebimentoListaComponent, canActivate: [authGuard] },
   { path: 'coletor/recebimento/:nunota', component: RecebimentoDocaComponent, canActivate: [authGuard] },
   { path: 'recebimento/comprovante/:nunota', component: ComprovanteRecebimentoComponent, canActivate: [authGuard] },
+  // Pesagem (27/11/2026, D2b): computador da balança — fila dos pesáveis mandados pelo coletor.
+  {
+    path: 'pesagem',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pesagem/pesagem-fila.component').then((m) => m.PesagemFilaComponent),
+  },
   // Entrada (19/11/2026): recebimentos de compra (saíram da Fila) e mesa de liberação — só leitura.
   {
     path: 'entrada',

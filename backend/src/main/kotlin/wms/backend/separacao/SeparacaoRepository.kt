@@ -917,6 +917,9 @@ object SeparacaoRepository {
         qtdUma: BigDecimal? = null,
         /** V77 — "BALANCA" | "MANUAL" (só com peso); nula = não informado. */
         origemPeso: String? = null,
+        /** V84 — quem bipou (na fila de pesagem, o conferente que contou as caixas, não o pesador). */
+        conferenteUserId: UUID? = null,
+        conferenteNome: String? = null,
     ): ItemConferidoResultado? =
         TenantTx.run(tenantId) {
             val controle = controleInformado.trim().ifEmpty { " " }
@@ -970,6 +973,8 @@ object SeparacaoRepository {
                 it[SeparacaoLeiturasTable.codUma] = codUma
                 it[SeparacaoLeiturasTable.qtdUma] = qtdUma
                 it[SeparacaoLeiturasTable.origemPeso] = origemPeso?.takeIf { peso != null }
+                it[SeparacaoLeiturasTable.conferenteUserId] = conferenteUserId
+                it[SeparacaoLeiturasTable.conferenteNome] = conferenteNome
                 it[criadoEm] = agora
             }
 

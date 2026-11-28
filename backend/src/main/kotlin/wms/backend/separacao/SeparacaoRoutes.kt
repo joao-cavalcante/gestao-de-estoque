@@ -338,6 +338,8 @@ fun Route.separacaoRoutes() {
                     codUma = body.codUma?.takeIf { pesoBruto != null && it > 0 },
                     qtdUma = if (pesoBruto != null && body.codUma != null) dec(body.qtdUma) else null,
                     origemPeso = body.origemPeso?.trim()?.uppercase()?.takeIf { peso != null && it in ORIGENS_PESO },
+                    conferenteUserId = claims.userId,
+                    conferenteNome = runCatching { wms.backend.galpao.nomeUsuario(claims) }.getOrNull(),
                 )
             } catch (e: SeparacaoRepository.QuantidadeExcedeException) {
                 call.respond(HttpStatusCode.Conflict, mapOf("erro" to "quantidade excede o pendente (máximo ${e.maximo})"))
@@ -379,6 +381,22 @@ fun Route.separacaoRoutes() {
 
             // Corpo opcional (versões antigas do front mandam `{}`): sem campo = com corte.
             val semCorte = runCatching { call.receive<FinalizarRequest>().semCorte }.getOrDefault(false)
+            // V84 — compra com vários conferentes: só finaliza quando ninguém mais estiver conferindo, nada estiver
+            // na fila da balança e todo o lido estiver em palete.
+            val sessaoFin = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+            if (ConferenciaParticipantes.multi(tenantId, sessaoFin)) {
+                val meu = tokenDoLock(call)
+                val outros = ConferenciaParticipantes.ativos(tenantId, sessaoId).filter { it.token != meu && it.userId != claims.userId }
+                val naBalanca = wms.backend.pesagemfila.PesagemFila.pendentesDaSessao(tenantId, sessaoId)
+                val semPalete = wms.backend.paletes.Paletes.semPaleteDeOutros(tenantId, sessaoId, claims.userId)
+                val motivo = when {
+                    outros.isNotEmpty() -> "${outros.mapNotNull { it.nome }.distinct().joinToString(", ").ifEmpty { "Outro conferente" }} ainda está conferindo esta compra. Peça para fechar os paletes e sair."
+                    naBalanca > 0 -> "$naBalanca ${if (naBalanca == 1) "item aguarda" else "itens aguardam"} a pesagem na balança."
+                    semPalete.isNotEmpty() -> semPalete.joinToString("; ") { (n, q) -> "$n tem ${q.stripTrailingZeros().toPlainString()} sem palete" } + ". Feche os paletes antes de finalizar."
+                    else -> null
+                }
+                if (motivo != null) return@post call.respond(HttpStatusCode.Conflict, mapOf("codigo" to "OUTROS_CONFERENTES", "erro" to motivo))
+            }
             try {
                 // Quem finalizou: operador do crachá (estação) ou o próprio login.
                 val finalizador = SeparacaoRepository.buscarSessao(tenantId, sessaoId)?.operadorId
@@ -846,6 +864,11 @@ fun Route.separacaoRoutes() {
                 )
             }
             val body = call.receive<LockRequest>()
+            // V84 — compra: vários conferentes ao mesmo tempo (cada um fecha os seus paletes).
+            if (ConferenciaParticipantes.multi(tenantId, sessao)) {
+                ConferenciaParticipantes.entrar(tenantId, sessaoId, token, claims.userId, runCatching { wms.backend.galpao.nomeUsuario(claims) }.getOrNull())
+                return@post call.respond(mapOf("ok" to true))
+            }
             val tipo: Short = if (sessao.conferenciaSegmentada) {
                 body.etapa?.toShort() ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "'etapa' é obrigatória em sessão segmentada"))
             } else {
@@ -884,6 +907,10 @@ fun Route.separacaoRoutes() {
             val token = tokenDoLock(call) ?: return@post call.respond(mapOf("ok" to true))
             val body = call.receive<LockRequest>()
             val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
+            if (ConferenciaParticipantes.multi(tenantId, sessao)) {
+                ConferenciaParticipantes.sair(tenantId, sessaoId, token)
+                return@post call.respond(mapOf("ok" to true))
+            }
             val tipo: Short? = if (sessao?.conferenciaSegmentada == true) body.etapa?.toShort() else 0
             SeparacaoLockRepository.liberar(tenantId, sessaoId, tipo, token)
             call.respond(mapOf("ok" to true))
@@ -1016,7 +1043,11 @@ private suspend fun exigirLock(call: io.ktor.server.application.ApplicationCall,
     val token = tokenDoLock(call)
     val sessao = SeparacaoRepository.buscarSessao(tenantId, sessaoId)
     val tipo: Short? = if (sessao?.conferenciaSegmentada == true) etapa?.toShort() else 0
-    val valido = token != null && SeparacaoLockRepository.validarETocar(tenantId, sessaoId, tipo, token)
+    val valido = token != null && if (ConferenciaParticipantes.multi(tenantId, sessao)) {
+        ConferenciaParticipantes.validarETocar(tenantId, sessaoId, token)
+    } else {
+        SeparacaoLockRepository.validarETocar(tenantId, sessaoId, tipo, token)
+    }
     if (!valido) {
         call.respond(
             HttpStatusCode.Conflict,

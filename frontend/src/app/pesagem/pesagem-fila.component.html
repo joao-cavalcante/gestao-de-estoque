@@ -1,0 +1,94 @@
+<div class="oq-page pf">
+  <header class="oq-page__header pf-topo">
+    <h1 class="pf-titulo"><oq-icon name="balanca" [size]="20" /> Pesagem</h1>
+    <label class="pf-balanca">
+      Balança
+      <select [ngModel]="balancaId" (ngModelChange)="trocarBalanca($event)">
+        <option [ngValue]="null">Digitar o peso</option>
+        @for (b of balancas(); track b.id) {
+          <option [ngValue]="b.id">{{ b.nome }}</option>
+        }
+      </select>
+    </label>
+  </header>
+
+  <div class="pf-corpo">
+    <section class="pf-fila" aria-label="Fila de pesagem">
+      <div class="pf-fila__topo">
+        <span>Aguardando a balança</span>
+        <b>{{ fila().length }}</b>
+      </div>
+      @if (carregando()) {
+        <p class="pf-vazio"><oq-spinner [size]="14" /> Carregando…</p>
+      } @else if (!fila().length) {
+        <p class="pf-vazio">Nada na fila. O conferente manda o pesável pelo coletor, no botão "Mandar para a balança".</p>
+      }
+      @for (i of fila(); track i.id) {
+        <button type="button" class="pf-item" [class.pf-item--ativo]="i.id === selecionadoId()" (click)="selecionar(i)">
+          <span class="pf-item__prod"><b>{{ i.codprod }}</b> {{ i.descricao }}</span>
+          <span class="pf-item__qtd">{{ i.caixas | number: '1.0-3' }} {{ i.unidadeComercial ?? 'CX' }}</span>
+          <span class="pf-item__meta">Nº {{ i.nunota }}{{ i.numNota ? ' · NF ' + i.numNota : '' }}{{ i.fornecedor ? ' · ' + i.fornecedor : '' }}</span>
+          <span class="pf-item__meta">{{ i.conferente ?? 'Conferente' }} · {{ minutos(i.criadoEm) }}</span>
+        </button>
+      }
+    </section>
+
+    <section class="pf-pesar" aria-label="Pesar">
+      @if (selecionado(); as i) {
+        <div class="pf-pesar__item">
+          <span class="pf-rotulo">Pesando</span>
+          <strong>{{ i.codprod }} - {{ i.descricao }}</strong>
+          <span>{{ i.caixas | number: '1.0-3' }} {{ i.unidadeComercial ?? 'CX' }} · conferido por {{ i.conferente ?? '—' }} · Nº {{ i.nunota }}</span>
+        </div>
+
+        @if (balanca && balanca.tipoComunicacao !== 'HTTP') {
+          <div class="pf-vivo" [attr.data-estavel]="aoVivo()?.estavel ? 'S' : 'N'">
+            @if (aoVivo(); as v) {
+              <span>{{ v.peso | number: '1.3-3' }} kg</span>
+              <small>{{ v.estavel ? 'estável' : 'estabilizando…' }}</small>
+            } @else {
+              <span>— kg</span>
+              <small>sem sinal da balança</small>
+            }
+          </div>
+        }
+
+        <div class="pf-campos">
+          <label>
+            Peso bruto (kg)
+            <input name="bruto" [(ngModel)]="bruto" (ngModelChange)="onBrutoDigitado()" inputmode="decimal" autocomplete="off" />
+          </label>
+          <label>
+            Tara: palete + embalagem (kg)
+            <input name="tara" [(ngModel)]="tara" inputmode="decimal" autocomplete="off" placeholder="0" />
+          </label>
+          <div class="pf-liquido">
+            <span class="pf-rotulo">Líquido</span>
+            <strong>{{ bruto ? (liquido | number: '1.3-3') : '—' }} kg</strong>
+          </div>
+        </div>
+
+        <div class="pf-acoes">
+          @if (balanca) {
+            <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="ocupado()" (click)="lerBalanca()">
+              <oq-icon name="balanca" [size]="16" /> Ler balança
+            </button>
+          }
+          <button type="button" class="oq-admin-btn oq-admin-btn--outline" [disabled]="ocupado()" (click)="cancelar(i)">Tirar da fila</button>
+          <button type="button" class="oq-admin-btn oq-admin-btn--primary" [disabled]="ocupado() || !bruto" (click)="pesar()">
+            @if (ocupado()) {
+              <oq-spinner [size]="14" />
+            }
+            <oq-icon name="impressora" [size]="16" /> Pesar e imprimir etiqueta
+          </button>
+        </div>
+      } @else {
+        <p class="pf-vazio">Escolha um item da fila.</p>
+      }
+
+      @if (aviso(); as a) {
+        <p class="pf-aviso" [attr.data-tom]="a.tom" role="status">{{ a.texto }}</p>
+      }
+    </section>
+  </div>
+</div>
