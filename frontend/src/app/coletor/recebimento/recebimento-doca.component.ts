@@ -9,7 +9,7 @@ import { ActionFeedbackService } from '../../shared/action-feedback/action-feedb
 import { dataBr, diasAte, lerGs1, lerValidadeDigitada, pareceGs1 } from '../../shared/gs1';
 import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
-import { Doca, LinhaLote, LoteXml, RecebimentoDocaService, loteAutomatico } from './recebimento-doca.service';
+import { AlertaPedido, Doca, Foto, LinhaLote, Logistica, LoteXml, RecebimentoDocaService, loteAutomatico, reduzirFoto } from './recebimento-doca.service';
 
 type Passo = 'doca' | 'chegada' | 'palete';
 type Aviso = { tom: 'ok' | 'erro' | 'atencao'; titulo: string; mensagem?: string } | null;
@@ -80,11 +80,31 @@ export class RecebimentoDocaComponent implements OnInit {
   avariaMotivo: string | null = null;
   avariaOutro = '';
   private ultimoLote: Record<number, LinhaEdicao> = {};
+  // D2a: amostragem de embalagem, norma do palete (1ª entrada), foto da avaria
+  amostraUnidades = '';
+  lastro = '';
+  camadas = '';
+  readonly enviandoFoto = signal(false);
 
   readonly faltaVolume = computed(() => {
     const d = this.doca();
     const v = d?.nota.volumes;
     return v && d ? Math.max(0, Math.round((v - d.volumesFechados) * 1000) / 1000) : null;
+  });
+  /** Norma do produto em edição (null = não cadastrada → pedir na 1ª entrada). */
+  readonly normaItem = computed<Logistica | null>(() => {
+    const it = this.item();
+    return (this.doca()?.logistica ?? []).find((l) => l.codprod === it?.codprod) ?? null;
+  });
+  readonly fotosItem = computed<Foto[]>(() => {
+    const p = this.palete();
+    const it = this.item();
+    return (this.doca()?.fotos ?? []).filter((f) => f.paleteId === p?.id && f.codprod === it?.codprod);
+  });
+  readonly alertasPedido = computed<AlertaPedido[]>(() => this.doca()?.pedido?.alertas ?? []);
+  readonly notaSemPedido = computed(() => {
+    const p = this.doca()?.pedido;
+    return !!p && p.itensNota > 0 && p.itensComPedido === 0;
   });
   readonly notaTemLote = computed(() => (this.doca()?.nota.itens ?? []).some((i) => i.lotes.length > 0));
   readonly lotesXml = computed<LoteXml[]>(() => {
@@ -211,6 +231,10 @@ export class RecebimentoDocaComponent implements OnInit {
     this.avariaQtd = av?.qtdAvaria ? String(av.qtdAvaria) : '';
     this.avariaMotivo = av?.motivoAvaria && MOTIVOS_AVARIA.includes(av.motivoAvaria) ? av.motivoAvaria : av?.motivoAvaria ? 'Outro' : null;
     this.avariaOutro = av?.motivoAvaria && !MOTIVOS_AVARIA.includes(av.motivoAvaria) ? av.motivoAvaria : '';
+    this.amostraUnidades = i.amostraUnidades != null ? String(i.amostraUnidades) : '';
+    const n = (this.doca()?.logistica ?? []).find((l) => l.codprod === i.codprod);
+    this.lastro = n?.lastro ? String(n.lastro) : '';
+    this.camadas = n?.camadas ? String(n.camadas) : '';
     this.aviso.set(null);
     this.passo.set('palete');
     setTimeout(() => this.campo?.nativeElement.focus({ preventScroll: true }));
@@ -354,6 +378,98 @@ export class RecebimentoDocaComponent implements OnInit {
         this.aviso.set({ tom: 'erro', titulo: 'Não gravou a avaria', mensagem: erro(e) });
       },
     });
+  }
+
+  textoAlerta(a: AlertaPedido): string {
+    const f = (n: number | null) => (n == null ? '—' : n.toLocaleString('pt-BR', { maximumFractionDigits: 2 }));
+    switch (a.tipo) {
+      case 'SEM_PEDIDO':
+        return 'não está no pedido de compra';
+      case 'QTD_ACIMA':
+        return `quantidade ${f(a.nota)} acima do pedido (${f(a.pedido)})`;
+      case 'PRECO_ACIMA':
+        return `preço R$ ${f(a.nota)} acima do pedido (R$ ${f(a.pedido)})`;
+      default:
+        return `preço R$ ${f(a.nota)} abaixo do pedido (R$ ${f(a.pedido)})`;
+    }
+  }
+
+  /** Amostragem: abre uma caixa e conta as unidades; o esperado vem do cadastro (fator da unidade de compra). */
+  salvarAmostra(): void {
+    const p = this.palete();
+    const it = this.item();
+    const u = Number(this.amostraUnidades.replace(',', '.'));
+    if (!p || !it || !(u > 0)) return this.erroLote('Informe quantas unidades havia na caixa');
+    this.ocupado.set(true);
+    this.api.registrarAmostra(p.id, it.codprod, u).subscribe({
+      next: (nova) => {
+        this.ocupado.set(false);
+        const novoItem = nova.itens.find((x) => x.codprod === it.codprod);
+        this.item.set(novoItem ?? it);
+        const esp = novoItem?.amostraEsperado;
+        if (esp != null && Math.abs(esp - u) > 0.001) {
+          this.feedback.trigger('CONTROLE_NECESSARIO');
+          this.aviso.set({ tom: 'atencao', titulo: `Embalagem diferente: ${u} na caixa, cadastro diz ${esp}`, mensagem: 'Avise o líder: a conversão de estoque deste produto vai errar.' });
+        } else {
+          this.feedback.trigger('PRODUTO_CORRETO');
+          this.aviso.set({ tom: 'ok', titulo: esp != null ? 'Embalagem confere com o cadastro' : 'Amostra registrada (sem fator no cadastro)' });
+        }
+        this.carregar();
+      },
+      error: (e) => {
+        this.ocupado.set(false);
+        this.aviso.set({ tom: 'erro', titulo: 'Não registrou a amostra', mensagem: erro(e) });
+      },
+    });
+  }
+
+  /** Norma do palete na 1ª entrada do produto: caixas por camada × camadas. */
+  salvarNorma(): void {
+    const it = this.item();
+    const l = Number(this.lastro);
+    const c = Number(this.camadas);
+    if (!it || !(l > 0) || !(c > 0)) return this.erroLote('Informe caixas por camada e número de camadas');
+    this.ocupado.set(true);
+    this.api.registrarLogistica(it.codprod, l, c).subscribe({
+      next: () => {
+        this.ocupado.set(false);
+        this.feedback.trigger('PRODUTO_CORRETO');
+        this.aviso.set({ tom: 'ok', titulo: `Norma registrada: ${l} × ${c} = ${l * c} caixas por palete` });
+        this.carregar();
+      },
+      error: (e) => {
+        this.ocupado.set(false);
+        this.aviso.set({ tom: 'erro', titulo: 'Não registrou a norma', mensagem: erro(e) });
+      },
+    });
+  }
+
+  async tirarFoto(ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
+    const arq = input.files?.[0];
+    input.value = '';
+    const p = this.palete();
+    const it = this.item();
+    if (!arq || !p || !it) return;
+    this.enviandoFoto.set(true);
+    try {
+      const dataUrl = await reduzirFoto(arq);
+      this.api.enviarFoto(this.nunota, p.id, it.codprod, dataUrl).subscribe({
+        next: () => {
+          this.enviandoFoto.set(false);
+          this.feedback.trigger('PRODUTO_CORRETO');
+          this.aviso.set({ tom: 'ok', titulo: 'Foto da avaria gravada' });
+          this.carregar();
+        },
+        error: (e) => {
+          this.enviandoFoto.set(false);
+          this.aviso.set({ tom: 'erro', titulo: 'Não enviou a foto', mensagem: erro(e) });
+        },
+      });
+    } catch {
+      this.enviandoFoto.set(false);
+      this.aviso.set({ tom: 'erro', titulo: 'Não abriu a foto' });
+    }
   }
 
   unidadeItem(i: PaleteItem | null): string {

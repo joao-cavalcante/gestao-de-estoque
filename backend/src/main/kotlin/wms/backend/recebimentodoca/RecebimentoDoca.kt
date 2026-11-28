@@ -85,6 +85,24 @@ data class NotaXmlDto(
 )
 
 @Serializable
+data class AlertaPedidoDto(val codprod: Int, val descricao: String?, val tipo: String, val nota: Double?, val pedido: Double?)
+
+@Serializable
+data class PedidoNotaDto(val itensNota: Int, val itensComPedido: Int, val alertas: List<AlertaPedidoDto>)
+
+@Serializable
+data class LogisticaDto(val codprod: Int, val descricao: String?, val lastro: Int?, val camadas: Int?, val origem: String?)
+
+@Serializable
+data class FotoDto(val id: String, val paleteId: String?, val codprod: Int?, val tipo: String, val criadoEm: String)
+
+@Serializable
+data class FotoRequest(val tipo: String = "AVARIA", val paleteId: String? = null, val codprod: Int? = null, val dataUrl: String)
+
+@Serializable
+data class LogisticaRequest(val lastro: Int, val camadas: Int)
+
+@Serializable
 data class DocaDto(
     val nunota: Int,
     val chegada: ChegadaDto?,
@@ -93,7 +111,34 @@ data class DocaDto(
     /** Soma das caixas/volumes dos paletes fechados (quantidade comercial; sem ela, a padrão). */
     val volumesFechados: Double,
     val paletesLotePendente: Int,
+    val pedido: PedidoNotaDto? = null,
+    val logistica: List<LogisticaDto> = emptyList(),
+    val fotos: List<FotoDto> = emptyList(),
 )
+
+object RecebimentoFotosTable : Table("app.recebimento_fotos") {
+    val id = uuid("id")
+    val tenantId = uuid("tenant_id")
+    val nunota = integer("nunota")
+    val paleteId = uuid("palete_id").nullable()
+    val codprod = integer("codprod").nullable()
+    val tipo = text("tipo")
+    val mime = text("mime")
+    val conteudo = binary("conteudo")
+    val criadoPor = text("criado_por").nullable()
+    val criadoEm = timestamp("criado_em")
+    override val primaryKey = PrimaryKey(id)
+}
+
+object ProdutoLogisticaTable : Table("app.produto_logistica") {
+    val tenantId = uuid("tenant_id")
+    val codprod = integer("codprod")
+    val lastro = integer("lastro")
+    val camadas = integer("camadas")
+    val informadoPor = text("informado_por").nullable()
+    val informadoEm = timestamp("informado_em")
+    override val primaryKey = PrimaryKey(tenantId, codprod)
+}
 
 class DocaException(msg: String, val status: HttpStatusCode = HttpStatusCode.BadRequest) : Exception(msg)
 
@@ -171,6 +216,102 @@ object RecebimentoDoca {
         return dto
     }
 
+    // ─── Itens da nota: pedido × nota e norma de paletização (uma consulta ao Sankhya) ──────────────────
+
+    private data class ItemNota(val codprod: Int, val descricao: String?, val qtd: Double?, val vlr: Double?, val temPedido: Boolean,
+                                val qtdPed: Double?, val vlrPed: Double?, val lastro: Int?, val camadas: Int?)
+
+    private suspend fun itensNota(slug: String, nunota: Int): List<ItemNota> =
+        SankhyaDbExplorerClient.executarQuery(slug,
+            "SELECT I.CODPROD, P.DESCRPROD, I.QTDNEG, I.VLRUNIT, V.NUNOTAORIG, PI.QTDNEG QTDPED, PI.VLRUNIT VLRPED, P.LASTRO, P.CAMADAS " +
+                "FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
+                "LEFT JOIN TGFVAR V ON V.NUNOTA = I.NUNOTA AND V.SEQUENCIA = I.SEQUENCIA AND V.NUNOTAORIG <> I.NUNOTA " +
+                "LEFT JOIN TGFITE PI ON PI.NUNOTA = V.NUNOTAORIG AND PI.SEQUENCIA = V.SEQUENCIAORIG " +
+                "WHERE I.NUNOTA = $nunota AND I.SEQUENCIA > 0")
+            .mapNotNull { r ->
+                val cod = r["CODPROD"]?.trim()?.substringBefore('.')?.toIntOrNull() ?: return@mapNotNull null
+                ItemNota(cod, r["DESCRPROD"]?.trim(), num(r["QTDNEG"]), num(r["VLRUNIT"]), !r["NUNOTAORIG"].isNullOrBlank(),
+                    num(r["QTDPED"]), num(r["VLRPED"]), num(r["LASTRO"])?.toInt()?.takeIf { it > 0 }, num(r["CAMADAS"])?.toInt()?.takeIf { it > 0 })
+            }
+
+    /** Pedido × nota: produto sem pedido, quantidade acima do pedido, preço diferente (> 1%). */
+    private fun pedidoNota(itens: List<ItemNota>): PedidoNotaDto {
+        val comPedido = itens.count { it.temPedido }
+        val alertas = mutableListOf<AlertaPedidoDto>()
+        if (comPedido > 0) for (i in itens) {
+            if (!i.temPedido) { alertas += AlertaPedidoDto(i.codprod, i.descricao, "SEM_PEDIDO", i.qtd, null); continue }
+            if (i.qtd != null && i.qtdPed != null && i.qtd > i.qtdPed * 1.0001) alertas += AlertaPedidoDto(i.codprod, i.descricao, "QTD_ACIMA", i.qtd, i.qtdPed)
+            if (i.vlr != null && i.vlrPed != null && i.vlrPed > 0 && kotlin.math.abs(i.vlr - i.vlrPed) / i.vlrPed > 0.01) {
+                alertas += AlertaPedidoDto(i.codprod, i.descricao, if (i.vlr > i.vlrPed) "PRECO_ACIMA" else "PRECO_ABAIXO", i.vlr, i.vlrPed)
+            }
+        }
+        return PedidoNotaDto(itens.size, comPedido, alertas)
+    }
+
+    private fun logistica(tenantId: UUID, itens: List<ItemNota>): List<LogisticaDto> {
+        val torre = TenantTx.run(tenantId) {
+            ProdutoLogisticaTable.selectAll().where { ProdutoLogisticaTable.tenantId eq tenantId }
+                .filter { it[ProdutoLogisticaTable.codprod] in itens.map { i -> i.codprod }.toSet() }
+                .associate { it[ProdutoLogisticaTable.codprod] to (it[ProdutoLogisticaTable.lastro] to it[ProdutoLogisticaTable.camadas]) }
+        }
+        return itens.distinctBy { it.codprod }.map { i ->
+            when {
+                i.lastro != null && i.camadas != null -> LogisticaDto(i.codprod, i.descricao, i.lastro, i.camadas, "SANKHYA")
+                torre[i.codprod] != null -> LogisticaDto(i.codprod, i.descricao, torre[i.codprod]!!.first, torre[i.codprod]!!.second, "TORRE")
+                else -> LogisticaDto(i.codprod, i.descricao, null, null, null)
+            }
+        }
+    }
+
+    fun registrarLogistica(tenantId: UUID, codprod: Int, req: LogisticaRequest, nome: String): Unit = TenantTx.run(tenantId) {
+        if (req.lastro !in 1..200 || req.camadas !in 1..50) throw DocaException("Caixas por camada (1–200) e camadas (1–50).")
+        val existe = ProdutoLogisticaTable.selectAll()
+            .where { (ProdutoLogisticaTable.tenantId eq tenantId) and (ProdutoLogisticaTable.codprod eq codprod) }.any()
+        if (existe) ProdutoLogisticaTable.update({ (ProdutoLogisticaTable.tenantId eq tenantId) and (ProdutoLogisticaTable.codprod eq codprod) }) {
+            it[lastro] = req.lastro; it[camadas] = req.camadas; it[informadoPor] = nome; it[informadoEm] = Instant.now()
+        } else ProdutoLogisticaTable.insert {
+            it[ProdutoLogisticaTable.tenantId] = tenantId; it[ProdutoLogisticaTable.codprod] = codprod
+            it[lastro] = req.lastro; it[camadas] = req.camadas; it[informadoPor] = nome; it[informadoEm] = Instant.now()
+        }
+    }
+
+    // ─── Fotos (avaria; JPEG reduzido no coletor) ─────────────────────────────────────────────────────
+
+    private const val FOTO_MAX = 1_500_000
+
+    fun salvarFoto(tenantId: UUID, nunota: Int, req: FotoRequest, nome: String): FotoDto = TenantTx.run(tenantId) {
+        val m = Regex("^data:(image/(jpeg|png|webp));base64,(.+)$").find(req.dataUrl.trim()) ?: throw DocaException("Foto inválida.")
+        val bytes = runCatching { java.util.Base64.getDecoder().decode(m.groupValues[3]) }.getOrElse { throw DocaException("Foto inválida.") }
+        if (bytes.size > FOTO_MAX) throw DocaException("Foto grande demais (máx. 1,5 MB).")
+        if (req.tipo !in setOf("AVARIA", "CANHOTO", "LACRE", "OUTRO")) throw DocaException("Tipo de foto inválido.")
+        val id = UUID.randomUUID()
+        val agora = Instant.now()
+        RecebimentoFotosTable.insert {
+            it[RecebimentoFotosTable.id] = id
+            it[RecebimentoFotosTable.tenantId] = tenantId
+            it[RecebimentoFotosTable.nunota] = nunota
+            it[paleteId] = req.paleteId?.let { p -> runCatching { UUID.fromString(p) }.getOrNull() }
+            it[codprod] = req.codprod
+            it[tipo] = req.tipo
+            it[mime] = m.groupValues[1]
+            it[conteudo] = bytes
+            it[criadoPor] = nome
+            it[criadoEm] = agora
+        }
+        FotoDto(id.toString(), req.paleteId, req.codprod, req.tipo, agora.toString())
+    }
+
+    fun foto(tenantId: UUID, id: UUID): Pair<String, ByteArray>? = TenantTx.run(tenantId) {
+        RecebimentoFotosTable.selectAll().where { (RecebimentoFotosTable.tenantId eq tenantId) and (RecebimentoFotosTable.id eq id) }
+            .singleOrNull()?.let { it[RecebimentoFotosTable.mime] to it[RecebimentoFotosTable.conteudo] }
+    }
+
+    private fun fotos(tenantId: UUID, nunota: Int): List<FotoDto> = TenantTx.run(tenantId) {
+        RecebimentoFotosTable.select(RecebimentoFotosTable.id, RecebimentoFotosTable.paleteId, RecebimentoFotosTable.codprod, RecebimentoFotosTable.tipo, RecebimentoFotosTable.criadoEm)
+            .where { (RecebimentoFotosTable.tenantId eq tenantId) and (RecebimentoFotosTable.nunota eq nunota) }
+            .map { FotoDto(it[RecebimentoFotosTable.id].toString(), it[RecebimentoFotosTable.paleteId]?.toString(), it[RecebimentoFotosTable.codprod], it[RecebimentoFotosTable.tipo], it[RecebimentoFotosTable.criadoEm].toString()) }
+    }
+
     // ─── Chegada ───────────────────────────────────────────────────────────────────────────────────────
 
     private fun chegadaDto(r: org.jetbrains.exposed.sql.ResultRow) = ChegadaDto(
@@ -242,7 +383,12 @@ object RecebimentoDoca {
         val paletes = Paletes.porNunota(claims.tenantId, nunota)
         val volumes = paletes.sumOf { p -> p.itens.sumOf { i -> i.qtdComercial ?: i.qtd } }
         val pendentes = paletes.count { p -> p.itens.any { it.lote == null } }
-        return DocaDto(nunota, chegada(claims.tenantId, nunota), nota, paletes, volumes, pendentes)
+        val itens = runCatching { itensNota(slug, nunota) }.getOrElse {
+            println("AVISO: itens da nota $nunota (pedido/logística) não lidos: ${it.message}")
+            emptyList()
+        }
+        return DocaDto(nunota, chegada(claims.tenantId, nunota), nota, paletes, volumes, pendentes,
+            pedido = if (itens.isEmpty()) null else pedidoNota(itens), logistica = logistica(claims.tenantId, itens), fotos = fotos(claims.tenantId, nunota))
     }
 }
 
@@ -254,6 +400,21 @@ private suspend fun ApplicationCall.docaErro(e: Exception) = when (e) {
 }
 
 fun Route.recebimentoDocaRoutes() {
+    get("/api/recebimento/fotos/{id}") {
+        val claims = call.exigirAuth() ?: return@get
+        val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest)
+        val f = RecebimentoDoca.foto(claims.tenantId, id) ?: return@get call.respond(HttpStatusCode.NotFound)
+        call.respondBytes(f.second, ContentType.parse(f.first))
+    }
+    put("/api/recebimento/logistica/{codprod}") {
+        val claims = call.exigirAuth() ?: return@put
+        val cod = call.parameters["codprod"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "produto inválido"))
+        try {
+            RecebimentoDoca.registrarLogistica(claims.tenantId, cod, call.receive(), nome(claims))
+            call.respond(HttpStatusCode.NoContent)
+        } catch (e: Exception) { call.docaErro(e) }
+    }
+
     route("/api/recebimento/doca/{nunota}") {
         get {
             val claims = call.exigirAuth() ?: return@get
@@ -264,6 +425,11 @@ fun Route.recebimentoDocaRoutes() {
             val claims = call.exigirAuth() ?: return@put
             val nunota = call.parameters["nunota"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
             try { call.respond(RecebimentoDoca.registrarChegada(claims.tenantId, nunota, call.receive(), nome(claims))) } catch (e: Exception) { call.docaErro(e) }
+        }
+        post("/fotos") {
+            val claims = call.exigirAuth() ?: return@post
+            val nunota = call.parameters["nunota"]?.toIntOrNull() ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
+            try { call.respond(RecebimentoDoca.salvarFoto(claims.tenantId, nunota, call.receive(), nome(claims))) } catch (e: Exception) { call.docaErro(e) }
         }
         post("/liberar-motorista") {
             val claims = call.exigirAuth() ?: return@post

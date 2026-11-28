@@ -41,6 +41,36 @@ export interface NotaXml {
   itens: ItemXml[];
 }
 
+export interface AlertaPedido {
+  codprod: number;
+  descricao: string | null;
+  tipo: 'SEM_PEDIDO' | 'QTD_ACIMA' | 'PRECO_ACIMA' | 'PRECO_ABAIXO';
+  nota: number | null;
+  pedido: number | null;
+}
+
+export interface PedidoNota {
+  itensNota: number;
+  itensComPedido: number;
+  alertas: AlertaPedido[];
+}
+
+export interface Logistica {
+  codprod: number;
+  descricao: string | null;
+  lastro: number | null;
+  camadas: number | null;
+  origem: 'SANKHYA' | 'TORRE' | null;
+}
+
+export interface Foto {
+  id: string;
+  paleteId: string | null;
+  codprod: number | null;
+  tipo: string;
+  criadoEm: string;
+}
+
 export interface Doca {
   nunota: number;
   chegada: Chegada | null;
@@ -48,6 +78,9 @@ export interface Doca {
   paletes: Palete[];
   volumesFechados: number;
   paletesLotePendente: number;
+  pedido?: PedidoNota | null;
+  logistica?: Logistica[];
+  fotos?: Foto[];
 }
 
 export interface LinhaLote {
@@ -78,9 +111,43 @@ export class RecebimentoDocaService {
     return this.http.put<Palete>(`/api/paletes/${paleteId}/lotes`, { itens: [{ codprod, linhas }], temperatura });
   }
 
+  registrarAmostra(paleteId: string, codprod: number, unidades: number): Observable<Palete> {
+    return this.http.put<Palete>(`/api/paletes/${paleteId}/amostra`, { codprod, unidades });
+  }
+
+  registrarLogistica(codprod: number, lastro: number, camadas: number): Observable<void> {
+    return this.http.put<void>(`/api/recebimento/logistica/${codprod}`, { lastro, camadas });
+  }
+
+  enviarFoto(nunota: number, paleteId: string, codprod: number, dataUrl: string, tipo = 'AVARIA'): Observable<Foto> {
+    return this.http.post<Foto>(`/api/recebimento/doca/${nunota}/fotos`, { tipo, paleteId, codprod, dataUrl });
+  }
+
   definirAvaria(paleteId: string, codprod: number, qtd: number, motivo: string | null): Observable<Palete> {
     return this.http.put<Palete>(`/api/paletes/${paleteId}/avaria`, { codprod, qtd, motivo });
   }
+}
+
+/** Reduz a foto da câmera para JPEG de até [max] px (o coletor manda ~100 KB, não 4 MB). */
+export function reduzirFoto(arquivo: File, max = 1280, qualidade = 0.72): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(arquivo);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k);
+      c.height = Math.round(img.height * k);
+      c.getContext('2d')?.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', qualidade));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Não abriu a foto.'));
+    };
+    img.src = url;
+  });
 }
 
 /** Lote automático ("Sem lote na caixa"): E + data da entrada (AAMMDD). Mesmo dia = mesmo lote. */

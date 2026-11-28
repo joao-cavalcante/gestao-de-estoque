@@ -76,6 +76,9 @@ object RecebimentoPaleteItensTable : Table("app.recebimento_palete_itens") {
     val origemLote = text("origem_lote").nullable()
     val qtdAvaria = decimal("qtd_avaria", 15, 5).nullable()
     val motivoAvaria = text("motivo_avaria").nullable()
+    /** V83 — amostragem de embalagem: unidades contadas numa caixa × o esperado pelo cadastro (fator da unidade). */
+    val amostraUnidades = decimal("amostra_unidades", 15, 5).nullable()
+    val amostraEsperado = decimal("amostra_esperado", 15, 5).nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -95,6 +98,8 @@ data class PaleteItemDto(
     val origemLote: String? = null,
     val qtdAvaria: Double? = null,
     val motivoAvaria: String? = null,
+    val amostraUnidades: Double? = null,
+    val amostraEsperado: Double? = null,
 )
 
 @Serializable
@@ -138,6 +143,9 @@ data class LotesItem(val codprod: Int, val linhas: List<LoteLinha>)
 
 @Serializable
 data class LotesPaleteRequest(val itens: List<LotesItem> = emptyList(), val temperatura: Double? = null)
+
+@Serializable
+data class AmostraRequest(val codprod: Int, val unidades: Double)
 
 @Serializable
 data class AvariaPaleteRequest(val codprod: Int, val qtd: Double, val motivo: String? = null)
@@ -242,6 +250,8 @@ object Paletes {
                         origemLote = i[RecebimentoPaleteItensTable.origemLote],
                         qtdAvaria = i[RecebimentoPaleteItensTable.qtdAvaria]?.toDouble(),
                         motivoAvaria = i[RecebimentoPaleteItensTable.motivoAvaria],
+                        amostraUnidades = i[RecebimentoPaleteItensTable.amostraUnidades]?.toDouble(),
+                        amostraEsperado = i[RecebimentoPaleteItensTable.amostraEsperado]?.toDouble(),
                     )
                 }.sortedBy { it.codprod },
             )
@@ -401,6 +411,29 @@ object Paletes {
         paletesDto(tenantId, { it[RecebimentoPaletesTable.id] == paleteId }, todos).single()
     }
 
+    /**
+     * Amostragem de embalagem (V83): o conferente abre uma caixa do palete e conta as unidades. O esperado é o fator da
+     * unidade de compra no cadastro (TGFVOA via item da conferência: 'M' = unidades por embalagem). Diferença = o
+     * fornecedor mudou a embalagem e a conversão do estoque vai errar — vira alerta na doca.
+     */
+    fun registrarAmostra(tenantId: UUID, paleteId: UUID, req: AmostraRequest): PaleteDto = TenantTx.run(tenantId) {
+        val p = RecebimentoPaletesTable.selectAll()
+            .where { (RecebimentoPaletesTable.tenantId eq tenantId) and (RecebimentoPaletesTable.id eq paleteId) }.singleOrNull()
+            ?: throw PaleteException("Palete não encontrado.", HttpStatusCode.NotFound)
+        if (req.unidades <= 0) throw PaleteException("Informe quantas unidades havia na caixa.")
+        val m = metas(tenantId, p[RecebimentoPaletesTable.sessaoId]).entries.firstOrNull { it.key.first == req.codprod }?.value
+        val esperado = if (m?.fator != null && m.fator.signum() > 0 && m.dm?.trim() == "M") m.fator else null
+        val n = RecebimentoPaleteItensTable.update({
+            (RecebimentoPaleteItensTable.tenantId eq tenantId) and (RecebimentoPaleteItensTable.paleteId eq paleteId) and (RecebimentoPaleteItensTable.codprod eq req.codprod)
+        }) {
+            it[amostraUnidades] = req.unidades.toBigDecimal()
+            it[amostraEsperado] = esperado
+        }
+        if (n == 0) throw PaleteException("O produto ${req.codprod} não está neste palete.")
+        val todos = RecebimentoPaletesTable.selectAll().where { RecebimentoPaletesTable.tenantId eq tenantId }.toList()
+        paletesDto(tenantId, { it[RecebimentoPaletesTable.id] == paleteId }, todos).single()
+    }
+
     /** Código da etiqueta (UMA): "P" + 7 dígitos. */
     internal fun uma(numero: Long): String = "P" + numero.toString().padStart(7, '0')
 
@@ -483,6 +516,11 @@ fun Route.paletesRoutes() {
             val claims = call.exigirAuth() ?: return@put
             val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "palete inválido"))
             try { call.respond(Paletes.definirAvaria(claims.tenantId, id, call.receive())) } catch (e: Exception) { call.paleteErro(e) }
+        }
+        put("/{id}/amostra") {
+            val claims = call.exigirAuth() ?: return@put
+            val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "palete inválido"))
+            try { call.respond(Paletes.registrarAmostra(claims.tenantId, id, call.receive())) } catch (e: Exception) { call.paleteErro(e) }
         }
         post("/impresso") {
             val claims = call.exigirAuth() ?: return@post

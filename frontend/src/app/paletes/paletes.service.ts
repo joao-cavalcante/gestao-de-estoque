@@ -18,6 +18,8 @@ export interface PaleteItem {
   origemLote?: string | null;
   qtdAvaria?: number | null;
   motivoAvaria?: string | null;
+  amostraUnidades?: number | null;
+  amostraEsperado?: number | null;
 }
 
 export interface Palete {

@@ -53,6 +53,18 @@
             }
           </section>
 
+          @if (notaSemPedido() || alertasPedido().length) {
+            <section class="rd-bloco">
+              <div class="rd-bloco__topo"><span class="rd-rotulo">Pedido × nota</span></div>
+              @if (notaSemPedido()) {
+                <p class="rd-alerta">Nota sem pedido de compra vinculado.</p>
+              }
+              @for (a of alertasPedido(); track $index) {
+                <p class="rd-linha rd-linha--alerta"><b>{{ a.codprod }}</b> {{ a.descricao }}: {{ textoAlerta(a) }}</p>
+              }
+            </section>
+          }
+
           <section class="rd-bloco">
             <div class="rd-bloco__topo">
               <span class="rd-rotulo">Chegada do caminhão</span>
@@ -173,6 +185,37 @@
                 <input id="rd-tpal" class="cl-leitura__input" name="tpal" [(ngModel)]="temperaturaPalete" inputmode="decimal" />
               </section>
 
+              @if (normaItem(); as n) {
+                @if (!n.lastro || !n.camadas) {
+                  <section class="rd-form rd-form--norma">
+                    <span class="rd-rotulo">1ª entrada deste produto: como vem o palete?</span>
+                    <div class="rd-norma">
+                      <input class="cl-leitura__input" name="lastro" [(ngModel)]="lastro" inputmode="numeric" placeholder="Caixas por camada" />
+                      <span>×</span>
+                      <input class="cl-leitura__input" name="camadas" [(ngModel)]="camadas" inputmode="numeric" placeholder="Camadas" />
+                    </div>
+                    <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="salvarNorma()">Gravar norma do palete</button>
+                  </section>
+                } @else {
+                  <p class="rd-fraco rd-pad">Norma: {{ n.lastro }} × {{ n.camadas }} = {{ n.lastro * n.camadas }} caixas por palete</p>
+                }
+              }
+
+              <section class="rd-form">
+                <span class="rd-rotulo">Amostragem de embalagem (abra uma caixa)</span>
+                <div class="rd-norma">
+                  <input class="cl-leitura__input" name="amostra" [(ngModel)]="amostraUnidades" inputmode="decimal" placeholder="Unidades na caixa" />
+                  <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="salvarAmostra()">Conferir</button>
+                </div>
+                @if (it.amostraUnidades != null) {
+                  @if (it.amostraEsperado != null && it.amostraEsperado !== it.amostraUnidades) {
+                    <span class="rd-val" data-tom="atencao">{{ it.amostraUnidades }} na caixa · cadastro diz {{ it.amostraEsperado }}</span>
+                  } @else {
+                    <span class="rd-val" data-tom="ok">{{ it.amostraUnidades }} na caixa{{ it.amostraEsperado != null ? ' · confere' : '' }}</span>
+                  }
+                }
+              </section>
+
               <section class="rd-form rd-form--avaria">
                 <span class="rd-rotulo">Avaria neste palete</span>
                 <input class="cl-leitura__input" name="avq" [(ngModel)]="avariaQtd" inputmode="decimal" [placeholder]="'Quantidade avariada (' + unidadeItem(it) + ')'" />
@@ -185,7 +228,18 @@
                 @if (avariaMotivo === 'Outro') {
                   <input class="cl-leitura__input" name="avo" [(ngModel)]="avariaOutro" maxlength="200" placeholder="Qual o motivo?" />
                 }
-                <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="salvarAvaria()">Gravar avaria</button>
+                <div class="rd-norma">
+                  <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="salvarAvaria()">Gravar avaria</button>
+                  <label class="cl-botao cl-botao--contorno rd-foto">
+                    @if (enviandoFoto()) { <oq-spinner [size]="14" /> } Foto
+                    <input type="file" accept="image/*" capture="environment" (change)="tirarFoto($event)" hidden />
+                  </label>
+                </div>
+                @if (fotosItem().length) {
+                  <div class="rd-fotos">
+                    @for (f of fotosItem(); track f.id) { <img [src]="'/api/recebimento/fotos/' + f.id" alt="Foto da avaria" /> }
+                  </div>
+                }
               </section>
             }
           }
