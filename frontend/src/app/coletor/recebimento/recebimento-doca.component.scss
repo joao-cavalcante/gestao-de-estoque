@@ -175,3 +175,12 @@
 
   img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--oq-radius-input); border: 1px solid var(--oq-border); }
 }
+
+// D3 — recusa parcial: produto + quantidade numa linha.
+.rd-recusa-item {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}

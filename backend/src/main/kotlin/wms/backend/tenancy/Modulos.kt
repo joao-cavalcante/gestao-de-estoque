@@ -40,8 +40,19 @@ object Modulos {
      */
     const val PLANTA_GALPAO = "planta_galpao"
 
+    /**
+     * Recebimento na doca (D3, 28/11/2026): ao aprovar a compra a Torre manda a MD-e "Confirmação da operação" pela
+     * rotina nativa; na recusa total, "Operação não realizada". Ato fiscal na Sefaz em nome do cliente — desligado
+     * até o cliente decidir.
+     */
+    const val MDE_CONFIRMACAO_RECEBIMENTO = "mde_confirmacao_recebimento"
+
+    /** Recebimento na doca (D3, 28/11/2026): botão "Recusar carga" (total/parcial, motivo) na doca do coletor. */
+    const val RECUSA_CARGA = "recusa_carga"
+
     /** Todos os módulos conhecidos — usado pelo Painel Master pra listar as opções. */
-    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO, LIBERACAO_HERDADA, PLANTA_GALPAO)
+    val TODOS = setOf(CONFERENCIA_SEGMENTADA, PESAVEL_POR_PRODUTO, SEM_VERIFICACAO_PEDIDO, LIBERACAO_HERDADA, PLANTA_GALPAO,
+        MDE_CONFIRMACAO_RECEBIMENTO, RECUSA_CARGA)
 
     /** Texto do Painel Master pra cada módulo. */
     fun descricao(modulo: String): String = when (modulo) {
@@ -50,6 +61,8 @@ object Modulos {
         SEM_VERIFICACAO_PEDIDO -> "Não conferir o pedido com o Sankhya ao concluir etapa/finalizar (mais rápido, menos seguro)"
         LIBERACAO_HERDADA -> "Liberação herdada: evento de limite já liberado no pedido é liberado na nota (eventos nos parâmetros)"
         PLANTA_GALPAO -> "Planta do Galpão: desenho da planta, endereços e visualização 3D"
+        MDE_CONFIRMACAO_RECEBIMENTO -> "MD-e no recebimento: \"Confirmação da operação\" ao aprovar e \"Operação não realizada\" na recusa total (evento na Sefaz)"
+        RECUSA_CARGA -> "Recusa da carga na doca (total ou parcial, com motivo)"
         else -> modulo
     }
 }

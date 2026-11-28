@@ -83,6 +83,26 @@ export interface EstimativaCaixas {
   alerta: boolean;
 }
 
+export interface ItemRecusa {
+  codprod: number;
+  qtd: number;
+  unidade?: string | null;
+}
+
+export interface Decisao {
+  recusaTipo?: 'TOTAL' | 'PARCIAL' | null;
+  recusaMotivo?: string | null;
+  recusaItens: ItemRecusa[];
+  recusaEm?: string | null;
+  recusaPor?: string | null;
+  mdeEvento?: string | null;
+  mdeEm?: string | null;
+  mdeSituacao?: 'OK' | 'ERRO' | null;
+  mdeMensagem?: string | null;
+  recusaHabilitada: boolean;
+  mdeHabilitada: boolean;
+}
+
 export interface Doca {
   nunota: number;
   chegada: Chegada | null;
@@ -95,6 +115,7 @@ export interface Doca {
   fotos?: Foto[];
   caixasEstimadas?: EstimativaCaixas[];
   fonte?: 'ADDON' | 'DBEXPLORER' | null;
+  decisao?: Decisao | null;
 }
 
 export interface LinhaLote {
@@ -135,6 +156,10 @@ export class RecebimentoDocaService {
 
   enviarFoto(nunota: number, paleteId: string, codprod: number, dataUrl: string, tipo = 'AVARIA'): Observable<Foto> {
     return this.http.post<Foto>(`/api/recebimento/doca/${nunota}/fotos`, { tipo, paleteId, codprod, dataUrl });
+  }
+
+  recusar(nunota: number, tipo: 'TOTAL' | 'PARCIAL', motivo: string, itens: ItemRecusa[]): Observable<Decisao> {
+    return this.http.post<Decisao>(`/api/recebimento/doca/${nunota}/recusa`, { tipo, motivo, itens });
   }
 
   definirAvaria(paleteId: string, codprod: number, qtd: number, motivo: string | null): Observable<Palete> {

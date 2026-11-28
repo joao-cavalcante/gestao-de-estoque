@@ -92,6 +92,24 @@
             }
           </section>
 
+          @if (d.decisao; as dc) {
+            @if (dc.recusaTipo || dc.mdeEvento) {
+              <section class="rd-bloco">
+                <div class="rd-bloco__topo"><span class="rd-rotulo">Recusa e MD-e</span></div>
+                @if (dc.recusaTipo) {
+                  <p class="rd-linha rd-linha--alerta">
+                    <b>Recusa {{ dc.recusaTipo === 'TOTAL' ? 'total' : 'parcial' }}</b>: {{ dc.recusaMotivo }}
+                    @for (i of dc.recusaItens; track i.codprod) { · {{ i.codprod }}: {{ i.qtd }} }
+                  </p>
+                }
+                @if (dc.mdeEvento) {
+                  <p class="rd-fraco">MD-e {{ dc.mdeEvento === '210200' ? 'Confirmação da operação' : 'Operação não realizada' }}:
+                    {{ dc.mdeSituacao === 'OK' ? 'enviada' : 'não enviada (' + dc.mdeMensagem + ')' }} {{ dc.mdeEm | date: 'dd/MM HH:mm' }}</p>
+                }
+              </section>
+            }
+          }
+
           <section class="rd-bloco">
             <div class="rd-bloco__topo">
               <span class="rd-rotulo">Paletes ({{ d.paletes.length }})</span>
@@ -126,6 +144,30 @@
               }
             </ul>
           }
+        }
+
+        <!-- ─── Recusa da carga (módulo recusa_carga) ─── -->
+        @case ('recusa') {
+          <section class="rd-form">
+            <span class="rd-rotulo">Recusar</span>
+            <div class="rd-opcoes">
+              <button type="button" class="cl-botao cl-botao--contorno" [class.rd-sel]="recusaTipo === 'PARCIAL'" (click)="recusaTipo = 'PARCIAL'">Parte da carga</button>
+              <button type="button" class="cl-botao cl-botao--contorno" [class.rd-sel]="recusaTipo === 'TOTAL'" (click)="recusaTipo = 'TOTAL'">Carga inteira</button>
+            </div>
+            <label for="rd-motivo">Motivo (mínimo 15 caracteres)</label>
+            <textarea id="rd-motivo" class="cl-leitura__input" name="motivo" rows="3" [(ngModel)]="recusaMotivo"></textarea>
+            @if (recusaTipo === 'PARCIAL') {
+              <span class="rd-rotulo">Quantidade recusada por produto</span>
+              @for (p of produtosRecusa(); track p.codprod) {
+                <label class="rd-recusa-item">
+                  <span><b>{{ p.codprod }}</b> {{ p.descricao }}</span>
+                  <input class="cl-leitura__input" inputmode="decimal" [name]="'rq' + p.codprod" [(ngModel)]="recusaQtd[p.codprod]" placeholder="0" />
+                </label>
+              }
+            } @else if (doca()?.decisao?.mdeHabilitada) {
+              <p class="rd-fraco">Recusa total envia a MD-e "Operação não realizada" para a Sefaz.</p>
+            }
+          </section>
         }
 
         <!-- ─── Chegada (checklist opcional) ─── -->
@@ -270,7 +312,14 @@
         @if (doca()?.chegada && !doca()?.chegada?.liberadoEm) {
           <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="liberarMotorista()">Liberar motorista</button>
         }
+        @if (doca()?.decisao?.recusaHabilitada) {
+          <button type="button" class="cl-botao cl-botao--contorno" (click)="abrirRecusa()">Recusar carga</button>
+        }
         <button type="button" class="cl-botao rd-principal" (click)="conferir()">Conferir paletes</button>
+      }
+      @case ('recusa') {
+        <button type="button" class="cl-botao cl-botao--contorno" (click)="voltar()">Cancelar</button>
+        <button type="button" class="cl-botao rd-principal" [disabled]="ocupado()" (click)="salvarRecusa()">Registrar recusa</button>
       }
       @case ('chegada') {
         <button type="button" class="cl-botao cl-botao--contorno" (click)="voltar()">Cancelar</button>

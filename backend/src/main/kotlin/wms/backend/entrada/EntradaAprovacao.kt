@@ -55,6 +55,9 @@ object EntradaAprovacao {
             runCatching { wms.backend.separacao.AjustePesoCompra.processarPendentes(tenantSlug, tenantId) }
                 .onFailure { println("AVISO: ajuste de peso logo após aprovar $nunota falhou (o ciclo tenta de novo): ${it.message}") }
             // D3 (28/11/2026) — validade/fabricação dos lotes dos paletes no estoque do lote (CACSP.salvarInformacoesLote).
+            // D3 — MD-e "Confirmação da operação" (só com o módulo mde_confirmacao_recebimento ligado).
+            runCatching { wms.backend.recebimentodoca.RecebimentoFiscal.manifestar(tenantSlug, tenantId, nunota, wms.backend.recebimentodoca.RecebimentoFiscal.CONFIRMACAO) }
+                .onFailure { println("AVISO: MD-e da compra $nunota não enviada: ${it.message}") }
             runCatching { wms.backend.separacao.LoteCompra.gravarValidades(tenantSlug, tenantId, nunota) }
                 .onFailure { println("AVISO: validade dos lotes da compra $nunota não gravada: ${it.message}") }
             runCatching { wms.backend.armazenagem.Armazenagem.gerarPendentes(tenantSlug, tenantId) }

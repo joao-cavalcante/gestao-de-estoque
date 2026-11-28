@@ -11,7 +11,7 @@ import { OqIconComponent } from '../../shared/icons/oq-icon.component';
 import { OqSpinnerComponent } from '../../shared/icons/oq-spinner.component';
 import { AlertaPedido, Doca, Foto, LinhaLote, Logistica, LoteXml, RecebimentoDocaService, loteAutomatico, reduzirFoto } from './recebimento-doca.service';
 
-type Passo = 'doca' | 'chegada' | 'palete';
+type Passo = 'doca' | 'chegada' | 'palete' | 'recusa';
 type Aviso = { tom: 'ok' | 'erro' | 'atencao'; titulo: string; mensagem?: string } | null;
 
 /** Linha do editor de lote (texto da validade como o operador digitou). */
@@ -193,6 +193,59 @@ export class RecebimentoDocaComponent implements OnInit {
       error: (e) => {
         this.ocupado.set(false);
         this.aviso.set({ tom: 'erro', titulo: 'Não registrou a chegada', mensagem: erro(e) });
+      },
+    });
+  }
+
+  // ─── Recusa da carga (módulo recusa_carga, D3) ──────────────────────────────────────────────────────
+
+  recusaTipo: 'TOTAL' | 'PARCIAL' = 'PARCIAL';
+  recusaMotivo = '';
+  recusaQtd: Record<number, string> = {};
+
+  /** Produtos da nota (para a recusa parcial): dos itens lidos do Sankhya, senão dos paletes. */
+  produtosRecusa(): { codprod: number; descricao: string }[] {
+    const d = this.doca();
+    const m = new Map<number, string>();
+    for (const i of d?.nota.itens ?? []) if (i.codprod != null) m.set(i.codprod, i.descricao ?? '');
+    for (const p of d?.paletes ?? []) for (const i of p.itens) if (!m.has(i.codprod)) m.set(i.codprod, i.descricao ?? '');
+    return [...m.entries()].map(([codprod, descricao]) => ({ codprod, descricao }));
+  }
+
+  abrirRecusa(): void {
+    this.recusaTipo = 'PARCIAL';
+    this.recusaMotivo = '';
+    this.recusaQtd = {};
+    this.aviso.set(null);
+    this.passo.set('recusa');
+  }
+
+  salvarRecusa(): void {
+    const motivo = this.recusaMotivo.trim();
+    if (motivo.length < 15) {
+      this.aviso.set({ tom: 'erro', titulo: 'Descreva o motivo', mensagem: 'Mínimo de 15 caracteres (exigência da Sefaz na MD-e).' });
+      return;
+    }
+    const itens = Object.entries(this.recusaQtd)
+      .map(([c, q]) => ({ codprod: Number(c), qtd: Number(String(q).replace(',', '.')) }))
+      .filter((i) => i.qtd > 0);
+    if (this.recusaTipo === 'PARCIAL' && !itens.length) {
+      this.aviso.set({ tom: 'erro', titulo: 'Informe o que foi recusado', mensagem: 'Quantidade por produto.' });
+      return;
+    }
+    this.ocupado.set(true);
+    this.api.recusar(this.nunota, this.recusaTipo, motivo, this.recusaTipo === 'PARCIAL' ? itens : []).subscribe({
+      next: (r) => {
+        this.ocupado.set(false);
+        this.feedback.trigger('CONTROLE_NECESSARIO');
+        const mde = r.mdeSituacao === 'ERRO' ? ` · MD-e não enviada: ${r.mdeMensagem}` : r.mdeSituacao === 'OK' ? ' · MD-e "Operação não realizada" enviada' : '';
+        this.aviso.set({ tom: r.mdeSituacao === 'ERRO' ? 'atencao' : 'ok', titulo: `Recusa ${this.recusaTipo === 'TOTAL' ? 'total' : 'parcial'} registrada${mde}` });
+        this.passo.set('doca');
+        this.carregar();
+      },
+      error: (e) => {
+        this.ocupado.set(false);
+        this.aviso.set({ tom: 'erro', titulo: 'Não registrou a recusa', mensagem: erro(e) });
       },
     });
   }

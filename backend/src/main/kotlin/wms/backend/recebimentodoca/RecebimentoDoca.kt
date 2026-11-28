@@ -143,6 +143,8 @@ data class DocaDto(
     val caixasEstimadas: List<EstimativaCaixasDto> = emptyList(),
     /** De onde veio a leitura do Sankhya: "ADDON" (RecebimentoSP.doca, uma chamada) ou "DBEXPLORER" (addon antigo). */
     val fonte: String? = null,
+    /** D3 — recusa e MD-e (e se os módulos estão ligados). */
+    val decisao: DecisaoDto? = null,
 )
 
 object RecebimentoFotosTable : Table("app.recebimento_fotos") {
@@ -506,7 +508,7 @@ object RecebimentoDoca {
         )
         return DocaDto(nunota, chegada(claims.tenantId, nunota), nota, paletes, volumes, pendentes,
             pedido = if (itens.isEmpty()) null else pedidoNota(itens), logistica = logistica(claims.tenantId, itens), fotos = fotos(claims.tenantId, nunota),
-            caixasEstimadas = estimativa, fonte = sk.fonte)
+            caixasEstimadas = estimativa, fonte = sk.fonte, decisao = RecebimentoFiscal.decisao(claims.tenantId, nunota))
     }
 
     /** Caixas (quantidade comercial) e kg lidos por produto na conferência mais recente da compra. */
@@ -558,6 +560,12 @@ fun Route.recebimentoDocaRoutes() {
             val claims = call.exigirAuth() ?: return@put
             val nunota = call.parameters["nunota"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
             try { call.respond(RecebimentoDoca.registrarChegada(claims.tenantId, nunota, call.receive(), nome(claims))) } catch (e: Exception) { call.docaErro(e) }
+        }
+        post("/recusa") {
+            val claims = call.exigirAuth() ?: return@post
+            val nunota = call.parameters["nunota"]?.toIntOrNull() ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
+            val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug ?: return@post call.respond(HttpStatusCode.NotFound)
+            try { call.respond(RecebimentoFiscal.recusar(slug, claims.tenantId, nunota, call.receive(), nome(claims))) } catch (e: Exception) { call.docaErro(e) }
         }
         post("/fotos") {
             val claims = call.exigirAuth() ?: return@post
