@@ -779,8 +779,9 @@ object SeparacaoRepository {
         codprodDireto: Int? = null,
         /** Etapa ativa na tela (conferência segmentada) — item fora do pedido nasce nesta etapa. */
         tipoSeparacaoEtapa: Short? = null,
-    ): IdentificarProdutoResultado? =
-        TenantTx.run(tenantId) {
+    ): IdentificarProdutoResultado? {
+        val compraLoteNoPalete = compraLoteNoPalete(tenantId, sessaoId)
+        return TenantTx.run(tenantId) {
             val sessao = SeparacaoSessoesTable.selectAll()
                 .where { (SeparacaoSessoesTable.tenantId eq tenantId) and (SeparacaoSessoesTable.id eq sessaoId) }
                 .singleOrNull() ?: return@run null
@@ -838,7 +839,9 @@ object SeparacaoRepository {
             // Unidade escanada (VOA) — vai junto no /conferir p/ virar CODVOL no Sankhya.
             val codvolEscanado = resolvidoFinal.codvol
 
-            if (tipControle == "L") {
+            // D3 (28/11/2026) — compra com "conferência determina o lote": o lote vem do palete (Tempo 2). Item da nota
+            // sem lote → sem campo de lote; nota já dividida por lote (XML) → escolhe entre os lotes da nota (lista).
+            if (tipControle == "L" && !compraLoteNoPalete) {
                 return@run IdentificarProdutoResultado(
                     codprod = resolvidoFinal.codprod,
                     descricaoProduto = resolvidoFinal.descricaoProduto,
@@ -851,7 +854,7 @@ object SeparacaoRepository {
                 )
             }
 
-            val lisControles = itensDoProduto.firstOrNull()?.lisControles?.trim()
+            val lisControles = itensDoProduto.firstOrNull()?.lisControles?.trim()?.takeIf { tipControle != "L" }
             val controlesDisponiveis = if (!lisControles.isNullOrEmpty()) {
                 lisControles.split(Regex("\r?\n")).map { it.trim() }.filter { it.isNotEmpty() }
             } else {
@@ -884,6 +887,18 @@ object SeparacaoRepository {
                 codvol = codvolEscanado,
             )
         }
+    }
+
+    private val cacheCompraLote = java.util.concurrent.ConcurrentHashMap<UUID, Pair<Boolean, Long>>()
+
+    /** Compra cuja CCO deixa a conferência determinar o lote (cache de 1 min por sessão). */
+    private fun compraLoteNoPalete(tenantId: UUID, sessaoId: UUID): Boolean {
+        cacheCompraLote[sessaoId]?.takeIf { System.currentTimeMillis() - it.second < 60_000 }?.let { return it.first }
+        val nunota = buscarSessao(tenantId, sessaoId)?.nunota ?: return false
+        val v = LoteCompra.ehCompra(tenantId, nunota) && LoteCompra.cooExplodeLote(tenantId, nunota)
+        cacheCompraLote[sessaoId] = v to System.currentTimeMillis()
+        return v
+    }
 
     /** Lançada quando a bipagem excederia a quantidade negociada e a CCO do NUCCO não permite (QTDAMAIOR != 'D'). */
     class QuantidadeExcedeException(val maximo: BigDecimal) : Exception("quantidade excede o pendente (máximo $maximo)")
@@ -1997,6 +2012,8 @@ object SeparacaoRepository {
         /** V74 — pesável: soma dos pesos LÍQUIDOS lidos e dos BRUTOS (bruto ausente = o líquido). null = sem pesagem. */
         val pesoLiquido: BigDecimal? = null,
         val pesoBruto: BigDecimal? = null,
+        /** D3 (28/11/2026) — parte de um grupo sem lote dividida pelos lotes dos paletes: o controle original (' '). */
+        val controleOrigem: String? = null,
     )
 
     /**

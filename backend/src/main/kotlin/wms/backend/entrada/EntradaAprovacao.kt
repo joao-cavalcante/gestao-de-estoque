@@ -54,6 +54,9 @@ object EntradaAprovacao {
         if (r.situacao == "APROVADO") {
             runCatching { wms.backend.separacao.AjustePesoCompra.processarPendentes(tenantSlug, tenantId) }
                 .onFailure { println("AVISO: ajuste de peso logo após aprovar $nunota falhou (o ciclo tenta de novo): ${it.message}") }
+            // D3 (28/11/2026) — validade/fabricação dos lotes dos paletes no estoque do lote (CACSP.salvarInformacoesLote).
+            runCatching { wms.backend.separacao.LoteCompra.gravarValidades(tenantSlug, tenantId, nunota) }
+                .onFailure { println("AVISO: validade dos lotes da compra $nunota não gravada: ${it.message}") }
             runCatching { wms.backend.armazenagem.Armazenagem.gerarPendentes(tenantSlug, tenantId) }
                 .onFailure { println("AVISO: tarefas de armazenagem logo após aprovar $nunota falharam (o ciclo tenta de novo): ${it.message}") }
         }

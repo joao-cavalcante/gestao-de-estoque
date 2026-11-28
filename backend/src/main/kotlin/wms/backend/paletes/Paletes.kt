@@ -407,6 +407,11 @@ object Paletes {
                     it[unidade] = m?.unidade
                     it[qtdComercial] = comercial(q, m?.unidade, m?.unidadeComercial, m?.dm, m?.fator)
                     it[unidadeComercial] = m?.unidadeComercial?.takeIf { comercial(q, m.unidade, it, m.dm, m.fator) != null }
+                    // D3 — lido já com lote (nota dividida por lote na importação do XML): o palete nasce com ele.
+                    k.second.trim().takeIf { l -> l.isNotEmpty() }?.let { l ->
+                        it[RecebimentoPaleteItensTable.lote] = l
+                        it[RecebimentoPaleteItensTable.origemLote] = "XML"
+                    }
                 }
             }
             criados += id

@@ -542,7 +542,13 @@ object SeparacaoService {
         // Diagnóstico (nota 57568, divergência com quantidade certa): dados do item que vão pro Sankhya.
         val itensPorProduto = withContext(Dispatchers.IO) { SeparacaoRepository.listarItens(tenantId, sessaoId, incluirSilenciosos = true) }
             .groupBy { it.codprod }
-        val grupos = ajustarPesoCompra(tenantSlug, tenantId, sessaoId, nunota, nuconf, gruposLidos, itensPorProduto)
+        val gruposPeso = ajustarPesoCompra(tenantSlug, tenantId, sessaoId, nunota, nuconf, gruposLidos, itensPorProduto)
+        // D3 (28/11/2026) — compra com lote no palete: o lido sem lote vai dividido pelos lotes dos paletes.
+        val grupos = try {
+            withContext(Dispatchers.IO) { LoteCompra.aplicar(tenantId, sessaoId, nunota, gruposPeso) }
+        } catch (e: LoteCompra.LoteFaltandoException) {
+            throw FinalizarSeparacaoException(e.message ?: "lote pendente")
+        }
         grupos.forEach { g ->
             val it0 = itensPorProduto[g.codprod]?.firstOrNull()
             println(
@@ -554,8 +560,10 @@ object SeparacaoService {
         val semaforo = Semaphore(CONCORRENCIA_ENVIO_ITENS)
         val enviados = AtomicInteger(0)
         coroutineScope {
-        grupos.map { grupo -> async {
+        // Partes do mesmo grupo (lotes) vão em sequência e o grupo só é marcado como enviado depois da última.
+        grupos.groupBy { it.codprod to (it.controleOrigem ?: it.controle) }.map { (chave, partes) -> async {
         semaforo.withPermit {
+        for (grupo in partes) {
             // Contrato real confirmado AO VIVO (nota 57516 — payload capturado da
             // tela nativa do Sankhya conferindo o mesmo item): NÃO existe parâmetro
             // "codVol" nessa chamada — os 3 tentativas anteriores que inventavam um
@@ -594,8 +602,9 @@ object SeparacaoService {
             }
             println("ConferenciaSP.salvarItemConferido tenant=$tenantSlug nunota=${nunota} params=$params")
             SankhyaSpClient.chamar(tenantSlug, "ConferenciaSP.salvarItemConferido", params)
-            withContext(Dispatchers.IO) { SeparacaoRepository.marcarGrupoEnviado(tenantId, sessaoId, grupo.codprod, grupo.controle) }
             FinalizacaoProgresso.atualizar(sessaoId, "itens", enviados.incrementAndGet(), grupos.size)
+        }
+            withContext(Dispatchers.IO) { SeparacaoRepository.marcarGrupoEnviado(tenantId, sessaoId, chave.first, chave.second) }
         }
         } }.awaitAll()
         }
