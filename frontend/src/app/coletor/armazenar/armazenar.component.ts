@@ -62,6 +62,30 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
 
   @ViewChild('campo') campo?: ElementRef<HTMLInputElement>;
 
+  /** Teclado da tela — mesma chave e regra da fila/conferência (coletor começa fechado; lembrado por aparelho). */
+  tecladoAberto = (() => {
+    try {
+      const salvo = localStorage.getItem('wms_coletor_teclado');
+      if (salvo === 'S' || salvo === 'N') return salvo === 'S';
+    } catch {
+      /* sem armazenamento */
+    }
+    return !(typeof window !== 'undefined' && window.matchMedia?.('(max-width: 639px) and (pointer: coarse)').matches);
+  })();
+
+  alternarTeclado(): void {
+    this.tecladoAberto = !this.tecladoAberto;
+    try {
+      localStorage.setItem('wms_coletor_teclado', this.tecladoAberto ? 'S' : 'N');
+    } catch {
+      /* ignora */
+    }
+    // Re-foca para o Android aplicar o novo inputmode (abre/fecha o teclado na hora).
+    const c = this.campo?.nativeElement;
+    c?.blur();
+    setTimeout(() => c?.focus({ preventScroll: true }), 30);
+  }
+
   readonly motivos = MOTIVOS_TROCA;
   readonly operador = computed(() => this.auth.usuario()?.nome ?? '');
   readonly qtdTexto = qtdTexto;
