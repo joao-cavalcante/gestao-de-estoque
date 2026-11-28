@@ -53,6 +53,20 @@
             }
           </section>
 
+          @if (d.caixasEstimadas?.length) {
+            <!-- Nota só em KG (28/11/2026): caixas contadas × esperadas pelo peso médio da caixa do cadastro. -->
+            <section class="rd-bloco">
+              <div class="rd-bloco__topo"><span class="rd-rotulo">Caixas pelo peso (nota em KG)</span></div>
+              @for (e of d.caixasEstimadas; track e.codprod) {
+                <p class="rd-linha" [class.rd-linha--alerta]="e.alerta">
+                  <b>{{ e.codprod }}</b> {{ e.descricao }}: contadas <b>{{ e.caixasContadas | number: '1.0-1' }} {{ e.unidadeCaixa }}</b>
+                  · nota ≈ {{ e.caixasEstimadas | number: '1.0-1' }} {{ e.unidadeCaixa }}
+                  ({{ e.kgNota | number: '1.0-1' }} kg ÷ {{ e.kgPorCaixa | number: '1.0-2' }} kg)
+                </p>
+              }
+            </section>
+          }
+
           @if (notaSemPedido() || alertasPedido().length) {
             <section class="rd-bloco">
               <div class="rd-bloco__topo"><span class="rd-rotulo">Pedido × nota</span></div>

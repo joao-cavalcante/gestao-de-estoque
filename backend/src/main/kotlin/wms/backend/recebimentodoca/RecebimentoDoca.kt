@@ -15,7 +15,15 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
 import wms.backend.auth.ClaimsToken
 import wms.backend.auth.exigirAuth
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import wms.backend.erp.SankhyaDbExplorerClient
+import wms.backend.erp.SankhyaSpClient
 import wms.backend.paletes.PaleteDto
 import wms.backend.paletes.Paletes
 import wms.backend.tenancy.TenantRepository
@@ -102,6 +110,24 @@ data class FotoRequest(val tipo: String = "AVARIA", val paleteId: String? = null
 @Serializable
 data class LogisticaRequest(val lastro: Int, val camadas: Int)
 
+/**
+ * Nota que vem só em KG (o fornecedor não diz quantas caixas): caixas esperadas pelo peso médio da caixa do cadastro
+ * (kg da nota ÷ fator da caixa na TGFVOA) × caixas contadas na conferência. Só aparece depois que o produto foi contado
+ * — a contagem continua às cegas (28/11/2026).
+ */
+@Serializable
+data class EstimativaCaixasDto(
+    val codprod: Int,
+    val descricao: String?,
+    val kgNota: Double,
+    val unidadeCaixa: String,
+    val kgPorCaixa: Double,
+    val caixasEstimadas: Double,
+    val caixasContadas: Double,
+    val kgLido: Double,
+    val alerta: Boolean,
+)
+
 @Serializable
 data class DocaDto(
     val nunota: Int,
@@ -114,6 +140,9 @@ data class DocaDto(
     val pedido: PedidoNotaDto? = null,
     val logistica: List<LogisticaDto> = emptyList(),
     val fotos: List<FotoDto> = emptyList(),
+    val caixasEstimadas: List<EstimativaCaixasDto> = emptyList(),
+    /** De onde veio a leitura do Sankhya: "ADDON" (RecebimentoSP.doca, uma chamada) ou "DBEXPLORER" (addon antigo). */
+    val fonte: String? = null,
 )
 
 object RecebimentoFotosTable : Table("app.recebimento_fotos") {
@@ -219,11 +248,99 @@ object RecebimentoDoca {
     // ─── Itens da nota: pedido × nota e norma de paletização (uma consulta ao Sankhya) ──────────────────
 
     private data class ItemNota(val codprod: Int, val descricao: String?, val qtd: Double?, val vlr: Double?, val temPedido: Boolean,
-                                val qtdPed: Double?, val vlrPed: Double?, val lastro: Int?, val camadas: Int?)
+                                val qtdPed: Double?, val vlrPed: Double?, val lastro: Int?, val camadas: Int?,
+                                val codvol: String? = null, val unCaixa: String? = null, val fatorCaixa: Double? = null)
+
+    // ─── Addon (contrato 4): XML + itens numa chamada ─────────────────────────────────────────────────
+
+    private data class LeituraSankhya(val nota: NotaXmlDto, val itens: List<ItemNota>, val fonte: String, val em: Long)
+    private val cacheDoca = ConcurrentHashMap<String, LeituraSankhya>()
+    private const val TTL_DOCA_MS = 3 * 60_000L
+
+    private fun texto(o: JsonObject?, campo: String): String? {
+        val v = o?.get(campo) ?: return null
+        val prim = (v as? JsonObject)?.get("$") ?: v
+        return (prim as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() && it != "null" }
+    }
+
+    private fun lista(o: JsonObject?, campo: String): List<JsonObject> = (o?.get(campo) as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
+
+    /** Resposta do RecebimentoSP.doca → modelo da Torre. Testável sem Sankhya. */
+    internal fun lerAddon(resposta: JsonObject): Pair<NotaXmlDto, List<ItemNotaPublico>> {
+        val corpo = resposta["body"] as? JsonObject ?: resposta
+        val x = corpo["XML"] as? JsonObject
+        val nota = if (texto(x, "ENCONTRADO") != "S") NotaXmlDto(false) else NotaXmlDto(
+            encontrado = true,
+            volumes = num(texto(x, "VOLUMES")),
+            especie = texto(x, "ESPECIE"),
+            pesoBruto = num(texto(x, "PESOB")),
+            pesoLiquido = num(texto(x, "PESOL")),
+            placa = texto(x, "PLACA"),
+            itens = lista(x, "ITENS").map { i ->
+                ItemXmlDto(
+                    texto(i, "NITEM")?.substringBefore('.')?.toIntOrNull() ?: 0,
+                    texto(i, "CODPROD")?.substringBefore('.')?.toIntOrNull(),
+                    texto(i, "CPROD"), texto(i, "XPROD"),
+                    lista(i, "LOTES").mapNotNull { l ->
+                        texto(l, "LOTE")?.let { LoteXmlDto(it, num(texto(l, "QTD")), texto(l, "DFAB"), texto(l, "DVAL")) }
+                    },
+                )
+            },
+        )
+        val itens = lista(corpo, "ITENS").mapNotNull { r ->
+            val cod = texto(r, "CODPROD")?.substringBefore('.')?.toIntOrNull() ?: return@mapNotNull null
+            ItemNotaPublico(cod, texto(r, "DESCRPROD"), num(texto(r, "QTDNEG")), num(texto(r, "VLRUNIT")), texto(r, "NUNOTAORIG") != null,
+                num(texto(r, "QTDPED")), num(texto(r, "VLRPED")), num(texto(r, "LASTRO"))?.toInt()?.takeIf { it > 0 },
+                num(texto(r, "CAMADAS"))?.toInt()?.takeIf { it > 0 }, texto(r, "CODVOL"), texto(r, "UNCAIXA"), num(texto(r, "FATORCAIXA")))
+        }
+        return nota to itens
+    }
+
+    internal data class ItemNotaPublico(val codprod: Int, val descricao: String?, val qtd: Double?, val vlr: Double?, val temPedido: Boolean,
+                                        val qtdPed: Double?, val vlrPed: Double?, val lastro: Int?, val camadas: Int?,
+                                        val codvol: String?, val unCaixa: String?, val fatorCaixa: Double?)
+
+    private suspend fun lerSankhya(slug: String, nunota: Int): LeituraSankhya {
+        val chave = "$slug|$nunota"
+        cacheDoca[chave]?.takeIf { System.currentTimeMillis() - it.em < TTL_DOCA_MS }?.let { return it }
+        val viaAddon = runCatching {
+            val corpo = buildJsonObject { putJsonObject("request") { put("NUNOTA", nunota.toString()) } }
+            val (nota, itens) = lerAddon(SankhyaSpClient.chamarRaw(slug, "RecebimentoSP.doca", "torre", corpo, retentar = false))
+            LeituraSankhya(nota, itens.map { i ->
+                ItemNota(i.codprod, i.descricao, i.qtd, i.vlr, i.temPedido, i.qtdPed, i.vlrPed, i.lastro, i.camadas, i.codvol, i.unCaixa, i.fatorCaixa)
+            }, "ADDON", System.currentTimeMillis())
+        }.onFailure { println("INFO: RecebimentoSP.doca indisponível para $nunota (addon antigo?) — leitura pelo DbExplorer: ${it.message?.take(160)}") }.getOrNull()
+        val leitura = viaAddon ?: LeituraSankhya(
+            runCatching { notaXml(slug, nunota) }.getOrElse { println("AVISO: XML da nota $nunota não lido: ${it.message}"); NotaXmlDto(false) },
+            runCatching { itensNota(slug, nunota) }.getOrElse { println("AVISO: itens da nota $nunota não lidos: ${it.message}"); emptyList() },
+            "DBEXPLORER", System.currentTimeMillis(),
+        )
+        cacheDoca[chave] = leitura
+        return leitura
+    }
+
+    /** Caixas esperadas pelo peso médio × contadas, só para item da nota em KG com caixa no cadastro e já contado. */
+    internal fun estimarCaixas(
+        itens: List<ItemNotaPublico>,
+        contado: Map<Int, Pair<Double, Double>>,
+    ): List<EstimativaCaixasDto> =
+        itens.filter { it.codvol?.uppercase() == "KG" && it.fatorCaixa != null && it.fatorCaixa > 0 && it.unCaixa != null }
+            .groupBy { it.codprod }
+            .mapNotNull { (cod, ls) ->
+                val (caixas, kg) = contado[cod] ?: return@mapNotNull null
+                if (caixas <= 0) return@mapNotNull null
+                val kgNota = ls.sumOf { it.qtd ?: 0.0 }
+                val fator = ls.first().fatorCaixa!!
+                val est = kgNota / fator
+                val alerta = kotlin.math.abs(caixas - est) > maxOf(1.0, est * 0.08)
+                EstimativaCaixasDto(cod, ls.first().descricao, kgNota, ls.first().unCaixa!!, fator,
+                    Math.round(est * 10) / 10.0, caixas, kg, alerta)
+            }
 
     private suspend fun itensNota(slug: String, nunota: Int): List<ItemNota> =
         SankhyaDbExplorerClient.executarQuery(slug,
-            "SELECT I.CODPROD, P.DESCRPROD, I.QTDNEG, I.VLRUNIT, V.NUNOTAORIG, PI.QTDNEG QTDPED, PI.VLRUNIT VLRPED, P.LASTRO, P.CAMADAS " +
+            "SELECT I.CODPROD, P.DESCRPROD, I.QTDNEG, I.VLRUNIT, V.NUNOTAORIG, PI.QTDNEG QTDPED, PI.VLRUNIT VLRPED, P.LASTRO, P.CAMADAS, I.CODVOL, " +
+                "(SELECT MAX(VO.QUANTIDADE) FROM TGFVOA VO WHERE VO.CODPROD = I.CODPROD AND VO.CODVOL = 'CX' AND VO.DIVIDEMULTIPLICA = 'M') FATORCX " +
                 "FROM TGFITE I JOIN TGFPRO P ON P.CODPROD = I.CODPROD " +
                 "LEFT JOIN TGFVAR V ON V.NUNOTA = I.NUNOTA AND V.SEQUENCIA = I.SEQUENCIA AND V.NUNOTAORIG <> I.NUNOTA " +
                 "LEFT JOIN TGFITE PI ON PI.NUNOTA = V.NUNOTAORIG AND PI.SEQUENCIA = V.SEQUENCIAORIG " +
@@ -231,7 +348,8 @@ object RecebimentoDoca {
             .mapNotNull { r ->
                 val cod = r["CODPROD"]?.trim()?.substringBefore('.')?.toIntOrNull() ?: return@mapNotNull null
                 ItemNota(cod, r["DESCRPROD"]?.trim(), num(r["QTDNEG"]), num(r["VLRUNIT"]), !r["NUNOTAORIG"].isNullOrBlank(),
-                    num(r["QTDPED"]), num(r["VLRPED"]), num(r["LASTRO"])?.toInt()?.takeIf { it > 0 }, num(r["CAMADAS"])?.toInt()?.takeIf { it > 0 })
+                    num(r["QTDPED"]), num(r["VLRPED"]), num(r["LASTRO"])?.toInt()?.takeIf { it > 0 }, num(r["CAMADAS"])?.toInt()?.takeIf { it > 0 },
+                    r["CODVOL"]?.trim(), num(r["FATORCX"])?.takeIf { it > 1 }?.let { "CX" }, num(r["FATORCX"])?.takeIf { it > 1 })
             }
 
     /** Pedido × nota: produto sem pedido, quantidade acima do pedido, preço diferente (> 1%). */
@@ -376,19 +494,34 @@ object RecebimentoDoca {
 
     suspend fun doca(claims: ClaimsToken, nunota: Int): DocaDto {
         val slug = TenantRepository.buscarPorId(claims.tenantId)?.slug ?: throw DocaException("Cliente não encontrado.", HttpStatusCode.NotFound)
-        val nota = runCatching { notaXml(slug, nunota) }.getOrElse {
-            println("AVISO: XML da nota $nunota não lido: ${it.message}")
-            NotaXmlDto(false)
-        }
+        val sk = lerSankhya(slug, nunota)
+        val nota = sk.nota
         val paletes = Paletes.porNunota(claims.tenantId, nunota)
         val volumes = paletes.sumOf { p -> p.itens.sumOf { i -> i.qtdComercial ?: i.qtd } }
         val pendentes = paletes.count { p -> p.itens.any { it.lote == null } }
-        val itens = runCatching { itensNota(slug, nunota) }.getOrElse {
-            println("AVISO: itens da nota $nunota (pedido/logística) não lidos: ${it.message}")
-            emptyList()
-        }
+        val itens = sk.itens
+        val estimativa = estimarCaixas(
+            itens.map { ItemNotaPublico(it.codprod, it.descricao, it.qtd, it.vlr, it.temPedido, it.qtdPed, it.vlrPed, it.lastro, it.camadas, it.codvol, it.unCaixa, it.fatorCaixa) },
+            contadoPorProduto(claims.tenantId, nunota),
+        )
         return DocaDto(nunota, chegada(claims.tenantId, nunota), nota, paletes, volumes, pendentes,
-            pedido = if (itens.isEmpty()) null else pedidoNota(itens), logistica = logistica(claims.tenantId, itens), fotos = fotos(claims.tenantId, nunota))
+            pedido = if (itens.isEmpty()) null else pedidoNota(itens), logistica = logistica(claims.tenantId, itens), fotos = fotos(claims.tenantId, nunota),
+            caixasEstimadas = estimativa, fonte = sk.fonte)
+    }
+
+    /** Caixas (quantidade comercial) e kg lidos por produto na conferência mais recente da compra. */
+    private fun contadoPorProduto(tenantId: UUID, nunota: Int): Map<Int, Pair<Double, Double>> {
+        val s = wms.backend.separacao.SeparacaoRepository.buscarSessaoMaisRecentePorNota(tenantId, nunota.toLong()) ?: return emptyMap()
+        val sid = UUID.fromString(s.id)
+        return TenantTx.run(tenantId) {
+            wms.backend.separacao.SeparacaoLeiturasTable.selectAll()
+                .where { (wms.backend.separacao.SeparacaoLeiturasTable.tenantId eq tenantId) and (wms.backend.separacao.SeparacaoLeiturasTable.sessaoId eq sid) }
+                .groupBy { it[wms.backend.separacao.SeparacaoLeiturasTable.codprod] }
+                .mapValues { (_, ls) ->
+                    ls.sumOf { it[wms.backend.separacao.SeparacaoLeiturasTable.qtdComercial]?.toDouble() ?: 0.0 } to
+                        ls.sumOf { it[wms.backend.separacao.SeparacaoLeiturasTable.qtd].toDouble() }
+                }
+        }
     }
 }
 

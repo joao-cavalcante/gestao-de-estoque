@@ -71,6 +71,18 @@ export interface Foto {
   criadoEm: string;
 }
 
+export interface EstimativaCaixas {
+  codprod: number;
+  descricao: string | null;
+  kgNota: number;
+  unidadeCaixa: string;
+  kgPorCaixa: number;
+  caixasEstimadas: number;
+  caixasContadas: number;
+  kgLido: number;
+  alerta: boolean;
+}
+
 export interface Doca {
   nunota: number;
   chegada: Chegada | null;
@@ -81,6 +93,8 @@ export interface Doca {
   pedido?: PedidoNota | null;
   logistica?: Logistica[];
   fotos?: Foto[];
+  caixasEstimadas?: EstimativaCaixas[];
+  fonte?: 'ADDON' | 'DBEXPLORER' | null;
 }
 
 export interface LinhaLote {

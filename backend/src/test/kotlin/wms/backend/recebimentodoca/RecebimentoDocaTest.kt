@@ -37,4 +37,33 @@ class RecebimentoDocaTest {
         assertEquals("ABC1D23", n.placa)
         assertNull(RecebimentoDoca.lerTransp("<transp></transp>").volumes)
     }
+
+    @Test
+    fun `le a resposta do addon RecebimentoSP doca`() {
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(
+            """{"body":{"CONTRATO":"4","XML":{"ENCONTRADO":"S","VOLUMES":48,"ESPECIE":"CAIXA","PESOB":612.4,"PESOL":580,"PLACA":"ABC1D23",
+            "ITENS":[{"NITEM":1,"CODPROD":512,"CPROD":"X1","XPROD":"BACON","LOTES":[{"LOTE":"L1","QTD":580,"DFAB":"2026-11-01","DVAL":"2027-01-01"}]}]},
+            "ITENS":[{"SEQUENCIA":1,"CODPROD":512,"DESCRPROD":"BACON MANTA","CODVOL":"KG","QTDNEG":580,"VLRUNIT":20.5,"UNCAIXA":"CX","FATORCAIXA":12.1}]}}"""
+        ) as kotlinx.serialization.json.JsonObject
+        val (nota, itens) = RecebimentoDoca.lerAddon(json)
+        assertEquals(true, nota.encontrado)
+        assertEquals(48.0, nota.volumes)
+        assertEquals("ABC1D23", nota.placa)
+        assertEquals("L1", nota.itens.single().lotes.single().lote)
+        assertEquals(512, nota.itens.single().codprod)
+        assertEquals(12.1, itens.single().fatorCaixa)
+        assertEquals(false, itens.single().temPedido)
+    }
+
+    @Test
+    fun `estima caixas da nota em KG so depois de contar`() {
+        val item = RecebimentoDoca.ItemNotaPublico(512, "BACON", 580.0, 20.0, false, null, null, null, null, "KG", "CX", 12.1)
+        val emCaixa = item.copy(codprod = 600, codvol = "CX")
+        assertEquals(emptyList(), RecebimentoDoca.estimarCaixas(listOf(item), emptyMap()))
+        val ok = RecebimentoDoca.estimarCaixas(listOf(item, emCaixa), mapOf(512 to (47.0 to 575.0), 600 to (10.0 to 10.0))).single()
+        assertEquals(47.9, ok.caixasEstimadas)
+        assertEquals(false, ok.alerta)
+        val falta = RecebimentoDoca.estimarCaixas(listOf(item), mapOf(512 to (40.0 to 480.0))).single()
+        assertEquals(true, falta.alerta)
+    }
 }

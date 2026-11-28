@@ -5,6 +5,7 @@ import br.com.sankhya.studio.annotations.enums.EJBTransactionType;
 import br.com.sankhya.jape.core.JapeSession;
 import br.com.torre.addon.TorreLog;
 import br.com.torre.addon.Versao;
+import br.com.torre.addon.recebimento.DocaHelper;
 import br.com.torre.addon.recebimento.RecebimentoHelper;
 
 import java.math.BigDecimal;
@@ -20,6 +21,9 @@ import java.util.Map;
  *
  * {@code RecebimentoSP.registrarDevolucao}: corpo {"request": {"NUNOTA", "NUCONF", "CODUSU", "MOTIVO"}}, depois que a
  * Torre pediu a recontagem pelo serviço nativo.
+ *
+ * {@code RecebimentoSP.doca} (contrato 4, 28/11/2026): corpo {"request": {"NUNOTA"}}. Só leitura: XML da NF-e importado
+ * (volumes, pesos, placa, itens e lotes) e itens da nota (pedido, norma do palete, unidade de caixa) para a doca da Torre.
  */
 @Service(serviceName = "RecebimentoSP", transactionType = EJBTransactionType.Required)
 public class RecebimentoController {
@@ -70,6 +74,20 @@ public class RecebimentoController {
         resposta.put("CONTRATO", Versao.CONTRATO);
         resposta.put("NUREC", nurec);
         return resposta;
+        } finally {
+            JapeSession.close(hnd);
+        }
+    }
+
+    public Map<String, Object> doca(Map<String, Object> request) throws Exception {
+        JapeSession.SessionHandle hnd = JapeSession.open();
+        hnd.setFindersMaxRows(-1);
+        try {
+            Map<String, Object> req = Corpo.desembrulhar(request, "NUNOTA");
+            Map<String, Object> resposta = new LinkedHashMap<String, Object>();
+            resposta.put("CONTRATO", Versao.CONTRATO);
+            resposta.putAll(new DocaHelper().doca(Corpo.numero(req.get("NUNOTA"))));
+            return resposta;
         } finally {
             JapeSession.close(hnd);
         }
