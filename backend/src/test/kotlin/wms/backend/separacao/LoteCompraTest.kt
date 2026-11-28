@@ -55,4 +55,12 @@ class LoteCompraTest {
         assertTrue(c.contains("\"SEQUENCIA\":\"2\""))
         assertTrue(c.contains("\"CAMPOS\":{}"))
     }
+
+    @Test
+    fun `detecta produto com lote no JSON com ou sem espacos`() {
+        assertTrue(LoteCompra.temLote("""{"Produto.TIPCONTEST": "L", "Produto.LISCONTEST": null}"""))
+        assertTrue(LoteCompra.temLote("""{"Produto.TIPCONTEST":"L"}"""))
+        assertEquals(false, LoteCompra.temLote("""{"Produto.TIPCONTEST": "N"}"""))
+        assertEquals(false, LoteCompra.temLote("lixo"))
+    }
 }

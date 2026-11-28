@@ -53,11 +53,16 @@ object LoteCompra {
     fun ehCompra(tenantId: UUID, nunota: Long): Boolean =
         runCatching { TarefasRepository.buscarTipMovLocal(tenantId, nunota)?.trim() == "C" }.getOrDefault(false)
 
+    /** O item (JSON `dados` da sessão) é de produto com lote? Lê o JSON — o texto gravado tem espaços (bug de 28/11). */
+    internal fun temLote(dados: String): Boolean = runCatching {
+        (kotlinx.serialization.json.Json.parseToJsonElement(dados) as JsonObject)["Produto.TIPCONTEST"]?.jsonPrimitive?.contentOrNull?.trim() == "L"
+    }.getOrDefault(false)
+
     /** Produtos da sessão com lote (TIPCONTEST 'L'). */
     fun produtosComLote(tenantId: UUID, sessaoId: UUID): Set<Int> = TenantTx.run(tenantId) {
         SeparacaoItensTable.selectAll()
             .where { (SeparacaoItensTable.tenantId eq tenantId) and (SeparacaoItensTable.sessaoId eq sessaoId) }
-            .filter { it[SeparacaoItensTable.dados].contains("\"Produto.TIPCONTEST\":\"L\"") }
+            .filter { temLote(it[SeparacaoItensTable.dados]) }
             .map { it[SeparacaoItensTable.codprod] }
             .toSet()
     }
