@@ -36,6 +36,9 @@ import { AuditoriaRecebimentoComponent } from './auditoria-recebimento/auditoria
 import { ColetorFilaComponent } from './coletor/coletor-fila.component';
 import { coletorRedirectGuard } from './coletor/coletor-modo';
 import { ArmazenarComponent } from './coletor/armazenar/armazenar.component';
+import { RecebimentoListaComponent } from './coletor/recebimento/recebimento-lista.component';
+import { RecebimentoDocaComponent } from './coletor/recebimento/recebimento-doca.component';
+import { ComprovanteRecebimentoComponent } from './coletor/recebimento/comprovante-recebimento.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -44,6 +47,10 @@ export const routes: Routes = [
   { path: 'fila-tarefas', component: FilaTarefasComponent, canActivate: [authGuard, coletorRedirectGuard] },
   { path: 'coletor', component: ColetorFilaComponent, canActivate: [authGuard] },
   { path: 'coletor/armazenar', component: ArmazenarComponent, canActivate: [authGuard] },
+  // Recebimento na doca (27/11/2026, etapa D1): lista, compra na doca e comprovante do motorista.
+  { path: 'coletor/recebimento', component: RecebimentoListaComponent, canActivate: [authGuard] },
+  { path: 'coletor/recebimento/:nunota', component: RecebimentoDocaComponent, canActivate: [authGuard] },
+  { path: 'recebimento/comprovante/:nunota', component: ComprovanteRecebimentoComponent, canActivate: [authGuard] },
   // Entrada (19/11/2026): recebimentos de compra (saíram da Fila) e mesa de liberação — só leitura.
   {
     path: 'entrada',

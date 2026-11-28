@@ -449,6 +449,11 @@ export class ArmazenarComponent implements OnInit, OnDestroy {
   }
 
   /** Menu único do coletor: aqui a atividade ativa é o Armazenar. */
+  abrirRecebimento(): void {
+    this.menuAberto.set(false);
+    this.router.navigate(['/coletor/recebimento']);
+  }
+
   abrirArmazenar(): void {
     this.menuAberto.set(false);
   }

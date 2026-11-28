@@ -1,0 +1,72 @@
+<div class="cl">
+  <header class="cl-topo">
+    <div class="cl-topo__titulo">
+      <span class="cl-topo__nome">Recebimento</span>
+      @if (operador()) { <span class="cl-topo__operador">{{ operador() }}</span> }
+    </div>
+    <button type="button" class="cl-icone" aria-label="Atualizar" title="Atualizar" [disabled]="carregando()" (click)="carregar()">
+      @if (carregando()) { <oq-spinner [size]="18" /> } @else { <oq-icon name="sync" [size]="20" /> }
+    </button>
+  </header>
+
+  <form class="cl-leitura" (ngSubmit)="onLer()">
+    <label class="cl-leitura__rotulo" for="rc-campo">Bipe ou digite o nº único ou a NF da compra</label>
+    <div class="cl-leitura__campo">
+      <input #campo id="rc-campo" name="codigo" class="cl-leitura__input" [(ngModel)]="codigo" inputmode="numeric"
+             enterkeyhint="go" autocomplete="off" placeholder="Aguardando leitura" />
+    </div>
+  </form>
+
+  @if (aviso(); as a) {
+    <div class="cl-estado cl-estado--nao-encontrado" role="alert"><oq-icon name="circle-alert" [size]="18" /><div><b>{{ a }}</b></div></div>
+  }
+
+  <div class="cl-fila-topo"><span class="cl-fila-topo__total"><b>{{ lista()?.length ?? 0 }}</b> compras na doca</span></div>
+
+  <main class="cl-corpo">
+    @if (lista() === null && carregando()) {
+      <div class="cl-vazio"><oq-spinner [size]="18" /> Carregando…</div>
+    } @else if (erro() && lista() === null) {
+      <div class="cl-vazio">{{ erro() }}</div>
+    } @else if ((lista() ?? []).length === 0) {
+      <div class="cl-vazio">Nenhuma compra para receber agora.</div>
+    } @else {
+      <ul class="cl-lista">
+        @for (r of lista(); track r.nunota) {
+          <li>
+            <button type="button" class="cl-doc" (click)="abrir(r)">
+              <span class="cl-doc__l1">
+                <b class="cl-doc__num">{{ r.nunota }}</b>
+                @if (r.numeroNota) { <span class="cl-doc__nf">NF {{ r.numeroNota }}</span> }
+                <span class="cl-doc__tags"><span class="cl-tag cl-tag--entrada">ENTRADA</span></span>
+              </span>
+              <span class="cl-doc__cliente">{{ r.fornecedor ?? '—' }}</span>
+              <span class="cl-doc__status cl-doc__status--neutro">{{ rotulo[r.situacao] }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </main>
+
+  <footer class="cl-rodape">
+    <button type="button" class="cl-icone cl-rodape__mais" aria-label="Mais opções" title="Mais opções" [attr.aria-expanded]="menuAberto()" (click)="menuAberto.set(!menuAberto())">
+      <oq-icon name="gear" [size]="20" />
+    </button>
+    <span class="cl-rodape__info">Toque na compra para receber</span>
+  </footer>
+
+  @if (menuAberto()) {
+    <div class="cl-menu-fundo" (click)="menuAberto.set(false)"></div>
+    <nav class="cl-menu" aria-label="Mais opções do coletor">
+      <button type="button" class="cl-menu__item" (click)="irConferencia()"><oq-icon name="list-check" [size]="18" /> Conferência</button>
+      <button type="button" class="cl-menu__item cl-menu__item--ativo" aria-current="page" (click)="menuAberto.set(false)"><oq-icon name="recebimento" [size]="18" /> Recebimento</button>
+      <button type="button" class="cl-menu__item" (click)="irArmazenar()"><oq-icon name="box" [size]="18" /> Armazenar</button>
+      <button type="button" class="cl-menu__item cl-menu__item--grupo" (click)="alternarTema()">
+        <oq-icon [name]="tema.tema() === 'dark' ? 'sun' : 'moon'" [size]="18" /> {{ tema.tema() === 'dark' ? 'Tema claro' : 'Tema escuro' }}
+      </button>
+      <button type="button" class="cl-menu__item" (click)="abrirTorre()"><oq-icon name="grid" [size]="18" /> Abrir Torre completa</button>
+      <button type="button" class="cl-menu__item cl-menu__item--sair" (click)="sair()"><oq-icon name="logout" [size]="18" /> Sair</button>
+    </nav>
+  }
+</div>

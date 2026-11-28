@@ -307,6 +307,11 @@ export class ColetorFilaComponent implements OnInit, OnDestroy {
     this.menuAberto.set(false);
   }
 
+  abrirRecebimento(): void {
+    this.menuAberto.set(false);
+    this.router.navigate(['/coletor/recebimento']);
+  }
+
   abrirArmazenar(): void {
     this.menuAberto.set(false);
     this.router.navigate(['/coletor/armazenar']);

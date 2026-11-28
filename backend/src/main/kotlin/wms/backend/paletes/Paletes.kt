@@ -14,7 +14,9 @@ import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.javatime.date
 import org.jetbrains.exposed.sql.javatime.timestamp
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
@@ -51,6 +53,8 @@ object RecebimentoPaletesTable : Table("app.recebimento_paletes") {
     val criadoPorNome = text("criado_por_nome").nullable()
     val criadoEm = timestamp("criado_em")
     val canceladoEm = timestamp("cancelado_em").nullable()
+    /** V82 — temperatura medida no palete (frios/congelados), opcional. */
+    val temperatura = decimal("temperatura", 6, 2).nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -65,6 +69,13 @@ object RecebimentoPaleteItensTable : Table("app.recebimento_palete_itens") {
     val unidade = text("unidade").nullable()
     val qtdComercial = decimal("qtd_comercial", 15, 5).nullable()
     val unidadeComercial = text("unidade_comercial").nullable()
+    /** V82 — Tempo 2 da doca: lote/validade do item (null = lote pendente) e avaria. */
+    val lote = text("lote").nullable()
+    val validade = date("validade").nullable()
+    val fabricacao = date("fabricacao").nullable()
+    val origemLote = text("origem_lote").nullable()
+    val qtdAvaria = decimal("qtd_avaria", 15, 5).nullable()
+    val motivoAvaria = text("motivo_avaria").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -77,6 +88,13 @@ data class PaleteItemDto(
     val unidade: String?,
     val qtdComercial: Double?,
     val unidadeComercial: String?,
+    val lote: String? = null,
+    /** ISO yyyy-MM-dd. */
+    val validade: String? = null,
+    val fabricacao: String? = null,
+    val origemLote: String? = null,
+    val qtdAvaria: Double? = null,
+    val motivoAvaria: String? = null,
 )
 
 @Serializable
@@ -92,6 +110,7 @@ data class PaleteDto(
     val criadoEm: String,
     val cancelado: Boolean,
     val itens: List<PaleteItemDto>,
+    val temperatura: Double? = null,
 )
 
 @Serializable
@@ -110,6 +129,18 @@ data class FecharPaleteRequest(
 
 @Serializable
 data class IdsRequest(val ids: List<String>)
+
+@Serializable
+data class LoteLinha(val lote: String? = null, val validade: String? = null, val fabricacao: String? = null, val origem: String? = null, val qtd: Double? = null)
+
+@Serializable
+data class LotesItem(val codprod: Int, val linhas: List<LoteLinha>)
+
+@Serializable
+data class LotesPaleteRequest(val itens: List<LotesItem> = emptyList(), val temperatura: Double? = null)
+
+@Serializable
+data class AvariaPaleteRequest(val codprod: Int, val qtd: Double, val motivo: String? = null)
 
 class PaleteException(msg: String, val status: HttpStatusCode = HttpStatusCode.BadRequest) : Exception(msg)
 
@@ -199,11 +230,18 @@ object Paletes {
                 criadoPor = p[RecebimentoPaletesTable.criadoPorNome],
                 criadoEm = p[RecebimentoPaletesTable.criadoEm].toString(),
                 cancelado = p[RecebimentoPaletesTable.canceladoEm] != null,
+                temperatura = p[RecebimentoPaletesTable.temperatura]?.toDouble(),
                 itens = (itens[p[RecebimentoPaletesTable.id]] ?: emptyList()).map { i ->
                     PaleteItemDto(
                         i[RecebimentoPaleteItensTable.codprod], i[RecebimentoPaleteItensTable.controle], i[RecebimentoPaleteItensTable.descricao],
                         i[RecebimentoPaleteItensTable.qtd].toDouble(), i[RecebimentoPaleteItensTable.unidade],
                         i[RecebimentoPaleteItensTable.qtdComercial]?.toDouble(), i[RecebimentoPaleteItensTable.unidadeComercial],
+                        lote = i[RecebimentoPaleteItensTable.lote],
+                        validade = i[RecebimentoPaleteItensTable.validade]?.toString(),
+                        fabricacao = i[RecebimentoPaleteItensTable.fabricacao]?.toString(),
+                        origemLote = i[RecebimentoPaleteItensTable.origemLote],
+                        qtdAvaria = i[RecebimentoPaleteItensTable.qtdAvaria]?.toDouble(),
+                        motivoAvaria = i[RecebimentoPaleteItensTable.motivoAvaria],
                     )
                 }.sortedBy { it.codprod },
             )
@@ -278,6 +316,91 @@ object Paletes {
         paletesDto(tenantId, { it[RecebimentoPaletesTable.id] in criados }, todos)
     }
 
+    /**
+     * Tempo 2 da doca (V82): grava lote/validade dos itens do palete. Cada produto pode virar N linhas ("outro lote
+     * neste palete") — as quantidades das linhas têm de somar a quantidade do item (na unidade padrão); a quantidade
+     * comercial é rateada. Linha sem qtd = o item inteiro.
+     */
+    fun definirLotes(tenantId: UUID, paleteId: UUID, req: LotesPaleteRequest): PaleteDto = TenantTx.run(tenantId) {
+        val p = RecebimentoPaletesTable.selectAll()
+            .where { (RecebimentoPaletesTable.tenantId eq tenantId) and (RecebimentoPaletesTable.id eq paleteId) }.singleOrNull()
+            ?: throw PaleteException("Palete não encontrado.", HttpStatusCode.NotFound)
+        if (p[RecebimentoPaletesTable.canceladoEm] != null) throw PaleteException("Este palete foi cancelado.")
+        val itens = RecebimentoPaleteItensTable.selectAll()
+            .where { (RecebimentoPaleteItensTable.tenantId eq tenantId) and (RecebimentoPaleteItensTable.paleteId eq paleteId) }.toList()
+        for (r in req.itens) {
+            val doProduto = itens.filter { it[RecebimentoPaleteItensTable.codprod] == r.codprod }
+            if (doProduto.isEmpty()) throw PaleteException("O produto ${r.codprod} não está neste palete.")
+            if (r.linhas.isEmpty()) continue
+            val total = doProduto.fold(BigDecimal.ZERO) { a, i -> a + i[RecebimentoPaleteItensTable.qtd] }
+            val totalCom = doProduto.mapNotNull { it[RecebimentoPaleteItensTable.qtdComercial] }.takeIf { it.size == doProduto.size }?.fold(BigDecimal.ZERO) { a, b -> a + b }
+            val base = doProduto.first()
+            r.linhas.forEach { l ->
+                if (l.lote.isNullOrBlank()) throw PaleteException("Informe o lote (ou \"Sem lote na caixa\").")
+                l.validade?.let { v -> runCatching { java.time.LocalDate.parse(v) }.getOrElse { throw PaleteException("Validade inválida: $v") } }
+            }
+            val qtds: List<BigDecimal> = if (r.linhas.size == 1 && r.linhas[0].qtd == null) listOf(total)
+            else r.linhas.map { l -> l.qtd?.toBigDecimal() ?: throw PaleteException("Com mais de um lote, informe a quantidade de cada um.") }
+            val soma = qtds.fold(BigDecimal.ZERO) { a, b -> a + b }
+            if ((soma - total).abs() > BigDecimal("0.001")) {
+                throw PaleteException("As quantidades dos lotes (${soma.stripTrailingZeros().toPlainString()}) não somam o palete (${total.stripTrailingZeros().toPlainString()}).")
+            }
+            // Avaria existente fica na 1ª linha (o lote não muda a avaria do item).
+            val avaria = doProduto.mapNotNull { it[RecebimentoPaleteItensTable.qtdAvaria] }.fold(BigDecimal.ZERO) { a, b -> a + b }.takeIf { it.signum() > 0 }
+            val motivo = doProduto.firstNotNullOfOrNull { it[RecebimentoPaleteItensTable.motivoAvaria] }
+            for (i in doProduto) {
+                val idItem = i[RecebimentoPaleteItensTable.id]
+                RecebimentoPaleteItensTable.deleteWhere { (RecebimentoPaleteItensTable.tenantId eq tenantId) and (RecebimentoPaleteItensTable.id eq idItem) }
+            }
+            r.linhas.forEachIndexed { idx, l ->
+                val q = qtds[idx]
+                RecebimentoPaleteItensTable.insert {
+                    it[RecebimentoPaleteItensTable.id] = UUID.randomUUID()
+                    it[RecebimentoPaleteItensTable.tenantId] = tenantId
+                    it[RecebimentoPaleteItensTable.paleteId] = paleteId
+                    it[codprod] = r.codprod
+                    it[controle] = base[RecebimentoPaleteItensTable.controle]
+                    it[descricao] = base[RecebimentoPaleteItensTable.descricao]
+                    it[qtd] = q
+                    it[unidade] = base[RecebimentoPaleteItensTable.unidade]
+                    it[qtdComercial] = totalCom?.let { tc -> if (total.signum() == 0) tc else tc.multiply(q).divide(total, 3, RoundingMode.HALF_UP) }
+                    it[unidadeComercial] = base[RecebimentoPaleteItensTable.unidadeComercial]
+                    it[lote] = l.lote!!.trim().uppercase().take(20)
+                    it[validade] = l.validade?.let { v -> java.time.LocalDate.parse(v) }
+                    it[fabricacao] = l.fabricacao?.let { v -> java.time.LocalDate.parse(v) }
+                    it[origemLote] = l.origem?.takeIf { o -> o in ORIGENS_LOTE } ?: "DIGITADO"
+                    if (idx == 0) {
+                        it[qtdAvaria] = avaria
+                        it[motivoAvaria] = motivo
+                    }
+                }
+            }
+        }
+        req.temperatura?.let { t -> RecebimentoPaletesTable.update({ (RecebimentoPaletesTable.tenantId eq tenantId) and (RecebimentoPaletesTable.id eq paleteId) }) { it[temperatura] = t.toBigDecimal() } }
+        val todos = RecebimentoPaletesTable.selectAll().where { RecebimentoPaletesTable.tenantId eq tenantId }.toList()
+        paletesDto(tenantId, { it[RecebimentoPaletesTable.id] == paleteId }, todos).single()
+    }
+
+    private val ORIGENS_LOTE = setOf("GS1", "XML", "DIGITADO", "AUTOMATICO", "ANTERIOR")
+
+    /** Avaria no palete (V82): quantidade avariada do produto (unidade padrão) + motivo. Zero apaga. */
+    fun definirAvaria(tenantId: UUID, paleteId: UUID, req: AvariaPaleteRequest): PaleteDto = TenantTx.run(tenantId) {
+        val itens = RecebimentoPaleteItensTable.selectAll()
+            .where { (RecebimentoPaleteItensTable.tenantId eq tenantId) and (RecebimentoPaleteItensTable.paleteId eq paleteId) and (RecebimentoPaleteItensTable.codprod eq req.codprod) }
+            .toList()
+        val alvo = itens.firstOrNull() ?: throw PaleteException("O produto ${req.codprod} não está neste palete.")
+        val total = itens.fold(BigDecimal.ZERO) { a, i -> a + i[RecebimentoPaleteItensTable.qtd] }
+        val q = req.qtd.toBigDecimal()
+        if (q.signum() < 0 || q > total) throw PaleteException("A avaria tem de ficar entre 0 e a quantidade do palete.")
+        if (q.signum() > 0 && req.motivo.isNullOrBlank()) throw PaleteException("Informe o motivo da avaria.")
+        for (i in itens) RecebimentoPaleteItensTable.update({ RecebimentoPaleteItensTable.id eq i[RecebimentoPaleteItensTable.id] }) {
+            it[qtdAvaria] = if (i == alvo && q.signum() > 0) q else null
+            it[motivoAvaria] = if (i == alvo && q.signum() > 0) req.motivo!!.trim().take(200) else null
+        }
+        val todos = RecebimentoPaletesTable.selectAll().where { RecebimentoPaletesTable.tenantId eq tenantId }.toList()
+        paletesDto(tenantId, { it[RecebimentoPaletesTable.id] == paleteId }, todos).single()
+    }
+
     /** Código da etiqueta (UMA): "P" + 7 dígitos. */
     internal fun uma(numero: Long): String = "P" + numero.toString().padStart(7, '0')
 
@@ -350,6 +473,16 @@ fun Route.paletesRoutes() {
             val claims = call.exigirAuth() ?: return@get
             val nunota = call.parameters["nunota"]?.toIntOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "nº único inválido"))
             call.respond(Paletes.porNunota(claims.tenantId, nunota))
+        }
+        put("/{id}/lotes") {
+            val claims = call.exigirAuth() ?: return@put
+            val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "palete inválido"))
+            try { call.respond(Paletes.definirLotes(claims.tenantId, id, call.receive())) } catch (e: Exception) { call.paleteErro(e) }
+        }
+        put("/{id}/avaria") {
+            val claims = call.exigirAuth() ?: return@put
+            val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, mapOf("erro" to "palete inválido"))
+            try { call.respond(Paletes.definirAvaria(claims.tenantId, id, call.receive())) } catch (e: Exception) { call.paleteErro(e) }
         }
         post("/impresso") {
             val claims = call.exigirAuth() ?: return@post

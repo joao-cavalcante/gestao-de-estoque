@@ -1,0 +1,219 @@
+<div class="cl">
+  <header class="cl-topo">
+    <button type="button" class="cl-icone" aria-label="Voltar" title="Voltar" [disabled]="ocupado()" (click)="voltar()">
+      <oq-icon name="arrow-left" [size]="20" />
+    </button>
+    <div class="cl-topo__titulo">
+      <span class="cl-topo__nome">Recebimento {{ nunota }}</span>
+      <span class="cl-topo__operador">{{ recebimento?.fornecedor ?? '' }}@if (recebimento?.numeroNota) { · NF {{ recebimento?.numeroNota }} }</span>
+    </div>
+    <button type="button" class="cl-icone" aria-label="Atualizar" title="Atualizar" [disabled]="carregando()" (click)="carregar()">
+      @if (carregando()) { <oq-spinner [size]="18" /> } @else { <oq-icon name="sync" [size]="20" /> }
+    </button>
+  </header>
+
+  @if (passo() === 'palete') {
+    <form class="cl-leitura" (ngSubmit)="onLer()">
+      <label class="cl-leitura__rotulo" for="rd-campo">Bipe a etiqueta da caixa (GS1) ou digite o lote</label>
+      <div class="cl-leitura__campo">
+        <input #campo id="rd-campo" name="codigo" class="cl-leitura__input" [(ngModel)]="codigo" inputmode="text"
+               enterkeyhint="go" autocomplete="off" autocapitalize="characters" placeholder="Aguardando leitura" />
+      </div>
+    </form>
+  }
+
+  @if (aviso(); as a) {
+    <div class="cl-estado" [class.cl-estado--encontrado]="a.tom === 'ok'" [class.cl-estado--erro]="a.tom === 'erro'"
+         [class.cl-estado--bloqueado]="a.tom === 'atencao'" [attr.role]="a.tom === 'ok' ? 'status' : 'alert'">
+      <oq-icon [name]="a.tom === 'ok' ? 'check' : 'circle-alert'" [size]="18" />
+      <div><b>{{ a.titulo }}</b>@if (a.mensagem) { <span>{{ a.mensagem }}</span> }</div>
+    </div>
+  }
+
+  <main class="cl-corpo">
+    @if (!doca() && carregando()) {
+      <div class="cl-vazio"><oq-spinner [size]="18" /> Carregando a compra…</div>
+    } @else {
+    @if (doca(); as d) {
+      @switch (passo()) {
+        <!-- ─── Visão da compra na doca ─── -->
+        @case ('doca') {
+          <section class="rd-bloco">
+            <div class="rd-bloco__topo"><span class="rd-rotulo">Nota fiscal</span>@if (!d.nota.encontrado) { <span class="rd-fraco">XML não encontrado</span> }</div>
+            <div class="rd-numeros">
+              <div><small>Volumes da nota</small><b>{{ d.nota.volumes ?? '—' }}</b>@if (d.nota.especie) { <small>{{ d.nota.especie }}</small> }</div>
+              <div><small>Nos paletes</small><b>{{ d.volumesFechados }}</b></div>
+              <div><small>Peso bruto</small><b>{{ d.nota.pesoBruto != null ? (d.nota.pesoBruto | number: '1.0-1') + ' kg' : '—' }}</b></div>
+            </div>
+            @if (faltaVolume(); as f) {
+              <p class="rd-alerta">Faltam {{ f }} volumes para fechar a nota.</p>
+            }
+            @if (d.nota.itens.length) {
+              <p class="rd-fraco">{{ d.nota.itens.length }} itens na nota · @if (notaTemLote()) { lote informado pelo fornecedor } @else { sem lote no XML }</p>
+            }
+          </section>
+
+          <section class="rd-bloco">
+            <div class="rd-bloco__topo">
+              <span class="rd-rotulo">Chegada do caminhão</span>
+              <button type="button" class="rd-link" (click)="abrirChegada()">{{ d.chegada ? 'Editar' : 'Registrar' }}</button>
+            </div>
+            @if (d.chegada; as c) {
+              <p class="rd-linha"><b>{{ c.placa ?? 'Sem placa' }}</b> · chegou {{ c.chegadaEm | date: 'HH:mm' }}@if (c.liberadoEm) { · liberado {{ c.liberadoEm | date: 'HH:mm' }} }</p>
+              <p class="rd-fraco">Lacre {{ c.lacre ?? 'não verificado' }} · baú {{ c.bau ?? 'não verificado' }}@if (c.temperaturaBau != null) { · {{ c.temperaturaBau }} °C }</p>
+            } @else {
+              <p class="rd-fraco">Ainda não registrada.</p>
+            }
+          </section>
+
+          <section class="rd-bloco">
+            <div class="rd-bloco__topo">
+              <span class="rd-rotulo">Paletes ({{ d.paletes.length }})</span>
+              @if (d.paletesLotePendente) { <span class="rd-pendente">{{ d.paletesLotePendente }} com lote pendente</span> }
+            </div>
+            @if (d.paletes.length === 0) {
+              <p class="rd-fraco">Nenhum palete fechado. Toque em "Conferir paletes".</p>
+            }
+          </section>
+          @if (d.paletes.length) {
+            <ul class="cl-lista">
+              @for (p of d.paletes; track p.id) {
+                @for (i of p.itens; track $index) {
+                  <li>
+                    <button type="button" class="cl-doc" (click)="abrirPalete(p, i)">
+                      <span class="cl-doc__l1">
+                        <b class="cl-doc__num">{{ p.uma }}</b>
+                        <span class="cl-doc__nf">{{ qtd(i) }}</span>
+                        <span class="cl-doc__tags">
+                          @if (i.lote) { <span class="cl-tag rd-tag-ok">LOTE OK</span> } @else { <span class="cl-tag rd-tag-pend">LOTE PENDENTE</span> }
+                        </span>
+                      </span>
+                      <span class="cl-doc__cliente">{{ i.codprod }} - {{ i.descricao }}</span>
+                      <span class="cl-doc__l3">
+                        @if (i.lote) { <span>Lote {{ i.lote }}</span> }
+                        @if (i.validade) { <span>Val. {{ dataBr(i.validade) }}</span> }
+                        @if (i.qtdAvaria) { <span class="rd-avaria">{{ avariaTexto(i) }}</span> }
+                      </span>
+                    </button>
+                  </li>
+                }
+              }
+            </ul>
+          }
+        }
+
+        <!-- ─── Chegada (checklist opcional) ─── -->
+        @case ('chegada') {
+          <section class="rd-form">
+            <label for="rd-placa">Placa</label>
+            <input id="rd-placa" class="cl-leitura__input" name="placa" [(ngModel)]="placa" autocapitalize="characters" maxlength="10" />
+            <span class="rd-rotulo">Lacre (opcional)</span>
+            <div class="rd-opcoes">
+              @for (o of [['OK','OK'],['VIOLADO','Violado'],['SEM_LACRE','Sem lacre']]; track o[0]) {
+                <button type="button" class="cl-botao cl-botao--contorno" [class.rd-sel]="lacre === o[0]" (click)="lacre = lacre === o[0] ? null : o[0]">{{ o[1] }}</button>
+              }
+            </div>
+            <span class="rd-rotulo">Baú (opcional)</span>
+            <div class="rd-opcoes">
+              @for (o of [['OK','Limpo'],['SUJO','Sujo'],['AVARIADO','Avariado']]; track o[0]) {
+                <button type="button" class="cl-botao cl-botao--contorno" [class.rd-sel]="bau === o[0]" (click)="bau = bau === o[0] ? null : o[0]">{{ o[1] }}</button>
+              }
+            </div>
+            <label for="rd-temp">Temperatura do baú °C (opcional)</label>
+            <input id="rd-temp" class="cl-leitura__input" name="temp" [(ngModel)]="temperaturaBau" inputmode="decimal" />
+            <label for="rd-obs">Observação</label>
+            <input id="rd-obs" class="cl-leitura__input" name="obs" [(ngModel)]="obs" maxlength="200" />
+          </section>
+        }
+
+        <!-- ─── Palete: lote, validade, temperatura, avaria ─── -->
+        @case ('palete') {
+          @if (palete(); as p) {
+            @if (item(); as it) {
+              <section class="rd-bloco">
+                <span class="cl-doc__l1"><b class="cl-doc__num">{{ p.uma }}</b><span class="cl-doc__nf">{{ qtd(it) }}</span></span>
+                <span class="cl-doc__cliente">{{ it.codprod }} - {{ it.descricao }}</span>
+              </section>
+
+              <section class="rd-form">
+                @if (lotesXml().length) {
+                  <span class="rd-rotulo">Lotes na nota do fornecedor</span>
+                  <div class="rd-opcoes">
+                    @for (l of lotesXml(); track l.lote) {
+                      <button type="button" class="cl-botao cl-botao--contorno rd-chip" (click)="usarLoteXml(l)">
+                        {{ l.lote }}@if (l.validade) { <small>val {{ dataBr(l.validade) }}</small> }
+                      </button>
+                    }
+                  </div>
+                }
+                <div class="rd-opcoes">
+                  @if (temAnterior()) { <button type="button" class="cl-botao cl-botao--contorno" (click)="usarAnterior()">Mesmo lote do anterior</button> }
+                  <button type="button" class="cl-botao cl-botao--contorno" (click)="semLote()">Sem lote na caixa</button>
+                </div>
+
+                @for (l of linhas; track l; let i = $index) {
+                  <div class="rd-linha-lote">
+                    <div class="rd-linha-lote__topo">
+                      <span class="rd-rotulo">{{ linhas.length > 1 ? 'Lote ' + (i + 1) : 'Lote' }}</span>
+                      @if (linhas.length > 1) { <button type="button" class="rd-link" (click)="removerLinha(i)">Remover</button> }
+                    </div>
+                    <input class="cl-leitura__input" [name]="'lote' + i" [(ngModel)]="l.lote" autocapitalize="characters" maxlength="20" placeholder="Lote" />
+                    <input class="cl-leitura__input" [name]="'val' + i" [(ngModel)]="l.validadeTexto" inputmode="numeric" placeholder="Validade DD/MM/AA ou MM/AA" />
+                    @if (situacaoValidade(l); as v) {
+                      @if (v.texto) { <span class="rd-val" [attr.data-tom]="v.tom">{{ v.texto }}</span> }
+                    }
+                    @if (linhas.length > 1) {
+                      <input class="cl-leitura__input" [name]="'qtd' + i" [(ngModel)]="l.qtdTexto" inputmode="decimal" [placeholder]="'Quantidade (' + unidadeItem(it) + ')'" />
+                    }
+                  </div>
+                }
+                <button type="button" class="cl-botao cl-botao--contorno" (click)="outroLote()">+ Outro lote neste palete</button>
+
+                <label for="rd-tpal">Temperatura do palete °C (opcional)</label>
+                <input id="rd-tpal" class="cl-leitura__input" name="tpal" [(ngModel)]="temperaturaPalete" inputmode="decimal" />
+              </section>
+
+              <section class="rd-form rd-form--avaria">
+                <span class="rd-rotulo">Avaria neste palete</span>
+                <input class="cl-leitura__input" name="avq" [(ngModel)]="avariaQtd" inputmode="decimal" [placeholder]="'Quantidade avariada (' + unidadeItem(it) + ')'" />
+                <div class="rd-opcoes">
+                  @for (m of motivosAvaria; track m) {
+                    <button type="button" class="cl-botao cl-botao--contorno" [class.rd-sel]="avariaMotivo === m" (click)="avariaMotivo = m">{{ m }}</button>
+                  }
+                  <button type="button" class="cl-botao cl-botao--contorno" [class.rd-sel]="avariaMotivo === 'Outro'" (click)="avariaMotivo = 'Outro'">Outro</button>
+                </div>
+                @if (avariaMotivo === 'Outro') {
+                  <input class="cl-leitura__input" name="avo" [(ngModel)]="avariaOutro" maxlength="200" placeholder="Qual o motivo?" />
+                }
+                <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="salvarAvaria()">Gravar avaria</button>
+              </section>
+            }
+          }
+        }
+      }
+    }
+    }
+  </main>
+
+  <footer class="cl-rodape rd-rodape">
+    @switch (passo()) {
+      @case ('doca') {
+        <button type="button" class="cl-botao cl-botao--contorno" [disabled]="!doca()" (click)="comprovante()">Comprovante</button>
+        @if (doca()?.chegada && !doca()?.chegada?.liberadoEm) {
+          <button type="button" class="cl-botao cl-botao--contorno" [disabled]="ocupado()" (click)="liberarMotorista()">Liberar motorista</button>
+        }
+        <button type="button" class="cl-botao rd-principal" (click)="conferir()">Conferir paletes</button>
+      }
+      @case ('chegada') {
+        <button type="button" class="cl-botao cl-botao--contorno" (click)="voltar()">Cancelar</button>
+        <button type="button" class="cl-botao rd-principal" [disabled]="ocupado()" (click)="salvarChegada()">Salvar chegada</button>
+      }
+      @case ('palete') {
+        <button type="button" class="cl-botao cl-botao--contorno" (click)="voltar()">Voltar</button>
+        <button type="button" class="cl-botao rd-principal" [disabled]="ocupado()" (click)="salvarLote()">
+          @if (ocupado()) { <oq-spinner [size]="16" /> } Gravar lote
+        </button>
+      }
+    }
+  </footer>
+</div>

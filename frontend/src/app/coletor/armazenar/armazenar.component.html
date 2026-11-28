@@ -188,6 +188,7 @@
     <div class="cl-menu-fundo" (click)="menuAberto.set(false)"></div>
     <nav class="cl-menu" aria-label="Mais opções do coletor">
       <button type="button" class="cl-menu__item" (click)="irConferencia()"><oq-icon name="list-check" [size]="18" /> Conferência</button>
+      <button type="button" class="cl-menu__item" (click)="abrirRecebimento()"><oq-icon name="recebimento" [size]="18" /> Recebimento</button>
       <button type="button" class="cl-menu__item cl-menu__item--ativo" aria-current="page" (click)="abrirArmazenar()"><oq-icon name="box" [size]="18" /> Armazenar</button>
       <button type="button" class="cl-menu__item cl-menu__item--grupo" (click)="alternarTema()">
         <oq-icon [name]="tema.tema() === 'dark' ? 'sun' : 'moon'" [size]="18" /> {{ tema.tema() === 'dark' ? 'Tema claro' : 'Tema escuro' }}

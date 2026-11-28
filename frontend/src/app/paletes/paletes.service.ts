@@ -11,6 +11,13 @@ export interface PaleteItem {
   unidade: string | null;
   qtdComercial: number | null;
   unidadeComercial: string | null;
+  /** Tempo 2 da doca (V82): null = lote pendente. */
+  lote?: string | null;
+  validade?: string | null;
+  fabricacao?: string | null;
+  origemLote?: string | null;
+  qtdAvaria?: number | null;
+  motivoAvaria?: string | null;
 }
 
 export interface Palete {
@@ -26,6 +33,7 @@ export interface Palete {
   criadoEm: string;
   cancelado: boolean;
   itens: PaleteItem[];
+  temperatura?: number | null;
 }
 
 export interface ResumoPaletes {

@@ -1,0 +1,154 @@
+// Recebimento na doca (27/11/2026, D1): mesmo visual da fila do coletor (classes cl-* em ../coletor-fila.component.scss).
+
+.rd-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--oq-border);
+}
+
+.rd-bloco__topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.rd-rotulo {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--oq-text-secondary);
+}
+
+.rd-fraco {
+  margin: 0;
+  font-size: 13px;
+  color: var(--oq-text-secondary);
+}
+
+.rd-linha { margin: 0; font-size: 14px; }
+
+.rd-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px;
+    border-radius: var(--oq-radius-input);
+    background: var(--oq-surface-2);
+  }
+
+  small { font-size: 11.5px; color: var(--oq-text-secondary); }
+  b { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+}
+
+.rd-alerta {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-radius: var(--oq-radius-input);
+  background: #f2b705;
+  color: #1a1a1a;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.rd-pendente { font-size: 12.5px; font-weight: 700; color: #8a6500; }
+
+.rd-link {
+  border: 0;
+  background: none;
+  color: var(--oq-brand-text, #4b3f8f);
+  font-family: var(--oq-font-body);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.rd-tag-ok {
+  border: 1.5px solid currentColor;
+  color: #0e7a3c;
+}
+
+.rd-tag-pend {
+  background: #f2b705;
+  color: #1a1a1a;
+}
+
+.rd-avaria { color: #b42318; font-weight: 700; }
+
+.rd-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--oq-border);
+
+  label { font-size: 12.5px; font-weight: 600; color: var(--oq-text-secondary); }
+}
+
+.rd-form--avaria { background: var(--oq-surface-2); }
+
+.rd-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  .cl-botao { min-height: 48px; }
+}
+
+.rd-sel {
+  background: var(--oq-brand) !important;
+  color: var(--oq-brand-ink) !important;
+  border-color: var(--oq-brand) !important;
+}
+
+.rd-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+
+  small { font-size: 11.5px; font-weight: 600; color: var(--oq-text-secondary); }
+}
+
+.rd-linha-lote {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-input);
+}
+
+.rd-linha-lote__topo { display: flex; justify-content: space-between; align-items: center; }
+
+.rd-val {
+  font-size: 13px;
+  font-weight: 700;
+
+  &[data-tom='ok'] { color: #0e7a3c; }
+  &[data-tom='atencao'] { color: #8a6500; }
+  &[data-tom='erro'] { color: #b42318; }
+}
+
+.rd-principal {
+  border: 0;
+  background: var(--oq-brand);
+  color: var(--oq-brand-ink);
+  white-space: nowrap;
+}
+
+.cl-rodape .cl-botao { flex: 1; }
+
+// Rodapé com até 3 ações: a principal ocupa a linha de cima inteira (alvo grande para o polegar).
+.rd-rodape {
+  flex-wrap: wrap;
+
+  .rd-principal { order: -1; flex: 1 1 100%; }
+  .cl-botao { white-space: nowrap; }
+}

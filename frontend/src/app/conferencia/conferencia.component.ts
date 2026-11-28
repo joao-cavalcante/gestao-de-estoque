@@ -848,6 +848,8 @@ export class ConferenciaComponent implements OnInit, OnDestroy {
     if (history.state?.origem === 'entrada') this.rotaVolta = '/entrada';
     // Aberta pela fila do COLETOR (27/11/2026): ao finalizar/voltar, fica no coletor (fila com o filtro que o operador usava).
     else if (history.state?.origem === 'coletor') this.rotaVolta = '/coletor';
+    // Aberta pela compra na doca (Recebimento do coletor, 27/11/2026): volta para a doca da mesma compra.
+    else if (history.state?.origem === 'recebimento') this.rotaVolta = `/coletor/recebimento/${this.route.snapshot.paramMap.get('nunota')}`;
     const tarefa = history.state?.tarefa as Tarefa | undefined;
     if (tarefa) {
       this.nf = tarefa.nf;
